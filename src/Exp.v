@@ -1,6 +1,7 @@
 Require Import Coq.Lists.List.
 Require Import Var.
 Import ListNotations.
+Require Coq.omega.Omega.
 
 Section Defs.
 
@@ -64,6 +65,15 @@ Section SO.
     NStep e1 n1 ->
     NStep e2 n2 ->
     NStep (NBin o e1 e2) (eval_nbin o n1 n2). 
+
+  Inductive IStep: list nexp -> list nat -> Prop :=
+  | i_step_nil:
+    IStep [] []
+  | i_step_cons:
+    forall i l e n,
+    IStep i l ->
+    NStep e n ->
+    IStep (e::i) (n::l).
 
   Definition eval_nrel (o:nrel) :=
   match o with
@@ -138,6 +148,10 @@ Section SO.
   | [] => []
   | n :: l => n_subst x v n :: i_subst x v l
   end.
+
+  Definition r_subst x v (r:range) :=
+  let (n1, n2) := r in
+  (n_subst x v n1, n_subst x v n2).
 (*
   Definition NonemptyRange (r:nat * nat) := let (n1, n2) := r in n1 < n2. 
 
@@ -149,8 +163,59 @@ Section SO.
   let (n1, n2) := r in
   (NNum (S n1), NNum n2).
 
-  Definition r_subst x v (r:range) :=
-  let (n1, n2) := r in
-  (n_subst x v n1, n_subst x v n2).
 *)
+
+  Lemma n_step_fun:
+    forall n n1 n2,
+    NStep n n1 ->
+    NStep n n2 ->
+    n1 = n2.
+  Proof.
+    induction n; intros;
+    inversion H; inversion H0; subst; clear H H0.
+    - trivial.
+    - assert (n5 = n7) by eauto.
+      assert (n6 = n8) by eauto.
+      subst.
+      trivial.
+  Qed.  
+
+  Section range_list_fun.
+    Import Omega.
+    Lemma range_list_fun:
+      forall l1 n1 n2 l2,
+      RangeList n1 n2 l1 ->
+      RangeList n1 n2 l2 ->
+      l1 = l2.
+    Proof.
+      induction l1; intros; inversion H; subst; clear H. {
+        inversion H0; subst; clear H0. {
+          reflexivity.
+        }
+        omega.
+      }
+      inversion H0; subst; clear H0. {
+        omega.
+      }
+      erewrite IHl1; eauto.
+    Qed.
+  End range_list_fun.
+
+  Lemma r_step_fun:
+    forall r n1 n2,
+    RStep r n1 ->
+    RStep r n2 ->
+    n1 = n2.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0.
+    assert (n0 = n4) by eauto using n_step_fun.
+    assert (n3 = n5) by eauto using n_step_fun.
+    subst.
+    assert (n1 = n2) by eauto using range_list_fun.
+    assumption.
+  Qed.
 End SO.
+
+

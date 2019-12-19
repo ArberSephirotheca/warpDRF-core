@@ -11,8 +11,8 @@ Require Import Tid.
 Require Import Loc.
 Require Import Exp.
 Import ListNotations.
-Require Import Acc.
-Module L (M:ACC).
+
+Module L1 (M:ACC).
 
 Section Defs.
   Inductive proto :=
@@ -20,15 +20,15 @@ Section Defs.
   | PSync
   | PAcc: M.E -> proto
   | PSeq : proto -> proto -> proto
-  | PDecl : var -> range -> proto -> proto
-  | PFor : var -> range -> proto -> proto.
+  | PFor : var -> range -> proto -> proto
+  | PLoop : var -> list nat -> proto -> proto.
 
   Fixpoint p_subst x v p :=
   match p with
   | PAcc a => PAcc (M.a_subst x v a)  
   | PSeq p1 p2 => PSeq (p_subst x v p1) (p_subst x v p2)
   | PFor y r p2 => if VAR.eq_dec x y then p else (PFor y (r_subst x v r) (p_subst x v p2)) 
-  | PDecl y r p2 => if VAR.eq_dec x y then p else (PDecl x r (p_subst x v p2)) 
+  | PLoop y r p2 => if VAR.eq_dec x y then p else (PLoop x r (p_subst x v p2)) 
   | PSkip => PSkip
   | PSync => PSync 
   end.
@@ -75,10 +75,88 @@ Section Defs.
   end.
 
 End Defs.
-End L.
+End L1.
 
+Module L2 (M:ACC).
+Section Defs.
+
+  Inductive proto :=
+  | PSkip
+  | PAcc: M.E -> proto
+  | PSeq : proto -> proto -> proto
+  | PDecl : var -> range -> proto -> proto
+  | PPar : var -> list nat -> proto -> proto.
+
+  Fixpoint p_subst x v p :=
+  match p with
+  | PAcc a => PAcc (M.a_subst x v a)  
+  | PSeq p1 p2 => PSeq (p_subst x v p1) (p_subst x v p2)
+  | PDecl y r p2 => if VAR.eq_dec x y then p else (PDecl y (r_subst x v r) (p_subst x v p2)) 
+  | PPar y r p2 => if VAR.eq_dec x y then p else (PPar x r (p_subst x v p2)) 
+  | PSkip => PSkip
+  end.
+
+  Definition state := list M.A.
+
+  Definition proc := list (state * proto).
+
+  Fixpoint join (h:proc) (q:proto) :=
+  match h with
+  | [] => []
+  | (s,p)::h => (s, PSeq p q) :: h
+  end.
+
+  Inductive SStep: (state * proto) -> list (state * proto) -> Prop :=
+  | s_step_acc:
+    forall s e a,
+    M.AStep e a ->
+    SStep (s, PAcc e) [(a ++ s, PSkip)]
+  | s_step_seq_step:
+    forall s1 p1 h p3,
+    SStep (s1, p1) h ->
+    SStep (s1, PSeq p1 p3) (join h p3)
+  | s_step_seq_skip:
+    forall s p,
+    SStep (s, PSeq PSkip p) [(s, p)]
+  | s_step_for_step:
+    forall x r p l s,
+    RStep r l ->
+    SStep (s, PDecl x r p) [(s, PPar x l p)]
+  | s_step_par_step:
+    forall s x n l p,
+    SStep (s, PPar x (n::l) p) ((s, p_subst x n p) :: (s, PPar x l p) :: [])
+  | s_step_par_skip:
+    forall s x p,
+    SStep (s, PPar x [] p) [(s, PSkip)].
+
+  Inductive Step: proc -> proc -> Prop :=
+  | step_eq:
+    forall p h1 h2,
+    SStep p h1 ->
+    Step (p::h2) (h1 ++ h2)
+  | step_skip:
+    forall s h,
+    Step ((s,PSkip)::h) h
+  | step_cons:
+    forall p h1 h2,
+    Step h1 h2 ->
+    Step (p::h1) (p::h2).
+
+End Defs.
+End L2.
 
 Section Defs.
+(*
+  Inductive proto :=
+  | PSkip
+  | PSync
+  (* location @ range: mode *)
+  | PAcc: loc -> list nexp -> mode -> proto
+  | PSeq : proto -> proto -> proto
+  (* Non-deterministic loop *)
+  | PDecl : var -> range -> proto -> proto
+  | PFor : var -> range -> proto -> proto.
+*)
 (*
   Definition history := list access.
 
