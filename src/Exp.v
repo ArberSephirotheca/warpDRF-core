@@ -57,10 +57,10 @@ Section SO.
   end.
 
   Inductive NStep: nexp -> nat -> Prop :=
-  | nstep_num:
+  | n_step_num:
     forall n,
     NStep (NNum n) n
-  | nstep_bin:
+  | n_step_bin:
     forall n1 n2 o e1 e2,
     NStep e1 n1 ->
     NStep e2 n2 ->
@@ -89,15 +89,15 @@ Section SO.
   end.
 
   Inductive BStep: bexp -> bool -> Prop :=
-  | bstep_bool:
+  | b_step_bool:
     forall b,
     BStep (BBool b) b
-  | bstep_nrel:
+  | b_step_nrel:
     forall e1 e2 n1 n2 o,
     NStep e1 n1 ->
     NStep e2 n2 ->
     BStep (NRel o e1 e2) (eval_nrel o n1 n2)
-  | bstep_brel:
+  | b_step_brel:
     forall e1 e2 b1 b2 o,
     BStep e1 b1 ->
     BStep e2 b2 ->
@@ -108,6 +108,17 @@ Section SO.
   if Nat.leb high lo then nil
   else lo :: range_list (S lo) high.
 *)
+
+  Inductive InvRangeList : nat -> nat -> list nat -> Prop :=
+  | inv_range_list_empty:
+    forall n m,
+    n >= m ->
+    InvRangeList n m []
+  | inv_range_list_cons:
+    forall n m l,
+    n <= m ->
+    InvRangeList n m l ->
+    InvRangeList n (S m) (m :: l).
 
   Inductive RangeList : nat -> nat -> list nat -> Prop :=
   | range_list_empty:
@@ -121,7 +132,7 @@ Section SO.
     RangeList low high (low::l). 
 
   Inductive RStep: range -> list nat -> Prop :=
-  | rstep_def:
+  | r_step_def:
     forall e1 e2 n1 n2 l,
     NStep e1 n1 ->
     NStep e2 n2 ->
@@ -199,6 +210,173 @@ Section SO.
       }
       erewrite IHl1; eauto.
     Qed.
+
+    Lemma range_list_inv_1:
+      forall n,
+      RangeList 0 n [] ->
+      n = 0.
+    Proof.
+      intros.
+      inversion H; subst; clear H.
+      omega.
+    Qed.
+
+    Lemma range_list_inv_2:
+      forall l n,
+      RangeList n 0 l ->
+      l = [].
+    Proof.
+      destruct l; intros. {
+        reflexivity.
+      }
+      inversion H; subst; clear H.
+      omega.
+    Qed.
+
+    Lemma range_list_inv_3:
+      forall l n1 n2,
+      RangeList n1 n2 l ->
+      n1 >= n2 ->
+      l = [].
+    Proof.
+      induction l; intros; auto.
+      inversion H; subst; clear H.
+      omega.
+    Qed.
+
+    Lemma range_list_inv_4:
+      forall n1 n2,
+      RangeList n1 n2 [] ->
+      n1 >= n2.
+    Proof.
+      intros.
+      inversion H; subst; clear H.
+      assumption.
+    Qed.
+
+    Lemma range_list_inv_5:
+      forall n1 n2 n3 l,
+      RangeList n1 n2 (n3 :: l) ->
+      n3 = n1.
+    Proof.
+      intros.
+      inversion H; subst; clear H.
+      reflexivity.
+    Qed.
+
+    Lemma range_list_inv_succ_nil:
+      forall n1 n2,
+      RangeList (S n1) (S n2) [] ->
+      RangeList n1 n2 [].
+    Proof.
+      intros.
+      inversion H; subst; clear H.
+      assert (n1 >= n2) by auto with *.
+      apply range_list_empty.
+      assumption.
+    Qed.
+
+    Lemma range_list_inv_cons:
+      forall l n1 n2 a,
+      RangeList n1 (S n2) (l ++ [a]) ->
+      a = n2.
+    Proof.
+      induction l; simpl; intros. {
+        inversion H; subst; clear H.
+        apply range_list_inv_succ_nil in H5.
+        inversion H5; subst; clear H5.
+        omega.
+      }
+      inversion H; subst; clear H.
+      apply IHl in H5.
+      subst.
+      reflexivity.
+    Qed.
+
+    Lemma range_list_inv_cons_2:
+      forall l n1 n2,
+      RangeList n1 (S n2) (l ++ [n2]) ->
+      RangeList n1 n2 l /\ n1 <= n2.
+    Proof.
+      induction l; simpl; intros;
+      inversion H; subst; clear H.
+      - split; auto using le_n.
+        apply range_list_empty.
+        apply le_n.
+      - inversion H4; subst; clear H4. {
+          apply range_list_inv_3 in H5; auto.
+          destruct l; inversion H5.
+        }
+        apply IHl in H5.
+        destruct H5.
+        split. {
+          apply range_list_cons; auto.
+        }
+        omega.
+    Qed.
+
+    Lemma range_list_succ:
+      forall l n1 n2,
+      n1 <= n2 ->
+      RangeList n1 n2 l ->
+      RangeList n1 (S n2) (l ++ [n2]).
+    Proof.
+      induction l; intros. {
+        apply range_list_inv_4 in H0.
+        assert (n1 = n2) by omega.
+        subst.
+        apply range_list_cons.
+        + omega.
+        + apply range_list_empty.
+          omega.
+      }
+      simpl.
+      assert (a = n1) by eauto using range_list_inv_5.
+      subst.
+      apply range_list_cons.
+      + omega.
+      + inversion H0; subst; clear H0.
+        apply IHl in H5; auto.
+    Qed.
+
+    Lemma range_list_inv_spec:
+      forall l n1 n2,
+      RangeList n1 n2 (rev l) <-> InvRangeList n1 n2 l.
+    Proof.
+      induction l; intros. {
+        simpl; split; intros.
+        + inversion H; subst; clear H.
+          apply inv_range_list_empty.
+          assumption.
+        + inversion H; subst; clear H.
+          apply range_list_empty.
+          assumption.
+      }
+      simpl.
+      split.
+      - intros.
+        destruct n2. {
+          apply range_list_inv_2 in H.
+          destruct (rev l); inversion H.
+        }
+        assert (a = n2) by eauto using range_list_inv_cons. 
+        subst.
+        apply range_list_inv_cons_2 in H.
+        destruct H as (Hr, Hle).
+        apply inv_range_list_cons; auto.
+        apply IHl.
+        assumption.
+      - intros.
+        assert (S a = n2). {
+          inversion H; subst; clear H.
+          apply IHl in H5.
+          reflexivity.
+        }
+        subst.
+        inversion H; subst; clear H.
+        apply IHl in H4.
+        apply range_list_succ; auto.
+    Qed.
   End range_list_fun.
 
   Lemma r_step_fun:
@@ -215,6 +393,92 @@ Section SO.
     subst.
     assert (n1 = n2) by eauto using range_list_fun.
     assumption.
+  Qed.
+
+  Inductive NTypes (l: list var) : nexp -> Prop :=
+  | n_types_num:
+    forall n,
+    NTypes l (NNum n)
+  | n_types_var:
+    forall v,
+    List.In v l ->
+    NTypes l (NVar v)
+  | n_types_nbin:
+    forall x y o,
+    NTypes l x ->
+    NTypes l y ->
+    NTypes l (NBin o x y).
+
+  Inductive RTypes l : range -> Prop :=
+  | r_types_def:
+    forall n1 n2,
+    NTypes l n1 ->
+    NTypes l n2 ->
+    RTypes l (n1, n2).
+
+  Lemma n_progress:
+    forall e,
+    NTypes [] e ->
+    exists n, NStep e n.
+  Proof.
+    induction e; intros.
+    - eauto using n_step_num.
+    - inversion H; subst; clear H.
+      contradiction.
+    - inversion H; subst; clear H.
+      destruct IHe1 as (n1, Hn1); auto.
+      destruct IHe2 as (n2, Hn2); auto.
+      eauto using n_step_bin.
+  Qed.
+
+  Lemma inv_range_list_progress:
+    forall n1 n2, exists l, InvRangeList n1 n2 l.
+  Proof.
+    intros n1 n2; generalize dependent n1.
+    induction n2; intros.
+    - exists []. apply inv_range_list_empty.
+      auto with *.
+    - destruct (Compare_dec.le_ge_dec n1 (S n2)). {
+        apply Lt.le_lt_or_eq in l.
+        destruct l. {
+          assert (n1 <= n2) by auto with *.
+          destruct (IHn2 n1) as (l, IHl).
+          exists (n2::l).
+          auto using inv_range_list_cons.
+        }
+        subst.
+        exists [].
+        apply inv_range_list_empty.
+        apply le_n.
+      }
+      exists [].
+      apply inv_range_list_empty.
+      assumption.
+  Qed.
+
+  Lemma range_list_progress:
+    forall n1 n2, exists l, RangeList n1 n2 l.
+  Proof.
+    intros.
+    destruct (inv_range_list_progress n1 n2) as (l, Hinv).
+    exists (rev l).
+    apply range_list_inv_spec.
+    assumption.
+  Qed.
+
+  Lemma r_progress:
+    forall r,
+    RTypes [] r ->
+    exists l, RStep r l.
+  Proof.
+    intros.
+    destruct r as (e1, e2).
+    inversion H; subst; clear H.
+    destruct (n_progress e1) as (n1, Hn1); auto.
+    destruct (n_progress e2) as (n2, Hn2); auto.
+    destruct (range_list_progress n1 n2) as (l, Hr).
+    exists l.
+    eauto using r_step_def.
   Qed.
 End SO.
 
