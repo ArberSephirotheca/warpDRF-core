@@ -12,6 +12,29 @@ Require Import Loc.
 Require Import Exp.
 Import ListNotations.
 
+
+Module Type ACC.
+  Parameter E: Type.
+  Parameter A: Type.
+  Parameter a_subst: var -> nat -> E -> E.
+  (* Prefix the access expression with an index. *)
+  Parameter e_prefix_index: E -> nexp -> E.
+  Parameter a_prefix_index: A -> nat -> A.
+  Parameter AStep: E -> list A -> Prop.
+  Parameter Safe: A -> A -> Prop.
+  Axiom a_step_fun:
+    forall e l1 l2,
+    AStep e l1 ->
+    AStep e l2 ->
+    l1 = l2.
+  Axiom safe_annotate:
+    forall a1 a2 n,
+    Safe a1 a2 <-> Safe (a_prefix_index a1 n) (a_prefix_index a2 n).
+  Axiom progress:
+    forall e,
+    exists v, AStep e v. 
+End ACC.
+
 Module Acc.
   Record access_exp := {
     access_exp_loc: loc;
@@ -83,12 +106,3 @@ Module Acc.
 
   End Add.
 End Acc.
-
-Module Type ACC.
-  Parameter E: Type.
-  Parameter A: Type.
-  Parameter a_subst: var -> nat -> E -> E.
-  (* Prefix the access expression with an index. *)
-  Parameter prefix_index: E -> nexp -> E.
-  Parameter AStep: E -> list A -> Prop.
-End ACC.
