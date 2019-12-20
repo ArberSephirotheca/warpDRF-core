@@ -10,6 +10,8 @@ Require Import Var.
 Require Import Tid.
 Require Import Loc.
 Require Import Exp.
+Require Import Acc.
+
 Import ListNotations.
 
 Module L1 (M:ACC).
@@ -50,7 +52,7 @@ Section Defs.
   | step_seq_skip:
     forall s p,
     Step (s, PSeq PSkip p) (s, p)
-  | step_for_step:
+  | step_for:
     forall x r p l s,
     RStep r l ->
     Step (s, PFor x r p) (s, PLoop x l p)
@@ -74,10 +76,207 @@ Section Defs.
   | n1 :: n2 :: l => (n1, upper_bound n2 l)
   end.
 
+  Definition Safe (h:(state*proto)) :=
+    let (s, _) := h in
+    forall a1 a2,
+      List.In a1 s -> List.In a2 s -> M.Safe a1 a2.
+
+  Definition MStep := clos_refl_trans _ Step.
+
+  Definition DRF a := forall b, MStep a b -> Safe b.
+
+  Lemma drf_to_safe:
+    forall a,
+    DRF a ->
+    Safe a.
+  Proof.
+    unfold DRF; intros.
+    apply H with (b:=a).
+    apply rt_refl.
+  Qed.
+
+  Lemma drf_inv_skip:
+    forall h,
+    DRF (h, PSkip) ->
+    Safe (h, PSkip).
+  Proof.
+    intros.
+    unfold DRF in *.
+    assert (MStep (h, PSkip) (h, PSkip)). {
+      unfold MStep.
+      apply rt_refl.
+    }
+    auto.
+  Qed.
+
+  Inductive Reachable : state*proto -> list (state*proto) -> Prop :=
+  | reachable_nil:
+    forall h,
+    Reachable (h, PSkip) [(h, PSkip)]
+  | reachable_cons:
+    forall a b l,
+    Step a b ->
+    Reachable b l ->
+    Reachable a (a :: l).
+
+  Lemma m_step_inv:
+    forall h a,
+    MStep (h, PSkip) a ->
+    a = (h, PSkip).
+  Proof.
+    intros.
+    induction H using clos_refl_trans_ind_left.
+    + reflexivity.
+    + subst.
+      inversion H0.
+  Qed.
+
+  Lemma step_fun:
+    forall a b c,
+    Step a b ->
+    Step a c ->
+    b = c.
+  Proof.
+    intros (h, p).
+    generalize dependent h.
+    induction p; intros;
+    inversion H; inversion H0; subst; clear H H0; auto.
+    - assert (a0 = a) by eauto using M.a_step_fun.
+      subst.
+      reflexivity.
+    - assert (Hx: (s2, p3) = (s3, p6)) by eauto.
+      inversion Hx; subst; clear Hx.
+      reflexivity.
+    - inversion H5.
+    - inversion H9.
+    - assert (l0 = l) by eauto using r_step_fun.
+      subst.
+      reflexivity.
+    - inversion H9; subst; clear H9.
+      reflexivity.
+    - inversion H9.
+    - inversion H9.
+  Qed.
+
+  Lemma step_m_step_inv:
+    forall a b c,
+    Step a b ->
+    MStep a c ->
+    MStep b c \/ a = c.
+  Proof.
+    intros.
+    induction H0 using clos_refl_trans_ind_left.
+    + auto.
+    + destruct IHclos_refl_trans. {
+        left.
+        apply rt_trans with (y:=y); auto using rt_step.
+      }
+      subst.
+      assert (b = z) by eauto using step_fun.
+      subst.
+      left.
+      apply rt_refl.
+  Qed.
+
+  Lemma m_step_in_reachable:
+    forall l a b,
+    MStep a b ->
+    Reachable a l ->
+    List.In b l.
+  Proof.
+    induction l; intros. {
+      inversion H0.
+    }
+    inversion H0; subst; clear H0. {
+      inversion H; subst; clear H.
+      + inversion H0.
+      + apply in_eq.
+      + apply m_step_inv in H0.
+        subst.
+        apply m_step_inv in H1.
+        subst.
+        auto using in_eq.
+    }
+    simpl.
+    apply step_m_step_inv with (b:=b0) in H; auto.
+    destruct H. {
+      right.
+      eapply IHl; eauto.
+    }
+    subst.
+    auto.
+  Qed.
+
+  Inductive Value: (state * proto) -> Prop :=
+  | value_def:
+    forall h,
+    Value (h, PSkip).
+
+  Theorem progress:
+    forall a,
+    Value a \/ exists b, Step a b.
+  Proof.
+    intros (h, p).
+    generalize dependent h.
+    induction p; intros.
+    - left; auto using value_def.
+    - eauto using step_sync.
+    - destruct M.progress with (e:=e) as (v, Hr).
+      eauto using step_acc.
+    - destruct (IHp1 h) as [Hv|(b, Hr)].
+      + inversion Hv; subst; clear Hv.
+        eauto using step_seq_skip.
+      + destruct b as (h2, p3).
+        eauto using step_seq_step.
+    - give_up.
+  Admitted. 
+(*
+  Lemma reachable_exists:
+    forall a,
+    exists l, Reachable a l.
+  Proof.
+    intros.
+  Qed.
+*)
+  Lemma in_reachable_m_step:
+    forall l a b,
+    Reachable a l ->
+    List.In b l ->
+    MStep a b.
+  Proof.
+    induction l; intros. {
+      contradiction.
+    }
+    destruct H0. {
+      subst.
+      inversion H; subst; clear H; apply rt_refl.
+    }
+    inversion H; subst; clear H. {
+      contradiction.
+    }
+    assert (MStep b0 b) by auto.
+    apply rt_trans with (y:=b0); auto using rt_step.
+  Qed.
+
+  Inductive Reach a b : Prop :=
+  | reach_def:
+    forall l,
+    List.In b l ->
+    Reachable a l ->
+    Reach a b.
+
+  Lemma reach_iff:
+    forall a b,
+    MStep a b <-> Reach a b.
+  Proof.
+    split; intros.
+    - give_up.
+  Admitted.
 End Defs.
 End L1.
 
 Module L2 (M:ACC).
+
 Section Defs.
 
   Inductive proto :=
@@ -136,76 +335,82 @@ Section Defs.
     Step (p::h2) (h1 ++ h2)
   | step_skip:
     forall s h,
-    Step ((s,PSkip)::h) h
-  | step_cons:
+    Step ((s,PSkip)::h) h.
+(*  | step_cons:
     forall p h1 h2,
     Step h1 h2 ->
-    Step (p::h1) (p::h2).
+    Step (p::h1) (p::h2).*)
 
+  Definition MStep := clos_refl_trans _ Step.
+
+  Definition L1_Safe (h:(state*proto)) :=
+    let (s, _) := h in
+    forall a1 a2,
+      List.In a1 s -> List.In a2 s -> M.Safe a1 a2.
+
+  Definition Safe := Forall L1_Safe.
+
+  Definition DRF a := forall b, MStep a b -> Safe b.
+
+  Lemma drf_to_safe:
+    forall a,
+    DRF a ->
+    Safe a.
+  Proof.
+    unfold DRF; intros.
+    apply H with (b:=a).
+    apply rt_refl.
+  Qed.
+
+  Lemma s_step_fun:
+    forall a l1 l2,
+    SStep a l1 ->
+    SStep a l2 ->
+    l1 = l2.
+  Proof.
+    intros (h,p).
+    generalize dependent h.
+    induction p; intros;
+    inversion H; subst; clear H;
+    inversion H0; subst; clear H0; auto.
+    - assert (a0 = a) by eauto using M.a_step_fun; subst.
+      reflexivity.
+    - assert (h0 = h1) by eauto.
+      subst.
+      reflexivity.
+    - inversion H5.
+    - inversion H4.
+    - assert (l0 = l) by eauto using r_step_fun.
+      subst.
+      reflexivity.
+  Qed.
+
+  Lemma step_fun:
+    forall a b c,
+    Step a b ->
+    Step a c ->
+    b = c.
+  Proof.
+    induction a; intros; inversion H; inversion H0; subst; clear H H0.
+    + assert (h0 = h1) by eauto using s_step_fun.
+      subst.
+      reflexivity.
+    + inversion H4.
+    + inversion H7.
+    + reflexivity.
+  Qed.
+
+  Inductive Reachable : proc -> list proc -> Prop :=
+  | reachable_nil:
+    forall h,
+    Reachable (h, PSkip) [(h, PSkip)]
+  | reachable_cons:
+    forall a b l,
+    Step a b ->
+    Reachable b l ->
+    Reachable a (a :: l).
 End Defs.
 End L2.
-
-Section Defs.
-(*
-  Inductive proto :=
-  | PSkip
-  | PSync
-  (* location @ range: mode *)
-  | PAcc: loc -> list nexp -> mode -> proto
-  | PSeq : proto -> proto -> proto
-  (* Non-deterministic loop *)
-  | PDecl : var -> range -> proto -> proto
-  | PFor : var -> range -> proto -> proto.
-*)
-(*
-  Definition history := list access.
-
-  Definition state := Map_LOC.t history.
-
-  Definition add_acc x a (s:state) :=
-  match Map_LOC.find x s with
-  | Some h => Map_LOC.add x (a::h) s
-  | None => Map_LOC.add x (a::[]) s
-  end.
-
-  Fixpoint p_add x idx m l (s:state) :=
-  match l with
-  | [] => s
-  | t :: l => add_acc x {| access_tid := t; access_mode := m; access_index := idx |} s
-  end.
-*)
-End Defs.
-
-Section SO.
-(*
-  Definition SafeHist h :=
-    forall a1 a2, List.In a1 h -> List.In a2 h -> SafeAcc a1 a2. 
-
-  Definition SafeSt s := forall l h, Map_LOC.MapsTo l h s -> SafeHist h.
-
-  Definition Safe (a:state * proto) := let (s,_) := a in SafeSt s.
-
-  Definition SafeMap f :=
-    forall s,
-    SafeSt s ->
-    forall p s' p',
-    Step (s, p) (s', p') <->
-    Step (f (s, p)) (f (s', p')).
-
-  Lemma safe_map_to_drf:
-    forall f a,
-    SafeMap f ->
-    DRF a ->
-    DRF (f a).
-  Proof.
-    intros.
-    unfold DRF in *.
-    unfold DRF, MStep.
-    intros.
-    generalize dependent 
-  Qed.
-*)
-End SO.
 
 Module PhaseOrdering (M:ACC).
   Module M1 := L1 M.
@@ -226,28 +431,37 @@ Section PO.
   match p with
   | M1.PSkip => M2.PSkip
   | M1.PSync => M2.PSkip
-  | M1.PAcc a => M2.PAcc (M.prefix_index a n)
+  | M1.PAcc a => M2.PAcc (M.e_prefix_index a n)
   | M1.PSeq p1 p2 => M2.PSeq (flatten p1 n) (flatten p2 (add n (size p1)))
   | M1.PFor x r p => M2.PDecl x r (flatten p (add n (mul (NVar x) (size p))))  
   | M1.PLoop x r p => M2.PSkip
   (* PDecl x r (flatten p (add n (mul (NVar x) (size p))))  *)
   end.
 
-  Lemma drf_to_safe_st:
-    forall tids s p,
-    DRF tids (s, p) ->
-    SafeSt s.
+  Fixpoint annotate l n :=
+  match l with
+  | [] => []
+  | a :: l => M.a_prefix_index a n :: annotate l n
+  end.
+(*
+  Lemma drf_skip:
+    forall h n,
+    M1.DRF (h, M1.PSkip) <-> M2.DRF [(annotate h n, M2.PSkip)].
   Proof.
-    unfold DRF; intros.
-    apply H with (p':=p).
-    apply rt_refl.
+    split; intros.
+    - apply M1.drf_inv_skip in H.
+      unfold M2.DRF.
+      intros.
+      apply rt_step.
+      unfold M1.DRF, M2.DRF in *; intros.
+      inversion H0; subst; clear H0.
+      + 
   Qed.
-
-
-
+*)
+(*
   Lemma drf_sync:
     forall tids s,
-    DRF tids (s, PSync) <-> SafeSt s.
+    DRF (s, PSync) <-> SafeSt s.
   Proof.
     split; intros.
     + eauto using drf_to_safe_st.
@@ -256,16 +470,17 @@ Section PO.
       induction H0.
       - 
   Qed.
+*)
 
-  Corollary corr:
-    forall tids s p,
-    DRF tids (s, p) <-> DRF tids (s, flatten p (NNum 0)).
+  Corollary correctness:
+    forall h p e n,
+    NStep e n ->
+    M1.DRF (h,p) <-> M2.DRF [(annotate h n, flatten p e)].
   Proof.
     induction p; intros; simpl.
-    - intuition.
-    - split; intros. {
-        
-      }
-  Qed.
+    - give_up.
+    - give_up.
+    - give_up.
+  Admitted.
 End PO.
 End PhaseOrdering.
