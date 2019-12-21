@@ -11,6 +11,105 @@ Require Import Tid.
 Require Import Loc.
 Require Import Exp.
 Require Import Acc.
+Require Aniceto.Graphs.Graph.
+
+Section LinWalk2.
+  Import Aniceto.Graphs.Graph.
+  Variable A:Type.
+  Variable Edge: A * A -> Prop.
+
+  Lemma walk2_inv_3:
+    forall v1 vn w,
+    Walk2 Edge v1 vn w ->
+    (w = (v1,vn)::nil /\ Edge (v1, vn)) \/
+    (exists v2, Edge (v1, v2) /\ exists w' e', w = (v1, v2) :: e' :: w' /\ Walk2 Edge v2 vn (e' :: w')).
+  Proof.
+    intros.
+    destruct w. {
+      apply walk2_nil_inv in H.
+      contradiction.
+    }
+    destruct w. {
+      apply walk2_inv_pair in H.
+      destruct H.
+      subst.
+      intuition.
+    }
+    right.
+    apply walk2_inv in H.
+    destruct H as (v2, (?, (?, ?))).
+    exists v2.
+    intuition.
+    exists w.
+    subst.
+    exists p0.
+    intuition.
+  Qed.
+
+  Variable edge_fun: forall a b c,
+    Edge (a, b) ->
+    Edge (a, c) ->
+    b = c.
+
+  Variable irreflexive:
+    forall x,
+    ~ clos_trans A (fun a b => Edge (a, b)) x x.
+
+  Let walk2_irreflexive:
+    forall x w, ~ Walk2 Edge x x w.
+  Proof.
+    intros.
+    intros N.
+    apply walk2_to_clos_trans with (R:=fun a b=>Edge (a,b)) in N. {
+      apply irreflexive in N.
+      contradiction.
+    }
+    tauto.
+  Qed.
+
+  (** If the edge behaves like a function, then there is only one path to
+      arrive at each node. *)
+  Lemma walk2_linear_fun:
+    forall w1 a b w2,
+    Walk2 Edge a b w1 ->
+    Walk2 Edge a b w2 ->
+    w1 = w2.
+  Proof.
+    induction w1; intros. {
+      apply walk2_nil_inv in H.
+      contradiction.
+    }
+    apply walk2_inv_3 in H.
+    destruct H as [(Hr,?)|(v2,(He, (w, (e,(Hx, Hy)))))]. {
+      inversion Hr; subst; clear Hr.
+      apply walk2_inv_3 in H0.
+      destruct H0 as [(Hr, ?)|(v2,(?,(w,(e,(Hx,Hy)))))]. {
+        subst.
+        reflexivity.
+      }
+      subst.
+      assert (v2 = b) by eauto.
+      subst.
+      apply walk2_irreflexive in Hy.
+      contradiction.
+    }
+    inversion Hx; subst; clear Hx.
+    apply walk2_inv_3 in H0.
+    destruct H0 as [(?,?)|(v3,(Hf,(w',(e',(Hx,Hz)))))]. {
+      subst.
+      assert (v2 = b) by eauto.
+      subst.
+      apply walk2_irreflexive in Hy.
+      contradiction.
+    }
+    subst.
+    assert (v3 = v2) by eauto.
+    subst.
+    apply IHw1 in Hz; auto.
+    inversion Hz; subst; clear Hz.
+    reflexivity.
+  Qed.
+End LinWalk2.
 
 Import ListNotations.
 
@@ -336,10 +435,6 @@ Section Defs.
   | step_skip:
     forall s h,
     Step ((s,PSkip)::h) h.
-(*  | step_cons:
-    forall p h1 h2,
-    Step h1 h2 ->
-    Step (p::h1) (p::h2).*)
 
   Definition MStep := clos_refl_trans _ Step.
 
@@ -399,7 +494,7 @@ Section Defs.
     + inversion H7.
     + reflexivity.
   Qed.
-
+(*
   Inductive Reachable : proc -> list proc -> Prop :=
   | reachable_nil:
     forall h,
@@ -409,6 +504,7 @@ Section Defs.
     Step a b ->
     Reachable b l ->
     Reachable a (a :: l).
+*)
 End Defs.
 End L2.
 
@@ -443,7 +539,7 @@ Section PO.
   | [] => []
   | a :: l => M.a_prefix_index a n :: annotate l n
   end.
-(*
+
   Lemma drf_skip:
     forall h n,
     M1.DRF (h, M1.PSkip) <-> M2.DRF [(annotate h n, M2.PSkip)].
@@ -452,12 +548,13 @@ Section PO.
     - apply M1.drf_inv_skip in H.
       unfold M2.DRF.
       intros.
+      
       apply rt_step.
       unfold M1.DRF, M2.DRF in *; intros.
       inversion H0; subst; clear H0.
       + 
   Qed.
-*)
+
 (*
   Lemma drf_sync:
     forall tids s,
