@@ -111,6 +111,22 @@ Section LinWalk2.
   Qed.
 End LinWalk2.
 
+Section BigStep.
+  Variable A:Type.
+  Variable R: relation A.
+  Variable Value: A -> Prop.
+  Inductive BigStep: A -> A -> Prop :=
+  | big_step_cons:
+    forall x y z,
+    R x y ->
+    BigStep y z ->
+    BigStep x z
+  | big_step_nil:
+    forall x,
+    Value x ->
+    BigStep x x.
+End BigStep.
+
 Import ListNotations.
 
 Module L1 (M:ACC).
@@ -163,6 +179,13 @@ Section Defs.
   | step_loop_skip:
     forall s x p,
     Step (s, PLoop x [] p) (s, PSkip).
+
+  Inductive Value: state -> Prop :=
+  | value_def:
+    forall h,
+    Value (h, PSkip).
+
+  Definition BStep := BigStep _ Step Value.
 
   Fixpoint upper_bound n l : nat :=
   match l with
@@ -217,16 +240,6 @@ Section Defs.
     }
     auto.
   Qed.
-
-  Inductive Reachable : state -> list state -> Prop :=
-  | reachable_nil:
-    forall h,
-    Reachable (h, PSkip) [(h, PSkip)]
-  | reachable_cons:
-    forall a b l,
-    Step a b ->
-    Reachable b l ->
-    Reachable a (a :: l).
 
   Lemma m_step_inv:
     forall h a,
@@ -287,39 +300,6 @@ Section Defs.
       apply rt_refl.
   Qed.
 
-  Lemma m_step_in_reachable:
-    forall l a b,
-    MStep a b ->
-    Reachable a l ->
-    List.In b l.
-  Proof.
-    induction l; intros. {
-      inversion H0.
-    }
-    inversion H0; subst; clear H0. {
-      inversion H; subst; clear H.
-      + inversion H0.
-      + apply in_eq.
-      + apply m_step_inv in H0.
-        subst.
-        apply m_step_inv in H1.
-        subst.
-        auto using in_eq.
-    }
-    simpl.
-    apply step_m_step_inv with (b:=b0) in H; auto.
-    destruct H. {
-      right.
-      eapply IHl; eauto.
-    }
-    subst.
-    auto.
-  Qed.
-
-  Inductive Value: (state * proto) -> Prop :=
-  | value_def:
-    forall h,
-    Value (h, PSkip).
 (*
   Theorem progress:
     forall a,
@@ -347,40 +327,7 @@ Section Defs.
     intros.
   Qed.
 *)
-  Lemma in_reachable_m_step:
-    forall l a b,
-    Reachable a l ->
-    List.In b l ->
-    MStep a b.
-  Proof.
-    induction l; intros. {
-      contradiction.
-    }
-    destruct H0. {
-      subst.
-      inversion H; subst; clear H; apply rt_refl.
-    }
-    inversion H; subst; clear H. {
-      contradiction.
-    }
-    assert (MStep b0 b) by auto.
-    apply rt_trans with (y:=b0); auto using rt_step.
-  Qed.
 
-  Inductive Reach a b : Prop :=
-  | reach_def:
-    forall l,
-    List.In b l ->
-    Reachable a l ->
-    Reach a b.
-
-  Lemma reach_iff:
-    forall a b,
-    MStep a b <-> Reach a b.
-  Proof.
-    split; intros.
-    - give_up.
-  Admitted.
 End Defs.
 End L1.
 
@@ -404,17 +351,17 @@ Section Defs.
   | PSkip => PSkip
   end.
 
-  Definition state := list M.A.
+  Definition history := list M.A.
 
-  Definition proc := list (state * proto).
+  Definition state := list (history * proto).
 
-  Fixpoint join (h:proc) (q:proto) :=
-  match h with
+  Fixpoint join (l:state) (q:proto) :=
+  match l with
   | [] => []
-  | (s,p)::h => (s, PSeq p q) :: h
+  | (h,p)::l => (h, PSeq p q) :: l
   end.
 
-  Inductive SStep: (state * proto) -> list (state * proto) -> Prop :=
+  Inductive SStep: (history * proto) -> state -> Prop :=
   | s_step_acc:
     forall s e a,
     M.AStep e a ->
@@ -437,7 +384,7 @@ Section Defs.
     forall s x p,
     SStep (s, PPar x [] p) [(s, PSkip)].
 
-  Inductive Step: proc -> proc -> Prop :=
+  Inductive Step: state -> state -> Prop :=
   | step_eq:
     forall p h1 h2,
     SStep p h1 ->
@@ -448,12 +395,17 @@ Section Defs.
 
   Definition MStep := clos_refl_trans _ Step.
 
-  Definition L1_Safe (h:(state*proto)) :=
-    let (s, _) := h in
-    forall a1 a2,
-      List.In a1 s -> List.In a2 s -> M.Safe a1 a2.
+  Definition Value (s:state) := s = nil.
 
-  Definition Safe := Forall L1_Safe.
+  Definition BStep := BigStep _ Step Value.
+
+  Definition SafeHistory h := 
+    forall a1 a2,
+      List.In a1 h -> List.In a2 h -> M.Safe a1 a2.
+
+  Definition L1_Safe (s:(history*proto)) := let (h, _) := s in SafeHistory h.
+
+  Definition Safe : state -> Prop := Forall L1_Safe.
 
   Definition DRF a := forall b, MStep a b -> Safe b.
 
@@ -504,6 +456,26 @@ Section Defs.
     + inversion H7.
     + reflexivity.
   Qed.
+  (*
+  Lemma m_step_inv_skip:
+    forall h l, 
+    MStep [(h, PSkip)] l ->
+    l = [] \/ l = [(h, PSkip)].
+  Proof.
+    intros.
+    induction H using clos_refl_trans_ind_left.
+    - intuition.
+    - 
+    
+    inversion H; subst; clear H.
+    - inversion H0; subst; clear H0. {
+        inversion H3.
+      }
+      intuition.
+    - intuition.
+    - 
+  Qed.
+  *)
 (*
   Inductive Reachable : proc -> list proc -> Prop :=
   | reachable_nil:
@@ -556,6 +528,7 @@ Section PO.
   Proof.
     split; intros.
     - apply M1.drf_inv_skip in H.
+      apply M1.safe_to_safe_history in H.
       unfold M2.DRF.
       intros.
       give_up.
