@@ -394,6 +394,43 @@ Module L1 (M:ACC).
     assumption.
   Qed.
 
+  Lemma safe_path_inv_sync:
+    forall h,
+    SafePath (h, PSync) ->
+    H.Safe h.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    apply walk2_inv_3 in H0.
+    destruct H0 as [(?,Hx)|(s, ((Ha,(Hb,Hc)),(w',(e',(?,Hw)))))]. {
+      subst.
+      inversion H2; subst; clear H2.
+      destruct Hx as (Hy, (Hz, Hw)).
+      assumption.
+    }
+    subst.
+    assumption.
+  Qed.
+
+  Lemma safe_path_sync:
+    forall h,
+    H.Safe h ->
+    SafePath (h, PSync).
+  Proof.
+    intros.
+    remember (h, PSync) as v1.
+    remember (@nil M.A, PSkip) as v2.
+    apply safe_path_some with (b:=([], PSkip)) (w:=[(v1,v2)]); subst.
+    - apply edge_to_walk2.
+      unfold SafeStep.
+      repeat split.
+      + apply step_sync.
+      + assumption.
+      + apply H.safe_nil.
+    - assumption.
+    - apply value_def.
+  Qed.
+
 End Defs.
 End L1.
 
@@ -741,8 +778,14 @@ Section PO.
         apply M1.safe_path_skip.
         assumption.
     - split; intros.
-      + give_up.
-      + give_up.
+      + apply M1.safe_path_inv_sync in H0.
+        apply M2.safe_path_skip.
+        apply H.safe_prefix_index.
+        assumption.
+      + apply M2.safe_path_inv_skip in H0.
+        apply M1.safe_path_sync.
+        apply H.safe_prefix_index in H0.
+        assumption.
     - give_up.
   Admitted.
 End PO.

@@ -39,6 +39,15 @@ Module History (A:ACC).
   Definition history := list A.A.
   Definition Safe (h:history) := forall x y, List.In x h -> List.In y h -> A.Safe x y.
   Definition prefix_index (n:nat) (h:history) : history := List.map (A.a_prefix_index n) h.
+
+  Lemma safe_nil:
+    Safe (@nil A.A).
+  Proof.
+    unfold Safe.
+    intros.
+    contradiction.
+  Qed.
+
   Lemma safe_prefix_index:
     forall h n,
     Safe h <-> Safe (prefix_index n h).
