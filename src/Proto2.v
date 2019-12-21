@@ -134,9 +134,11 @@ Section Defs.
   | PSync => PSync 
   end.
 
-  Definition state := list M.A.
+  Definition history := list M.A.
 
-  Inductive Step: (state * proto) -> (state * proto) -> Prop :=
+  Definition state := (history * proto) % type.
+
+  Inductive Step: state -> state -> Prop :=
   | step_sync:
     forall s,
     Step (s, PSync) (nil, PSkip)
@@ -175,10 +177,11 @@ Section Defs.
   | n1 :: n2 :: l => (n1, upper_bound n2 l)
   end.
 
-  Definition Safe (h:(state*proto)) :=
-    let (s, _) := h in
+  Definition SafeHistory (h:history) :=
     forall a1 a2,
-      List.In a1 s -> List.In a2 s -> M.Safe a1 a2.
+      List.In a1 h -> List.In a2 h -> M.Safe a1 a2.
+
+  Definition Safe (s:state) := let (h, _) := s in SafeHistory h.
 
   Definition MStep := clos_refl_trans _ Step.
 
@@ -192,6 +195,13 @@ Section Defs.
     unfold DRF; intros.
     apply H with (b:=a).
     apply rt_refl.
+  Qed.
+
+  Lemma safe_to_safe_history:
+    forall h p,
+    Safe (h, p) -> SafeHistory h.
+  Proof.
+    auto.
   Qed.
 
   Lemma drf_inv_skip:
@@ -208,7 +218,7 @@ Section Defs.
     auto.
   Qed.
 
-  Inductive Reachable : state*proto -> list (state*proto) -> Prop :=
+  Inductive Reachable : state -> list state -> Prop :=
   | reachable_nil:
     forall h,
     Reachable (h, PSkip) [(h, PSkip)]
@@ -310,7 +320,7 @@ Section Defs.
   | value_def:
     forall h,
     Value (h, PSkip).
-
+(*
   Theorem progress:
     forall a,
     Value a \/ exists b, Step a b.
@@ -328,7 +338,7 @@ Section Defs.
       + destruct b as (h2, p3).
         eauto using step_seq_step.
     - give_up.
-  Admitted. 
+  Admitted. *)
 (*
   Lemma reachable_exists:
     forall a,
@@ -548,12 +558,8 @@ Section PO.
     - apply M1.drf_inv_skip in H.
       unfold M2.DRF.
       intros.
-      
-      apply rt_step.
-      unfold M1.DRF, M2.DRF in *; intros.
-      inversion H0; subst; clear H0.
-      + 
-  Qed.
+      give_up.
+  Admitted.
 
 (*
   Lemma drf_sync:
