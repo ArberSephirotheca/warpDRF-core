@@ -18,8 +18,8 @@ Module Type ACC.
   Parameter A: Type.
   Parameter a_subst: var -> nat -> E -> E.
   (* Prefix the access expression with an index. *)
-  Parameter e_prefix_index: E -> nexp -> E.
-  Parameter a_prefix_index: A -> nat -> A.
+  Parameter e_prefix_index: nexp -> E -> E.
+  Parameter a_prefix_index: nat -> A -> A.
   Parameter AStep: E -> list A -> Prop.
   Parameter Safe: A -> A -> Prop.
   Axiom a_step_fun:
@@ -29,11 +29,39 @@ Module Type ACC.
     l1 = l2.
   Axiom safe_annotate:
     forall a1 a2 n,
-    Safe a1 a2 <-> Safe (a_prefix_index a1 n) (a_prefix_index a2 n).
+    Safe a1 a2 <-> Safe (a_prefix_index n a1) (a_prefix_index n a2).
   Axiom progress:
     forall e,
     exists v, AStep e v. 
 End ACC.
+
+Module History (A:ACC).
+  Definition history := list A.A.
+  Definition Safe (h:history) := forall x y, List.In x h -> List.In y h -> A.Safe x y.
+  Definition prefix_index (n:nat) (h:history) : history := List.map (A.a_prefix_index n) h.
+  Lemma safe_prefix_index:
+    forall h n,
+    Safe h <-> Safe (prefix_index n h).
+  Proof.
+    split; unfold Safe, prefix_index; intros. {
+      apply in_map_iff in H0.
+      apply in_map_iff in H1.
+      destruct H0 as (b, (?, Hi)).
+      subst.
+      destruct H1 as (c, (?, Hj)).
+      subst.
+      assert (A.Safe b c) by auto.
+      apply A.safe_annotate.
+      assumption.
+    }
+    apply (A.safe_annotate x y n).
+    apply H.
+    - apply in_map_iff.
+      eauto.
+    - apply in_map_iff.
+      eauto.
+  Qed.
+End History.
 
 Module Acc.
   Record access_exp := {

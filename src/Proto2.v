@@ -13,6 +13,29 @@ Require Import Exp.
 Require Import Acc.
 Require Aniceto.Graphs.Graph.
 
+Section clos_trans_refl.
+  Lemma clos_refl_trans_to_clos_trans:
+    forall (A:Type) (R:relation A) x y,
+    clos_refl_trans A R x y ->
+    clos_trans A R x y \/ x = y.
+  Proof.
+    intros.
+    induction H.
+    - left.
+      auto using t_step.
+    - intuition.
+    - destruct IHclos_refl_trans1 as [Hx|Hx]. {
+        destruct IHclos_refl_trans2 as [Hy|Hy]. {
+          left.
+          apply t_trans with (y:=y); auto.
+        }
+        subst.
+        intuition.
+      }
+      destruct IHclos_refl_trans2 as [Hy|Hy]; subst; intuition.
+  Qed.
+End clos_trans_refl.
+
 Section LinWalk2.
   Import Aniceto.Graphs.Graph.
   Variable A:Type.
@@ -130,8 +153,10 @@ End BigStep.
 Import ListNotations.
 
 Module L1 (M:ACC).
+  Module H := History M.
 
-Section Defs.
+  Section Defs.
+
   Inductive proto :=
   | PSkip
   | PSync
@@ -150,7 +175,7 @@ Section Defs.
   | PSync => PSync 
   end.
 
-  Definition history := list M.A.
+  Notation history := H.history.
 
   Definition state := (history * proto) % type.
 
@@ -200,11 +225,7 @@ Section Defs.
   | n1 :: n2 :: l => (n1, upper_bound n2 l)
   end.
 
-  Definition SafeHistory (h:history) :=
-    forall a1 a2,
-      List.In a1 h -> List.In a2 h -> M.Safe a1 a2.
-
-  Definition Safe (s:state) := let (h, _) := s in SafeHistory h.
+  Definition Safe (s:state) := let (h, _) := s in H.Safe h.
 
   Definition MStep := clos_refl_trans _ Step.
 
@@ -222,7 +243,7 @@ Section Defs.
 
   Lemma safe_to_safe_history:
     forall h p,
-    Safe (h, p) -> SafeHistory h.
+    Safe (h, p) -> H.Safe h.
   Proof.
     auto.
   Qed.
@@ -327,13 +348,60 @@ Section Defs.
     intros.
   Qed.
 *)
+  Definition SafeStep := fun (p:state*state) => let (x,y) := p in Step x y /\ Safe x /\ Safe y.
+
+  Import Aniceto.Graphs.Graph.
+
+  Inductive SafePath : state -> Prop :=
+  | safe_path_some:
+    forall a b w,
+    Walk2 SafeStep a b w ->
+    Safe a ->
+    Value b ->
+    SafePath a
+  | safe_path_skip:
+    forall h,
+    H.Safe h ->
+    SafePath (h, PSkip).
+
+  Lemma safe_step_skip:
+    forall h x,
+    ~ SafeStep ((h, PSkip), x).
+  Proof.
+    intros.
+    intros N.
+    destruct N as (A, (B, C)).
+    inversion A.
+  Qed.
+
+  Lemma safe_path_inv_skip:
+    forall h,
+    SafePath (h, PSkip) ->
+    H.Safe h.
+  Proof.
+    intros.
+    inversion H; subst; clear H. {
+      apply walk2_inv_3 in H0.
+      destruct H0 as [Hx|(?, (Hx,_))]. {
+        destruct Hx as (?, Hs).
+        subst.
+        apply safe_step_skip in Hs.
+        contradiction.
+      }
+      apply safe_step_skip in Hx.
+      contradiction.
+    }
+    assumption.
+  Qed.
 
 End Defs.
 End L1.
 
 Module L2 (M:ACC).
+  Module H := History M.
 
 Section Defs.
+  Import Aniceto.Graphs.Graph.
 
   Inductive proto :=
   | PSkip
@@ -399,15 +467,24 @@ Section Defs.
 
   Definition BStep := BigStep _ Step Value.
 
-  Definition SafeHistory h := 
-    forall a1 a2,
-      List.In a1 h -> List.In a2 h -> M.Safe a1 a2.
+  Definition L1_Safe (s:(history*proto)) := let (h, _) := s in H.Safe h.
 
-  Definition L1_Safe (s:(history*proto)) := let (h, _) := s in SafeHistory h.
-
-  Definition Safe : state -> Prop := Forall L1_Safe.
+  Definition Safe : state -> Prop := List.Forall L1_Safe.
 
   Definition DRF a := forall b, MStep a b -> Safe b.
+
+  Definition SafeStep (p:state * state) :=
+    let (x,y) := p in Step x y /\ Safe x /\ Safe y.
+
+  Inductive SafePath : state -> Prop :=
+  | safe_path_some:
+    forall a b w,
+    Walk2 SafeStep a b w ->
+    Safe a ->
+    Value b ->
+    SafePath a
+  | safe_path_none:
+    SafePath [].
 
   Lemma drf_to_safe:
     forall a,
@@ -456,6 +533,114 @@ Section Defs.
     + inversion H7.
     + reflexivity.
   Qed.
+
+  Lemma b_step_skip:
+    forall h,
+    BStep [(h, PSkip)] [].
+  Proof.
+    intros.
+    apply big_step_cons with (y:=[]).
+    + apply step_skip.
+    + apply big_step_nil.
+      reflexivity.
+  Qed.
+
+  Lemma big_step_to_clos_trans:
+    forall x y,
+    BStep x y ->
+    clos_refl_trans _ Step x y.
+  Proof.
+    intros.
+    induction H; 
+      eauto using rt_trans, rt_step, rt_refl.
+  Qed.
+
+  Lemma safe_nil:
+    Safe [].
+  Proof.
+    apply Forall_nil.
+  Qed.
+
+  Lemma safe_cons:
+    forall x l,
+    Safe l ->
+    L1_Safe x ->
+    Safe (x::l).
+  Proof.
+    intros.
+    apply Forall_cons; auto.
+  Qed.
+
+  Let safe_skip:
+    forall h,
+    H.Safe h ->
+    Safe [(h, PSkip)].
+  Proof.
+    repeat split; auto using step_skip, safe_nil, safe_cons.
+  Qed.
+
+  Let safe_step_skip:
+    forall h,
+    H.Safe h ->
+    SafeStep ([(h, PSkip)], []).
+  Proof.
+    intros.
+    unfold SafeStep.
+    repeat split; auto using step_skip, safe_nil, safe_skip.
+  Qed.
+
+  Lemma safe_path_skip:
+    forall h,
+    H.Safe h ->
+    SafePath [(h, PSkip)].
+  Proof.
+    intros.
+    remember [(h, PSkip)] as v1.
+    remember [] as v2.
+    apply safe_path_some with (b:=v2) (w:=[(v1,v2)]); subst.
+    + apply edge_to_walk2.
+      auto using safe_step_skip.
+    + auto using safe_skip.
+    + reflexivity.
+  Qed.
+
+  Lemma safe_path_in_to_safe:
+    forall l h p,
+    SafePath l ->
+    List.In (h, p) l ->
+    H.Safe h.
+  Proof.
+    intros.
+    inversion H; subst; clear H. {
+      inversion H1; subst; clear H1.
+      inversion H; subst; clear H.
+      destruct x as (v1, v2).
+      destruct H1 as (w', (?, ?)).
+      subst.
+      simpl in *. 
+      apply walk_to_forall in H5.
+      rewrite Forall_forall in *.
+      assert (Hi: List.In (v1, v2) ((v1, v2) :: w')) by auto using in_eq.
+      apply H5 in Hi.
+      destruct Hi as (?, (?, ?)).
+      unfold Safe in *.
+      rewrite Forall_forall in *.
+      apply H1 in H0.
+      assumption.
+    }
+    contradiction.
+  Qed.
+
+  Lemma safe_path_inv_skip:
+    forall h,
+    SafePath [(h, PSkip)] ->
+    H.Safe h.
+  Proof.
+    intros.
+    assert (Hi: List.In (h, PSkip) [(h, PSkip)]) by auto using in_eq.
+    apply safe_path_in_to_safe in Hi; auto.
+  Qed.
+
   (*
   Lemma m_step_inv_skip:
     forall h l, 
@@ -493,6 +678,8 @@ End L2.
 Module PhaseOrdering (M:ACC).
   Module M1 := L1 M.
   Module M2 := L2 M.
+  Module H := History M.
+
 Section PO.
   Fixpoint size p :=
   match p with
@@ -505,34 +692,21 @@ Section PO.
     let (lo, hi) := M1.bounds l in mul (sub (NNum hi) (NNum lo)) (size p) 
   end.
 
-  Fixpoint flatten p n :=
+  Fixpoint flatten n p :=
   match p with
   | M1.PSkip => M2.PSkip
   | M1.PSync => M2.PSkip
-  | M1.PAcc a => M2.PAcc (M.e_prefix_index a n)
-  | M1.PSeq p1 p2 => M2.PSeq (flatten p1 n) (flatten p2 (add n (size p1)))
-  | M1.PFor x r p => M2.PDecl x r (flatten p (add n (mul (NVar x) (size p))))  
+  | M1.PAcc a => M2.PAcc (M.e_prefix_index n a)
+  | M1.PSeq p1 p2 => M2.PSeq (flatten n p1) (flatten (add n (size p1)) p2)
+  | M1.PFor x r p => M2.PDecl x r (flatten (add n (mul (NVar x) (size p))) p)  
   | M1.PLoop x r p => M2.PSkip
   (* PDecl x r (flatten p (add n (mul (NVar x) (size p))))  *)
   end.
 
-  Fixpoint annotate l n :=
-  match l with
-  | [] => []
-  | a :: l => M.a_prefix_index a n :: annotate l n
-  end.
+  Definition phase_order n (s:M1.state) :=
+    let (h, p) := s in (H.prefix_index n h, flatten (NNum n) p).
 
-  Lemma drf_skip:
-    forall h n,
-    M1.DRF (h, M1.PSkip) <-> M2.DRF [(annotate h n, M2.PSkip)].
-  Proof.
-    split; intros.
-    - apply M1.drf_inv_skip in H.
-      apply M1.safe_to_safe_history in H.
-      unfold M2.DRF.
-      intros.
-      give_up.
-  Admitted.
+  Import Aniceto.Graphs.Graph.
 
 (*
   Lemma drf_sync:
@@ -548,14 +722,27 @@ Section PO.
   Qed.
 *)
 
-  Corollary correctness:
-    forall h p e n,
+  Theorem correctness:
+    forall s e n,
     NStep e n ->
-    M1.DRF (h,p) <-> M2.DRF [(annotate h n, flatten p e)].
+    M1.SafePath s <-> M2.SafePath [phase_order n s].
   Proof.
+    intros s.
+    destruct s as (h, p).
+    generalize dependent h.
     induction p; intros; simpl.
-    - give_up.
-    - give_up.
+    - split; intros.
+      + apply M1.safe_path_inv_skip in H0.
+        apply M2.safe_path_skip.
+        apply H.safe_prefix_index.
+        assumption.
+      + apply M2.safe_path_inv_skip in H0.
+        apply H.safe_prefix_index in H0.
+        apply M1.safe_path_skip.
+        assumption.
+    - split; intros.
+      + give_up.
+      + give_up.
     - give_up.
   Admitted.
 End PO.
