@@ -480,6 +480,108 @@ Section SO.
     exists l.
     eauto using r_step_def.
   Qed.
-End SO.
 
+  Lemma add_inv_n_0:
+    forall n1 n2, NStep (add (NNum n1) (NNum 0)) n2 ->
+    n1 = n2.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    inversion H5; subst; clear H5.
+    inversion H4; subst; clear H4.
+    simpl.
+    apply plus_n_O.
+  Qed.
+
+  Lemma n_step_plus:
+    forall n1 n2 e1 e2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    NStep (NBin NPlus e1 e2) (n1 + n2).
+  Proof.
+    intros.
+    assert (NStep (NBin NPlus e1 e2) (eval_nbin NPlus n1 n2))
+      by auto using n_step_bin.
+    unfold eval_nbin in *.
+    assumption.
+  Qed.
+
+  Lemma n_step_add:
+    forall n1 n2 e1 e2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    NStep (add e1 e2) (n1 + n2).
+  Proof.
+    apply n_step_plus.
+  Qed.
+
+  Lemma n_step_plus_num:
+    forall n1 n2,
+    NStep (NBin NPlus (NNum n1) (NNum n2)) (n1 + n2).
+  Proof.
+    auto using n_step_plus, n_step_num.
+  Qed.
+
+  Lemma n_step_add_num:
+    forall n1 n2,
+    NStep (add (NNum n1) (NNum n2)) (n1 + n2).
+  Proof.
+    apply n_step_plus_num.
+  Qed.
+
+  Lemma n_step_inv_plus_num:
+    forall n1 n2 n3,
+    NStep (NBin NPlus (NNum n1) (NNum n2)) n3 ->
+    n3 = n1 + n2.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    unfold eval_nbin.
+    inversion H4; subst; clear H4.
+    inversion H5; subst; clear H5.
+    reflexivity.
+  Qed.
+
+  Lemma n_step_inv_add_num:
+    forall n1 n2 n3,
+    NStep (add (NNum n1) (NNum n2)) n3 ->
+    n3 = n1 + n2.
+  Proof.
+    auto using n_step_inv_plus_num. 
+  Qed.
+
+  Lemma n_step_add_n_0:
+    forall n, NStep (add (NNum n) (NNum 0)) n.
+  Proof.
+    intros.
+    rewrite <- PeanoNat.Nat.add_0_r.
+    apply n_step_plus_num.
+  Qed.
+
+  Lemma n_step_inv_add_n_0:
+    forall n1 n2,
+    NStep (add (NNum n1) (NNum 0)) n2 ->
+    n1 = n2.
+  Proof.
+    intros.
+    assert (Hx := n_step_add_n_0 n1).
+    eauto using n_step_fun.
+  Qed.
+
+  Lemma n_step_add_0_n:
+    forall e1 e2 n,
+    NStep (add e1 e2) n ->
+    NStep (add e1 (add (NNum 0) e2)) n.
+  Proof.
+    intros.
+    inversion H; subst.
+    simpl in *.
+    apply n_step_add; auto.
+    assert (NStep (add (NNum 0) e2) (0 + n2)). {
+      apply n_step_add; auto using n_step_num.
+    }
+    simpl in *.
+    assumption.
+  Qed.
+End SO.
 

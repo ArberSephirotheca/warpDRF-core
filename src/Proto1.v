@@ -217,17 +217,15 @@ Module L1 (M:ACC).
 
   Import Aniceto.Graphs.Graph.
 
-  Inductive SafePath : state -> Prop :=
+  Inductive SafePath : state -> state -> Prop :=
   | safe_path_some:
-    forall a b w,
-    Walk2 SafeStep a b w ->
-    Safe a ->
-    Value b ->
-    SafePath a
+    forall a h,
+    Reaches SafeStep a (h, PSkip) ->
+    SafePath a (h, PSkip)
   | safe_path_skip:
     forall h,
     H.Safe h ->
-    SafePath (h, PSkip).
+    SafePath (h, PSkip) (h, PSkip).
 
   Lemma safe_step_not_skip:
     forall h x,
@@ -240,16 +238,21 @@ Module L1 (M:ACC).
   Qed.
 
   Lemma safe_path_to_h_safe:
-    forall h p,
-    SafePath (h, p) ->
-    H.Safe h.
+    forall h1 h2 p,
+    SafePath (h1, p) h2 ->
+    H.Safe h1.
   Proof.
     intros.
     inversion H; subst; clear H.
-    - assumption.
+    - apply reaches_to_in_fst in H0.
+      destruct H0 as ((v1, v2), (Hi, Hj)).
+      inversion Hj; simpl in *; subst;
+        destruct Hi as (?, (?, ?));
+        auto.
     - assumption.
   Qed.
 
+(*
   Lemma safe_path_inv_step:
     forall h p1 p2,
     SafePath (h, PSeq p1 p2) ->
@@ -281,24 +284,19 @@ Module L1 (M:ACC).
     intuition.
     eapply safe_path_some; eauto.
   Qed.
-
+*)
   Lemma safe_path_sync:
     forall h,
     H.Safe h ->
-    SafePath (h, PSync).
+    SafePath (h, PSync) ([], PSkip).
   Proof.
     intros.
-    remember (h, PSync) as v1.
-    remember (@nil M.A, PSkip) as v2.
-    apply safe_path_some with (b:=([], PSkip)) (w:=[(v1,v2)]); subst.
-    - apply edge_to_walk2.
-      unfold SafeStep.
-      repeat split.
-      + apply step_sync.
-      + assumption.
-      + apply H.safe_nil.
-    - assumption.
-    - apply value_def.
+    apply safe_path_some, edge_to_reaches.
+    unfold SafeStep.
+    repeat split.
+    + apply step_sync.
+    + assumption.
+    + apply H.safe_nil.
   Qed.
 
 End Defs.
