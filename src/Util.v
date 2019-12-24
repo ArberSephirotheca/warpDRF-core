@@ -59,6 +59,74 @@ Section LinWalk2.
     intuition.
   Qed.
 
+  Lemma walk2_inv_fst_edge:
+    forall x y w,
+    Walk2 Edge x y w ->
+    exists v, Edge (x, v).
+  Proof.
+    intros.
+    apply walk2_inv_3 in H.
+    destruct H as [(?,Hx)|(v2, (Hx,_))]. {
+      subst.
+      eauto.
+    }
+    eauto.
+  Qed.
+
+  Lemma reaches_inv_fst_edge:
+    forall x y,
+    Reaches Edge x y ->
+    exists v, Edge (x, v).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eauto using walk2_inv_fst_edge.
+  Qed.
+
+  Lemma ends_with_to_in:
+    forall w (x:A),
+    EndsWith w x ->
+    exists v, List.In (v, x) w.
+  Proof.
+    induction w; intros. {
+      apply ends_with_nil_inv in H.
+      contradiction.
+    }
+    destruct w. {
+      destruct a as (a1, a2).
+      apply ends_with_inv_cons_nil in H.
+      subst.
+      eauto using in_eq.
+    }
+    apply ends_with_inv in H.
+    apply IHw in H.
+    destruct H as (v, Hi).
+    eauto using in_cons.
+  Qed.
+
+  Lemma walk2_inv_snd_edge:
+    forall x y w,
+    Walk2 Edge x y w ->
+    exists v, Edge (v, y).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    apply ends_with_to_in in H1.
+    destruct H1 as (v, Hi).
+    exists v.
+    apply in_edge with (w:=w); auto.
+  Qed.
+
+  Lemma reaches_inv_snd_edge:
+    forall x y,
+    Reaches Edge x y ->
+    exists v, Edge (v, y).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eauto using walk2_inv_snd_edge.
+  Qed.
+
   Variable edge_fun: forall a b c,
     Edge (a, b) ->
     Edge (a, c) ->

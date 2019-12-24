@@ -285,15 +285,10 @@ Section Defs.
   Proof.
     intros.
     intros N.
-    inversion N; subst; clear N.
-    apply walk2_inv_3 in H.
-    destruct H as [(Hx,(Ha,(Hy,?)))|(v2,((Hx,(Ha,Hz)),(w',((v1,v2'), Hb))))]. {
-      subst.
-      apply step_inv_skip in Ha.
-      contradiction.
-    }
-    apply step_inv_skip in Hx.
-    contradiction.
+    apply reaches_inv_fst_edge in N.
+    destruct N as (v, (Hs, _)).
+    apply step_inv_skip in Hs.
+    assumption.
   Qed.
 
   Lemma safe_path_inv_skip_2:
@@ -356,13 +351,50 @@ Section Defs.
   Proof.
     intros.
     intros N.
-    inversion N; subst; clear N.
-    apply walk2_inv_3 in H0.
-    destruct H0 as [(?,Hx)|(v2, (Hx, _))]. {
-      subst.
-      apply value_not_safe_step in Hx; auto.
+    apply reaches_inv_fst_edge in N.
+    destruct N as (v, Hs).
+    apply value_not_safe_step in Hs; auto.
+  Qed.
+
+  Lemma step_seq_skip:
+    forall h p,
+    Step [(h, PSeq PSkip p)] [(h, p)].
+  Proof.
+    intros.
+    assert (Hr: [(h,p)] = [(h, p)] ++ []). {
+      auto with *.
     }
-    apply value_not_safe_step in Hx; auto.
+    rewrite Hr.
+    apply step_eq.
+    apply s_step_seq_skip.
+  Qed.
+
+  Lemma reaches_safe_path:
+    forall x y z,
+    Reaches SafeStep x y ->
+    SafePath y z ->
+    SafePath x z.
+  Proof.
+    intros.
+    inversion H0; subst; clear H0. {
+      assert (Reaches SafeStep x z) by eauto using reaches_trans.
+      eapply safe_path_step; eauto.
+    }
+    eapply safe_path_step; eauto.
+  Qed.
+
+  Lemma safe_path_inv_fst:
+    forall x y,
+    SafePath x y ->
+    Safe x.
+  Proof.
+    intros.
+    inversion H; subst; clear H. {
+      apply reaches_inv_fst_edge in H0.
+      destruct H0 as (v, (?, (Hx, Hy))).
+      assumption.
+    }
+    assumption.
   Qed.
 
   Lemma safe_path_seq_skip:
@@ -371,24 +403,28 @@ Section Defs.
     SafePath [(h1, PSeq PSkip p)] l.
   Proof.
     intros.
-    inversion H; subst; clear H.
-    - destruct (is_skip p). {
-        subst.
-        apply value_not_reaches in H0; auto using value_skip.
-        contradiction.
-      }
-      eapply safe_path_step. {
-        assert (
-        apply reaches_trans with (y:=(h1,p)).
-        apply reaches_to_clos_trans.
-      }
-      assert (p = PSkip). {
-        unfold Value in *.
+    assert (Safe [(h1, p)]). {
+      eauto using safe_path_inv_fst.
+    }
+    assert (SafeStep ([(h1, PSeq PSkip p)], [(h1, p)])). {
+      repeat split.
+      - auto using step_seq_skip.
+      - unfold Safe in *.
         rewrite Forall_forall in *.
-        apply reaches_to_in_snd in H0.
-        destruct H0 as ((v1,v2), (Ha,Hb)).
-      }
-    apply safe_path_def.
+        intros.
+        destruct H1; subst. {
+          simpl.
+          assert (L1_Safe (h1, p)) by auto using in_eq.
+          assumption.
+        }
+        contradiction.
+      - assumption. 
+    }
+    assert (Reaches SafeStep [(h1, PSeq PSkip p)] [(h1, p)]). {
+      apply edge_to_reaches.
+      assumption.
+    }
+    eauto using reaches_safe_path.
   Qed.
 End Defs.
 End L2.
