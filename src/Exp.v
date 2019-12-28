@@ -110,7 +110,7 @@ Section SO.
 *)
 
   Inductive InvRangeList : nat -> nat -> list nat -> Prop :=
-  | inv_range_list_empty:
+  | inv_range_list_nil:
     forall n m,
     n >= m ->
     InvRangeList n m []
@@ -121,7 +121,7 @@ Section SO.
     InvRangeList n (S m) (m :: l).
 
   Inductive RangeList : nat -> nat -> list nat -> Prop :=
-  | range_list_empty:
+  | range_list_nil:
     forall low high,
     low >= high ->
     RangeList low high []
@@ -163,18 +163,47 @@ Section SO.
   Definition r_subst x v (r:range) :=
   let (n1, n2) := r in
   (n_subst x v n1, n_subst x v n2).
-(*
-  Definition NonemptyRange (r:nat * nat) := let (n1, n2) := r in n1 < n2. 
 
-  Definition EmptyRange (r:nat * nat) := let (n1, n2) := r in n1 >= n2.
+  Fixpoint n_step (e:nexp) : option nat :=
+    match e with
+    | NNum n => Some n
+    | NBin o e1 e2 =>
+      match n_step e1, n_step e2 with
+      | Some n1, Some n2 => Some (eval_nbin o n1 n2)
+      | _ , _ => None
+      end
+    | NVar _ => None
+    end.
 
-  Definition InRange n (r:nat * nat) := let (n1, n2) := r in n >= n1 /\ n < n2.
+  Lemma n_step_to_prop:
+    forall e n,
+    n_step e = Some n ->
+    NStep e n.
+  Proof.
+    induction e; intros; simpl in *; inversion H; subst; clear H.
+    - auto using n_step_num.
+    - destruct (n_step e1). {
+        destruct (n_step e2);
+           inversion H1; subst; clear H1.
+        auto using n_step_bin.
+      }
+      inversion H1.
+  Qed.
 
-  Definition inc (r:nat * nat) :=
-  let (n1, n2) := r in
-  (NNum (S n1), NNum n2).
-
-*)
+  Lemma prop_to_n_step:
+    forall e n,
+    NStep e n ->
+    n_step e = Some n.
+  Proof.
+    induction e; intros; inversion H; subst; clear H.
+    - reflexivity.
+    - apply IHe1 in H4.
+      apply IHe2 in H5.
+      simpl.
+      rewrite H4.
+      rewrite H5.
+      reflexivity.
+  Qed.
 
   Lemma n_step_fun:
     forall n n1 n2,
@@ -182,13 +211,12 @@ Section SO.
     NStep n n2 ->
     n1 = n2.
   Proof.
-    induction n; intros;
-    inversion H; inversion H0; subst; clear H H0.
-    - trivial.
-    - assert (n5 = n7) by eauto.
-      assert (n6 = n8) by eauto.
-      subst.
-      trivial.
+    intros.
+    apply prop_to_n_step in H.
+    apply prop_to_n_step in H0.
+    rewrite H in *.
+    inversion H0.
+    auto.
   Qed.  
 
   Section range_list_fun.
@@ -272,7 +300,7 @@ Section SO.
       intros.
       inversion H; subst; clear H.
       assert (n1 >= n2) by auto with *.
-      apply range_list_empty.
+      apply range_list_nil.
       assumption.
     Qed.
 
@@ -301,7 +329,7 @@ Section SO.
       induction l; simpl; intros;
       inversion H; subst; clear H.
       - split; auto using le_n.
-        apply range_list_empty.
+        apply range_list_nil.
         apply le_n.
       - inversion H4; subst; clear H4. {
           apply range_list_inv_3 in H5; auto.
@@ -327,7 +355,7 @@ Section SO.
         subst.
         apply range_list_cons.
         + omega.
-        + apply range_list_empty.
+        + apply range_list_nil.
           omega.
       }
       simpl.
@@ -346,10 +374,10 @@ Section SO.
       induction l; intros. {
         simpl; split; intros.
         + inversion H; subst; clear H.
-          apply inv_range_list_empty.
+          apply inv_range_list_nil.
           assumption.
         + inversion H; subst; clear H.
-          apply range_list_empty.
+          apply range_list_nil.
           assumption.
       }
       simpl.
@@ -436,7 +464,7 @@ Section SO.
   Proof.
     intros n1 n2; generalize dependent n1.
     induction n2; intros.
-    - exists []. apply inv_range_list_empty.
+    - exists []. apply inv_range_list_nil.
       auto with *.
     - destruct (Compare_dec.le_ge_dec n1 (S n2)). {
         apply Lt.le_lt_or_eq in l.
@@ -448,11 +476,11 @@ Section SO.
         }
         subst.
         exists [].
-        apply inv_range_list_empty.
+        apply inv_range_list_nil.
         apply le_n.
       }
       exists [].
-      apply inv_range_list_empty.
+      apply inv_range_list_nil.
       assumption.
   Qed.
 
@@ -582,6 +610,25 @@ Section SO.
     }
     simpl in *.
     assumption.
+  Qed.
+
+  Lemma b_step_fun:
+    forall e b1 b2,
+    BStep e b1 ->
+    BStep e b2 ->
+    b1 = b2.
+  Proof.
+    induction e; intros;
+    inversion H; inversion H0; subst; clear H H0.
+    - reflexivity.
+    - assert (n2 = n4) by eauto using n_step_fun.
+      assert (n5 = n3) by eauto using n_step_fun.
+      subst.
+      reflexivity.
+    - assert (b0 = b4) by eauto.
+      assert (b3 = b5) by eauto.
+      subst.
+      reflexivity.
   Qed.
 End SO.
 

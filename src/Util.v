@@ -196,14 +196,16 @@ Section BigStep.
   Variable A:Type.
   Variable R: relation A.
   Variable Value: A -> Prop.
-  Inductive BigStep: A -> A -> Prop :=
-  | big_step_cons:
-    forall x y z,
-    R x y ->
-    BigStep y z ->
-    BigStep x z
-  | big_step_nil:
+  Definition Edge (p:A*A) := let (x,y) := p in R x y. 
+  Inductive BigStep : A -> A -> Prop :=
+  | big_step_reaches:
+    forall x y,
+    Reaches Edge x y ->
+    Value y ->
+    BigStep x y
+  | safe_path_skip:
     forall x,
     Value x ->
     BigStep x x.
+
 End BigStep.

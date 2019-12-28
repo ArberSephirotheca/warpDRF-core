@@ -16,29 +16,63 @@ Import ListNotations.
 Module Type ACC.
   Parameter E: Type.
   Parameter A: Type.
-  Parameter a_subst: var -> nat -> E -> E.
+  Parameter subst: var -> nat -> E -> E.
   (* Prefix the access expression with an index. *)
-  Parameter e_prefix_index: nexp -> E -> E.
+(*  Parameter e_prefix_index: nexp -> E -> E.
   Parameter a_prefix_index: nat -> A -> A.
-  Parameter AStep: E -> list A -> Prop.
+  *)
+  Parameter AStep: (E * nexp) -> list A -> Prop.
   Parameter Safe: A -> A -> Prop.
   Axiom a_step_fun:
     forall e l1 l2,
     AStep e l1 ->
     AStep e l2 ->
     l1 = l2.
+    (*
   Axiom safe_annotate:
     forall a1 a2 n,
     Safe a1 a2 <-> Safe (a_prefix_index n a1) (a_prefix_index n a2).
+  *)
+  (*
   Axiom progress:
     forall e,
-    exists v, AStep e v. 
+    exists v, AStep e v.
+  *) 
 End ACC.
+
+Class Access := {
+  access_exp: Type;
+  access_val: Type;
+  access_subst: var -> nat -> access_exp -> access_exp;
+  access_step: (access_exp * nexp) -> list access_val -> Prop;
+  access_safe: access_val -> access_val -> Prop;
+  access_step_fun:
+    forall e l1 l2,
+    access_step e l1 ->
+    access_step e l2 ->
+    l1 = l2;
+}.
+
+Module Hist.
+Section Defs.
+  Context {A:Access}.
+  Definition history := list access_val.
+  Definition Safe (h:history) := forall x y, List.In x h -> List.In y h -> access_safe x y.
+
+  Lemma safe_nil:
+    Safe (@nil access_val).
+  Proof.
+    unfold Safe.
+    intros.
+    contradiction.
+  Qed.
+End Defs.
+End Hist.
 
 Module History (A:ACC).
   Definition history := list A.A.
   Definition Safe (h:history) := forall x y, List.In x h -> List.In y h -> A.Safe x y.
-  Definition prefix_index (n:nat) (h:history) : history := List.map (A.a_prefix_index n) h.
+  (*Definition prefix_index (n:nat) (h:history) : history := List.map (A.a_prefix_index n) h.*)
 
   Lemma safe_nil:
     Safe (@nil A.A).
@@ -47,7 +81,7 @@ Module History (A:ACC).
     intros.
     contradiction.
   Qed.
-
+(*
   Lemma safe_prefix_index:
     forall h n,
     Safe h <-> Safe (prefix_index n h).
@@ -70,7 +104,72 @@ Module History (A:ACC).
     - apply in_map_iff.
       eauto.
   Qed.
+*)
 End History.
+
+Module OneDim.
+
+  (** One dimension *)
+  Record access := {
+    tid : nat;
+    index: nat;
+  }.
+
+  Definition A := access.
+
+  (** [ n ] *)
+
+  Definition E := (nexp * bexp) % type.
+
+  Definition subst x v (e:E) :=
+    let (idx, b) := e in
+    (n_subst x v idx, b_subst x v b).
+
+  Inductive Step:  (E * nexp) -> list A -> Prop :=
+  | step_true:
+    forall idx b ni nt t,
+    BStep b true ->
+    NStep idx ni ->
+    NStep t nt ->
+    Step ((idx, b), t) [{| index := ni; tid := nt |}]
+  | step_false:
+    forall idx b t,
+    BStep b false ->
+    Step ((idx, b), t) [].
+
+  Definition AStep := Step.
+
+  Definition Safe (a1 a2:A) :=
+    tid a1 <> tid a2 /\ index a1 = index a2.
+
+  Lemma a_step_fun:
+    forall e v1 v2,
+    AStep e v1 ->
+    AStep e v2 ->
+    v1 = v2.
+  Proof.
+    unfold AStep; intros.
+    inversion H; subst; clear H;
+      inversion H0; subst; clear H0.
+    - assert (ni0 = ni) by eauto using n_step_fun.
+      assert (nt0 = nt) by eauto using n_step_fun.
+      subst.
+      reflexivity.
+    - assert (N: true = false) by eauto using b_step_fun.
+      inversion N.
+    - assert (N: true = false) by eauto using b_step_fun.
+      inversion N.
+    - reflexivity.
+  Qed.
+
+End OneDim.
+
+Instance ONE_DIM : Access := {|
+  access_subst := OneDim.subst;
+  access_step := OneDim.Step;
+  access_safe := OneDim.Safe;
+  access_step_fun := OneDim.a_step_fun
+|}.
 
 Module Acc.
   Record access_exp := {

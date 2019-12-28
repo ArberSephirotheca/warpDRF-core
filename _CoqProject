@@ -6,5 +6,6 @@ src/Var.v
 src/Exp.v
 src/Acc.v
 src/Util.v
-src/Proto1.v
+src/Conc1.v
+#src/Proto1.v
 #src/Proto.v

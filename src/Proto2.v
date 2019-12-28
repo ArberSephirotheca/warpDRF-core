@@ -85,9 +85,6 @@ Section Defs.
     Step s1 s2 ->
     Step ((h,PSkip)::s1) ((h,PSkip)::s2).
 
-(*  | step_nil:
-    Step [] [].*)
-
   Definition MStep := clos_refl_trans _ Step.
 
   Definition Value (s:state) := List.Forall (fun (s':history*proto) => let (_, p) := s' in p = PSkip) s.
@@ -486,6 +483,9 @@ Section PO.
   Definition Incl h2 (x:M2.history * M2.proto) :=
     let (h1, _) := x in 
     incl h1 h2.
+
+  Definition Equiv h (l:M2.history * M2.proto) :=
+    H.Safe h <-> M2.L1_Safe l.
 (*
   Definition PhaseOrder n h1 p h2 :=
     exists l, M2.SafePath [phase_order n (h1, p)] l /\ List.Forall (Incl (H.prefix_index m h2)) l.
@@ -531,8 +531,11 @@ Section PO.
     apply phase_order_def with (l:=l); auto.
     + simpl.
       auto using n_step_add_0_n.
-    + 
-  Qed.
+    + apply M2.safe_path_seq_skip in H5.
+      unfold phase_order.
+      simpl.
+      give_up.
+  Admitted.
 
   Lemma phase_order_seq:
     forall p1 p2 h1 h2 h3 n1 n2 n3,
@@ -540,15 +543,12 @@ Section PO.
     PhaseOrder (h2, p2) n2 (h3, M1.PSkip) n3 ->
     PhaseOrder (h1, M1.PSeq p1 p2) n1 (h3, M1.PSkip) n3.
   Proof.
-    induction p1; intros.
-    - apply phase_order_inv_skip in H.
-      destruct H.
-      subst.
-      give_up.
-    - apply phase_order_inv_sync in H.
-      destruct H; subst.
+    intros.
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0.
+    
   Admitted.
-
+*)
 (*
   Definition WF :=
     List.Forall (fun x => H.safe_prefix_index h2 m) l.
@@ -566,23 +566,23 @@ Section PO.
     induction p; intros; simpl in *; eexists.
     - eapply phase_order_def.
       + give_up.
-      + apply M1.safe_path_to_h_safe in H0.
+      + apply M1.safe_path_to_h_safe in H.
         apply M2.safe_path_skip, H.safe_prefix_index.
         assumption.
       + give_up.
     - eapply phase_order_def.
       + give_up.
-      + apply M1.safe_path_to_h_safe in H0.
+      + apply M1.safe_path_to_h_safe in H.
         apply M2.safe_path_skip, H.safe_prefix_index.
         assumption.
       + give_up.
     - give_up.
-    - assert (Hn_p1: exists n_p1, NStep  (add (NNum n) (size p1)) n_p1)
-        by give_up; destruct Hn_p1 as (n_p1, Hn_p1).
-      apply safe_path_inv_seq in H0.
-      destruct H0 as (h3, (Hp1, Hp2)).
+    - (*assert (Hn_p1: exists n_p1, NStep  (add (NNum n) (size p1)) n_p1)
+        by give_up; destruct Hn_p1 as (n_p1, Hn_p1).*)
+      apply safe_path_inv_seq in H.
+      destruct H as (h3, (Hp1, Hp2)).
       eapply IHp1 with (n:=n) in Hp1; eauto; clear IHp1; destruct Hp1 as (m, IHp1).
-      eapply IHp2 with (n:=m) (e:=NNum m) in Hp2; eauto using n_step_num; clear IHp2.
+      eapply IHp2 with (n:=m) in Hp2; eauto using n_step_num; clear IHp2.
       destruct Hp2 as (m', IHp2).
       apply phase_order_seq with (h2:=h3) (n2:=m); eauto.
       give_up.
