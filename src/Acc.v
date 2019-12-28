@@ -139,6 +139,55 @@ Module OneDim.
 
   Definition AStep := Step.
 
+  Definition a_step (e:E*nexp) :=
+    let (e, t) := e in
+    let (idx, b) := e in
+    match b_step b, n_step idx, n_step t with
+    | Some true, Some ni, Some nt => Some [{| index := ni; tid:=nt|}]
+    | Some false, _, _ => Some []
+    | _, _, _ => None
+    end.
+
+  Lemma a_step_to_prop:
+    forall e l,
+    a_step e = Some l ->
+    AStep e l.
+  Proof.
+    intros.
+    destruct e as ((idx, b), t).
+    simpl in *.
+    destruct (b_step b) eqn:Hb; try (inversion H; fail).
+    destruct b0. {
+      destruct (n_step idx) eqn:Hi; try (inversion H; fail). 
+      destruct (n_step t) eqn:Ht; try (inversion H; fail).
+      inversion H; subst; clear H.
+      apply step_true; auto using n_step_to_prop, b_step_to_prop.
+    }
+    inversion H; subst; clear H.
+    apply step_false.
+    apply b_step_to_prop; auto.
+  Qed.
+
+  Lemma prop_to_a_step:
+    forall e l,
+    AStep e l ->
+    a_step e = Some l.
+  Proof.
+    intros.
+    inversion H; subst; clear H; simpl. {
+      apply prop_to_b_step in H0.
+      apply prop_to_n_step in H1.
+      apply prop_to_n_step in H2.
+      rewrite H0.
+      rewrite H1.
+      rewrite H2.
+      reflexivity.
+    }
+    apply prop_to_b_step in H0.
+    rewrite H0.
+    reflexivity.
+  Qed.
+
   Definition Safe (a1 a2:A) :=
     tid a1 <> tid a2 /\ index a1 = index a2.
 
