@@ -103,7 +103,7 @@ Module C2.
   | step_par_empty_l:
     (*
 
-      0 || s ==> s
+      {} || s ==> s
 
      *)
     forall s,
@@ -175,6 +175,68 @@ Module C2.
       (Leaf (h, Branch x (n::l) p))
       (Par (Leaf (h, i_subst x n p)) (Leaf (h, Branch x l p))).
 
+  Definition step1 (s:state1) :=
+  let (h, p) := s in
+  match p with
+  | Cond b i =>
+    match b_step b with
+    | Some true => Some (Leaf (h, i))
+    | Some false => Some (Leaf (h, Skip))
+    | _ => None
+    end
+  | Acc e =>
+    match access_eval1 e with
+    | Some v => Some (Leaf (v ++ h, Skip))
+    | None => None
+    end
+  | Decl x r p =>
+    match r_step r with
+    | Some l => Some (Leaf (h, Branch x l p))
+    | _ => None
+    end 
+  | _ => None
+  end.
+
+  Fixpoint step (s:state) : option state :=
+  match s with
+  | Leaf (h, p) =>
+    match p with
+    | Cond _ _ | Acc _ | Decl _ _ _ => step1 (h, p)
+    | Seq i1 i2 => Some (Join (Leaf (h, i1)) i2)
+    | Branch x (n::l) p => Some (Par (Leaf (h, i_subst x n p)) (Leaf (h, Branch x l p)))
+    | Branch _ [] _ => Some Empty 
+    | Skip => None 
+    end
+  | Par s1 s2 =>
+    match s1, s2 with
+    | Empty, s | s, Empty => Some s
+    | Leaf (_, Skip), Leaf (_, Skip) => None
+    | Leaf (_, Skip), _ =>
+      match step s2 with
+      | Some s2 => Some (Par s1 s2)
+      | None => None
+      end
+    | Par (Leaf s1) s2, s3 => Some (Par (Leaf s1) (Par s2 s3))
+    | _, _ =>
+      match step s1 with
+      | Some s1 => Some (Par s1 s2)
+      | None => None
+      end
+    end
+  | Join s i =>
+    match s with
+    | Empty => Some Empty
+    | Leaf (h, Skip) => Some (Leaf (h, i))
+    | Par (Leaf (h, Skip)) s2 => Some (Par (Leaf (h, i)) (Join s2 i)) 
+    | _ =>
+      match step s with
+      | Some s => Some (Join s i)
+      | _ => None
+      end
+    end
+  | Empty => None
+  end.
+
   Inductive Value: state -> Prop :=
   | value_skip:
     forall h,
@@ -208,12 +270,18 @@ Module Compiler.
   Variable T1: var.
   Variable T2: var.
 
-  Definition translate (c:C1.inst) :=
+  Definition asgn x (n:nexp) i :=
+    (C2.Decl x (n, add n (NNum 1)) i).
+
+  Definition do_proj x c :=
+    asgn TID (NVar x) (proj (NVar x) c).
+
+  Definition translate (c:C1.inst) : C2.inst :=
     C2.Decl T1 (NNum 0, NNum TID_COUNT) (
       C2.Decl T2 (NNum 0, NNum TID_COUNT) (
         C2.Seq
-          (proj (NVar T1) c)
-          (proj (NVar T2) c)
+          (do_proj T1 c)
+          (do_proj T2 c)
       )
     ).
 (*
@@ -227,11 +295,30 @@ End Compiler.
 
 Module Examples.
   Import Compiler.
+  Import C2.
+
+  Fixpoint bstep fuel steps s :=
+  match fuel with
+  | 0 => (steps,s)
+  | S n =>
+    match C2.step s with
+    | Some s => bstep n (S steps) s
+    | _ => (steps, s)
+    end
+  end.
+
+  Definition run steps s := bstep steps 0 s.
+
   Definition GOOD :=
-    translate 2 (variable 2) (variable 3) Conc1.Examples.GOOD.
+    translate 2 (variable 0) (variable 2) (variable 3) Conc1.Examples.GOOD.
 
   Compute GOOD.
 
+  Compute run 300 (Leaf ([], GOOD)).
+
   Definition BAD := 
-    translate 2 (variable 2) (variable 3) Conc1.Examples.BAD.
+    translate 2 (variable 0) (variable 2) (variable 3) Conc1.Examples.BAD.
+
+  Compute run 300 (Leaf ([], BAD)).
+
 End Examples.

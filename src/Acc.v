@@ -45,12 +45,21 @@ Class Access := {
   access_val: Type;
   access_subst: var -> nat -> access_exp -> access_exp;
   access_step: (access_exp * nexp) -> list access_val -> Prop;
+  access_eval1: (access_exp * nexp) -> option (list access_val);
   access_safe: access_val -> access_val -> Prop;
   access_step_fun:
     forall e l1 l2,
     access_step e l1 ->
     access_step e l2 ->
     l1 = l2;
+  access_eval1_to_step:
+    forall e l,
+    access_eval1 e = Some l ->
+    access_step e l;
+  access_step_to_eval1:
+    forall e l,
+    access_step e l ->
+    access_eval1 e = Some l;
 }.
 
 Module Hist.
@@ -69,43 +78,6 @@ Section Defs.
 End Defs.
 End Hist.
 
-Module History (A:ACC).
-  Definition history := list A.A.
-  Definition Safe (h:history) := forall x y, List.In x h -> List.In y h -> A.Safe x y.
-  (*Definition prefix_index (n:nat) (h:history) : history := List.map (A.a_prefix_index n) h.*)
-
-  Lemma safe_nil:
-    Safe (@nil A.A).
-  Proof.
-    unfold Safe.
-    intros.
-    contradiction.
-  Qed.
-(*
-  Lemma safe_prefix_index:
-    forall h n,
-    Safe h <-> Safe (prefix_index n h).
-  Proof.
-    split; unfold Safe, prefix_index; intros. {
-      apply in_map_iff in H0.
-      apply in_map_iff in H1.
-      destruct H0 as (b, (?, Hi)).
-      subst.
-      destruct H1 as (c, (?, Hj)).
-      subst.
-      assert (A.Safe b c) by auto.
-      apply A.safe_annotate.
-      assumption.
-    }
-    apply (A.safe_annotate x y n).
-    apply H.
-    - apply in_map_iff.
-      eauto.
-    - apply in_map_iff.
-      eauto.
-  Qed.
-*)
-End History.
 
 Module OneDim.
 
@@ -217,8 +189,12 @@ Instance ONE_DIM : Access := {|
   access_subst := OneDim.subst;
   access_step := OneDim.Step;
   access_safe := OneDim.Safe;
-  access_step_fun := OneDim.a_step_fun
+  access_step_fun := OneDim.a_step_fun;
+  access_eval1 := OneDim.a_step;
+  access_eval1_to_step := OneDim.a_step_to_prop;
+  access_step_to_eval1 := OneDim.prop_to_a_step;
 |}.
+
 
 Module Acc.
   Record access_exp := {

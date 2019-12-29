@@ -48,13 +48,11 @@ Section C1.
 
   Inductive GenAccess a: nat -> list (list access_val) -> Prop :=
   | gen_access_zero:
-    forall v,
-    access_step (access_subst TID 0 a, NNum 0) v ->
-    GenAccess a 0 [v]
+    GenAccess a 0 []
   | gen_access_succ:
     forall n v l,
     GenAccess a n l ->
-    access_step (access_subst TID (S n) a, NNum (S n)) v ->
+    access_step (access_subst TID n a, NNum  n) v ->
     GenAccess a (S n) (v::l).
 
   Inductive Step: state -> state -> Prop :=
@@ -85,8 +83,6 @@ Section C1.
     forall h,
     Value (h, Skip).
 
-(*  Definition BStep := BigStep _ Step Value. *)
-
   Fixpoint upper_bound n l : nat :=
   match l with
   | [] => n
@@ -107,223 +103,90 @@ Section C1.
   Definition DRF a := forall b, MStep a b -> Safe b.
 
   Definition BStep := BigStep _ Step Value.
-(*
-  Lemma drf_to_safe:
-    forall a,
-    DRF a ->
-    Safe a.
-  Proof.
-    unfold DRF; intros.
-    apply H with (b:=a).
-    apply rt_refl.
-  Qed.
 
-  Lemma safe_to_safe_history:
-    forall h p,
-    Safe (h, p) -> H.Safe h.
-  Proof.
-    auto.
-  Qed.
+  Fixpoint gen_access a n :=
+    let a_step n := access_eval1 (access_subst TID n a, NNum n) in 
+    match n with
+    | 0 => Some []
+    | S n =>
+      match a_step n, gen_access a n with
+      | Some v, Some l => Some (v :: l)
+      | _, _ => None
+      end
+    end.
 
-  Lemma drf_inv_skip:
-    forall h,
-    DRF (h, PSkip) ->
-    Safe (h, PSkip).
-  Proof.
-    intros.
-    unfold DRF in *.
-    assert (MStep (h, PSkip) (h, PSkip)). {
-      unfold MStep.
-      apply rt_refl.
-    }
-    auto.
-  Qed.
+  Fixpoint step_iter h p : option state :=
+    match p with
+    | Acc e =>
+      match gen_access e TID_COUNT with
+      | Some l => Some (List.flat_map id l ++ h, Skip) 
+      | None => None
+      end
+    | Seq Skip p => Some (h, p) 
+    | Seq e1 e2 =>
+      match step_iter h e1 with
+      | Some (h, e3) => Some (h, Seq e3 e2)
+      | None => None
+      end 
+    | For x r p =>
+      match r_step r with
+      | Some l => Some (h, Loop x l p)
+      | None => None
+      end 
+    | Loop x [] p => Some (h, Skip)
+    | Loop x (n::l) p => Some (h, Seq (i_subst x n p) (Loop x l p))
+    | Skip => None
+    end.
 
-  Lemma m_step_inv:
-    forall h a,
-    MStep (h, PSkip) a ->
-    a = (h, PSkip).
-  Proof.
-    intros.
-    induction H using clos_refl_trans_ind_left.
-    + reflexivity.
-    + subst.
-      inversion H0.
-  Qed.
-(*
-  Lemma step_fun:
-    forall a b c,
-    Step a b ->
-    Step a c ->
-    b = c.
-  Proof.
-    intros (h, p).
-    generalize dependent h.
-    induction p; intros;
-    inversion H; inversion H0; subst; clear H H0; auto.
-    - assert (a0 = a) by eauto using M.a_step_fun.
-      subst.
-      reflexivity.
-    - assert (Hx: (s2, p3) = (s3, p6)) by eauto.
-      inversion Hx; subst; clear Hx.
-      reflexivity.
-    - inversion H5.
-    - inversion H9.
-    - assert (l0 = l) by eauto using r_step_fun.
-      subst.
-      reflexivity.
-    - inversion H9; subst; clear H9.
-      reflexivity.
-    - inversion H9.
-    - inversion H9.
-  Qed.
-*)
-(*
-  Lemma step_m_step_inv:
-    forall a b c,
-    Step a b ->
-    MStep a c ->
-    MStep b c \/ a = c.
-  Proof.
-    intros.
-    induction H0 using clos_refl_trans_ind_left.
-    + auto.
-    + destruct IHclos_refl_trans. {
-        left.
-        apply rt_trans with (y:=y); auto using rt_step.
-      }
-      subst.
-      assert (b = z) by eauto using step_fun.
-      subst.
-      left.
-      apply rt_refl.
-  Qed.
-*)
-(*
-  Theorem progress:
-    forall a,
-    Value a \/ exists b, Step a b.
-  Proof.
-    intros (h, p).
-    generalize dependent h.
-    induction p; intros.
-    - left; auto using value_def.
-    - eauto using step_sync.
-    - destruct M.progress with (e:=e) as (v, Hr).
-      eauto using step_acc.
-    - destruct (IHp1 h) as [Hv|(b, Hr)].
-      + inversion Hv; subst; clear Hv.
-        eauto using step_seq_skip.
-      + destruct b as (h2, p3).
-        eauto using step_seq_step.
-    - give_up.
-  Admitted. *)
-(*
-  Lemma reachable_exists:
-    forall a,
-    exists l, Reachable a l.
-  Proof.
-    intros.
-  Qed.
-*)
-  Definition SafeStep := fun (p:state*state) => let (x,y) := p in Step x y /\ Safe x /\ Safe y.
+  Definition step (s:state) := let (h, p) := s in step_iter h p.
 
-  Import Aniceto.Graphs.Graph.
-(*
-  Inductive SafePath : state -> state -> Prop :=
-  | safe_path_some:
-    forall a h,
-    Reaches SafeStep a (h, PSkip) ->
-    SafePath a (h, PSkip)
-  | safe_path_skip:
-    forall h,
-    H.Safe h ->
-    SafePath (h, PSkip) (h, PSkip).
-
-  Lemma safe_step_not_skip:
-    forall h x,
-    ~ SafeStep ((h, PSkip), x).
-  Proof.
-    intros.
-    intros N.
-    destruct N as (A, (B, C)).
-    inversion A.
-  Qed.
-
-  Lemma safe_path_to_h_safe:
-    forall h1 h2 p,
-    SafePath (h1, p) h2 ->
-    H.Safe h1.
-  Proof.
-    intros.
-    inversion H; subst; clear H.
-    - apply reaches_to_in_fst in H0.
-      destruct H0 as ((v1, v2), (Hi, Hj)).
-      inversion Hj; simpl in *; subst;
-        destruct Hi as (?, (?, ?));
-        auto.
-    - assumption.
-  Qed.
-*)*)
 End C1.
 End C1.
 
 Module Examples.
   Section Defs.
   Import C1.
-  (* BAD: *)
-  (* for x < n {
-       [tid + x] 
-     } *)
 
   Definition TID := variable 0.
 
   Definition TID_NUM := 2.
 
   Notation b_step := (BStep TID_NUM TID).
-  Notation step := (Step TID_NUM TID).
+
+  Infix "-->" := (Step TID_NUM TID) (at level 150).
+
+  (* Helper function *)
+  Fixpoint bstep fuel steps s :=
+  match fuel with
+  | 0 => (steps,s)
+  | S n =>
+    match step TID_NUM TID s with
+    | Some s => bstep n (S steps) s
+    | _ => (steps, s)
+    end
+  end.
+
+  Definition run steps s := bstep steps 0 s.
+
+
+  (* BAD: *)
+  (* for x < n {
+       [tid + x] 
+     } *)
 
   Let x := variable 1.
   Let i1 := Acc (add (NVar TID) (NVar x), BBool true).
   Definition BAD :=
     For x (NNum 0, NNum 2) i1.
 
-  Lemma step1 : step ([], BAD) ([], Loop x [0;1] i1).
-  Proof.
-    apply step_for.
-    apply r_step_def with (n1:=0) (n2:=2); auto using n_step_num.
-    apply range_list_cons; auto.
-    apply range_list_cons; auto.
-    apply range_list_nil; auto.
-  Qed.
 
-  Lemma step2 : step ([], Loop x [0;1] i1) ([], Seq (i_subst x 0 i1) (Loop x [1] i1)).
-  Proof.
-    apply step_loop_step.
-  Qed.
+  Goal run 8 ([], BAD) =
+    (8,
+       ([{| OneDim.tid := 1; OneDim.index := 2 |}; {| OneDim.tid := 0; OneDim.index := 1 |};
+         {| OneDim.tid := 1; OneDim.index := 1 |}; {| OneDim.tid := 0; OneDim.index := 0 |}], Skip)
+    ).
+  auto. Qed.
 
-  Lemma step3 : step ([], Seq (i_subst x 0 i1) (Loop x [1] i1)) ([], Seq Skip (Loop x [1] i1)).
-  Proof.
-    apply step_seq_step.
-    compute.
-    remember ((NBin NPlus (NVar (variable 0)) (NNum 0), BBool true)) as e.
-    Import OneDim.
-    remember {|tid:=1; index := 1|} as a1.
-    remember {|tid:=0; index := 0|} as a0.
-    assert (GenAccess TID e TID_NUM [[a0]; [a1]]). {
-      subst.
-      apply gen_access_succ.
-    }
-    apply step_acc.
-  Qed.
-
-(*
-  Goal BStep ([], BAD) ([], Skip).
-    apply big_step_reaches.
-    + apply Graph.reaches_def with (w:=[]).
-      - apply Graph.walk2_def.
-        * 
-*)
   (* GOOD: *)
   (*
     for x < n {
@@ -337,4 +200,11 @@ Module Examples.
       Acc (NVar x, NRel NEq (NVar TID) (NVar x))
     ).
 
+  Goal run 10 ([], GOOD) =
+    (8,
+    ([{| OneDim.tid := 1; OneDim.index := 1 |}; {| OneDim.tid := 0; OneDim.index := 0 |}], Skip))
+    .
+    compute.
+  auto. Qed.
+  End Defs.
 End Examples.
