@@ -181,7 +181,7 @@ Module C2.
   | Cond b i =>
     match b_step b with
     | Some true => Some (Leaf (h, i))
-    | Some false => Some (Leaf (h, Skip))
+    | Some false => Some Empty
     | _ => None
     end
   | Acc e =>
@@ -279,11 +279,14 @@ Module Compiler.
   Definition translate (c:C1.inst) : C2.inst :=
     C2.Decl T1 (NNum 0, NNum TID_COUNT) (
       C2.Decl T2 (NNum 0, NNum TID_COUNT) (
-        C2.Seq
-          (do_proj T1 c)
-          (do_proj T2 c)
+        C2.Cond (NRel NLt (NVar T1) (NVar T2)) (
+          C2.Seq
+            (do_proj T1 c)
+            (do_proj T2 c)
+        )
       )
     ).
+
 (*
   Theorem soudness:
     forall c,
@@ -309,12 +312,47 @@ Module Examples.
 
   Definition run steps s := bstep steps 0 s.
 
-  Definition GOOD :=
-    translate 2 (variable 0) (variable 2) (variable 3) Conc1.Examples.GOOD.
+  Definition HELLO1 n := Leaf ([],
+    Decl (variable 0) (NNum 0, NNum 2) (
+      Acc ((NVar (variable 0), BBool true), n)
+    )
+  ).
 
-  Compute GOOD.
+  Definition HELLO1_VAL t :=  Par (Leaf ([{| OneDim.tid := t; OneDim.index := 0 |}], Skip))
+         (Leaf ([{| OneDim.tid := t; OneDim.index := 1 |}], Skip)).
 
-  Compute run 300 (Leaf ([], GOOD)).
+  Goal snd (run 300 (HELLO1 (NNum 9))) = HELLO1_VAL 9.
+    auto.
+  Qed.
+
+  Definition HELLO2 := Leaf ([],
+    Decl (variable 1) (NNum 0, NNum 2) (
+    Decl (variable 0) (NNum 0, NNum 2) (
+      Acc ((NVar (variable 0), BBool true), (NVar (variable 1)))
+    )
+    )
+  ).
+  
+  Compute run 24 HELLO2.
+
+  Definition HELLO3 n := Leaf ([],
+    Seq (Decl (variable 0) (NNum 0, NNum 2) (
+      Acc ((NVar (variable 0), BBool true), n)
+    )) (Acc ((NNum 9, BBool true), NNum 9))
+  ).
+  
+  Compute run 23 (HELLO3 (NNum 3)).
+
+
+  Definition GOOD1 :=
+    translate 2 (variable 0) (variable 2) (variable 3) Conc1.Examples.GOOD1.
+
+  Compute run 200 (Leaf ([], GOOD1)).
+
+  Definition GOOD2 :=
+    translate 2 (variable 0) (variable 2) (variable 3) Conc1.Examples.GOOD2.
+
+  Compute run 90 (Leaf ([], GOOD2)).
 
   Definition BAD := 
     translate 2 (variable 0) (variable 2) (variable 3) Conc1.Examples.BAD.
