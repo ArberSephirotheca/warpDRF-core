@@ -47,16 +47,16 @@ Section C1.
   (** Parallelize an access for [n] tasks. *)
 
   Inductive GenAccess a: nat -> list (list access_val) -> Prop :=
-  | gen_access_zero:
+  | gen_access_nil:
     GenAccess a 0 []
-  | gen_access_succ:
+  | gen_access_cons:
     forall n v l,
     GenAccess a n l ->
     access_step (access_subst TID n a, NNum  n) v ->
     GenAccess a (S n) (v::l).
 
   Inductive Step: state -> state -> Prop :=
-  | step_acc:
+  | step_access:
     forall s e v,
     GenAccess e TID_COUNT v ->
     Step (s, Acc e) (List.flat_map id v ++ s, Skip)
@@ -139,6 +139,116 @@ Section C1.
     end.
 
   Definition step (s:state) := let (h, p) := s in step_iter h p.
+
+  Lemma gen_access_to_prop:
+    forall a n l,
+    gen_access a n = Some l ->
+    GenAccess a n l.
+  Proof.
+    induction n; simpl; intros. {
+      inversion H; subst; clear H.
+      apply gen_access_nil.
+    }
+    destruct (access_eval1 _) eqn:He. {
+      apply access_eval1_to_step in He.
+      destruct (gen_access a n) eqn:Hg. {
+        inversion H; subst; clear H.
+        auto using gen_access_cons.
+      }
+      inversion H.
+    }
+    inversion H.
+  Qed.
+
+  Lemma prop_to_gen_access:
+    forall a n l,
+    GenAccess a n l ->
+    gen_access a n = Some l.
+  Proof.
+    induction n; intros; simpl; inversion H; subst; clear H. {
+      reflexivity.
+    }
+    apply access_step_to_eval1 in H2.
+    rewrite H2.
+    apply IHn in H1.
+    rewrite H1.
+    reflexivity. 
+  Qed.
+
+  Lemma step_iter_to_prop:
+    forall p h s,
+    step_iter h p = Some s ->
+    Step (h, p) s.
+  Proof.
+    induction p; simpl; intros.
+    - inversion H.
+    - destruct (gen_access _ _) eqn:Hg; inversion H; subst; clear H.
+      apply gen_access_to_prop in Hg.
+      auto using step_access.
+    - destruct p1.
+      + inversion H; subst; clear H.
+        constructor; auto.
+      + destruct (step_iter _ _) eqn:He2; try (inversion H; fail).
+        destruct s0 as (h', s').
+        inversion H; subst; clear H.
+        constructor; auto.
+      + destruct (step_iter _ _) eqn:He2; try (inversion H; fail).
+        destruct s0 as (h', s').
+        inversion H; subst; clear H.
+        constructor; auto.
+      + destruct (step_iter _ _) eqn:He2; try (inversion H; fail).
+        destruct s0 as (h', s').
+        inversion H; subst; clear H.
+        constructor; auto.
+      + destruct (step_iter _ _) eqn:He2; try (inversion H; fail).
+        destruct s0 as (h', s').
+        inversion H; subst; clear H.
+        constructor; auto.
+    - destruct (r_step r) eqn:Hr; inversion H; subst; clear H.
+      apply r_step_to_prop in Hr.
+      constructor; auto.
+    - destruct l;
+      inversion H; subst; clear H;
+      constructor.
+  Qed.
+
+  Lemma prop_to_step_iter:
+    forall p h s,
+    Step (h, p) s ->
+    step_iter h p = Some s.
+  Proof.
+    induction p; intros; inversion H; subst; clear H; simpl; auto.
+    - apply prop_to_gen_access in H3.
+      rewrite H3.
+      reflexivity.
+    - apply IHp1 in H4.
+      destruct p1; try (inversion H4; fail); rewrite H4; reflexivity.
+    - apply prop_to_r_step in H5.
+      rewrite H5.
+      reflexivity.
+  Qed.
+
+  Lemma step_to_prop:
+    forall s1 s2,
+    step s1 = Some s2 ->
+    Step s1 s2.
+  Proof.
+    intros.
+    destruct s1 as (h, p).
+    simpl in *.
+    auto using step_iter_to_prop.
+  Qed.
+
+  Lemma prop_to_step:
+    forall s1 s2,
+    Step s1 s2 ->
+    step s1 = Some s2.
+  Proof.
+    intros.
+    destruct s1 as (h, p).
+    apply prop_to_step_iter.
+    auto.
+  Qed.
 
 End C1.
 End C1.
