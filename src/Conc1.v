@@ -194,17 +194,29 @@ Module Examples.
     }
    *)
 
-  Definition GOOD :=
+  Definition GOOD1 :=
     let x := variable 1 in
     For x (NNum 0, NNum 2) (
       Acc (NVar x, NRel NEq (NVar TID) (NVar x))
     ).
 
-  Goal run 10 ([], GOOD) =
+  Goal run 10 ([], GOOD1) =
     (8,
     ([{| OneDim.tid := 1; OneDim.index := 1 |}; {| OneDim.tid := 0; OneDim.index := 0 |}], Skip))
     .
     compute.
   auto. Qed.
+
+  Definition GOOD2 :=
+      Acc (NNum 9, BBool true).
+
+
+  Goal run 10 ([], GOOD2) =
+    (1,
+    ([{| OneDim.tid := 1; OneDim.index := 9 |}; {| OneDim.tid := 0; OneDim.index := 9 |}], Skip))
+    .
+    compute.
+  auto. Qed.
+
   End Defs.
 End Examples.
