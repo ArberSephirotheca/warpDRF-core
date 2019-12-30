@@ -52,6 +52,56 @@ Section Defs.
   Definition history := list access_val.
   Definition Safe (h:history) := forall x y, List.In x h -> List.In y h -> access_safe x y.
 
+  Inductive GenAccess x a: nat -> list (list access_val) -> Prop :=
+  | gen_access_nil:
+    GenAccess x a 0 []
+  | gen_access_cons:
+    forall n v l,
+    GenAccess x a n l ->
+    access_step (access_subst x n a, NNum  n) v ->
+    GenAccess x a (S n) (v::l).
+
+  Import Omega.
+
+  Lemma gen_access_lt:
+    forall x e n v,
+    GenAccess x e n v ->
+    forall m,
+    m < n ->
+    exists l, access_step (access_subst x m e, NNum m) l /\ List.In l v.
+  Proof.
+    intros x e n v Hg.
+    induction Hg; intros. {
+      inversion H; subst.
+    }
+    inversion H0; subst; clear H0. {
+      eauto using in_eq.
+    }
+    assert (Hx: m < n) by auto with *.
+    apply IHHg in Hx.
+    destruct Hx as (l', (Hs, Hi)).
+    eauto using in_cons.
+  Qed.
+
+  Lemma gen_access_in:
+    forall x e n v,
+    GenAccess x e n v ->
+    forall l,
+    List.In l v ->
+    exists m, access_step (access_subst x m e, NNum m) l /\ m < n.
+  Proof.
+    intros x e n v Hg.
+    induction Hg; intros. {
+      contradiction.
+    }
+    destruct H0; subst. {
+      eauto.
+    }
+    apply IHHg in H0.
+    destruct H0 as (m, (Hs, Hlt)).
+    eauto.
+  Qed.
+
   Lemma safe_in:
     forall h,
     Safe h ->
@@ -259,6 +309,208 @@ Section Defs.
     }
     simpl.
     destruct (Nat.eqb _ t2); reflexivity.
+  Qed.
+
+  Fixpoint gen_access x a n :=
+    let a_step n := access_eval1 (access_subst x n a, NNum n) in 
+    match n with
+    | 0 => Some []
+    | S n =>
+      match a_step n, gen_access x a n with
+      | Some v, Some l => Some (v :: l)
+      | _, _ => None
+      end
+    end.
+
+  Lemma gen_access_to_prop:
+    forall x a n l,
+    gen_access x a n = Some l ->
+    GenAccess x a n l.
+  Proof.
+    induction n; simpl; intros. {
+      inversion H; subst; clear H.
+      apply gen_access_nil.
+    }
+    destruct (access_eval1 _) eqn:He. {
+      apply access_eval1_to_step in He.
+      destruct (gen_access x a n) eqn:Hg. {
+        inversion H; subst; clear H.
+        auto using gen_access_cons.
+      }
+      inversion H.
+    }
+    inversion H.
+  Qed.
+
+  Lemma prop_to_gen_access:
+    forall x a n l,
+    GenAccess x a n l ->
+    gen_access x a n = Some l.
+  Proof.
+    induction n; intros; simpl; inversion H; subst; clear H. {
+      reflexivity.
+    }
+    apply access_step_to_eval1 in H2.
+    rewrite H2.
+    apply IHn in H1.
+    rewrite H1.
+    reflexivity. 
+  Qed.
+
+  Definition gen_access_item x a n :=
+    match access_eval1 (access_subst x n a, NNum n) with
+    | Some v => v
+    | None => []
+    end.
+
+  Definition gen_access_iter x a n := List.flat_map (gen_access_item x a) (count n).
+
+  Lemma gen_access_iter_rw:
+    forall x a n l,
+    GenAccess x a n l ->
+    gen_access_iter x a n = flat_map id l.
+  Proof.
+    intros x a n l Hg.
+    unfold gen_access_iter, gen_access_item; induction Hg. {
+      reflexivity.
+    }
+    simpl.
+    rewrite IHHg.
+    apply access_step_to_eval1 in H.
+    rewrite H.
+    reflexivity.
+  Qed.
+
+  Lemma gen_access_proj2_1:
+    forall x n a v n1 n2,
+    GenAccess x a n v ->
+    n1 >= n ->
+    n2 >= n ->
+    proj2 n1 n2 (flat_map id v) = [].
+  Proof.
+    induction n; intros. {
+      inversion H; subst; clear H.
+      reflexivity.
+    }
+    inversion H; subst; clear H.
+    simpl.
+    rewrite proj2_app.
+    assert (R: proj2 n1 n2 (id v0) = []). {
+      eapply proj2_neq; eauto with *.
+    }
+    rewrite R; clear R.
+    simpl.
+    eapply IHn; eauto with *.
+  Qed.
+
+  Lemma gen_access_proj2_2:
+    forall x n a v,
+    GenAccess x a n v ->
+    forall t1 t2,
+    t1 < n ->
+    t2 >= n ->
+    proj2 t1 t2 (flat_map id v) = gen_access_item x a t1.
+  Proof.
+    induction n; intros. {
+      omega.
+    }
+    inversion H; subst; clear H.
+    simpl.
+    rewrite proj2_app.
+    assert (R: id v0 = v0) by auto; rewrite R; clear R.
+    inversion H0; subst; clear H0. {
+      (* t1 = 0 /\ n = 1 *)
+      erewrite proj2_id_l; eauto.
+      assert (R: proj2 n t2 (flat_map id l) = []). {
+        erewrite gen_access_proj2_1; eauto.
+        omega.
+      }
+      rewrite R.
+      unfold gen_access_item.
+      apply access_step_to_eval1 in H4.
+      rewrite H4.
+      rewrite app_nil_r.
+      reflexivity.
+    }
+    apply IHn with (t1:=t1) (t2:= t2) in H3; auto with *.
+    rewrite H3.
+    assert (R: proj2 t1 t2 v0 = []). {
+      eapply proj2_neq; eauto with *.
+    }
+    rewrite R.
+    auto.
+  Qed.
+
+  Lemma gen_access_proj_3:
+    forall x n a v,
+    GenAccess x a n v ->
+    forall t1 t2,
+    t1 < n ->
+    t2 < n ->
+    t1 < t2 ->
+    proj2 t1 t2 (flat_map id v) = gen_access_item x a t2 ++ gen_access_item x a t1.
+  Proof.
+    induction n; intros; inversion H; subst; clear H. {
+      inversion H0.
+    }
+    simpl.
+    rewrite proj2_app.
+    assert (R: id v0 = v0) by auto; rewrite R; clear R.
+    inversion H0; subst; clear H0. {
+      (* t1 = n *)
+      inversion H1; subst; clear H1. {
+        (* t2 = n *)
+        omega.
+      }
+      (* t2 < n *)
+      omega.
+    }
+    assert (t1 < n) by auto.
+    inversion H1; subst; clear H1. {
+      (* t2 = n *)
+      assert (R: proj2 t1 n (flat_map id l) = gen_access_item x a t1). {
+        eapply gen_access_proj2_2; eauto.
+      }
+      rewrite R; clear R.
+      erewrite proj2_id_r; eauto.
+      assert (R: gen_access_item x a n = v0). { 
+        unfold gen_access_item.
+        apply access_step_to_eval1 in H5.
+        rewrite H5.
+        reflexivity.
+      }
+      rewrite R.
+      reflexivity.
+    }
+    assert (R: proj2 t1 t2 v0 = []). {
+      eapply proj2_neq; eauto with *.
+    }
+    rewrite R.
+    simpl.
+    eauto.
+  Qed.
+
+  Lemma gen_access_proj2:
+    forall x n a v,
+    GenAccess x a n v ->
+    forall t1 t2,
+    t1 < n ->
+    t2 < n ->
+    t1 <> t2 ->
+    (t1 < t2 /\ proj2 t1 t2 (flat_map id v) = gen_access_item x a t2 ++ gen_access_item x a t1)
+    \/
+    (t2 < t1 /\ proj2 t1 t2 (flat_map id v) = gen_access_item x a t1 ++ gen_access_item x a t2)
+    .
+  Proof.
+    intros.
+    apply nat_total_order in H2.
+    destruct H2. {
+      left; intuition.
+      eauto using gen_access_proj_3.
+    }
+    right; intuition.
+    rewrite proj2_symm.
+    eapply gen_access_proj_3; eauto.
   Qed.
 End Defs.
 End Hist.

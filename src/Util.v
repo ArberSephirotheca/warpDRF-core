@@ -4,6 +4,14 @@ Require Import Coq.Relations.Relation_Operators.
 Require Import Coq.Relations.Operators_Properties.
 Require Import Aniceto.Graphs.Graph.
 
+Import ListNotations.
+
+  Fixpoint count n :=
+  match n with
+  | 0 => []
+  | S n => n :: count n
+  end.
+
 Section filter.
   Lemma filter_app:
     forall {A:Type} f (l1:list A) l2,

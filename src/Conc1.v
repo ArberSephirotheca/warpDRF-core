@@ -48,19 +48,10 @@ Section C1.
 
   (** Parallelize an access for [n] tasks. *)
 
-  Inductive GenAccess a: nat -> list (list access_val) -> Prop :=
-  | gen_access_nil:
-    GenAccess a 0 []
-  | gen_access_cons:
-    forall n v l,
-    GenAccess a n l ->
-    access_step (access_subst TID n a, NNum  n) v ->
-    GenAccess a (S n) (v::l).
-
   Inductive Step: state -> state -> Prop :=
   | step_access:
     forall s e v,
-    GenAccess e TID_COUNT v ->
+    GenAccess TID e TID_COUNT v ->
     Step (s, Acc e) (List.flat_map id v ++ s, Skip)
   | step_seq_step:
     forall s1 s2 p1 p2 p3,
@@ -106,47 +97,6 @@ Section C1.
 
   Definition BStep := BigStep _ Step Value.
 
-  Lemma gen_access_lt:
-    forall e n v,
-    GenAccess e n v ->
-    forall m,
-    m < n ->
-    exists l, access_step (access_subst TID m e, NNum m) l /\ List.In l v.
-  Proof.
-    intros e n v Hg.
-    induction Hg; intros. {
-      inversion H.
-    }
-    inversion H0; subst; clear H0. {
-      exists v.
-      auto using in_eq.
-    }
-    assert (Hx: m < n) by auto with *.
-    apply IHHg in Hx.
-    destruct Hx as (l', (Hs, Hi)).
-    eauto using in_cons.
-  Qed.
-
-  Lemma gen_access_in:
-    forall e n v,
-    GenAccess e n v ->
-    forall l,
-    List.In l v ->
-    exists m, access_step (access_subst TID m e, NNum m) l /\ m < n.
-  Proof.
-    intros e n v Hg.
-    induction Hg; intros. {
-      contradiction.
-    }
-    destruct H0; subst. {
-      eauto.
-    }
-    apply IHHg in H0.
-    destruct H0 as (m, (Hs, Hlt)).
-    eauto.
-  Qed.
-
-
   Section Step2.
     Inductive Step2 (tid1 tid2:nat): state -> state -> Prop :=
     | step2_access_1:
@@ -182,22 +132,10 @@ Section C1.
   Definition proj2 t1 t2 (s:state) := let (h, p) := s in (Hist.proj2 t1 t2 h, p).
   End Step2.
 
-
-  Fixpoint gen_access a n :=
-    let a_step n := access_eval1 (access_subst TID n a, NNum n) in 
-    match n with
-    | 0 => Some []
-    | S n =>
-      match a_step n, gen_access a n with
-      | Some v, Some l => Some (v :: l)
-      | _, _ => None
-      end
-    end.
-
   Fixpoint step_iter h p : option state :=
     match p with
     | Acc e =>
-      match gen_access e TID_COUNT with
+      match gen_access TID e TID_COUNT with
       | Some l => Some (List.flat_map id l ++ h, Skip) 
       | None => None
       end
@@ -219,204 +157,6 @@ Section C1.
 
   Definition step (s:state) := let (h, p) := s in step_iter h p.
 
-  Lemma gen_access_to_prop:
-    forall a n l,
-    gen_access a n = Some l ->
-    GenAccess a n l.
-  Proof.
-    induction n; simpl; intros. {
-      inversion H; subst; clear H.
-      apply gen_access_nil.
-    }
-    destruct (access_eval1 _) eqn:He. {
-      apply access_eval1_to_step in He.
-      destruct (gen_access a n) eqn:Hg. {
-        inversion H; subst; clear H.
-        auto using gen_access_cons.
-      }
-      inversion H.
-    }
-    inversion H.
-  Qed.
-
-  Lemma prop_to_gen_access:
-    forall a n l,
-    GenAccess a n l ->
-    gen_access a n = Some l.
-  Proof.
-    induction n; intros; simpl; inversion H; subst; clear H. {
-      reflexivity.
-    }
-    apply access_step_to_eval1 in H2.
-    rewrite H2.
-    apply IHn in H1.
-    rewrite H1.
-    reflexivity. 
-  Qed.
-
-  Fixpoint count n :=
-  match n with
-  | 0 => []
-  | S n => n :: count n
-  end.
-
-  Definition gen_access_item a n :=
-    match access_eval1 (access_subst TID n a, NNum n) with
-    | Some v => v
-    | None => []
-    end.
-
-  Definition gen_access_iter a n := List.flat_map (gen_access_item a) (count n).
-
-  Lemma gen_access_iter_rw:
-    forall a n l,
-    GenAccess a n l ->
-    gen_access_iter a n = flat_map id l.
-  Proof.
-    intros a n l Hg.
-    unfold gen_access_iter, gen_access_item; induction Hg. {
-      reflexivity.
-    }
-    simpl.
-    rewrite IHHg.
-    apply access_step_to_eval1 in H.
-    rewrite H.
-    reflexivity.
-  Qed.
-  Import Omega.
-
-  Lemma gen_access_proj2_1:
-    forall n a v n1 n2,
-    GenAccess a n v ->
-    n1 >= n ->
-    n2 >= n ->
-    Hist.proj2 n1 n2 (flat_map id v) = [].
-  Proof.
-    induction n; intros. {
-      inversion H; subst; clear H.
-      reflexivity.
-    }
-    inversion H; subst; clear H.
-    simpl.
-    rewrite Hist.proj2_app.
-    assert (R: Hist.proj2 n1 n2 (id v0) = []). {
-      eapply proj2_neq; eauto with *.
-    }
-    rewrite R; clear R.
-    simpl.
-    eapply IHn; eauto with *.
-  Qed.
-
-  Lemma gen_access_proj2_2:
-    forall n a v,
-    GenAccess a n v ->
-    forall t1 t2,
-    t1 < n ->
-    t2 >= n ->
-    Hist.proj2 t1 t2 (flat_map id v) = gen_access_item a t1.
-  Proof.
-    induction n; intros. {
-      omega.
-    }
-    inversion H; subst; clear H.
-    simpl.
-    rewrite Hist.proj2_app.
-    assert (R: id v0 = v0) by auto; rewrite R; clear R.
-    inversion H0; subst; clear H0. {
-      (* t1 = 0 /\ n = 1 *)
-      erewrite proj2_id_l; eauto.
-      assert (R: Hist.proj2 n t2 (flat_map id l) = []). {
-        erewrite gen_access_proj2_1; eauto.
-        omega.
-      }
-      rewrite R.
-      unfold gen_access_item.
-      apply access_step_to_eval1 in H4.
-      rewrite H4.
-      rewrite app_nil_r.
-      reflexivity.
-    }
-    apply IHn with (t1:=t1) (t2:= t2) in H3; auto with *.
-    rewrite H3.
-    assert (R: Hist.proj2 t1 t2 v0 = []). {
-      eapply proj2_neq; eauto with *.
-    }
-    rewrite R.
-    auto.
-  Qed.
-
-  Lemma gen_access_proj_3:
-    forall n a v,
-    GenAccess a n v ->
-    forall t1 t2,
-    t1 < n ->
-    t2 < n ->
-    t1 < t2 ->
-    Hist.proj2 t1 t2 (flat_map id v) = gen_access_item a t2 ++ gen_access_item a t1.
-  Proof.
-    induction n; intros; inversion H; subst; clear H. {
-      inversion H0.
-    }
-    simpl.
-    rewrite Hist.proj2_app.
-    assert (R: id v0 = v0) by auto; rewrite R; clear R.
-    inversion H0; subst; clear H0. {
-      (* t1 = n *)
-      inversion H1; subst; clear H1. {
-        (* t2 = n *)
-        omega.
-      }
-      (* t2 < n *)
-      omega.
-    }
-    assert (t1 < n) by auto.
-    inversion H1; subst; clear H1. {
-      (* t2 = n *)
-      assert (R: Hist.proj2 t1 n (flat_map id l) = gen_access_item a t1). {
-        eapply gen_access_proj2_2; eauto.
-      }
-      rewrite R; clear R.
-      erewrite proj2_id_r; eauto.
-      assert (R: gen_access_item a n = v0). { 
-        unfold gen_access_item.
-        apply access_step_to_eval1 in H5.
-        rewrite H5.
-        reflexivity.
-      }
-      rewrite R.
-      reflexivity.
-    }
-    assert (R: Hist.proj2 t1 t2 v0 = []). {
-      eapply proj2_neq; eauto with *.
-    }
-    rewrite R.
-    simpl.
-    eauto.
-  Qed.
-
-  Lemma gen_access_proj2:
-    forall n a v,
-    GenAccess a n v ->
-    forall t1 t2,
-    t1 < n ->
-    t2 < n ->
-    t1 <> t2 ->
-    (t1 < t2 /\ Hist.proj2 t1 t2 (flat_map id v) = gen_access_item a t2 ++ gen_access_item a t1)
-    \/
-    (t2 < t1 /\ Hist.proj2 t1 t2 (flat_map id v) = gen_access_item a t1 ++ gen_access_item a t2)
-    .
-  Proof.
-    intros.
-    apply nat_total_order in H2.
-    destruct H2. {
-      left; intuition.
-      eauto using gen_access_proj_3.
-    }
-    right; intuition.
-    rewrite Hist.proj2_symm.
-    eapply gen_access_proj_3; eauto.
-  Qed.
-
   Lemma step2_proj2:
     forall s1 s2,
     Step s1 s2 ->
@@ -434,16 +174,16 @@ Section C1.
     destruct H0 as (l1, (Hs1, Hi1)).
     destruct H1 as (l2, (Hs2, Hi2)).
     rewrite Hist.proj2_app.
-    edestruct gen_access_proj2 with (t1:=t1) (t2:=t2) as [(Ha,Hb)|(Ha,Hb)]; eauto. {
+    destruct (Hist.gen_access_proj2 _ _ _ _ H t1 t2) as [(Ha,Hb)|(Ha,Hb)]; eauto. {
       rewrite Hb.
       rewrite <- app_assoc.
-      assert (R2: gen_access_item e t2 = l2). {
+      assert (R2: gen_access_item TID e t2 = l2). {
         unfold gen_access_item in *.
         apply access_step_to_eval1 in Hs2.
         rewrite Hs2 in *.
         reflexivity.
       }
-      assert (R1: gen_access_item e t1 = l1). {
+      assert (R1: gen_access_item TID e t1 = l1). {
         unfold gen_access_item in *.
         apply access_step_to_eval1 in Hs1.
         rewrite Hs1 in *.
@@ -454,13 +194,13 @@ Section C1.
     }
     rewrite Hb.
     rewrite <- app_assoc.
-    assert (R2: gen_access_item e t2 = l2). {
+    assert (R2: gen_access_item TID e t2 = l2). {
       unfold gen_access_item in *.
       apply access_step_to_eval1 in Hs2.
       rewrite Hs2 in *.
       reflexivity.
     }
-    assert (R1: gen_access_item e t1 = l1). {
+    assert (R1: gen_access_item TID e t1 = l1). {
       unfold gen_access_item in *.
       apply access_step_to_eval1 in Hs1.
       rewrite Hs1 in *.
@@ -469,7 +209,6 @@ Section C1.
     rewrite R1. rewrite R2.
     apply step2_access_1; auto.
   Qed.
-
 
   Lemma step_iter_to_prop:
     forall p h s,
