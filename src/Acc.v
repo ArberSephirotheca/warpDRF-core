@@ -10,35 +10,8 @@ Require Import Var.
 Require Import Tid.
 Require Import Loc.
 Require Import Exp.
+Require Import Util.
 Import ListNotations.
-
-
-Module Type ACC.
-  Parameter E: Type.
-  Parameter A: Type.
-  Parameter subst: var -> nat -> E -> E.
-  (* Prefix the access expression with an index. *)
-(*  Parameter e_prefix_index: nexp -> E -> E.
-  Parameter a_prefix_index: nat -> A -> A.
-  *)
-  Parameter AStep: (E * nexp) -> list A -> Prop.
-  Parameter Safe: A -> A -> Prop.
-  Axiom a_step_fun:
-    forall e l1 l2,
-    AStep e l1 ->
-    AStep e l2 ->
-    l1 = l2.
-    (*
-  Axiom safe_annotate:
-    forall a1 a2 n,
-    Safe a1 a2 <-> Safe (a_prefix_index n a1) (a_prefix_index n a2).
-  *)
-  (*
-  Axiom progress:
-    forall e,
-    exists v, AStep e v.
-  *) 
-End ACC.
 
 Class Access := {
   access_exp: Type;
@@ -47,6 +20,11 @@ Class Access := {
   access_step: (access_exp * nexp) -> list access_val -> Prop;
   access_eval1: (access_exp * nexp) -> option (list access_val);
   access_safe: access_val -> access_val -> Prop;
+  access_tid: access_val -> nat;
+  access_safe_eq_tid:
+    forall v1 v2,
+    access_tid v1 = access_tid v2 ->
+    access_safe v1 v2;
   access_step_fun:
     forall e l1 l2,
     access_step e l1 ->
@@ -60,6 +38,12 @@ Class Access := {
     forall e l,
     access_step e l ->
     access_eval1 e = Some l;
+
+  access_step_inv_tid:
+    forall e en n l,
+    access_step (e, en) l ->
+    NStep en n -> 
+    Forall (fun a=> access_tid a = n) l;
 }.
 
 Module Hist.
@@ -68,12 +52,213 @@ Section Defs.
   Definition history := list access_val.
   Definition Safe (h:history) := forall x y, List.In x h -> List.In y h -> access_safe x y.
 
+  Lemma safe_in:
+    forall h,
+    Safe h ->
+    forall x y,
+    List.In x h ->
+    List.In y h ->
+    access_safe x y.
+  Proof.
+    auto.
+  Qed.
+
   Lemma safe_nil:
     Safe (@nil access_val).
   Proof.
     unfold Safe.
     intros.
     contradiction.
+  Qed.
+
+  Definition Proj h1 tid1 tid2 h2 :=
+    (forall a,
+      List.In a h1 ->
+      (access_tid a = tid1 \/ access_tid a = tid2) ->
+      List.In a h2) /\ incl h2 h1.
+
+  Lemma proj_to_incl:
+    forall h1 tid1 tid2 h2,
+    Proj h1 tid1 tid2 h2 ->
+    incl h2 h1.
+  Proof.
+    intros.
+    destruct H.
+    intuition.
+  Qed.
+
+  Lemma proj_in_l:
+    forall h1 tid1 tid2 h2,
+    Proj h1 tid1 tid2 h2 ->
+    forall a,
+    List.In a h1 ->
+    access_tid a = tid1 ->
+    List.In a h2.
+  Proof.
+    intros.
+    destruct H as (H,_).
+    apply H; intuition.
+  Qed.
+
+  Lemma proj_in_r:
+    forall h1 tid1 tid2 h2,
+    Proj h1 tid1 tid2 h2 ->
+    forall a,
+    List.In a h1 ->
+    access_tid a = tid2 ->
+    List.In a h2.
+  Proof.
+    intros.
+    destruct H as (H,_).
+    apply H; intuition.
+  Qed.
+
+  Lemma proj_to_safe:
+    forall f h,
+    (forall tid1 tid2, Proj h tid1 tid2 (f tid1 tid2 h) /\
+    Safe (f tid1 tid2 h)) ->
+    Safe h.
+  Proof.
+    intros.
+    unfold Safe.
+    intros.
+    assert (H := H (access_tid x) (access_tid y)).
+    destruct H as (Hp, Hs).
+    assert (In x (f (access_tid x) (access_tid y) h)) by eauto using proj_in_l.
+    assert (In y (f (access_tid x) (access_tid y) h)) by eauto using proj_in_r.
+    eauto using safe_in.
+  Qed.
+
+  Definition proj2 t1 t2 := List.filter
+    (fun a => orb
+      (Nat.eqb (access_tid a) t1)
+      (Nat.eqb (access_tid a) t2)).
+
+  Lemma or_to_orb:
+    forall a b,
+    a = true \/ b = true ->
+    (a || b)%bool = true.
+  Proof.
+    intros.
+    destruct H as [H|H]; rewrite H.
+    - reflexivity.
+    - apply Bool.orb_true_r.
+  Qed.
+
+  Lemma proj2_proj:
+    forall h tid1 tid2,
+    Proj h tid1 tid2 (proj2 tid1 tid2 h).
+  Proof.
+    unfold Proj, proj2; intros.
+    split.
+    - intros.
+      apply filter_In.
+      split; auto.
+      apply or_to_orb; destruct H0 as [H0|H0];
+        apply PeanoNat.Nat.eqb_eq in H0; intuition.
+    - auto using List.filter_incl.
+  Qed.
+
+  Lemma proj2_to_safe:
+    forall h,
+    (forall tid1 tid2, Safe (proj2 tid1 tid2 h)) ->
+    Safe h.
+  Proof.
+    intros.
+    apply proj_to_safe with (f:=proj2); intros.
+    split; auto using proj2_proj.
+  Qed.
+
+  Lemma proj2_app:
+    forall tid1 tid2 h1 h2,
+    proj2 tid1 tid2 (h1 ++ h2) = proj2 tid1 tid2 h1 ++ proj2 tid1 tid2 h2.
+  Proof.
+    intros.
+    unfold proj2.
+    rewrite filter_app.
+    reflexivity.
+  Qed.
+
+  Lemma proj2_id_l:
+    forall x n m a l,
+    access_step (access_subst x n a, NNum n) l ->
+    proj2 n m l = l.
+  Proof.
+    unfold proj2.
+    intros.
+    rewrite List.filter_forallb.
+    rewrite forallb_forall.
+    intros v; intros.
+    apply access_step_inv_tid with (n0:=n) in H; auto using n_step_num.
+    rewrite Forall_forall in H.
+    apply H in H0.
+    rewrite H0.
+    rewrite PeanoNat.Nat.eqb_refl.
+    auto.
+  Qed.
+
+  Lemma proj2_id_r:
+    forall x n m a l,
+    access_step (access_subst x m a, NNum m) l ->
+    proj2 n m l = l.
+  Proof.
+    unfold proj2.
+    intros.
+    rewrite List.filter_forallb.
+    rewrite forallb_forall.
+    intros v; intros.
+    apply access_step_inv_tid with (n0:=m) in H; auto using n_step_num.
+    rewrite Forall_forall in H.
+    apply H in H0.
+    rewrite H0.
+    rewrite PeanoNat.Nat.eqb_refl.
+    rewrite Bool.orb_true_r.
+    reflexivity.
+  Qed.
+
+  Lemma proj2_neq:
+    forall x n m p a l,
+    access_step (access_subst x p a, NNum p) l ->
+    p <> n ->
+    p <> m ->
+    proj2 n m l = [].
+  Proof.
+    intros.
+    unfold proj2.
+    rewrite List.filter_forallb_false.
+    rewrite forallb_forall.
+    intros v Hi.
+    rewrite Bool.negb_orb.
+    assert (R: access_tid v = p). {
+      apply access_step_inv_tid with (n0 := p) in H; auto using n_step_num.
+      rewrite Forall_forall in *.
+      apply H in Hi.
+      assumption.
+    }
+    rewrite R.
+    apply PeanoNat.Nat.eqb_neq in H0.
+    apply PeanoNat.Nat.eqb_neq in H1.
+    rewrite H0.
+    rewrite H1.
+    reflexivity.
+  Qed.
+
+  Lemma proj2_symm:
+    forall t1 t2 l,
+    proj2 t1 t2 l = proj2 t2 t1 l.
+  Proof.
+    unfold proj2; induction l; intros. {
+      reflexivity.
+    }
+    simpl.
+    rewrite IHl.
+    destruct (Nat.eqb _ t1). {
+      simpl.
+      rewrite Bool.orb_true_r.
+      reflexivity.
+    }
+    simpl.
+    destruct (Nat.eqb _ t2); reflexivity.
   Qed.
 End Defs.
 End Hist.
@@ -161,7 +346,7 @@ Module OneDim.
   Qed.
 
   Definition Safe (a1 a2:A) :=
-    tid a1 <> tid a2 /\ index a1 = index a2.
+    tid a1 = tid a2 \/ (tid a1 <> tid a2 /\ index a1 = index a2).
 
   Lemma a_step_fun:
     forall e v1 v2,
@@ -183,6 +368,37 @@ Module OneDim.
     - reflexivity.
   Qed.
 
+  Lemma safe_eq_tid:
+    forall v1 v2,
+    tid v1 = tid v2 -> 
+    Safe v1 v2.
+  Proof.
+    intros.
+    destruct v1 as (n1, n2);
+    destruct v2 as (n3, n4).
+    simpl in *; subst.
+    unfold Safe.
+    intuition.
+  Qed.
+
+  Lemma access_step_inv_tid:
+    forall e en n (l:list A),
+    AStep (e, en) l ->
+    NStep en n -> 
+    Forall (fun a=> tid a = n) l.
+  Proof.
+    intros.
+    rewrite Forall_forall; intros.
+    inversion H; subst; clear H. {
+      destruct H1; subst. {
+        assert (nt = n) by eauto using n_step_fun.
+        simpl.
+        assumption.
+      }
+      contradiction.
+    }
+    contradiction.
+  Qed.
 End OneDim.
 
 Instance ONE_DIM : Access := {|
@@ -193,6 +409,9 @@ Instance ONE_DIM : Access := {|
   access_eval1 := OneDim.a_step;
   access_eval1_to_step := OneDim.a_step_to_prop;
   access_step_to_eval1 := OneDim.prop_to_a_step;
+  access_tid := OneDim.tid;
+  access_safe_eq_tid := OneDim.safe_eq_tid;
+  access_step_inv_tid := OneDim.access_step_inv_tid;
 |}.
 
 

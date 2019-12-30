@@ -4,6 +4,18 @@ Require Import Coq.Relations.Relation_Operators.
 Require Import Coq.Relations.Operators_Properties.
 Require Import Aniceto.Graphs.Graph.
 
+Section filter.
+  Lemma filter_app:
+    forall {A:Type} f (l1:list A) l2,
+    filter f (l1 ++ l2) = filter f l1 ++ filter f l2.
+  Proof.
+    induction l1; simpl; intros. {
+      reflexivity.
+    }
+    destruct (f a); simpl; rewrite IHl1; reflexivity.
+  Qed.
+End filter.
+
 Section clos_trans_refl.
   Lemma clos_refl_trans_to_clos_trans:
     forall (A:Type) (R:relation A) x y,
