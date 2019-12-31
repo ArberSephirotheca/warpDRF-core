@@ -27,7 +27,8 @@ Module C2.
   | Acc: access_exp * nexp -> inst
   | Seq : inst -> inst -> inst
   | Decl : var -> range -> inst -> inst
-  | Branch : var -> list nat -> inst -> inst.
+  | Branch : var -> list nat -> inst -> inst
+  | Asgn : var -> nexp -> inst -> inst.
 
   Fixpoint i_subst x v i :=
   match i with
@@ -37,29 +38,12 @@ Module C2.
   | Seq i1 i2 => Seq (i_subst x v i1) (i_subst x v i2)
   | Decl y r i2 => if VAR.eq_dec x y then i else (Decl y (r_subst x v r) (i_subst x v i2)) 
   | Branch y r i2 => if VAR.eq_dec x y then i else (Branch x r (i_subst x v i2)) 
+  | Asgn y n i2 => if VAR.eq_dec x y then i else (Asgn y (n_subst x v n) (i_subst x v i2)) 
   end.
 
   Notation history := Hist.history.
 
   Definition state1 := (history * inst) % type.
-
-  Inductive Step1: state1 -> state1 -> Prop :=
-  | step_cond_true:
-    forall b s i,
-    BStep b true ->
-    Step1 (s, (Cond b i)) (s, i)
-  | step_cond_false:
-    forall b s i,
-    BStep b false ->
-    Step1 (s, (Cond b i)) (s, Skip)
-  | step_acc:
-    forall s e v,
-    access_step e v ->
-    Step1 (s, Acc e) (v ++ s, Skip)
-  | step_decl:
-    forall x r p l s,
-    RStep r l ->
-    Step1 (s, Decl x r p) (s, Branch x l p).
 
   Inductive state :=
   | Empty: state
@@ -67,19 +51,43 @@ Module C2.
   | Par: state -> state -> state
   | Join: state -> inst -> state.
 
+  Definition is_par p :=
+  match p with
+  | Par _ _ => true
+  | _ => false
+  end.
+
+  Definition is_par_l_leaf s :=
+   match s with
+   | Par (Leaf (_, Skip)) _ => true
+   | _ => false
+   end.
+
   Inductive Step: state -> state -> Prop :=
   (* Leaf reduction *)
-  | step_leaf:
-    (*
+  | step_asgn:
+    forall x e i h n,
+    NStep e n ->
+    Step (Leaf (h, Asgn x e i)) (Leaf (h, (i_subst x n i)))
+  | step_decl:
+    forall x r p l h,
+    RStep r l ->
+    Step (Leaf (h, Decl x r p)) (Leaf (h, Branch x l p))
+  | step_acc:
+    forall h e v,
+    access_step e v ->
+    Step (Leaf (h, Acc e)) (Leaf (v ++ h, Skip))
 
-      s1 --> s2
-      ---------
-      s1 ==> s2
+  | step_cond_true:
+    forall b s i,
+    BStep b true ->
+    Step (Leaf (s, (Cond b i))) (Leaf (s, i))
 
-     *)
-    forall s1 s2,
-    Step1 s1 s2 ->
-    Step (Leaf s1) (Leaf s2)
+  | step_cond_false:
+    forall b s i,
+    BStep b false ->
+    Step (Leaf (s, (Cond b i))) Empty
+
   | step_seq:
     (*
 
@@ -88,6 +96,7 @@ Module C2.
      *)
     forall h i1 i2,
     Step (Leaf (h, Seq i1 i2)) (Join (Leaf (h, i1)) i2)
+
   (* Par reduction *)
   | step_par_l:
     (*
@@ -98,9 +107,10 @@ Module C2.
 
      *)
     forall s1 s2 s3,
+    is_par s1 = false ->
     Step s1 s2 -> 
     Step (Par s1 s3) (Par s2 s3)
-  | step_par_empty_l:
+  | step_par_empty:
     (*
 
       {} || s ==> s
@@ -108,14 +118,6 @@ Module C2.
      *)
     forall s,
     Step (Par Empty s) s
-  | step_par_empty_r:
-    (*
-
-      s || {} ==> s
-
-     *)
-    forall s,
-    Step (Par s Empty) s
   | step_par_r:
     (*
 
@@ -127,6 +129,11 @@ Module C2.
     forall h s1 s2,
     Step s1 s2 ->
     Step (Par (Leaf (h, Skip)) s1) (Par (Leaf (h, Skip)) s2)
+
+  | step_par_par:
+    forall s1 s2 s3,
+    Step (Par (Par s1 s2) s3) (Par s1 (Par s2 s3))
+
   (* Join reduction *)
   | step_join_leaf:
     (*
@@ -154,7 +161,11 @@ Module C2.
      *)
     forall s1 s2 i,
     Step s1 s2 ->
+    is_par_l_leaf s1 = false ->
     Step (Join s1 i) (Join s2 i)
+  | step_join_empty:
+    forall i,
+    Step (Join Empty i) Empty
   (* Branch reduction *)
   | step_branch_nil:
     (*
@@ -175,65 +186,233 @@ Module C2.
       (Leaf (h, Branch x (n::l) p))
       (Par (Leaf (h, i_subst x n p)) (Leaf (h, Branch x l p))).
 
-  Definition step1 (s:state1) :=
-  let (h, p) := s in
-  match p with
-  | Cond b i =>
-    match b_step b with
-    | Some true => Some (Leaf (h, i))
-    | Some false => Some Empty
-    | _ => None
-    end
-  | Acc e =>
-    match access_eval1 e with
-    | Some v => Some (Leaf (v ++ h, Skip))
-    | None => None
-    end
-  | Decl x r p =>
-    match r_step r with
-    | Some l => Some (Leaf (h, Branch x l p))
-    | _ => None
-    end 
-  | _ => None
-  end.
-
-  Fixpoint step (s:state) : option state :=
-  match s with
-  | Leaf (h, p) =>
-    match p with
-    | Cond _ _ | Acc _ | Decl _ _ _ => step1 (h, p)
-    | Seq i1 i2 => Some (Join (Leaf (h, i1)) i2)
-    | Branch x (n::l) p => Some (Par (Leaf (h, i_subst x n p)) (Leaf (h, Branch x l p)))
-    | Branch _ [] _ => Some Empty 
-    | Skip => None 
-    end
-  | Par s1 s2 =>
+  Definition red_par f s1 s2 :=
     match s1, s2 with
-    | Empty, s | s, Empty => Some s
-    | Leaf (_, Skip), Leaf (_, Skip) => None
+    | Empty, s => Some s
+    | Par s1' s2', _ => Some (Par s1' (Par s2' s2))
     | Leaf (_, Skip), _ =>
-      match step s2 with
+      match f s2 with
       | Some s2 => Some (Par s1 s2)
       | None => None
       end
-    | Par (Leaf s1) s2, s3 => Some (Par (Leaf s1) (Par s2 s3))
     | _, _ =>
-      match step s1 with
+      match f s1 with
       | Some s1 => Some (Par s1 s2)
       | None => None
       end
-    end
-  | Join s i =>
+    end.
+
+  Inductive RedPar f: state -> state -> state -> Prop :=
+  | red_par_1:
+    forall s,
+    RedPar f Empty s s
+  | red_par_2:
+    forall h s1 s2,
+    f s1 = Some s2 ->
+    RedPar f (Leaf (h, Skip)) s1 (Par (Leaf (h, Skip)) s2)
+  | red_par_3:
+    forall s1 s2 s3,
+    RedPar f (Par s1 s2) s3 (Par s1 (Par s2 s3))
+  | red_par_4:
+    forall s1 s2 s3,
+    is_par s1 = false ->
+    f s1 = Some s3 ->
+    RedPar f s1 s2 (Par s3 s2).
+
+  Lemma red_par_inv_some:
+    forall f s1 s2 s3,
+    red_par f s1 s2 = Some s3 ->
+    RedPar f s1 s2 s3.
+  Proof.
+    unfold red_par; intros.
+    destruct s1.
+    - inversion H.
+      clear H.
+      constructor.
+    - destruct p as (?, []) eqn:Hy; subst;
+        destruct s2; inversion H; subst; clear H; try constructor;
+        destruct (f _) eqn:Hf; inversion H1; subst; clear H1; constructor; auto;
+        intros N; inversion N.
+    - inversion H; subst; clear H.
+      constructor.
+    - destruct s2; inversion H; subst; clear H; try constructor;
+        destruct (f _) eqn:Hf; inversion H1; subst; clear H1; constructor; auto;
+        intros N; inversion N.
+  Qed.
+
+  Lemma some_to_red_par f (f_none: f Empty = None) (f_leaf_skip: forall h, f (Leaf (h, Skip)) = None) :
+    forall s1 s2 s3,
+    RedPar f s1 s2 s3 ->
+    red_par f s1 s2 = Some s3.
+  Proof.
+    intros.
+    inversion H; simpl; auto; clear H.
+    - subst.
+      rewrite H0.
+      reflexivity.
+    - subst.
+      destruct s1; simpl in *; try rewrite H0; auto.
+      + rewrite f_none in *.
+        inversion H1.
+      + destruct p as (h, []); simpl in *; destruct (f s2) eqn:He;
+        try rewrite f_leaf_skip in *; try inversion H1; rewrite H2; auto.
+      + inversion H0.
+      + rewrite H1.
+        reflexivity.
+  Qed.
+
+  Definition red_join f s i :=
     match s with
     | Empty => Some Empty
     | Leaf (h, Skip) => Some (Leaf (h, i))
     | Par (Leaf (h, Skip)) s2 => Some (Par (Leaf (h, i)) (Join s2 i)) 
     | _ =>
-      match step s with
+      match f s with
       | Some s => Some (Join s i)
       | _ => None
       end
-    end
+    end.
+
+  Inductive RedJoin f: state -> inst -> state -> Prop :=
+  | red_join_1:
+    forall i,
+    RedJoin f Empty i Empty
+  | red_join_2:
+    forall h i,
+    RedJoin f (Leaf (h, Skip)) i (Leaf (h, i))
+  | red_join_3:
+    forall h s i,
+    RedJoin f (Par (Leaf (h, Skip)) s) i (Par (Leaf (h, i)) (Join s i))
+  | red_join_4:
+    forall s1 s2 i,
+    is_par_l_leaf s1 = false ->
+    f s1 = Some s2 ->
+    RedJoin f s1 i (Join s2 i).
+
+  Lemma red_join_inv_some:
+    forall f s1 i s2,
+    red_join f s1 i = Some s2 ->
+    RedJoin f s1 i s2.
+  Proof.
+    unfold red_join; intros.
+    destruct s1.
+    - inversion H; subst.
+      constructor.
+    - destruct p as (h, []); inversion H; subst; clear H;
+      try constructor;
+      destruct (f _) eqn:He; inversion H1; subst; constructor; auto.
+    - destruct s1_1; destruct (f _) eqn:He; inversion H; subst; try constructor; auto;
+      destruct p as (h, p);
+        destruct p; inversion H; subst; constructor; auto.
+    - destruct (f _) eqn:He; inversion H; subst; constructor; auto.
+  Qed.
+
+  Lemma some_to_red_join f (f_empty: f Empty = None) (f_leaf: forall h, f (Leaf (h, Skip)) = None):
+    forall s1 i s2,
+    RedJoin f s1 i s2 ->
+    red_join f s1 i = Some s2.
+  Proof.
+    intros.
+    inversion H; subst; clear H; auto.
+    unfold red_join.
+    destruct s1; simpl in *.
+    - rewrite f_empty in *; inversion H1.
+    - destruct p as (h, []); try rewrite H1; auto.
+      rewrite f_leaf in *.
+      inversion H1.
+    - destruct s1_1; try rewrite H1; auto.
+      destruct p as (h, []); auto.
+      inversion H0.
+    - rewrite H1; auto.
+  Qed.
+
+  Definition red_leaf (s:history * inst) :=
+    let (h, p) := s in
+    match p with
+    | Cond b i =>
+      match b_step b with
+      | Some true => Some (Leaf (h, i))
+      | Some false => Some Empty
+      | None => None
+      end
+    | Acc e =>
+      match access_eval1 e with
+      | Some v => Some (Leaf (v ++ h, Skip))
+      | None => None
+      end
+    | Decl x r p =>
+      match r_step r with
+      | Some l => Some (Leaf (h, Branch x l p))
+      | _ => None
+      end
+    | Asgn x e i =>
+      match n_step e with
+      | Some n => Some (Leaf (h, i_subst x n i))
+      | None => None
+      end
+    | Seq i1 i2 => Some (Join (Leaf (h, i1)) i2)
+    | Branch x (n::l) p => Some (Par (Leaf (h, i_subst x n p)) (Leaf (h, Branch x l p)))
+    | Branch _ [] _ => Some Empty 
+    | Skip => None 
+    end.
+
+  Inductive RedLeaf: (history * inst) -> state -> Prop :=
+  | read_leaf_1:
+    forall b i h,
+    b_step b = Some true ->
+    RedLeaf (h, Cond b i) (Leaf (h, i))
+  | red_leaf_2:
+    forall b i h,
+    b_step b = Some false ->
+    RedLeaf (h, Cond b i) Empty
+  | red_leaf_3:
+    forall h e v,
+    access_eval1 e = Some v ->
+    RedLeaf (h, Acc e) (Leaf (v ++ h, Skip))
+  | red_leaf_4:
+    forall h x r p l,
+    r_step r = Some l ->
+    RedLeaf (h, Decl x r p) (Leaf (h, Branch x l p))
+  | red_leaf_5:
+    forall h i1 i2,
+    RedLeaf (h, Seq i1 i2) (Join (Leaf (h, i1)) i2)
+  | red_leaf_6:
+    forall h l i n x,
+    RedLeaf (h, Branch x (n::l) i) (Par (Leaf (h, i_subst x n i)) (Leaf (h, Branch x l i)))
+  | red_leaf_7:
+    forall h x i,
+    RedLeaf (h, Branch x [] i) Empty
+  | red_leaf_8:
+    forall h x e i n,
+    n_step e = Some n ->
+    RedLeaf (h, Asgn x e i) (Leaf (h, i_subst x n i)).
+
+  Lemma red_leaf_inv_some:
+    forall s1 s2,
+    red_leaf s1 = Some s2 ->
+    RedLeaf s1 s2.
+  Proof.
+    intros.
+    destruct s1 as (h, []); simpl in *.
+    - inversion H.
+    - destruct (b_step _) eqn:Hb.
+      destruct b0; inversion H; clear H; subst; try (constructor; auto).
+      inversion H.
+    - destruct (access_eval1 _) eqn:Hp; inversion H; subst; clear H.
+      constructor; auto.
+    - inversion H; subst; clear H.
+      constructor.
+    - destruct (r_step _) eqn:Hr; inversion H; subst.
+      constructor; auto.
+    - destruct l; inversion H; subst; constructor.
+    - destruct (n_step _) eqn:Hs; inversion H; subst; constructor; auto.
+  Qed.
+
+  Fixpoint step (s:state) : option state :=
+  match s with
+  | Leaf s => red_leaf s
+  | Par s1 s2 => red_par step s1 s2
+  | Join s i => red_join step s i
   | Empty => None
   end.
 
@@ -247,7 +426,56 @@ Module C2.
     Value s2 ->
     Value (Par s1 s2).
 
+  Theorem step_to_prop:
+    forall s1 s2,
+    step s1 = Some s2 ->
+    Step s1 s2.
+  Proof.
+    induction s1; intros; simpl in *.
+    - inversion H.
+    - apply red_leaf_inv_some in H.
+      inversion H; subst; clear H; constructor;
+        auto using b_step_to_prop, access_eval1_to_step, r_step_to_prop, n_step_to_prop.
+    - apply red_par_inv_some in H.
+      inversion H; subst; clear H; try (constructor; auto).
+    - apply red_join_inv_some in H.
+      inversion H; subst; try constructor; auto.
+  Qed.
+
+  Theorem prop_to_step:
+    forall s1 s2,
+    Step s1 s2 ->
+    step s1 = Some s2.
+  Proof.
+    induction s1; intros; simpl; inversion H; clear H; simpl; auto; subst.
+    - apply prop_to_n_step in H1.
+      rewrite H1.
+      reflexivity.
+    - apply prop_to_r_step in H1.
+      rewrite H1.
+      reflexivity.
+    - apply access_step_to_eval1 in H1.
+      rewrite H1.
+      reflexivity.
+    - apply prop_to_b_step in H1.
+      rewrite H1.
+      reflexivity.
+    - apply prop_to_b_step in H1.
+      rewrite H1.
+      reflexivity.
+    - apply IHs1_1 in H4.
+      apply some_to_red_par; auto.
+      constructor; auto.
+    - apply IHs1_2 in H3.
+      rewrite H3.
+      reflexivity.
+    - apply IHs1 in H2.
+      apply some_to_red_join; auto.
+      constructor; auto.
+  Qed.
+
   Definition BStep := BigStep _ Step Value.
+
 End Defs.
 End C2.
 
@@ -270,19 +498,17 @@ Module Compiler.
   Variable T1: var.
   Variable T2: var.
 
-  Definition asgn x (n:nexp) i :=
-    (C2.Decl x (n, add n (NNum 1)) i).
+  Definition asgn x (n:nexp) i k :=
+    (C2.Asgn x n (C2.Seq i k)).
 
-  Definition do_proj x c :=
-    asgn TID (NVar x) (proj (NVar x) c).
+  Definition do_proj x c k :=
+    asgn TID (NVar x) (proj (NVar x) c) k.
 
   Definition translate (c:C1.inst) : C2.inst :=
     C2.Decl T1 (NNum 0, NNum TID_COUNT) (
       C2.Decl T2 (NNum 0, NNum TID_COUNT) (
         C2.Cond (NRel NLt (NVar T1) (NVar T2)) (
-          C2.Seq
-            (do_proj T1 c)
-            (do_proj T2 c)
+          (do_proj T1 c (do_proj T2 c C2.Skip))
         )
       )
     ).
@@ -319,7 +545,8 @@ Module Examples.
   ).
 
   Definition HELLO1_VAL t :=  Par (Leaf ([{| OneDim.tid := t; OneDim.index := 0 |}], Skip))
-         (Leaf ([{| OneDim.tid := t; OneDim.index := 1 |}], Skip)).
+         (Par (Leaf ([{| OneDim.tid := t; OneDim.index := 1 |}], Skip))
+          Empty).
 
   Goal snd (run 300 (HELLO1 (NNum 9))) = HELLO1_VAL 9.
     auto.
@@ -348,6 +575,7 @@ Module Examples.
     translate 2 (variable 0) (variable 2) (variable 3) Conc1.Examples.GOOD1.
 
   Compute run 200 (Leaf ([], GOOD1)).
+  (* ([{| OneDim.tid := 1; OneDim.index := 1 |}; {| OneDim.tid := 0; OneDim.index := 0 |}], Skip) *)
 
   Definition GOOD2 :=
     translate 2 (variable 0) (variable 2) (variable 3) Conc1.Examples.GOOD2.
