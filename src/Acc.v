@@ -219,6 +219,108 @@ Section Defs.
     split; auto using proj2_proj.
   Qed.
 
+  Lemma in_proj2_inv_tid:
+    forall x y a h,
+    In a (proj2 x y h) ->
+    access_tid a = x \/ access_tid a = y.
+  Proof.
+    intros.
+    unfold proj2 in *.
+    apply filter_In in H; auto.
+    destruct H as (_, Hx).
+    apply Bool.orb_prop in Hx.
+    destruct Hx as [Hx|Hx]; apply beq_nat_true in Hx; intuition.
+  Qed.
+
+  Lemma in_proj2_inv_tid_eq:
+    forall x a h,
+    In a (proj2 x x h) ->
+    access_tid a = x.
+  Proof.
+    intros.
+    apply in_proj2_inv_tid in H.
+    intuition.
+  Qed.
+
+  Lemma safe_proj2_eq:
+    forall x h,
+    Safe (proj2 x x h).
+  Proof.
+    intros.
+    unfold Safe.
+    intros a b Hi Hj.
+    apply access_safe_eq_tid.
+    apply in_proj2_inv_tid_eq in Hi.
+    apply in_proj2_inv_tid_eq in Hj.
+    subst.
+    auto.
+  Qed.
+
+  Lemma proj2_symm:
+    forall t1 t2 l,
+    proj2 t1 t2 l = proj2 t2 t1 l.
+  Proof.
+    unfold proj2; induction l; intros. {
+      reflexivity.
+    }
+    simpl.
+    rewrite IHl.
+    destruct (Nat.eqb _ t1). {
+      simpl.
+      rewrite Bool.orb_true_r.
+      reflexivity.
+    }
+    simpl.
+    destruct (Nat.eqb _ t2); reflexivity.
+  Qed.
+
+  Lemma proj2_in:
+    forall a tid1 tid2 h,
+    In a (proj2 tid1 tid2 h) ->
+    In a h.
+  Proof.
+    unfold proj2; intros.
+    eauto using List.filter_in.
+  Qed.
+
+  Lemma proj2_incl:
+    forall tid1 tid2 h,
+    incl (proj2 tid1 tid2 h) h.
+  Proof.
+    unfold proj2; auto using List.filter_incl.
+  Qed.
+
+  Lemma safe_to_safe_proj2:
+    forall h tid1 tid2,
+    Safe h ->
+    Safe (proj2 tid1 tid2 h).
+  Proof.
+    unfold Safe; intros.
+    apply proj2_in in H0.
+    apply proj2_in in H1.
+    auto.
+  Qed.
+
+  Corollary proj2_iff_safe:
+    forall h,
+    (forall tid1 tid2, tid1 < tid2 -> Safe (proj2 tid1 tid2 h)) <-> Safe h.
+  Proof.
+    split; intros. {
+      assert (forall tid1 tid2, Safe (proj2 tid1 tid2 h)). {
+        intros.
+        assert (Hx: tid1 = tid2 \/ tid1 < tid2 \/ tid1 > tid2) by omega.
+        destruct Hx as [Hx|[Hx|Hx]].
+        - subst.
+          apply safe_proj2_eq.
+        - auto.
+        - rewrite proj2_symm.
+          auto.
+      }
+      apply proj2_to_safe; auto.
+    }
+    auto using safe_to_safe_proj2.
+  Qed.
+
   Lemma proj2_app:
     forall tid1 tid2 h1 h2,
     proj2 tid1 tid2 (h1 ++ h2) = proj2 tid1 tid2 h1 ++ proj2 tid1 tid2 h2.
@@ -293,23 +395,6 @@ Section Defs.
     reflexivity.
   Qed.
 
-  Lemma proj2_symm:
-    forall t1 t2 l,
-    proj2 t1 t2 l = proj2 t2 t1 l.
-  Proof.
-    unfold proj2; induction l; intros. {
-      reflexivity.
-    }
-    simpl.
-    rewrite IHl.
-    destruct (Nat.eqb _ t1). {
-      simpl.
-      rewrite Bool.orb_true_r.
-      reflexivity.
-    }
-    simpl.
-    destruct (Nat.eqb _ t2); reflexivity.
-  Qed.
 
   Fixpoint gen_access x a n :=
     let a_step n := access_eval1 (access_subst x n a, NNum n) in 
