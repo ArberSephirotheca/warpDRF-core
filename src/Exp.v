@@ -138,10 +138,10 @@ Section SO.
     RangeList n1 n2 l ->
     RStep (e1, e2) l.
 
-  Fixpoint n_subst x (v:nat) e :=
+  Fixpoint n_subst x v e :=
   match e with
   | NBin o e1 e2 => NBin o (n_subst x v e1) (n_subst x v e2)
-  | NVar y => if VAR.eq_dec x y then (NNum v) else e  
+  | NVar y => if VAR.eq_dec x y then v else e  
   | NNum n => NNum n
   end.
 

@@ -15,6 +15,7 @@ Require Import Exp.
 Require Import Acc.
 Require Import Util.
 Require Aniceto.Graphs.Graph.
+Require SymExe.
 
 Import ListNotations.
 
@@ -66,7 +67,7 @@ Section C1.
     Step (s, For x r p) (s, Loop x l p)
   | step_loop_step:
     forall s x n l p,
-    Step (s, Loop x (n::l) p) (s, Seq (i_subst x n p) (Loop x l p))
+    Step (s, Loop x (n::l) p) (s, Seq (i_subst x (NNum n) p) (Loop x l p))
   | step_loop_skip:
     forall s x p,
     Step (s, Loop x [] p) (s, Skip).
@@ -101,14 +102,14 @@ Section C1.
     Inductive Step2 (tid1 tid2:nat): state -> state -> Prop :=
     | step2_access_1:
       forall s e v1 v2,
-      access_step (access_subst TID tid1 e, NNum tid1) v1 ->
-      access_step (access_subst TID tid2 e, NNum tid2) v2 ->
+      access_step (access_subst TID (NNum tid1) e, NNum tid1) v1 ->
+      access_step (access_subst TID (NNum tid2) e, NNum tid2) v2 ->
       tid2 < tid1 ->
       Step2 tid1 tid2 (s, Acc e) (v1 ++ v2 ++ s, Skip)
     | step2_access_2:
       forall s e v1 v2,
-      access_step (access_subst TID tid1 e, NNum tid1) v1 ->
-      access_step (access_subst TID tid2 e, NNum tid2) v2 ->
+      access_step (access_subst TID (NNum tid1) e, NNum tid1) v1 ->
+      access_step (access_subst TID (NNum tid2) e, NNum tid2) v2 ->
       tid1 < tid2 ->
       Step2 tid1 tid2 (s, Acc e) (v2 ++ v1 ++ s, Skip)
     | step2_seq_step:
@@ -124,7 +125,7 @@ Section C1.
       Step2 tid1 tid2 (s, For x r p) (s, Loop x l p)
     | step2_loop_step:
       forall s x n l p,
-      Step2 tid1 tid2 (s, Loop x (n::l) p) (s, Seq (i_subst x n p) (Loop x l p))
+      Step2 tid1 tid2 (s, Loop x (n::l) p) (s, Seq (i_subst x (NNum n) p) (Loop x l p))
     | step2_loop_skip:
       forall s x p,
       Step2 tid1 tid2 (s, Loop x [] p) (s, Skip).
@@ -151,7 +152,7 @@ Section C1.
       | None => None
       end 
     | Loop x [] p => Some (h, Skip)
-    | Loop x (n::l) p => Some (h, Seq (i_subst x n p) (Loop x l p))
+    | Loop x (n::l) p => Some (h, Seq (i_subst x (NNum n) p) (Loop x l p))
     | Skip => None
     end.
 
@@ -288,6 +289,158 @@ Section C1.
 End C1.
 End C1.
 
+Module C1SX.
+Section Defs.
+  Import SymExe.
+  Context {A:Access}.
+  Definition t := (Hist.history * C1.inst) % type.
+  Variable TID_COUNT: nat.
+  Variable TID: var.
+  Inductive Red: t -> state t -> Prop :=
+  | red_acc:
+    forall e v h, 
+    Hist.GenAccess TID e TID_COUNT v ->
+    Red (h, C1.Acc e) (Leaf (List.flat_map id v ++ h, C1.Skip))
+ | red_seq_join:
+    forall h i1 i2,
+    Red (h, C1.Seq i1 i2) (Join (Leaf (h, i1)) (fun a => let (h,y) := a in (h, i2)))
+  | red_for:
+    forall h x r p l,
+    RStep r l ->
+    Red (h, C1.For x r p) (Leaf (h, C1.Loop x l p))
+  | red_branch_cons:
+    forall h l i n x,
+    Red (h, C1.Loop x (n::l) i) (Par (Leaf (h, C1.i_subst x (NNum n) i)) (Leaf (h, C1.Loop x l i)))
+  | red_branch_nil:
+    forall h x i,
+    Red (h, C1.Loop x [] i) Empty.
+
+  Definition is_value (s:t) :=
+    let (h, p) := s in
+    match p with
+    | C1.Skip => true
+    | _ => false
+    end.
+
+  Definition red (s:t) :=
+  let (h, p) := s in
+  match p with
+  | C1.Acc e =>
+    match Hist.gen_access TID e TID_COUNT with
+    | Some l => Some (Leaf (List.flat_map id l ++ h, C1.Skip))
+    | None => None
+    end
+  | C1.For x r p =>
+    match r_step r with
+    | Some l => Some (Leaf (h, C1.Loop x l p))
+    | _ => None
+    end
+  | C1.Seq i1 i2 => Some (Join (Leaf (h, i1)) (fun x => let (h', _) := x in (h', i2)))
+  | C1.Loop x (n::l) p => Some (Par (Leaf (h, C1.i_subst x (NNum n) p)) (Leaf (h, C1.Loop x l p)))
+  | C1.Loop _ [] _ => Some Empty 
+  | C1.Skip => None 
+  end.
+
+  Lemma red_to_prop:
+    forall a s,
+    red a = Some s -> Red a s.
+  Proof.
+    intros.
+    destruct a as (h, i).
+    simpl in *.
+    destruct i.
+    - inversion H.
+    - destruct (Hist.gen_access _ _ _) eqn:Hg; inversion H; subst.
+      constructor; auto using Hist.gen_access_to_prop.
+    - inversion H; subst; clear H.
+      constructor.
+    - destruct (r_step r) eqn:Hr; inversion H; subst; clear H.
+      constructor; auto using r_step_to_prop.
+    - destruct l; inversion H; constructor.
+  Qed.
+
+  Lemma prop_to_red:
+    forall a s,
+    Red a s ->
+    red a = Some s.
+  Proof.
+    intros.
+    destruct a as (h, []); simpl; inversion H; subst; clear H; auto.
+    - apply Hist.prop_to_gen_access in H3.
+      rewrite H3.
+      reflexivity.
+    - apply prop_to_r_step in H5.
+      rewrite H5.
+      reflexivity.
+  Qed.
+
+  Lemma red_to_value_false:
+    forall a s,
+    red a = Some s ->
+    is_value a = false.
+  Proof.
+    intros.
+    destruct a as (h, []); simpl in *; auto.
+    inversion H.
+  Qed.
+  Lemma value_true_to_leaf:
+    forall a, is_value a = true -> red a = None.
+  Proof.
+    intros.
+    destruct a as (h, []); inversion H.
+    auto.
+  Qed.
+
+  Instance C1_Lang : Lang t := {
+    AStep := Red;
+    a_is_value := is_value;
+    red_leaf := red;
+    red_leaf_to_a_step := red_to_prop;
+    a_step_to_red_leaf := prop_to_red;
+    step_to_is_value_false := red_to_value_false;
+    step_is_value_true := value_true_to_leaf;
+  }.
+End Defs.
+  Module Examples.
+  Definition TID := variable 0.
+
+  Definition TID_NUM := 2.  
+  Definition step := @SymExe.step _ (C1_Lang TID_NUM TID).
+
+  (* Helper function *)
+  Fixpoint bstep fuel steps s :=
+  match fuel with
+  | 0 => (steps,s)
+  | S n =>
+    match step s with
+    | Some s => bstep n (S steps) s
+    | _ => (steps, s)
+    end
+  end.
+
+  Definition run steps s := bstep steps 0 s.
+
+  Let x := variable 1.
+
+  Let i1 := C1.Acc (add (NVar TID) (NVar x), BBool true).
+  Definition BAD :=
+    C1.For x (NNum 0, NNum 2) i1.
+
+  Compute run 8 (SymExe.Leaf ([], BAD)).
+
+  Definition GOOD1 :=
+    let x := variable 1 in
+    C1.For x (NNum 0, NNum 2) (
+      C1.Acc (NVar x, NRel NEq (NVar TID) (NVar x))
+    ).
+
+  Compute run 8 (SymExe.Leaf ([], GOOD1)).
+
+End Examples.
+
+
+End C1SX.
+
 Module Examples.
   Section Defs.
   Import C1.
@@ -344,7 +497,7 @@ Module Examples.
       Acc (NVar x, NRel NEq (NVar TID) (NVar x))
     ).
 
-  Goal run 10 ([], GOOD1) =
+  Goal run 8 ([], GOOD1) =
     (8,
     ([{| OneDim.tid := 1; OneDim.index := 1 |}; {| OneDim.tid := 0; OneDim.index := 0 |}], Skip))
     .
@@ -361,6 +514,7 @@ Module Examples.
     .
     compute.
   auto. Qed.
+
 
   End Defs.
 End Examples.

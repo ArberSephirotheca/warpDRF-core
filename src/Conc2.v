@@ -68,7 +68,7 @@ Module C2.
   | step_asgn:
     forall x e i h n,
     NStep e n ->
-    Step (Leaf (h, Asgn x e i)) (Leaf (h, (i_subst x n i)))
+    Step (Leaf (h, Asgn x e i)) (Leaf (h, (i_subst x (NNum n) i)))
   | step_decl:
     forall x r p l h,
     RStep r l ->
@@ -184,7 +184,7 @@ Module C2.
      *)
     Step
       (Leaf (h, Branch x (n::l) p))
-      (Par (Leaf (h, i_subst x n p)) (Leaf (h, Branch x l p))).
+      (Par (Leaf (h, i_subst x (NNum n) p)) (Leaf (h, Branch x l p))).
 
   Definition red_par f s1 s2 :=
     match s1, s2 with
@@ -347,11 +347,11 @@ Module C2.
       end
     | Asgn x e i =>
       match n_step e with
-      | Some n => Some (Leaf (h, i_subst x n i))
+      | Some n => Some (Leaf (h, i_subst x (NNum n) i))
       | None => None
       end
     | Seq i1 i2 => Some (Join (Leaf (h, i1)) i2)
-    | Branch x (n::l) p => Some (Par (Leaf (h, i_subst x n p)) (Leaf (h, Branch x l p)))
+    | Branch x (n::l) p => Some (Par (Leaf (h, i_subst x (NNum n) p)) (Leaf (h, Branch x l p)))
     | Branch _ [] _ => Some Empty 
     | Skip => None 
     end.
@@ -378,14 +378,14 @@ Module C2.
     RedLeaf (h, Seq i1 i2) (Join (Leaf (h, i1)) i2)
   | red_leaf_6:
     forall h l i n x,
-    RedLeaf (h, Branch x (n::l) i) (Par (Leaf (h, i_subst x n i)) (Leaf (h, Branch x l i)))
+    RedLeaf (h, Branch x (n::l) i) (Par (Leaf (h, i_subst x (NNum n) i)) (Leaf (h, Branch x l i)))
   | red_leaf_7:
     forall h x i,
     RedLeaf (h, Branch x [] i) Empty
   | red_leaf_8:
     forall h x e i n,
     n_step e = Some n ->
-    RedLeaf (h, Asgn x e i) (Leaf (h, i_subst x n i)).
+    RedLeaf (h, Asgn x e i) (Leaf (h, i_subst x (NNum n) i)).
 
   Lemma red_leaf_inv_some:
     forall s1 s2,
@@ -498,20 +498,16 @@ Module Compiler.
   Variable T1: var.
   Variable T2: var.
 
-  Definition asgn x (n:nexp) i k :=
-    (C2.Asgn x n (C2.Seq i k)).
-
-  Definition do_proj x c k :=
-    asgn TID (NVar x) (proj (NVar x) c) k.
+  Definition do_proj x c :=
+    proj (NVar x) (C1.i_subst TID (NVar x) c).
 
   Definition translate (c:C1.inst) : C2.inst :=
-    C2.Decl T1 (NNum 0, NNum TID_COUNT) (
-      C2.Decl T2 (NNum 0, NNum TID_COUNT) (
-        C2.Cond (NRel NLt (NVar T1) (NVar T2)) (
-          (do_proj T1 c (do_proj T2 c C2.Skip))
+      (C2.Decl T1 (NNum 1, NNum TID_COUNT)
+        (C2.Decl T2 (NNum 0, NVar T1)
+          (C2.Seq (do_proj T1 c) (do_proj T2 c))
         )
-      )
-    ).
+      ).
+
 
 (*
   Theorem soudness:
@@ -520,6 +516,7 @@ Module Compiler.
     C2.BStep (translate c v) w. 
 *)
   End Defs.
+
 End Compiler.
 
 Module Examples.
@@ -537,6 +534,14 @@ Module Examples.
   end.
 
   Definition run steps s := bstep steps 0 s.
+
+  Fixpoint hists s :=
+  match s with
+  | Par (Leaf (h, i)) s2 => h :: hists s2
+  | _ => []
+  end.
+
+  Definition run_h steps s := hists (snd (run steps s)).
 
   Definition HELLO1 n := Leaf ([],
     Decl (variable 0) (NNum 0, NNum 2) (
@@ -574,17 +579,33 @@ Module Examples.
   Definition GOOD1 :=
     translate 2 (variable 0) (variable 2) (variable 3) Conc1.Examples.GOOD1.
 
-  Compute run 200 (Leaf ([], GOOD1)).
+  Definition body x :=
+    Decl (variable 1) (NNum 0, NNum 2)
+        (Acc (NVar (variable 1), NRel NEq x (NVar (variable 1)), x)).
+
+  Compute Conc1.Examples.GOOD1.
+  Compute GOOD1.
+
+  Compute run 40 (Leaf ([], GOOD1)). (* 39 *)
+
   (* ([{| OneDim.tid := 1; OneDim.index := 1 |}; {| OneDim.tid := 0; OneDim.index := 0 |}], Skip) *)
 
   Definition GOOD2 :=
     translate 2 (variable 0) (variable 2) (variable 3) Conc1.Examples.GOOD2.
 
-  Compute run 90 (Leaf ([], GOOD2)).
+  Compute run 17 (Leaf ([], GOOD2)). (* 12 *)
 
   Definition BAD := 
     translate 2 (variable 0) (variable 2) (variable 3) Conc1.Examples.BAD.
 
-  Compute run 300 (Leaf ([], BAD)).
+  Compute BAD.
+
+  Compute (run_h 68 (Leaf ([], BAD))). (* 68 *)
+
+  Compute hists (snd (run 68 (Leaf ([], BAD)))).
+  (*
+        [{| OneDim.tid := 1; OneDim.index := 2 |}; {| OneDim.tid := 0; OneDim.index := 1 |};
+         {| OneDim.tid := 1; OneDim.index := 1 |}; {| OneDim.tid := 0; OneDim.index := 0 |}]
+  *)
 
 End Examples.

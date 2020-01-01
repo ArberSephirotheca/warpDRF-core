@@ -1,39 +1,20 @@
-
-Require Import Coq.Lists.List.
-Require Import Coq.Strings.String.
-Require Import Coq.Relations.Relation_Definitions.
-Require Import Coq.Relations.Relation_Operators.
-Require Import Coq.Relations.Operators_Properties.
-Require Coq.omega.Omega.
-Require Import Recdef.
-Require Omega.
-Require Import Var.
-Require Import Tid.
-Require Import Loc.
-Require Import Exp.
-Require Import Acc.
-Require Import Util.
-Require Aniceto.Graphs.Graph.
-Require Conc1.
-
-Import ListNotations.
-
 Set Implicit Arguments.
 
-Module C2.
-  Section state.
+Section Defs.
     Variable A: Type.
     Inductive state :=
     | Empty: state
     | Leaf: A -> state
     | Par: state -> state -> state
     | Join: state -> (A -> A) -> state.
-  End state.
-  Section Defs.
+End Defs.
 
+Arguments Empty {A}.
+
+Section Props.
   Variable A : Type.
   Notation state := (state A).
-  Class Seq := {
+  Class Lang := {
     AStep: A -> state -> Prop;
     a_is_value: A -> bool;
     red_leaf: A -> option state; 
@@ -49,7 +30,7 @@ Module C2.
     step_is_value_true:
       forall a : A, a_is_value a = true -> red_leaf a = None;
   }.
-  Context {C:Seq}.
+  Context {C:Lang}.
 
   Definition is_par (s:state) :=
   match s with
@@ -96,7 +77,7 @@ Module C2.
 
      *)
     forall (s:state),
-    Step (Par (Empty A) s) s
+    Step (Par Empty s) s
   | step_par_r:
     (*
 
@@ -147,7 +128,7 @@ Module C2.
     Step (Join s1 i) (Join s2 i)
   | step_join_empty:
     forall i,
-    Step (Join (Empty _) i) (Empty _).
+    Step (Join Empty i) Empty.
 
   Definition red_par f s1 s2 :=
     if is_halted_leaf s1 then
@@ -157,7 +138,7 @@ Module C2.
       end
     else
       match s1 with
-      | Empty _ => Some s2
+      | Empty => Some s2
       | Par s3 s4 => Some (Par s3 (Par s4 s2))
       | _ =>
         match f s1 with
@@ -169,7 +150,7 @@ Module C2.
   Inductive RedPar f: state -> state -> state -> Prop :=
   | red_par_1:
     forall s,
-    RedPar f (Empty _) s s
+    RedPar f Empty s s
   | red_par_2:
     forall a s1 s2,
     f s1 = Some s2 ->
@@ -208,7 +189,7 @@ Module C2.
         intros N; inversion N.
   Qed.
 
-  Lemma some_to_red_par f (f_none: f (Empty A) = None) (f_some: forall (a:A) (s:state), f (@Leaf A a) = Some s -> a_is_value a = false)  (f_leaf_value: forall a, a_is_value a = true -> f (Leaf a) = None) :
+  Lemma some_to_red_par f (f_none: f (@Empty A) = None) (f_some: forall (a:A) (s:state), f (@Leaf A a) = Some s -> a_is_value a = false)  (f_leaf_value: forall a, a_is_value a = true -> f (Leaf a) = None) :
     forall s1 s2 s3,
     RedPar f s1 s2 s3 ->
     red_par f s1 s2 = Some s3.
@@ -250,7 +231,7 @@ Module C2.
       end
     in
     match s with
-    | Empty _ => Some (Empty _)
+    | Empty => Some Empty
     | Leaf a =>
       if a_is_value a then Some (Leaf (k a))
       else kont
@@ -264,7 +245,7 @@ Module C2.
   Inductive RedJoin f: state -> (A -> A) -> state -> Prop :=
   | red_join_1:
     forall k,
-    RedJoin f (Empty _) k (Empty _)
+    RedJoin f Empty k Empty
   | red_join_2:
     forall a k,
     a_is_value a = true ->
@@ -302,7 +283,7 @@ Module C2.
     - destruct (f _) eqn:He; inversion H; subst; constructor; auto.
   Qed.
 
-  Lemma some_to_red_join f (f_empty: f (Empty A) = None) (f_leaf: forall a, a_is_value a = true -> f (Leaf a) = None):
+  Lemma some_to_red_join f (f_empty: f (@Empty A) = None) (f_leaf: forall a, a_is_value a = true -> f (Leaf a) = None):
     forall s1 i s2,
     RedJoin f s1 i s2 ->
     red_join f s1 i = Some s2.
@@ -332,7 +313,7 @@ Module C2.
   | Leaf s => red_leaf s
   | Par s1 s2 => red_par step s1 s2
   | Join s i => red_join step s i
-  | Empty _ => None
+  | Empty => None
   end.
 
   Inductive Value: state -> Prop :=
@@ -397,6 +378,5 @@ Module C2.
       constructor; auto.
   Qed.
 
-End Defs.
-End C2.
+End Props.
 

@@ -16,7 +16,7 @@ Import ListNotations.
 Class Access := {
   access_exp: Type;
   access_val: Type;
-  access_subst: var -> nat -> access_exp -> access_exp;
+  access_subst: var -> nexp -> access_exp -> access_exp;
   access_step: (access_exp * nexp) -> list access_val -> Prop;
   access_eval1: (access_exp * nexp) -> option (list access_val);
   access_safe: access_val -> access_val -> Prop;
@@ -58,7 +58,7 @@ Section Defs.
   | gen_access_cons:
     forall n v l,
     GenAccess x a n l ->
-    access_step (access_subst x n a, NNum  n) v ->
+    access_step (access_subst x (NNum n) a, NNum  n) v ->
     GenAccess x a (S n) (v::l).
 
   Import Omega.
@@ -68,7 +68,7 @@ Section Defs.
     GenAccess x e n v ->
     forall m,
     m < n ->
-    exists l, access_step (access_subst x m e, NNum m) l /\ List.In l v.
+    exists l, access_step (access_subst x (NNum m) e, NNum m) l /\ List.In l v.
   Proof.
     intros x e n v Hg.
     induction Hg; intros. {
@@ -88,7 +88,7 @@ Section Defs.
     GenAccess x e n v ->
     forall l,
     List.In l v ->
-    exists m, access_step (access_subst x m e, NNum m) l /\ m < n.
+    exists m, access_step (access_subst x (NNum m) e, NNum m) l /\ m < n.
   Proof.
     intros x e n v Hg.
     induction Hg; intros. {
@@ -333,7 +333,7 @@ Section Defs.
 
   Lemma proj2_id_l:
     forall x n m a l,
-    access_step (access_subst x n a, NNum n) l ->
+    access_step (access_subst x (NNum n) a, NNum n) l ->
     proj2 n m l = l.
   Proof.
     unfold proj2.
@@ -351,7 +351,7 @@ Section Defs.
 
   Lemma proj2_id_r:
     forall x n m a l,
-    access_step (access_subst x m a, NNum m) l ->
+    access_step (access_subst x (NNum m) a, NNum m) l ->
     proj2 n m l = l.
   Proof.
     unfold proj2.
@@ -370,7 +370,7 @@ Section Defs.
 
   Lemma proj2_neq:
     forall x n m p a l,
-    access_step (access_subst x p a, NNum p) l ->
+    access_step (access_subst x (NNum p) a, NNum p) l ->
     p <> n ->
     p <> m ->
     proj2 n m l = [].
@@ -397,7 +397,7 @@ Section Defs.
 
 
   Fixpoint gen_access x a n :=
-    let a_step n := access_eval1 (access_subst x n a, NNum n) in 
+    let a_step n := access_eval1 (access_subst x (NNum n) a, NNum n) in 
     match n with
     | 0 => Some []
     | S n =>
@@ -443,7 +443,7 @@ Section Defs.
   Qed.
 
   Definition gen_access_item x a n :=
-    match access_eval1 (access_subst x n a, NNum n) with
+    match access_eval1 (access_subst x (NNum n) a, NNum n) with
     | Some v => v
     | None => []
     end.
