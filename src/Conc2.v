@@ -23,7 +23,7 @@ Module C2.
 
   Inductive inst :=
   | Skip
-  | Cond: bexp -> inst -> inst
+(*  | Cond: bexp -> inst -> inst *)
   | Acc: access_exp * nexp -> inst
   | Seq : inst -> inst -> inst
   | Decl : var -> range -> inst -> inst
@@ -33,7 +33,7 @@ Module C2.
   Fixpoint i_subst x v i :=
   match i with
   | Skip => Skip
-  | Cond b i => Cond (b_subst x v b) (i_subst x v i)
+(*  | Cond b i => Cond (b_subst x v b) (i_subst x v i)*)
   | Acc (a, e) => Acc (access_subst x v a, n_subst x v e)  
   | Seq i1 i2 => Seq (i_subst x v i1) (i_subst x v i2)
   | Decl y r i2 => if VAR.eq_dec x y then i else (Decl y (r_subst x v r) (i_subst x v i2)) 
@@ -69,15 +69,17 @@ Module C2.
     forall x e i h n,
     NStep e n ->
     Step (Leaf (h, Asgn x e i)) (Leaf (h, (i_subst x (NNum n) i)))
+
   | step_decl:
     forall x r p l h,
     RStep r l ->
     Step (Leaf (h, Decl x r p)) (Leaf (h, Branch x l p))
+
   | step_acc:
     forall h e v,
     access_step e v ->
     Step (Leaf (h, Acc e)) (Leaf (v ++ h, Skip))
-
+(*
   | step_cond_true:
     forall b s i,
     BStep b true ->
@@ -87,7 +89,7 @@ Module C2.
     forall b s i,
     BStep b false ->
     Step (Leaf (s, (Cond b i))) Empty
-
+*)
   | step_seq:
     (*
 
@@ -329,12 +331,12 @@ Module C2.
   Definition red_leaf (s:history * inst) :=
     let (h, p) := s in
     match p with
-    | Cond b i =>
+(*    | Cond b i =>
       match b_step b with
       | Some true => Some (Leaf (h, i))
       | Some false => Some Empty
       | None => None
-      end
+      end *)
     | Acc e =>
       match access_eval1 e with
       | Some v => Some (Leaf (v ++ h, Skip))
@@ -357,14 +359,14 @@ Module C2.
     end.
 
   Inductive RedLeaf: (history * inst) -> state -> Prop :=
-  | read_leaf_1:
+(*  | read_leaf_1:
     forall b i h,
     b_step b = Some true ->
     RedLeaf (h, Cond b i) (Leaf (h, i))
   | red_leaf_2:
     forall b i h,
     b_step b = Some false ->
-    RedLeaf (h, Cond b i) Empty
+    RedLeaf (h, Cond b i) Empty *)
   | red_leaf_3:
     forall h e v,
     access_eval1 e = Some v ->
@@ -395,9 +397,9 @@ Module C2.
     intros.
     destruct s1 as (h, []); simpl in *.
     - inversion H.
-    - destruct (b_step _) eqn:Hb.
+(*    - destruct (b_step _) eqn:Hb.
       destruct b0; inversion H; clear H; subst; try (constructor; auto).
-      inversion H.
+      inversion H.*)
     - destruct (access_eval1 _) eqn:Hp; inversion H; subst; clear H.
       constructor; auto.
     - inversion H; subst; clear H.
@@ -457,12 +459,12 @@ Module C2.
     - apply access_step_to_eval1 in H1.
       rewrite H1.
       reflexivity.
-    - apply prop_to_b_step in H1.
+(*    - apply prop_to_b_step in H1.
       rewrite H1.
       reflexivity.
     - apply prop_to_b_step in H1.
       rewrite H1.
-      reflexivity.
+      reflexivity. *)
     - apply IHs1_1 in H4.
       apply some_to_red_par; auto.
       constructor; auto.
@@ -543,6 +545,7 @@ Module Examples.
 
   Definition run_h steps s := hists (snd (run steps s)).
 
+
   Definition HELLO1 n := Leaf ([],
     Decl (variable 0) (NNum 0, NNum 2) (
       Acc ((NVar (variable 0), BBool true), n)
@@ -564,8 +567,24 @@ Module Examples.
     )
     )
   ).
+
+  (**
+  
+    var t \in (0, 2) {
+      var x \in (0, 2) {
+        [x] by t
+      }
+    }
+  
+    *)
+
   
   Compute run 24 HELLO2.
+
+  Infix "||" := Par.
+  Notation "{}" := Empty.
+  Notation "x 'by' y" := {| OneDim.tid := y; OneDim.index := x |} (at level 50, left associativity).
+
 
   Definition HELLO3 n := Leaf ([],
     Seq (Decl (variable 0) (NNum 0, NNum 2) (
@@ -573,11 +592,13 @@ Module Examples.
     )) (Acc ((NNum 9, BBool true), NNum 9))
   ).
   
-  Compute run 23 (HELLO3 (NNum 3)).
+  Compute run 17 (HELLO3 (NNum 10)).
 
 
   Definition GOOD1 :=
     translate 2 (variable 0) (variable 2) (variable 3) Conc1.Examples.GOOD1.
+
+  Compute GOOD1.
 
   Definition body x :=
     Decl (variable 1) (NNum 0, NNum 2)
@@ -586,20 +607,20 @@ Module Examples.
   Compute Conc1.Examples.GOOD1.
   Compute GOOD1.
 
-  Compute run 40 (Leaf ([], GOOD1)). (* 39 *)
+  Compute run_h 40 (Leaf ([], GOOD1)). (* 39 *)
 
   (* ([{| OneDim.tid := 1; OneDim.index := 1 |}; {| OneDim.tid := 0; OneDim.index := 0 |}], Skip) *)
 
   Definition GOOD2 :=
     translate 2 (variable 0) (variable 2) (variable 3) Conc1.Examples.GOOD2.
 
-  Compute run 17 (Leaf ([], GOOD2)). (* 12 *)
+  Compute run_h 17 (Leaf ([], GOOD2)). (* 12 *)
 
   Definition BAD := 
     translate 2 (variable 0) (variable 2) (variable 3) Conc1.Examples.BAD.
-
+(*
   Compute BAD.
-
+*)
   Compute (run_h 68 (Leaf ([], BAD))). (* 68 *)
 
   Compute hists (snd (run 68 (Leaf ([], BAD)))).
