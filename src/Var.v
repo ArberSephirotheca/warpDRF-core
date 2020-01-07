@@ -5,24 +5,30 @@ Require Import Coq.Structures.OrderedTypeEx.
 Require Import Coq.FSets.FMapAVL.
 Require Import Coq.FSets.FSetAVL.
 Require Import Coq.Arith.Peano_dec.
-Require Import Omega.
+Require Import Coq.Strings.String.
+Require Import Coq.omega.Omega.
 
 Require Import Aniceto.Map.
 
+Require Import StringUtil.
+
 Require Coq.FSets.FMapFacts.
 
-Inductive var := variable : nat -> var.
+Require String.
 
-Definition var_nat r := match r with | variable n => n end.
+Inductive var := variable : string -> var.
 
+Definition var_str r := match r with | variable n => n end.
+(*
 Definition var_first := variable 0.
 
 Definition var_next m := variable (S (var_nat m)).
+*)
 
 Module VAR <: UsualOrderedType.
   Definition t := var.
   Definition eq := @eq var.
-  Definition lt x y := lt (var_nat x) (var_nat y).
+  Definition lt x y := String_OT.lt (var_str x) (var_str y).
   Definition eq_refl := @eq_refl t.
   Definition eq_sym := @eq_sym t.
   Definition eq_trans := @eq_trans t.
@@ -32,47 +38,52 @@ Module VAR <: UsualOrderedType.
     unfold lt in *.
     destruct x, y, z.
     simpl in *.
-    omega.
+    eauto using String_OT.lt_trans.
   Qed.
 
   Lemma lt_not_eq : forall x y : t, lt x y -> x <> y.
   Proof.
     unfold lt in *.
     intros.
+    unfold not; intros.
     destruct x, y.
     simpl in *.
-    unfold not; intros.
-    inversion H0.
-    subst.
-    apply Lt.lt_irrefl in H.
-    inversion H.
+    inversion H0; subst; clear H0.
+    apply String_OT.lt_not_eq in H.
+    contradiction H.
+    unfold String_OT.eq.
+    reflexivity.
   Qed.
 
-  Import Coq.Arith.Compare_dec.
   Lemma compare:
     forall x y, Compare lt Logic.eq x y.
   Proof.
     intros.
     destruct x, y.
-    destruct (Nat_as_OT.compare n n0);
-    eauto using LT, GT.
-    apply EQ.
-    unfold Nat_as_OT.eq in *.
-    subst.
-    intuition.
+    assert (Hx := String_OT.compare s s0).
+    inversion Hx; subst; clear Hx.
+    - apply LT.
+      unfold lt; simpl.
+      assumption.
+    - apply EQ.
+      unfold String_OT.eq in *.
+      subst.
+      reflexivity.
+    - apply GT.
+      unfold lt.
+      auto.
   Defined.
 
   Lemma eq_dec : forall x y : t, {x = y} + {x <> y}.
   Proof.
     intros.
-    unfold eq.
     destruct x, y.
-    destruct (eq_nat_dec n n0).
+    destruct (String_OT.eq_dec s s0).
     - subst; eauto.
     - right.
       unfold not.
-      intros.
-      contradiction n1.
+      intros H.
+      contradiction n.
       inversion H; auto.
   Defined.
 End VAR.
@@ -90,7 +101,7 @@ Proof.
   intros.
   auto with *.
 Qed.
-
+(*
 Section NotIn.
   Variable elt:Type.
 
@@ -128,5 +139,5 @@ Section NotIn.
     intros.
     eauto using Map_VAR_Extra.find_not_in, VAR.lt_trans.
   Qed.
-
 End NotIn.
+*)

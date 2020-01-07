@@ -8,5 +8,6 @@ src/Acc.v
 src/Util.v
 src/Conc1.v
 src/SymExe.v
+src/StringUtil.v
 #src/Proto1.v
 #src/Proto.v

@@ -385,8 +385,8 @@ Module Examples.
 
 
   Definition HELLO1 n := Leaf ([],
-    Decl (variable 0) (NNum 0, NNum 2) (
-      Acc ((NVar (variable 0), BBool true), n) Skip
+    Decl (variable "x") (NNum 0, NNum 2) (
+      Acc ((NVar (variable "x"), BBool true), n) Skip
     )
     Skip
   ).
@@ -400,9 +400,9 @@ Module Examples.
   Qed.
 
   Definition HELLO2 := Leaf ([],
-    Decl (variable 1) (NNum 0, NNum 2) (
-    Decl (variable 0) (NNum 0, NNum 2) (
-      Acc ((NVar (variable 0), BBool true), (NVar (variable 1))) Skip
+    Decl (variable "tid") (NNum 0, NNum 2) (
+    Decl (variable "x") (NNum 0, NNum 2) (
+      Acc ((NVar (variable "x"), BBool true), (NVar (variable "tid"))) Skip
     ) Skip
     )
     Skip
@@ -427,8 +427,8 @@ Module Examples.
 
 
   Definition HELLO3 n := Leaf ([],
-    Decl (variable 0) (NNum 0, NNum 2) (
-      Acc ((NVar (variable 0), BBool true), n) Skip
+    Decl (variable "x") (NNum 0, NNum 2) (
+      Acc ((NVar (variable "x"), BBool true), n) Skip
     ) (Acc ((NNum 9, BBool true), NNum 9) Skip)
   ).
   
@@ -436,13 +436,13 @@ Module Examples.
 
 
   Definition GOOD1 :=
-    translate 2 (variable 0) (variable 2) (variable 3) Conc1.Examples.GOOD1.
+    translate 2 Conc1.Examples.TID (variable "T1") (variable "T2") Conc1.Examples.GOOD1.
 
   Compute GOOD1.
 
   Definition body x :=
-    Decl (variable 1) (NNum 0, NNum 2)
-        (Acc (NVar (variable 1), NRel NEq x (NVar (variable 1)), x) Skip) Skip.
+    Decl (variable "x") (NNum 0, NNum 2)
+        (Acc (NVar (variable "x"), NRel NEq x (NVar (variable "x")), x) Skip) Skip.
 
   Compute Conc1.Examples.GOOD1.
   Compute GOOD1.
@@ -452,12 +452,12 @@ Module Examples.
   (* ([{| OneDim.tid := 1; OneDim.index := 1 |}; {| OneDim.tid := 0; OneDim.index := 0 |}], Skip) *)
 
   Definition GOOD2 :=
-    translate 2 (variable 0) (variable 2) (variable 3) Conc1.Examples.GOOD2.
+    translate 2 Conc1.Examples.TID (variable "T1") (variable "T2") Conc1.Examples.GOOD2.
 
   Compute run 10 (Leaf ([], GOOD2)). (* 10 *)
 
   Definition BAD := 
-    translate 2 (variable 0) (variable 2) (variable 3) Conc1.Examples.BAD.
+    translate 2 Conc1.Examples.TID (variable "T1") (variable "T2") Conc1.Examples.BAD.
 (*
   Compute BAD.
 *)

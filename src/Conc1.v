@@ -259,7 +259,7 @@ Module Examples.
   Section Defs.
   Import C1.
 
-  Definition TID := variable 0.
+  Definition TID := variable "TID".
 
   Definition TID_NUM := 2.
 
@@ -286,7 +286,7 @@ Module Examples.
        [tid + x] 
      } *)
 
-  Let x := variable 1.
+  Let x := variable "x".
   Let i1 := Acc (add (NVar TID) (NVar x), BBool true) Skip.
 
   Definition BAD :=
@@ -311,7 +311,7 @@ Module Examples.
 (*  Notation "[ x ] 'if' y" := (Acc (x, y)) (at level 20).*)
 
   Definition GOOD1 :=
-    let x := variable 1 in
+    let x := variable "x" in
     For x (NNum 0, NNum 2) (
       Acc (NVar x, NRel NEq (NVar TID) (NVar x)) Skip
     ) Skip.
