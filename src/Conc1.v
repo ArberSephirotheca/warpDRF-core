@@ -24,17 +24,21 @@ Section C1.
   Context {A:Access}.
   Inductive inst :=
   | Skip
-  | Acc: access_exp -> inst
-  | Seq : inst -> inst -> inst
-  | For : var -> range -> inst -> inst
-  | Loop : var -> list nat -> inst -> inst.
+  | Acc: access_exp -> inst -> inst
+  | For : var -> range -> inst -> inst -> inst
+  | Loop : var -> list nat -> inst -> inst -> inst.
 
   Fixpoint i_subst x v i :=
   match i with
-  | Acc a => Acc (access_subst x v a)  
-  | Seq p1 p2 => Seq (i_subst x v p1) (i_subst x v p2)
-  | For y r p2 => if VAR.eq_dec x y then i else (For y (r_subst x v r) (i_subst x v p2)) 
-  | Loop y r p2 => if VAR.eq_dec x y then i else (Loop x r (i_subst x v p2)) 
+  | Acc a i => Acc (access_subst x v a) (i_subst x v i)  
+  | For y r i2 i3 =>
+    if VAR.eq_dec x y
+    then For y r i2 (i_subst x v i3)
+    else For y (r_subst x v r) (i_subst x v i2) (i_subst x v i3) 
+  | Loop y r i2 i3 =>
+    if VAR.eq_dec x y
+    then Loop y r i2 (i_subst x v i3)
+    else Loop x r (i_subst x v i2) (i_subst x v i3)
   | Skip => Skip
   end.
 
@@ -47,48 +51,36 @@ Section C1.
   Variable TID_COUNT: nat.
   Variable TID : var.
 
+  Fixpoint seq (i1 i2:inst) :=
+  match i1 with
+  | Skip => i2
+  | Acc e i3 => Acc e (seq i3 i2)
+  | For x r i3 i4 => For x r i3 (seq i4 i2)
+  | Loop x r i3 i4 => Loop x r i3 (seq i4 i2)
+  end.
+
   (** Parallelize an access for [n] tasks. *)
 
   Inductive Step: state -> state -> Prop :=
   | step_access:
-    forall s e v,
+    forall s e v i,
     GenAccess TID e TID_COUNT v ->
-    Step (s, Acc e) (List.flat_map id v ++ s, Skip)
-  | step_seq_step:
-    forall s1 s2 p1 p2 p3,
-    Step (s1, p1) (s2, p2) ->
-    Step (s1, Seq p1 p3) (s2, Seq p2 p3)
-  | step_seq_skip:
-    forall s p,
-    Step (s, Seq Skip p) (s, p)
+    Step (s, Acc e i) (List.flat_map id v ++ s, i)
   | step_for:
-    forall x r p l s,
+    forall x r h l i1 i2,
     RStep r l ->
-    Step (s, For x r p) (s, Loop x l p)
+    Step (h, For x r i1 i2) (h, Loop x l i1 i2)
   | step_loop_step:
-    forall s x n l p,
-    Step (s, Loop x (n::l) p) (s, Seq (i_subst x (NNum n) p) (Loop x l p))
+    forall h x n l i1 i2,
+    Step (h, Loop x (n::l) i1 i2) (h, seq (i_subst x (NNum n) i1) (Loop x l i1 i2))
   | step_loop_skip:
-    forall s x p,
-    Step (s, Loop x [] p) (s, Skip).
+    forall h x i1 i2,
+    Step (h, Loop x [] i1 i2) (h, i2).
 
   Inductive Value: state -> Prop :=
   | value_def:
     forall h,
     Value (h, Skip).
-
-  Fixpoint upper_bound n l : nat :=
-  match l with
-  | [] => n
-  | n :: l => upper_bound n l
-  end.
-
-  Definition bounds l :=
-  match l with
-  | [] => (0, 0) (* should not appear *)
-  | [ _ ] => (0, 0) (* should not appear *)
-  | n1 :: n2 :: l => (n1, upper_bound n2 l)
-  end.
 
   Definition Safe (s:state) := let (h, _) := s in Hist.Safe h.
 
@@ -97,7 +89,7 @@ Section C1.
   Definition DRF a := forall b, MStep a b -> Safe b.
 
   Definition BStep := BigStep _ Step Value.
-
+(*
   Section Step2.
     Inductive Step2 (tid1 tid2:nat): state -> state -> Prop :=
     | step2_access_1:
@@ -132,32 +124,29 @@ Section C1.
 
   Definition proj2 t1 t2 (s:state) := let (h, p) := s in (Hist.proj2 t1 t2 h, p).
   End Step2.
-
-  Fixpoint step_iter h p : option state :=
-    match p with
-    | Acc e =>
+*)
+  Section Iter.
+  Variable h:history.
+  Fixpoint step_iter i : option state :=
+    match i with
+    | Acc e j =>
       match gen_access TID e TID_COUNT with
-      | Some l => Some (List.flat_map id l ++ h, Skip) 
+      | Some l => Some (List.flat_map id l ++ h, j) 
       | None => None
       end
-    | Seq Skip p => Some (h, p) 
-    | Seq e1 e2 =>
-      match step_iter h e1 with
-      | Some (h, e3) => Some (h, Seq e3 e2)
-      | None => None
-      end 
-    | For x r p =>
+    | For x r i1 i2 =>
       match r_step r with
-      | Some l => Some (h, Loop x l p)
+      | Some l => Some (h, Loop x l i1 i2)
       | None => None
       end 
-    | Loop x [] p => Some (h, Skip)
-    | Loop x (n::l) p => Some (h, Seq (i_subst x (NNum n) p) (Loop x l p))
+    | Loop _ [] _ j => Some (h, j)
+    | Loop x (n::l) i1 i2 => Some (h, seq (i_subst x (NNum n) i1) (Loop x l i1 i2))
     | Skip => None
     end.
+  End Iter.
 
   Definition step (s:state) := let (h, p) := s in step_iter h p.
-
+(*
   Lemma step2_proj2:
     forall s1 s2,
     Step s1 s2 ->
@@ -209,58 +198,42 @@ Section C1.
     }
     rewrite R1. rewrite R2.
     apply step2_access_1; auto.
-  Qed.
+  Qed.*)
 
   Lemma step_iter_to_prop:
-    forall p h s,
-    step_iter h p = Some s ->
-    Step (h, p) s.
+    forall i h s,
+    step_iter h i = Some s ->
+    Step (h, i) s.
   Proof.
-    induction p; simpl; intros.
+    destruct i; simpl; intros.
     - inversion H.
     - destruct (gen_access _ _) eqn:Hg; inversion H; subst; clear H.
       apply gen_access_to_prop in Hg.
       auto using step_access.
-    - destruct p1.
-      + inversion H; subst; clear H.
-        constructor; auto.
-      + destruct (step_iter _ _) eqn:He2; try (inversion H; fail).
-        destruct s0 as (h', s').
+    - destruct (r_step r) eqn:Hr. {
+        apply r_step_to_prop in Hr.
         inversion H; subst; clear H.
         constructor; auto.
-      + destruct (step_iter _ _) eqn:He2; try (inversion H; fail).
-        destruct s0 as (h', s').
-        inversion H; subst; clear H.
-        constructor; auto.
-      + destruct (step_iter _ _) eqn:He2; try (inversion H; fail).
-        destruct s0 as (h', s').
-        inversion H; subst; clear H.
-        constructor; auto.
-      + destruct (step_iter _ _) eqn:He2; try (inversion H; fail).
-        destruct s0 as (h', s').
-        inversion H; subst; clear H.
-        constructor; auto.
-    - destruct (r_step r) eqn:Hr; inversion H; subst; clear H.
-      apply r_step_to_prop in Hr.
-      constructor; auto.
-    - destruct l;
-      inversion H; subst; clear H;
+      }
+      inversion H.
+    - destruct l; inversion H; subst; clear H. {
+        constructor.
+      }
       constructor.
   Qed.
 
   Lemma prop_to_step_iter:
-    forall p h s,
-    Step (h, p) s ->
-    step_iter h p = Some s.
+    forall i h s,
+    Step (h, i) s ->
+    step_iter h i = Some s.
   Proof.
-    induction p; intros; inversion H; subst; clear H; simpl; auto.
-    - apply prop_to_gen_access in H3.
-      rewrite H3.
+    intros.
+    destruct i; inversion H; subst; clear H; simpl; auto.
+    - apply prop_to_gen_access in H4.
+      rewrite H4.
       reflexivity.
-    - apply IHp1 in H4.
-      destruct p1; try (inversion H4; fail); rewrite H4; reflexivity.
-    - apply prop_to_r_step in H5.
-      rewrite H5.
+    - apply prop_to_r_step in H6.
+      rewrite H6.
       reflexivity.
   Qed.
 
@@ -270,7 +243,7 @@ Section C1.
     Step s1 s2.
   Proof.
     intros.
-    destruct s1 as (h, p).
+    destruct s1 as (h, i).
     simpl in *.
     auto using step_iter_to_prop.
   Qed.
@@ -281,165 +254,13 @@ Section C1.
     step s1 = Some s2.
   Proof.
     intros.
-    destruct s1 as (h, p).
+    destruct s1 as (h, i).
     apply prop_to_step_iter.
     auto.
   Qed.
 
 End C1.
 End C1.
-
-Module C1SX.
-Section Defs.
-  Import SymExe.
-  Context {A:Access}.
-  Definition t := (Hist.history * C1.inst) % type.
-  Variable TID_COUNT: nat.
-  Variable TID: var.
-  Inductive Red: t -> state t -> Prop :=
-  | red_acc:
-    forall e v h, 
-    Hist.GenAccess TID e TID_COUNT v ->
-    Red (h, C1.Acc e) (Leaf (List.flat_map id v ++ h, C1.Skip))
- | red_seq_join:
-    forall h i1 i2,
-    Red (h, C1.Seq i1 i2) (Join (Leaf (h, i1)) (fun a => let (h,y) := a in (h, i2)))
-  | red_for:
-    forall h x r p l,
-    RStep r l ->
-    Red (h, C1.For x r p) (Leaf (h, C1.Loop x l p))
-  | red_branch_cons:
-    forall h l i n x,
-    Red (h, C1.Loop x (n::l) i) (Par (Leaf (h, C1.i_subst x (NNum n) i)) (Leaf (h, C1.Loop x l i)))
-  | red_branch_nil:
-    forall h x i,
-    Red (h, C1.Loop x [] i) Empty.
-
-  Definition is_value (s:t) :=
-    let (h, p) := s in
-    match p with
-    | C1.Skip => true
-    | _ => false
-    end.
-
-  Definition red (s:t) :=
-  let (h, p) := s in
-  match p with
-  | C1.Acc e =>
-    match Hist.gen_access TID e TID_COUNT with
-    | Some l => Some (Leaf (List.flat_map id l ++ h, C1.Skip))
-    | None => None
-    end
-  | C1.For x r p =>
-    match r_step r with
-    | Some l => Some (Leaf (h, C1.Loop x l p))
-    | _ => None
-    end
-  | C1.Seq i1 i2 => Some (Join (Leaf (h, i1)) (fun x => let (h', _) := x in (h', i2)))
-  | C1.Loop x (n::l) p => Some (Par (Leaf (h, C1.i_subst x (NNum n) p)) (Leaf (h, C1.Loop x l p)))
-  | C1.Loop _ [] _ => Some Empty 
-  | C1.Skip => None 
-  end.
-
-  Lemma red_to_prop:
-    forall a s,
-    red a = Some s -> Red a s.
-  Proof.
-    intros.
-    destruct a as (h, i).
-    simpl in *.
-    destruct i.
-    - inversion H.
-    - destruct (Hist.gen_access _ _ _) eqn:Hg; inversion H; subst.
-      constructor; auto using Hist.gen_access_to_prop.
-    - inversion H; subst; clear H.
-      constructor.
-    - destruct (r_step r) eqn:Hr; inversion H; subst; clear H.
-      constructor; auto using r_step_to_prop.
-    - destruct l; inversion H; constructor.
-  Qed.
-
-  Lemma prop_to_red:
-    forall a s,
-    Red a s ->
-    red a = Some s.
-  Proof.
-    intros.
-    destruct a as (h, []); simpl; inversion H; subst; clear H; auto.
-    - apply Hist.prop_to_gen_access in H3.
-      rewrite H3.
-      reflexivity.
-    - apply prop_to_r_step in H5.
-      rewrite H5.
-      reflexivity.
-  Qed.
-
-  Lemma red_to_value_false:
-    forall a s,
-    red a = Some s ->
-    is_value a = false.
-  Proof.
-    intros.
-    destruct a as (h, []); simpl in *; auto.
-    inversion H.
-  Qed.
-  Lemma value_true_to_leaf:
-    forall a, is_value a = true -> red a = None.
-  Proof.
-    intros.
-    destruct a as (h, []); inversion H.
-    auto.
-  Qed.
-
-  Instance C1_Lang : Lang t := {
-    AStep := Red;
-    a_is_value := is_value;
-    red_leaf := red;
-    red_leaf_to_a_step := red_to_prop;
-    a_step_to_red_leaf := prop_to_red;
-    step_to_is_value_false := red_to_value_false;
-    step_is_value_true := value_true_to_leaf;
-  }.
-End Defs.
-  Module Examples.
-  Definition TID := variable 0.
-
-  Definition TID_NUM := 2.  
-  Definition step := @SymExe.step _ (C1_Lang TID_NUM TID).
-
-  (* Helper function *)
-  Fixpoint bstep fuel steps s :=
-  match fuel with
-  | 0 => (steps,s)
-  | S n =>
-    match step s with
-    | Some s => bstep n (S steps) s
-    | _ => (steps, s)
-    end
-  end.
-
-  Definition run steps s := bstep steps 0 s.
-
-  Let x := variable 1.
-
-  Let i1 := C1.Acc (add (NVar TID) (NVar x), BBool true).
-  Definition BAD :=
-    C1.For x (NNum 0, NNum 2) i1.
-
-  Compute run 8 (SymExe.Leaf ([], BAD)).
-
-  Definition GOOD1 :=
-    let x := variable 1 in
-    C1.For x (NNum 0, NNum 2) (
-      C1.Acc (NVar x, NRel NEq (NVar TID) (NVar x))
-    ).
-
-  Compute run 8 (SymExe.Leaf ([], GOOD1)).
-
-End Examples.
-
-
-End C1SX.
 
 Module Examples.
   Section Defs.
@@ -473,12 +294,13 @@ Module Examples.
      } *)
 
   Let x := variable 1.
-  Let i1 := Acc (add (NVar TID) (NVar x), BBool true).
+  Let i1 := Acc (add (NVar TID) (NVar x), BBool true) Skip.
+
   Definition BAD :=
-    For x (NNum 0, NNum 2) i1.
+    For x (NNum 0, NNum 2) i1 Skip.
 
   Goal run 8 ([], BAD) =
-    (8,
+    (6,
        ([{| OneDim.tid := 1; OneDim.index := 2 |}; {| OneDim.tid := 0; OneDim.index := 1 |};
          {| OneDim.tid := 1; OneDim.index := 1 |}; {| OneDim.tid := 0; OneDim.index := 0 |}], Skip)
     ).
@@ -491,21 +313,27 @@ Module Examples.
     }
    *)
 
+  Infix "==" :=  (NRel NEq)  (at level 50, left associativity).
+  Notation "'Var' x" := (NVar (variable x)) (at level 30).
+(*  Notation "[ x ] 'if' y" := (Acc (x, y)) (at level 20).*)
+
   Definition GOOD1 :=
     let x := variable 1 in
     For x (NNum 0, NNum 2) (
-      Acc (NVar x, NRel NEq (NVar TID) (NVar x))
-    ).
+      Acc (NVar x, NRel NEq (NVar TID) (NVar x)) Skip
+    ) Skip.
+
+  Compute GOOD1.
 
   Goal run 8 ([], GOOD1) =
-    (8,
+    (6,
     ([{| OneDim.tid := 1; OneDim.index := 1 |}; {| OneDim.tid := 0; OneDim.index := 0 |}], Skip))
     .
     compute.
   auto. Qed.
 
   Definition GOOD2 :=
-      Acc (NNum 9, BBool true).
+      Acc (NNum 9, BBool true) Skip.
 
 
   Goal run 10 ([], GOOD2) =
