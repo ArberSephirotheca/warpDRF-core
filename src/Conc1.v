@@ -89,42 +89,35 @@ Section C1.
   Definition DRF a := forall b, MStep a b -> Safe b.
 
   Definition BStep := BigStep _ Step Value.
-(*
+
   Section Step2.
     Inductive Step2 (tid1 tid2:nat): state -> state -> Prop :=
     | step2_access_1:
-      forall s e v1 v2,
+      forall h e v1 v2 i,
       access_step (access_subst TID (NNum tid1) e, NNum tid1) v1 ->
       access_step (access_subst TID (NNum tid2) e, NNum tid2) v2 ->
       tid2 < tid1 ->
-      Step2 tid1 tid2 (s, Acc e) (v1 ++ v2 ++ s, Skip)
+      Step2 tid1 tid2 (h, Acc e i) (v1 ++ v2 ++ h, i)
     | step2_access_2:
-      forall s e v1 v2,
+      forall h e v1 v2 i,
       access_step (access_subst TID (NNum tid1) e, NNum tid1) v1 ->
       access_step (access_subst TID (NNum tid2) e, NNum tid2) v2 ->
       tid1 < tid2 ->
-      Step2 tid1 tid2 (s, Acc e) (v2 ++ v1 ++ s, Skip)
-    | step2_seq_step:
-      forall s1 s2 p1 p2 p3,
-      Step2 tid1 tid2 (s1, p1) (s2, p2) ->
-      Step2 tid1 tid2 (s1, Seq p1 p3) (s2, Seq p2 p3)
-    | step2_seq_skip:
-      forall s p,
-      Step2 tid1 tid2 (s, Seq Skip p) (s, p)
+      Step2 tid1 tid2 (h, Acc e i) (v2 ++ v1 ++ h, i)
     | step2_for:
-      forall x r p l s,
+      forall x r l h i1 i2,
       RStep r l ->
-      Step2 tid1 tid2 (s, For x r p) (s, Loop x l p)
+      Step2 tid1 tid2 (h, For x r i1 i2) (h, Loop x l i1 i2)
     | step2_loop_step:
-      forall s x n l p,
-      Step2 tid1 tid2 (s, Loop x (n::l) p) (s, Seq (i_subst x (NNum n) p) (Loop x l p))
+      forall h x n l i1 i2,
+      Step2 tid1 tid2 (h, Loop x (n::l) i1 i2) (h, seq (i_subst x (NNum n) i1) (Loop x l i1 i2))
     | step2_loop_skip:
-      forall s x p,
-      Step2 tid1 tid2 (s, Loop x [] p) (s, Skip).
+      forall h x i1 i2,
+      Step2 tid1 tid2 (h, Loop x [] i1 i2) (h, i2).
 
   Definition proj2 t1 t2 (s:state) := let (h, p) := s in (Hist.proj2 t1 t2 h, p).
   End Step2.
-*)
+
   Section Iter.
   Variable h:history.
   Fixpoint step_iter i : option state :=
@@ -146,7 +139,7 @@ Section C1.
   End Iter.
 
   Definition step (s:state) := let (h, p) := s in step_iter h p.
-(*
+
   Lemma step2_proj2:
     forall s1 s2,
     Step s1 s2 ->
@@ -198,7 +191,7 @@ Section C1.
     }
     rewrite R1. rewrite R2.
     apply step2_access_1; auto.
-  Qed.*)
+  Qed.
 
   Lemma step_iter_to_prop:
     forall i h s,
