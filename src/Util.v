@@ -5,12 +5,24 @@ Require Import Coq.Relations.Operators_Properties.
 Require Import Aniceto.Graphs.Graph.
 
 Import ListNotations.
-
+Section Ops.
   Fixpoint count n :=
   match n with
   | 0 => []
   | S n => n :: count n
   end.
+
+  (** Prepends every element of a list with a prefix *)
+
+  Definition prepend_list {A:Type} (l1:list A) (l2: list (list A)) : list (list A) :=
+    List.fold_right (fun x accum => (l1 ++ x) :: accum) [] l2.  
+
+  (** Product of two lists. That is for each two elements x,y of lists l1 l2, yields
+      x ++ y *)
+
+  Definition list_prod {A:Type} (l1: list (list A)) (l2: list (list A)) : list (list A) :=
+    List.fold_right (fun x accum => prepend_list x l2 ++ accum) [] l1. 
+Section Ops.
 
 Section filter.
   Lemma filter_app:

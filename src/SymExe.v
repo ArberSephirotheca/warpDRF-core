@@ -5,8 +5,7 @@ Section Defs.
     Inductive state :=
     | Empty: state
     | Leaf: A -> state
-    | Par: state -> state -> state
-    | Join: state -> (A -> A) -> state.
+    | Par: state -> state -> state.
 End Defs.
 
 Arguments Empty {A}.
@@ -93,42 +92,7 @@ Section Props.
 
   | step_par_par:
     forall s1 s2 s3,
-    Step (Par (Par s1 s2) s3) (Par s1 (Par s2 s3))
-
-  (* Join reduction *)
-  | step_join_leaf:
-    (*
-
-      (h, skip) |> i ==> (h, i)
-
-     *)
-    forall a f,
-    a_is_value a = true ->
-    Step (Join (Leaf a) f) (Leaf (f a))
-  | step_join_unfold:
-    (*
-
-      (h, skip) || s  |>  i ==> (h, i)  ||  s |> i
-
-     *)
-    forall a f s,
-    a_is_value a = true ->
-    Step (Join (Par (Leaf a) s) f) (Par (Leaf (f a)) (Join s f))
-  | step_join_step:
-    (*
-
-    s1 -> s2
-    -------
-    s1 |> i ==> s2 |> i
-
-     *)
-    forall s1 s2 i,
-    Step s1 s2 ->
-    is_par_l_leaf s1 = false ->
-    Step (Join s1 i) (Join s2 i)
-  | step_join_empty:
-    forall i,
-    Step (Join Empty i) Empty.
+    Step (Par (Par s1 s2) s3) (Par s1 (Par s2 s3)).
 
   Definition red_par f s1 s2 :=
     if is_halted_leaf s1 then
@@ -184,9 +148,6 @@ Section Props.
       constructor; auto.
     - inversion H; subst; clear H.
       constructor.
-    - destruct s2; inversion H; subst; clear H; try constructor;
-        destruct (f _) eqn:Hf; inversion H1; subst; clear H1; constructor; auto;
-        intros N; inversion N.
   Qed.
 
   Lemma some_to_red_par f (f_none: f (@Empty A) = None) (f_some: forall (a:A) (s:state), f (@Leaf A a) = Some s -> a_is_value a = false)  (f_leaf_value: forall a, a_is_value a = true -> f (Leaf a) = None) :
@@ -217,102 +178,12 @@ Section Props.
         }
         inversion H1.
       + inversion H0.
-      + unfold red_par.
-        simpl.
-        rewrite H1.
-        reflexivity.
-  Qed.
-
-  Definition red_join f s k :=
-    let kont :=
-      match f s with
-      | Some s1 => Some (Join s1 k)
-      | _ => None
-      end
-    in
-    match s with
-    | Empty => Some Empty
-    | Leaf a =>
-      if a_is_value a then Some (Leaf (k a))
-      else kont
-    | Par (Leaf a) s2 =>
-      if a_is_value a then
-        Some (Par (Leaf (k a)) (Join s2 k))
-      else kont
-    | _ => kont
-    end.
-
-  Inductive RedJoin f: state -> (A -> A) -> state -> Prop :=
-  | red_join_1:
-    forall k,
-    RedJoin f Empty k Empty
-  | red_join_2:
-    forall a k,
-    a_is_value a = true ->
-    RedJoin f (Leaf a) k (Leaf (k a))
-  | red_join_3:
-    forall s a k,
-    a_is_value a = true ->
-    RedJoin f (Par (Leaf a) s) k (Par (Leaf (k a)) (Join s k))
-  | red_join_4:
-    forall s1 s2 k,
-    is_par_l_leaf s1 = false ->
-    f s1 = Some s2 ->
-    RedJoin f s1 k (Join s2 k).
-
-  Lemma red_join_inv_some f:
-    forall s1 i s2,
-    red_join f s1 i = Some s2 ->
-    RedJoin f s1 i s2.
-  Proof.
-    unfold red_join; intros.
-    destruct s1.
-    - inversion H; subst.
-      constructor.
-    - destruct (a_is_value a) eqn:Ha. {
-        inversion H; subst; clear H.
-        constructor; auto.
-      }
-      destruct (f (Leaf a)) eqn:Hb. {
-        inversion H; subst; clear H.
-        constructor; auto.
-      }
-      inversion H.
-    - destruct s1_1; destruct (f _) eqn:He; inversion H; subst; try constructor; auto;
-      destruct (a_is_value a) eqn:Hfa; inversion H; subst; clear H; constructor; auto.
-    - destruct (f _) eqn:He; inversion H; subst; constructor; auto.
-  Qed.
-
-  Lemma some_to_red_join f (f_empty: f (@Empty A) = None) (f_leaf: forall a, a_is_value a = true -> f (Leaf a) = None):
-    forall s1 i s2,
-    RedJoin f s1 i s2 ->
-    red_join f s1 i = Some s2.
-  Proof.
-    intros.
-    inversion H; subst; clear H; auto; unfold red_join.
-    - rewrite H0; auto.
-    - rewrite H0; auto.
-    - destruct s1.
-      + rewrite f_empty in *.
-        inversion H1.
-      + destruct (a_is_value _) eqn:Ha. {
-          rewrite f_leaf in *; auto.
-          inversion H1.
-        }
-        rewrite H1.
-        reflexivity.
-      + simpl in *.
-        destruct s1_1; rewrite H1; auto.
-        rewrite H0.
-        reflexivity.
-      + rewrite H1; auto.
   Qed.
 
   Fixpoint step (s:state) : option state :=
   match s with
   | Leaf s => red_leaf s
   | Par s1 s2 => red_par step s1 s2
-  | Join s i => red_join step s i
   | Empty => None
   end.
 
@@ -337,8 +208,6 @@ Section Props.
     - apply red_leaf_to_a_step in H; constructor; auto.
     - apply red_par_inv_some in H.
       inversion H; subst; clear H; try (constructor; auto).
-    - apply red_join_inv_some in H.
-      inversion H; subst; try constructor; auto.
   Qed.
 
   Let step_leaf_to_is_value_false:
@@ -369,12 +238,6 @@ Section Props.
       constructor; auto.
     - apply IHs1_2 in H4.
       apply some_to_red_par; auto.
-      constructor; auto.
-    - rewrite H3.
-      auto.
-    - rewrite H3.
-      auto.
-    - apply some_to_red_join; auto.
       constructor; auto.
   Qed.
 

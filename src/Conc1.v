@@ -118,6 +118,8 @@ Section C1.
   Definition proj2 t1 t2 (s:state) := let (h, p) := s in (Hist.proj2 t1 t2 h, p).
   End Step2.
 
+  Definition BStep2 T1 T2 := BigStep _ (Step2 T1 T2) Value.
+
   Section Iter.
   Variable h:history.
   Fixpoint step_iter i : option state :=
@@ -255,6 +257,166 @@ Section C1.
 End C1.
 End C1.
 
+Module C1SX.
+Section Defs.
+  Import SymExe.
+  Context {A:Access}.
+  Definition t := (Hist.history * C1.inst) % type.
+  Variable TID_COUNT: nat.
+  Variable TID: var.
+(*
+    step_access : forall (s : Hist.history) (e : access_exp) (v : list (list access_val)) (i : C1.inst),
+                  Hist.GenAccess TID e TID_COUNT v ->
+                  C1.Step TID_COUNT TID (s, C1.Acc e i) (flat_map id v ++ s, i)
+  | step_for : forall (x : var) (r : range) (h : Hist.history) (l : list nat) (i1 i2 : C1.inst),
+               RStep r l -> C1.Step TID_COUNT TID (h, C1.For x r i1 i2) (h, C1.Loop x l i1 i2)
+  | step_loop_step : forall (h : Hist.history) (x : var) (n : nat) (l : list nat) (i1 i2 : C1.inst),
+                     C1.Step TID_COUNT TID (h, C1.Loop x (n :: l) i1 i2)
+                       (h, C1.seq (C1.i_subst x (NNum n) i1) (C1.Loop x l i1 i2))
+  | step_loop_skip : forall (h : Hist.history) (x : var) (i1 i2 : C1.inst),
+                     C1.Step TID_COUNT TID (h, C1.Loop x [] i1 i2) (h, i2)
+*)
+  Inductive Red: t -> state t -> Prop :=
+  | red_acc:
+    forall e v h c, 
+    Hist.GenAccess TID e TID_COUNT v ->
+    Red (h, C1.Acc e c) (Leaf (List.flat_map id v ++ h, c))
+  | red_for:
+    forall h x r l c1 c2,
+    RStep r l ->
+    Red (h, C1.For x r c1 c2) (Leaf (h, C1.Loop x l c1 c2))
+  | red_branch_cons:
+    forall h l c1 c2 n x,
+    Red (h, C1.Loop x (n::l) c1 c2) (Par (Leaf (h, C1.i_subst x (NNum n) c1)) (Leaf (h, C1.Loop x l c1 c2)))
+  | red_branch_nil:
+    forall h x c1 c2,
+    Red (h, C1.Loop x [] c1 c2) Empty.
+
+  Definition is_value (s:t) :=
+    let (h, p) := s in
+    match p with
+    | C1.Skip => true
+    | _ => false
+    end.
+
+  Definition red (s:t) :=
+  let (h, c) := s in
+  match c with
+  | C1.Acc e c =>
+    match Hist.gen_access TID e TID_COUNT with
+    | Some l => Some (Leaf (List.flat_map id l ++ h, c))
+    | None => None
+    end
+  | C1.For x r c1 c2 =>
+    match r_step r with
+    | Some l => Some (Leaf (h, C1.Loop x l c1 c2))
+    | _ => None
+    end
+  | C1.Loop x (n::l) c1 c2 => Some (Par (Leaf (h, C1.i_subst x (NNum n) c1)) (Leaf (h, C1.Loop x l c1 c2)))
+  | C1.Loop _ [] _ _ => Some Empty 
+  | C1.Skip => None
+  end.
+
+  Lemma red_to_prop:
+    forall a s,
+    red a = Some s -> Red a s.
+  Proof.
+    intros.
+    destruct a as (h, i).
+    simpl in *.
+    destruct i.
+    - inversion H.
+    - destruct (Hist.gen_access _ _ _) eqn:Hg; inversion H; subst.
+      constructor; auto using Hist.gen_access_to_prop.
+    (*
+    - inversion H; subst; clear H.
+      constructor.*)
+    - destruct (r_step r) eqn:Hr; inversion H; subst; clear H.
+      constructor; auto using r_step_to_prop.
+    - destruct l; inversion H; constructor.
+  Qed.
+
+  Lemma prop_to_red:
+    forall a s,
+    Red a s ->
+    red a = Some s.
+  Proof.
+    intros.
+    destruct a as (h, []); simpl; inversion H; subst; clear H; auto.
+    - apply Hist.prop_to_gen_access in H4.
+      rewrite H4.
+      reflexivity.
+    - apply prop_to_r_step in H6.
+      rewrite H6.
+      reflexivity.
+  Qed.
+
+  Lemma red_to_value_false:
+    forall a s,
+    red a = Some s ->
+    is_value a = false.
+  Proof.
+    intros.
+    destruct a as (h, []); simpl in *; auto.
+    inversion H.
+  Qed.
+
+  Lemma value_true_to_leaf:
+    forall a, is_value a = true -> red a = None.
+  Proof.
+    intros.
+    destruct a as (h, []); inversion H.
+    auto.
+  Qed.
+
+  Instance C1_Lang : Lang t := {
+    AStep := Red;
+    a_is_value := is_value;
+    red_leaf := red;
+    red_leaf_to_a_step := red_to_prop;
+    a_step_to_red_leaf := prop_to_red;
+    step_to_is_value_false := red_to_value_false;
+    step_is_value_true := value_true_to_leaf;
+  }.
+End Defs.
+
+Module Examples.
+  Definition TID := variable "TID".
+
+  Definition TID_NUM := 2.  
+  Definition step := @SymExe.step _ (C1_Lang TID_NUM TID).
+  (* Helper function *)
+  Fixpoint bstep fuel steps s :=
+  match fuel with
+  | 0 => (steps,s)
+ | S n =>
+    match step s with
+    | Some s => bstep n (S steps) s
+    | _ => (steps, s)
+    end
+  end.
+
+  Definition run steps s := bstep steps 0 s.
+
+  Let i1 := C1.Acc (add (NVar TID) (NVar (variable "x")), BBool true) C1.Skip.
+  Definition BAD :=
+    C1.For (variable "x") (NNum 0, NNum 2) i1 C1.Skip.
+
+  Compute run 8 (SymExe.Leaf ([], BAD)).
+
+  Definition GOOD1 :=
+    let x := variable "x" in
+    C1.For x (NNum 0, NNum 2) (
+      C1.Acc (NVar x, NRel NEq (NVar TID) (NVar x)) C1.Skip
+    ) C1.Skip.
+
+  Compute run 8 (SymExe.Leaf ([], GOOD1)).
+
+End Examples.
+
+
+End C1SX.
+
 Module Examples.
   Section Defs.
   Import C1.
@@ -308,13 +470,22 @@ Module Examples.
 
   Infix "==" :=  (NRel NEq)  (at level 50, left associativity).
   Notation "'Var' x" := (NVar (variable x)) (at level 30).
-(*  Notation "[ x ] 'if' y" := (Acc (x, y)) (at level 20).*)
+  Coercion NNum: nat >-> nexp.
+  Coercion variable: string >-> var.
+  Coercion NVar: var >-> nexp.
+  Definition nrange := (nat*nat) % type.
+ Definition n_range (p:nrange) : range := let (x,y) := p in (NNum x, NNum y).
+  Coercion n_range: nrange >-> range.
+  Notation "'FOR' x 'IN' n1 'TO' n2 'DO' i1 'OD'" := (For x (@pair nexp nexp n1 n2) i1) (at level 20).
 
+  Infix "WHEN" := (fun x y => (@pair nexp bexp x y)) (at level 60).
+
+  Open Scope string_scope.
   Definition GOOD1 :=
-    let x := variable "x" in
-    For x (NNum 0, NNum 2) (
-      Acc (NVar x, NRel NEq (NVar TID) (NVar x)) Skip
-    ) Skip.
+    (FOR "x" IN  0 TO 2 DO
+      (Acc ("x" WHEN TID == "x") Skip)
+    OD)
+    Skip.
 
   Compute GOOD1.
 
