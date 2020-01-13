@@ -44,12 +44,21 @@ Class Access := {
     access_step (e, en) l ->
     NStep en n -> 
     Forall (fun a=> access_tid a = n) l;
+
+  access_step_next:
+    forall x n a v,
+    access_step (access_subst x (NNum n) a, NNum n) v ->
+    forall m,
+    exists v',
+    access_step (access_subst x (NNum m) a, NNum m) v';
 }.
 
 Module Hist.
 Section Defs.
   Context {A:Access}.
   Definition history := list access_val.
+  Definition Safe2 (h1 h2:history) := forall x y, List.In x h1 -> List.In y h2 -> access_safe x y.
+
   Definition Safe (h:history) := forall x y, List.In x h -> List.In y h -> access_safe x y.
 
   Inductive GenAccess x a: nat -> list (list access_val) -> Prop :=
@@ -102,6 +111,20 @@ Section Defs.
     eauto.
   Qed.
 
+  Lemma gen_access_to_access_step_lt:
+    forall x e n v,
+    GenAccess x e n v ->
+    forall m,
+    m < n ->
+    exists l, access_step (access_subst x (NNum m) e, NNum m) l.
+  Proof.
+    induction n; intros. {
+      omega.
+    }
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0; eauto.
+  Qed.
+
   Lemma safe_in:
     forall h,
     Safe h ->
@@ -121,15 +144,21 @@ Section Defs.
     contradiction.
   Qed.
 
-  Definition Proj h1 tid1 tid2 h2 :=
+  Definition Proj tid h1 h2 :=
+    (forall a,
+      List.In a h1 ->
+      access_tid a = tid ->
+      List.In a h2) /\ incl h2 h1.
+
+  Definition Proj2 h1 tid1 tid2 h2 :=
     (forall a,
       List.In a h1 ->
       (access_tid a = tid1 \/ access_tid a = tid2) ->
       List.In a h2) /\ incl h2 h1.
 
   Lemma proj_to_incl:
-    forall h1 tid1 tid2 h2,
-    Proj h1 tid1 tid2 h2 ->
+    forall tid h1 h2,
+    Proj tid h1 h2 ->
     incl h2 h1.
   Proof.
     intros.
@@ -137,9 +166,32 @@ Section Defs.
     intuition.
   Qed.
 
-  Lemma proj_in_l:
+  Lemma proj2_to_incl:
     forall h1 tid1 tid2 h2,
-    Proj h1 tid1 tid2 h2 ->
+    Proj2 h1 tid1 tid2 h2 ->
+    incl h2 h1.
+  Proof.
+    intros.
+    destruct H.
+    intuition.
+  Qed.
+
+  Lemma proj_in:
+    forall tid h1 h2,
+    Proj tid h1 h2 ->
+    forall a,
+    List.In a h1 ->
+    access_tid a = tid ->
+    List.In a h2.
+  Proof.
+    intros.
+    destruct H as (H,_).
+    auto.
+  Qed.
+
+  Lemma proj2_in_l:
+    forall h1 tid1 tid2 h2,
+    Proj2 h1 tid1 tid2 h2 ->
     forall a,
     List.In a h1 ->
     access_tid a = tid1 ->
@@ -150,9 +202,9 @@ Section Defs.
     apply H; intuition.
   Qed.
 
-  Lemma proj_in_r:
+  Lemma proj2_in_r:
     forall h1 tid1 tid2 h2,
-    Proj h1 tid1 tid2 h2 ->
+    Proj2 h1 tid1 tid2 h2 ->
     forall a,
     List.In a h1 ->
     access_tid a = tid2 ->
@@ -163,9 +215,9 @@ Section Defs.
     apply H; intuition.
   Qed.
 
-  Lemma proj_to_safe:
+  Lemma proj2_to_safe:
     forall f h,
-    (forall tid1 tid2, Proj h tid1 tid2 (f tid1 tid2 h) /\
+    (forall tid1 tid2, Proj2 h tid1 tid2 (f tid1 tid2 h) /\
     Safe (f tid1 tid2 h)) ->
     Safe h.
   Proof.
@@ -174,15 +226,39 @@ Section Defs.
     intros.
     assert (H := H (access_tid x) (access_tid y)).
     destruct H as (Hp, Hs).
-    assert (In x (f (access_tid x) (access_tid y) h)) by eauto using proj_in_l.
-    assert (In y (f (access_tid x) (access_tid y) h)) by eauto using proj_in_r.
+    assert (In x (f (access_tid x) (access_tid y) h)) by eauto using proj2_in_l.
+    assert (In y (f (access_tid x) (access_tid y) h)) by eauto using proj2_in_r.
     eauto using safe_in.
   Qed.
+
+  Lemma proj_to_safe:
+    forall f h,
+    (forall tid1 tid2,
+      Proj tid1 h (f tid1 h) /\
+      Proj tid2 h (f tid2 h) /\
+    Safe (f tid1 h ++ f tid2 h)) ->
+    Safe h.
+  Proof.
+    intros.
+    unfold Safe.
+    intros.
+    assert (H := H (access_tid x) (access_tid y)).
+    destruct H as (Hp1, (Hp2, Hs)).
+    assert (In x (f (access_tid x) h)) by eauto using proj_in.
+    assert (In y (f (access_tid y) h)) by eauto using proj_in.
+    apply safe_in with (h:=f (access_tid x) h ++ f (access_tid y) h); auto;
+      apply in_or_app; auto.
+  Qed.
+
+  Definition proj task : history -> history :=
+    List.filter (fun a => (Nat.eqb (access_tid a) task)).
 
   Definition proj2 t1 t2 := List.filter
     (fun a => orb
       (Nat.eqb (access_tid a) t1)
       (Nat.eqb (access_tid a) t2)).
+
+  Definition proj2_seq t1 t2 h := proj t1 h ++ proj t2 h.
 
   Lemma or_to_orb:
     forall a b,
@@ -195,11 +271,104 @@ Section Defs.
     - apply Bool.orb_true_r.
   Qed.
 
-  Lemma proj2_proj:
-    forall h tid1 tid2,
-    Proj h tid1 tid2 (proj2 tid1 tid2 h).
+  Lemma in_proj:
+    forall a h tid,
+    In a h ->
+    access_tid a = tid ->
+    In a (proj tid h).
   Proof.
-    unfold Proj, proj2; intros.
+    intros.
+    unfold proj.
+    apply List.filter_true_to_in; auto.
+    apply PeanoNat.Nat.eqb_eq; auto.
+  Qed.
+
+  Lemma in_proj2_seq_or:
+    forall tid1 tid2 h a,
+    In a h ->
+    (access_tid a = tid1 \/ access_tid a = tid2) ->
+    In a (proj2_seq tid1 tid2 h).
+  Proof.
+    intros.
+    unfold proj2_seq.
+    apply in_or_app.
+    destruct H0. {
+      left.
+      auto using in_proj.
+    }
+    right; auto using in_proj.
+  Qed.
+
+  Lemma in_proj2_seq_inv:
+    forall a tid1 tid2 h,
+    In a (proj2_seq tid1 tid2 h) ->
+    In a (proj tid1 h) \/ In a (proj tid2 h).
+  Proof.
+    unfold proj2.
+    intros.
+    apply in_app_or in H.
+    assumption.
+  Qed.
+
+  Lemma in_proj_inv:
+    forall a tid h,
+    In a (proj tid h) ->
+    In a h /\ access_tid a = tid.
+  Proof.
+    unfold proj. intros.
+    apply filter_In in H.
+    destruct H as (Hl, Hr).
+    apply beq_nat_true in Hr.
+    split; auto.
+  Qed.
+
+  Lemma in_proj_inv_in:
+    forall a tid h,
+    In a (proj tid h) ->
+    In a h.
+  Proof.
+    intros.
+    apply in_proj_inv in H; auto.
+    destruct H; auto.
+  Qed.
+
+  Lemma in_proj_inv_tid:
+    forall a tid h,
+    In a (proj tid h) ->
+    access_tid a = tid.
+  Proof.
+    intros.
+    apply in_proj_inv in H; auto.
+    destruct H; auto.
+  Qed.
+
+  Lemma in_proj2_seq_inv_in:
+    forall a tid1 tid2 h,
+    In a (proj2_seq tid1 tid2 h) ->
+    In a h.
+  Proof.
+    intros.
+    apply in_proj2_seq_inv in H.
+    destruct H; eauto using in_proj_inv_in.
+  Qed.
+
+  Lemma in_proj2_seq_inv_tid:
+    forall a tid1 tid2 h,
+    In a (proj2_seq tid1 tid2 h) ->
+    access_tid a = tid1 \/ access_tid a = tid2.
+  Proof.
+    intros.
+    apply in_proj2_seq_inv in H.
+    destruct H as [H|H];
+      apply in_proj_inv_tid in H;
+      intuition.
+  Qed.
+
+  Lemma proj2_proj2:
+    forall h tid1 tid2,
+    Proj2 h tid1 tid2 (proj2 tid1 tid2 h).
+  Proof.
+    unfold Proj2, proj2; intros.
     split.
     - intros.
       apply filter_In.
@@ -209,14 +378,27 @@ Section Defs.
     - auto using List.filter_incl.
   Qed.
 
-  Lemma proj2_to_safe:
+  Lemma proj_spec:
+    forall h tid,
+    Proj tid h (proj tid h).
+  Proof.
+    unfold Proj, proj; intros.
+    split.
+    - intros.
+      apply filter_In.
+      split; auto.
+      apply PeanoNat.Nat.eqb_eq in H0; intuition.
+    - auto using List.filter_incl.
+  Qed.
+
+  Lemma safe_proj2_to_safe:
     forall h,
     (forall tid1 tid2, Safe (proj2 tid1 tid2 h)) ->
     Safe h.
   Proof.
     intros.
-    apply proj_to_safe with (f:=proj2); intros.
-    split; auto using proj2_proj.
+    apply proj2_to_safe with (f:=proj2); intros.
+    split; auto using proj2_proj2.
   Qed.
 
   Lemma in_proj2_inv_tid:
@@ -250,10 +432,9 @@ Section Defs.
     unfold Safe.
     intros a b Hi Hj.
     apply access_safe_eq_tid.
-    apply in_proj2_inv_tid_eq in Hi.
-    apply in_proj2_inv_tid_eq in Hj.
-    subst.
-    auto.
+    apply in_proj2_inv_tid in Hi.
+    apply in_proj2_inv_tid in Hj.
+    destruct Hi as [Hi|Hi]; destruct Hj as [Hj|Hj]; subst; rewrite Hj; reflexivity.
   Qed.
 
   Lemma proj2_symm:
@@ -316,7 +497,7 @@ Section Defs.
         - rewrite proj2_symm.
           auto.
       }
-      apply proj2_to_safe; auto.
+      apply safe_proj2_to_safe; auto.
     }
     auto using safe_to_safe_proj2.
   Qed.
@@ -329,6 +510,43 @@ Section Defs.
     unfold proj2.
     rewrite filter_app.
     reflexivity.
+  Qed.
+
+  Lemma proj_app:
+    forall t h1 h2,
+    proj t (h1 ++ h2) = proj t h1 ++ proj t h2.
+  Proof.
+    intros.
+    unfold proj.
+    rewrite filter_app.
+    reflexivity.
+  Qed.
+
+  Lemma forall_tid_proj_id:
+    forall n l,
+    Forall (fun a => access_tid a = n) l ->
+    proj n l = l.
+  Proof.
+    intros.
+    rewrite Forall_forall in H.
+    unfold proj.
+    apply List.filter_forallb.
+    apply forallb_forall.
+    intros.
+    apply H in H0.
+    apply Nat.eqb_eq.
+    assumption.
+  Qed.
+
+  Lemma proj_id:
+    forall x a n l,
+    access_step (access_subst x (NNum n) a, NNum n) l ->
+    proj n l = l.
+  Proof.
+    intros.
+    apply access_step_inv_tid with (n0:=n) in H; auto using n_step_num.
+    apply forall_tid_proj_id.
+    assumption.
   Qed.
 
   Lemma proj2_id_l:
@@ -394,7 +612,6 @@ Section Defs.
     rewrite H1.
     reflexivity.
   Qed.
-
 
   Fixpoint gen_access x a n :=
     let a_step n := access_eval1 (access_subst x (NNum n) a, NNum n) in 
@@ -464,6 +681,122 @@ Section Defs.
     apply access_step_to_eval1 in H.
     rewrite H.
     reflexivity.
+  Qed.
+
+  Lemma step_proj_neq:
+    forall x n p a l,
+    access_step (access_subst x (NNum p) a, NNum p) l ->
+    p <> n ->
+    proj n l = [].
+  Proof.
+    intros.
+    unfold proj.
+    apply List.filter_forallb_false.
+    apply forallb_forall.
+    intros v Hi.
+    assert (R: access_tid v = p). {
+      apply access_step_inv_tid with (n0 := p) in H; auto using n_step_num.
+      rewrite Forall_forall in *.
+      apply H in Hi.
+      assumption.
+    }
+    rewrite R.
+    apply PeanoNat.Nat.eqb_neq in H0.
+    rewrite H0.
+    reflexivity.
+  Qed.
+
+  Lemma gen_access_proj_ge:
+    forall x n a v t1,
+    GenAccess x a n v ->
+    t1 >= n ->
+    proj t1 (flat_map id v) = [].
+  Proof.
+    induction n; intros. {
+      inversion H; subst; clear H.
+      reflexivity.
+    }
+    inversion H; subst; clear H.
+    simpl.
+    rewrite proj_app.
+    assert (R: proj t1 (id v0) = []). {
+      eapply step_proj_neq; eauto with *.
+    }
+    rewrite R; clear R.
+    simpl.
+    eapply IHn; eauto with *.
+  Qed.
+
+  Lemma gen_access_proj_lt:
+    forall x n a v,
+    GenAccess x a n v ->
+    forall t1,
+    t1 < n ->
+    proj t1 (flat_map id v) = gen_access_item x a t1.
+  Proof.
+    induction n; intros. {
+      omega.
+    }
+    inversion H; subst; clear H.
+    simpl.
+    rewrite proj_app.
+    inversion H0; subst; clear H0. {
+      clear IHn.
+      erewrite gen_access_proj_ge; eauto.
+      unfold gen_access_item.
+      assert (Hx := H3).
+      apply access_step_to_eval1 in Hx.
+      rewrite Hx.
+      apply proj_id in H3.
+      unfold id.
+      rewrite H3.
+      apply app_nil_r.
+    }
+    assert (R: proj t1 (id v0) = []). {
+      eapply step_proj_neq; eauto with *.
+    }
+    rewrite R.
+    simpl.
+    eauto.
+  Qed.
+
+  Lemma gen_access_proj_rw:
+    forall x n a v l t1,
+    GenAccess x a n v ->
+    t1 < n ->
+    access_step (access_subst x (NNum t1) a, NNum t1) l ->
+    proj t1 (flat_map id v) = l.
+  Proof.
+    intros.
+    erewrite gen_access_proj_lt; eauto.
+    unfold gen_access_item.
+    apply access_step_to_eval1 in H1.
+    rewrite H1.
+    reflexivity.
+  Qed.
+
+  Lemma safe_to_safe2:
+    forall h,
+    Safe h ->
+    forall t1 t2,
+    Safe2 (proj t1 h) (proj t2 h).
+  Proof.
+    unfold Safe, Safe2; intros.
+    apply in_proj_inv in H0.
+    apply in_proj_inv in H1.
+    destruct H0, H1.
+    auto.
+  Qed.
+
+  Lemma safe2_to_safe:
+    forall h,
+    (forall t1 t2,
+    Safe2 (proj t1 h) (proj t2 h)) ->
+    Safe h.
+  Proof.
+    unfold Safe, Safe2; intros.
+    assert (Hx := H (access_tid x) (access_tid y) x y).
+    apply Hx; apply in_proj; auto.
   Qed.
 
   Lemma gen_access_proj2_1:
@@ -597,6 +930,37 @@ Section Defs.
     rewrite proj2_symm.
     eapply gen_access_proj_3; eauto.
   Qed.
+
+  Lemma access_step_to_gen_access:
+    forall x m n a v,
+    n < m ->
+    access_step (access_subst x (NNum n) a, NNum n) v ->
+    exists l, GenAccess x a m l.
+  Proof.
+    induction m; intros. {
+      omega.
+    }
+    inversion H; subst; clear H. {
+      destruct m. {
+        exists [v].
+        auto using gen_access_cons, gen_access_nil.
+      }
+      assert (Hx := access_step_next _ _ _ _ H0 m).
+      destruct Hx as (v2, Hs).
+      apply IHm in Hs; auto.
+      destruct Hs as (l, Hg).
+      exists (v::l).
+      apply gen_access_cons; auto.
+    }
+    destruct m. {
+      omega.
+    }
+    assert (Hy := access_step_next _ _ _ _ H0 (S m)).
+    destruct Hy as (v', Hi).
+    apply IHm in H0; auto.
+    destruct H0 as (l, Hg).
+    eauto using gen_access_cons.
+  Qed. 
 End Defs.
 End Hist.
 
@@ -627,8 +991,10 @@ Module OneDim.
     NStep t nt ->
     Step ((idx, b), t) [{| index := ni; tid := nt |}]
   | step_false:
-    forall idx b t,
+    forall idx b t ni nt,
     BStep b false ->
+    NStep idx ni ->
+    NStep t nt ->
     Step ((idx, b), t) [].
 
   Definition AStep := Step.
@@ -637,8 +1003,7 @@ Module OneDim.
     let (e, t) := e in
     let (idx, b) := e in
     match b_step b, n_step idx, n_step t with
-    | Some true, Some ni, Some nt => Some [{| index := ni; tid:=nt|}]
-    | Some false, _, _ => Some []
+    | Some b, Some ni, Some nt => Some (if b then [{| index := ni; tid:=nt|}] else [])
     | _, _, _ => None
     end.
 
@@ -651,15 +1016,16 @@ Module OneDim.
     destruct e as ((idx, b), t).
     simpl in *.
     destruct (b_step b) eqn:Hb; try (inversion H; fail).
-    destruct b0. {
-      destruct (n_step idx) eqn:Hi; try (inversion H; fail). 
-      destruct (n_step t) eqn:Ht; try (inversion H; fail).
-      inversion H; subst; clear H.
-      apply step_true; auto using n_step_to_prop, b_step_to_prop.
+    destruct b0;
+    destruct (n_step idx) eqn:Hi; try (inversion H; fail);
+    destruct (n_step t) eqn:Ht; try (inversion H; fail);
+    inversion H; subst; clear H;
+    apply b_step_to_prop in Hb;
+    apply n_step_to_prop in Hi;
+    apply n_step_to_prop in Ht. {
+      constructor; auto.
     }
-    inversion H; subst; clear H.
-    apply step_false.
-    apply b_step_to_prop; auto.
+    econstructor; eauto.
   Qed.
 
   Lemma prop_to_a_step:
@@ -668,18 +1034,11 @@ Module OneDim.
     a_step e = Some l.
   Proof.
     intros.
-    inversion H; subst; clear H; simpl. {
-      apply prop_to_b_step in H0.
-      apply prop_to_n_step in H1.
-      apply prop_to_n_step in H2.
-      rewrite H0.
-      rewrite H1.
-      rewrite H2.
-      reflexivity.
-    }
-    apply prop_to_b_step in H0.
-    rewrite H0.
-    reflexivity.
+    inversion H; subst; clear H; simpl;
+    apply prop_to_b_step in H0;
+    apply prop_to_n_step in H1;
+    apply prop_to_n_step in H2;
+    rewrite H0; rewrite H1; rewrite H2; reflexivity.
   Qed.
 
   Definition Safe (a1 a2:A) :=
@@ -736,6 +1095,46 @@ Module OneDim.
     }
     contradiction.
   Qed.
+
+  Lemma access_step_next:
+    forall x n a v,
+    AStep (subst x (NNum n) a, NNum n) v ->
+    forall m,
+    exists v',
+    AStep (subst x (NNum m) a, NNum m) v'.
+  Proof.
+    intros.
+    inversion H; subst; clear H. {
+      inversion H5; subst; clear H5.
+      unfold subst in *.
+      destruct a as (a1, a2).
+      inversion H0; subst; clear H0.
+      apply b_step_subst_next with (m:=m) in H2.
+      apply n_step_subst_next with (m1:=m) in H3.
+      destruct H2 as (b, Hb).
+      destruct H3 as (m1, Hn).
+      destruct b. {
+        exists [{| tid := m; index := m1|} ].
+        constructor; auto using n_step_num.
+      }
+      exists [].
+      econstructor; eauto using n_step_num.
+    }
+    destruct a as (a1, a2); simpl.
+    simpl in *.
+    inversion H0; subst; clear H0.
+    apply b_step_subst_next with (m:=m) in H2.
+    apply n_step_subst_next with (m1:=m) in H3.
+    destruct H2 as (b2, Ha).
+    destruct H3 as (n2, Hb).
+    destruct b2. {
+      exists [{| tid := m; index := n2|} ].
+      constructor; auto using n_step_num.
+    }
+    exists [].
+    econstructor; eauto using n_step_num.
+  Qed.
+
 End OneDim.
 
 Instance ONE_DIM : Access := {|
@@ -749,6 +1148,7 @@ Instance ONE_DIM : Access := {|
   access_tid := OneDim.tid;
   access_safe_eq_tid := OneDim.safe_eq_tid;
   access_step_inv_tid := OneDim.access_step_inv_tid;
+  access_step_next := OneDim.access_step_next;
 |}.
 
 

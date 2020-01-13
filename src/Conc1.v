@@ -115,7 +115,25 @@ Section C1.
       forall h x i1 i2,
       Step2 tid1 tid2 (h, Loop x [] i1 i2) (h, i2).
 
+    Inductive StepProj (tid:nat): state -> state -> Prop :=
+    | step_proj_access:
+      forall h e v i,
+      access_step (access_subst TID (NNum tid) e, NNum tid) v ->
+      StepProj tid (h, Acc e i) (v ++ h, i)
+    | step_proj_for:
+      forall x r l h i1 i2,
+      RStep r l ->
+      StepProj tid (h, For x r i1 i2) (h, Loop x l i1 i2)
+    | step_proj_loop_step:
+      forall h x n l i1 i2,
+      StepProj tid (h, Loop x (n::l) i1 i2) (h, seq (i_subst x (NNum n) i1) (Loop x l i1 i2))
+    | step_proj_loop_skip:
+      forall h x i1 i2,
+      StepProj tid (h, Loop x [] i1 i2) (h, i2).
+
   Definition proj2 t1 t2 (s:state) := let (h, p) := s in (Hist.proj2 t1 t2 h, p).
+  Definition proj t (s:state) := let (h, p) := s in (Hist.proj t h, p).
+
   End Step2.
 
   Definition BStep2 T1 T2 := BigStep _ (Step2 T1 T2) Value.
@@ -141,6 +159,204 @@ Section C1.
   End Iter.
 
   Definition step (s:state) := let (h, p) := s in step_iter h p.
+(*
+  Lemma step_to_step_proj:
+    forall s1 s2,
+    Step s1 s2 ->
+    forall t1,
+    t1 < TID_COUNT ->
+    StepProj t1 (proj t1 s1) (proj t1 s2).
+  Proof.
+    intros.
+    induction H; simpl; try (constructor; auto; fail).
+    edestruct gen_access_lt as (l, (Hs, Hi)); eauto.
+    rewrite Hist.proj_app.
+    assert (R: Hist.proj t1 l = l). {
+      apply proj_id in Hs.
+      assumption.
+    }
+    eapply gen_access_proj_lt in H; eauto.
+    rewrite H.
+    unfold gen_access_item.
+    assert (R1 := Hs).
+    apply access_step_to_eval1 in R1.
+    rewrite R1.
+    constructor.
+    assumption.
+  Qed.
+*)
+  Axiom tid_nonempty: TID_COUNT > 0.
+
+  Lemma tid_exists:
+    exists t, t < TID_COUNT.
+  Proof.
+    assert (Hx := tid_nonempty).
+    destruct TID_COUNT. {
+      inversion Hx.
+    }
+    eauto with *.
+  Qed.
+
+  Definition step_hist p :=
+    match p with
+    | Acc e _ =>
+      match gen_access TID e TID_COUNT with
+      | Some v => flat_map id v
+      | None => []
+      end
+    | Skip
+    | For _ _ _ _ 
+    | Loop _ _ _ _ => []
+    end.
+  Definition step_prog i :=
+    match i with
+    | Acc _ i => i
+    | For x r i1 i2 =>
+      match r_step r with
+      | Some l => Loop x l i1 i2
+      | None => Skip
+      end
+    | Loop _ [] _ i => i
+    | Loop x (n::l) i1 i2 => seq (i_subst x (NNum n) i1) (Loop x l i1 i2)
+    | Skip => Skip
+    end.
+
+  Lemma step_inv_state:
+    forall h p s,
+    Step (h, p) s ->
+    s = (step_hist p ++ h, step_prog p).
+  Proof.
+    intros.
+    destruct p; simpl; inversion H; subst; clear H.
+    - apply prop_to_gen_access in H4.
+      rewrite H4.
+      reflexivity.
+    - apply prop_to_r_step in H6.
+      rewrite H6.
+      reflexivity.
+    - reflexivity.
+    - reflexivity.
+  Qed.
+
+  Lemma step_proj_to_step:
+    forall h p,
+    (forall t1, t1 < TID_COUNT -> StepProj t1 (Hist.proj t1 h, p) (Hist.proj t1 (step_hist p ++ h), step_prog p)) ->
+    Step (h, p) (step_hist p ++ h, step_prog p).
+  Proof.
+    intros.
+    destruct tid_exists as (t1, Hlt).
+    assert (Hx := H _ Hlt).
+    destruct p; simpl; inversion Hx; subst; clear Hx.
+    - assert (Hx := H1).
+      apply access_step_to_gen_access with (m:=TID_COUNT) in H1; auto; destruct H1 as (l, Hl).
+      assert (Hg := Hl).
+      apply prop_to_gen_access in Hl.
+      rewrite Hl in *.
+      rewrite Hist.proj_app in H4.
+      constructor.
+      assumption.
+    - destruct (r_step _) eqn:Hs; inversion H6; subst; clear H6.
+      apply r_step_to_prop in Hs.
+      constructor; assumption.
+    - constructor.
+    - constructor.
+  Qed.
+
+  Lemma step_to_step_proj:
+    forall h p,
+    Step (h, p) (step_hist p ++ h, step_prog p) ->
+    forall t1,
+    t1 < TID_COUNT ->
+    StepProj t1 (Hist.proj t1 h, p) (Hist.proj t1 (step_hist p ++ h), step_prog p).
+  Proof.
+    intros.
+    inversion H; subst; clear H; simpl.
+    - assert (Hg := H2).
+      apply prop_to_gen_access in H2.
+      rewrite H2 in *.
+      rewrite Hist.proj_app.
+      erewrite gen_access_proj_lt; eauto.
+      unfold gen_access_item.
+      eapply gen_access_to_access_step_lt in Hg; eauto.
+      destruct Hg as (l, Ha).
+      apply access_step_to_eval1 in Ha.
+      rewrite Ha.
+      constructor.
+      apply access_eval1_to_step in Ha.
+      assumption.
+    - assert (Hx := H2).
+      apply prop_to_r_step in Hx.
+      rewrite Hx in *.
+      inversion H4; subst; clear H4.
+      constructor.
+      assumption.
+    - constructor.
+    - constructor.
+  Qed.
+
+  Definition RedProj t1 h p :=
+    StepProj t1 (Hist.proj t1 h, p) (Hist.proj t1 (step_hist p ++ h), step_prog p).
+
+  Definition Red h p := Step (h, p) (step_hist p ++ h, step_prog p).
+
+  Definition RedSafe h p := Safe (step_hist p ++ h, step_prog p).
+
+  Definition RedProjSafe t1 t2 h p := Safe2 (Hist.proj t1 (step_hist p ++ h)) (Hist.proj t2 (step_hist p ++ h)).
+
+  Lemma red_proj_iff_red:
+    forall h p,
+    (forall t1, t1 < TID_COUNT -> RedProj t1 h p) <-> Red h p.
+  Proof.
+    unfold Red, RedProj; split; intros;
+      auto using step_proj_to_step, step_to_step_proj.
+  Qed.
+
+  Lemma red_safe_to_red_proj_safe:
+    forall h p t1 t2,
+    Red h p ->
+    RedSafe h p ->
+    t1 < TID_COUNT ->
+    t2 < TID_COUNT ->
+    t1 <> t2 ->
+    RedProjSafe t1 t2 h p.
+  Proof.
+    unfold RedSafe, RedProjSafe, Red; intros.
+    inversion H; subst; clear H.
+    - simpl in *.
+      erewrite prop_to_gen_access in *; eauto.
+      edestruct gen_access_to_access_step_lt with (m:=t1) as (l1, Ha1); eauto.
+      edestruct gen_access_to_access_step_lt with (m:=t2) as (l2, Ha2); eauto.
+      repeat rewrite proj_app.
+      erewrite gen_access_proj_rw; eauto.
+      erewrite gen_access_proj_rw; eauto.
+      simpl.
+  Qed.
+
+  Theorem step_proj_spec:
+    forall h p,
+    Red h p /\ RedSafe h p
+    <->
+    (forall t1 t2, t1 < TID_COUNT -> t2 < TID_COUNT -> t1 <> t2 ->
+      RedProj t1 h p /\ RedProj t2 h p /\ RedProjSafe t1 t2 h p).
+  Proof.
+    split; intros.
+    - destruct H as (Hr, Hs).
+      repeat split.
+      + apply red_proj_iff_red; assumption.
+      + apply red_proj_iff_red; assumption.
+      + 
+      repeat split; auto using step_to_step_proj.
+      destruct s2 as (h2, p2); simpl.
+      unfold Safe2.
+      intros.
+      apply Hist.in_proj_inv in H.
+      apply Hist.in_proj_inv in H3.
+      destruct H as (Hi1, He1).
+      destruct H3 as (Hi2, He2).
+      subst.
+      eauto.
+    - 
+  Qed.
 
   Lemma step2_proj2:
     forall s1 s2,
@@ -264,33 +480,22 @@ Section Defs.
   Definition t := (Hist.history * C1.inst) % type.
   Variable TID_COUNT: nat.
   Variable TID: var.
-(*
-    step_access : forall (s : Hist.history) (e : access_exp) (v : list (list access_val)) (i : C1.inst),
-                  Hist.GenAccess TID e TID_COUNT v ->
-                  C1.Step TID_COUNT TID (s, C1.Acc e i) (flat_map id v ++ s, i)
-  | step_for : forall (x : var) (r : range) (h : Hist.history) (l : list nat) (i1 i2 : C1.inst),
-               RStep r l -> C1.Step TID_COUNT TID (h, C1.For x r i1 i2) (h, C1.Loop x l i1 i2)
-  | step_loop_step : forall (h : Hist.history) (x : var) (n : nat) (l : list nat) (i1 i2 : C1.inst),
-                     C1.Step TID_COUNT TID (h, C1.Loop x (n :: l) i1 i2)
-                       (h, C1.seq (C1.i_subst x (NNum n) i1) (C1.Loop x l i1 i2))
-  | step_loop_skip : forall (h : Hist.history) (x : var) (i1 i2 : C1.inst),
-                     C1.Step TID_COUNT TID (h, C1.Loop x [] i1 i2) (h, i2)
-*)
-  Inductive Red: t -> state t -> Prop :=
+
+  Inductive Red: t -> list t -> Prop :=
   | red_acc:
     forall e v h c, 
     Hist.GenAccess TID e TID_COUNT v ->
-    Red (h, C1.Acc e c) (Leaf (List.flat_map id v ++ h, c))
+    Red (h, C1.Acc e c) [(List.flat_map id v ++ h, c)]
   | red_for:
     forall h x r l c1 c2,
     RStep r l ->
-    Red (h, C1.For x r c1 c2) (Leaf (h, C1.Loop x l c1 c2))
+    Red (h, C1.For x r c1 c2) [(h, C1.Loop x l c1 c2)]
   | red_branch_cons:
     forall h l c1 c2 n x,
-    Red (h, C1.Loop x (n::l) c1 c2) (Par (Leaf (h, C1.i_subst x (NNum n) c1)) (Leaf (h, C1.Loop x l c1 c2)))
+    Red (h, C1.Loop x (n::l) c1 c2) [(h, C1.i_subst x (NNum n) c1); (h, C1.Loop x l c1 c2) ]
   | red_branch_nil:
     forall h x c1 c2,
-    Red (h, C1.Loop x [] c1 c2) Empty.
+    Red (h, C1.Loop x [] c1 c2) [(h, c2)].
 
   Definition is_value (s:t) :=
     let (h, p) := s in
@@ -304,16 +509,16 @@ Section Defs.
   match c with
   | C1.Acc e c =>
     match Hist.gen_access TID e TID_COUNT with
-    | Some l => Some (Leaf (List.flat_map id l ++ h, c))
+    | Some l => Some [(List.flat_map id l ++ h, c)]
     | None => None
     end
   | C1.For x r c1 c2 =>
     match r_step r with
-    | Some l => Some (Leaf (h, C1.Loop x l c1 c2))
+    | Some l => Some [(h, C1.Loop x l c1 c2)]
     | _ => None
     end
-  | C1.Loop x (n::l) c1 c2 => Some (Par (Leaf (h, C1.i_subst x (NNum n) c1)) (Leaf (h, C1.Loop x l c1 c2)))
-  | C1.Loop _ [] _ _ => Some Empty 
+  | C1.Loop x (n::l) c1 c2 => Some [(h, C1.i_subst x (NNum n) c1); (h, C1.Loop x l c1 c2)]
+  | C1.Loop _ [] _ c => Some [(h,c)]
   | C1.Skip => None
   end.
 
@@ -328,9 +533,6 @@ Section Defs.
     - inversion H.
     - destruct (Hist.gen_access _ _ _) eqn:Hg; inversion H; subst.
       constructor; auto using Hist.gen_access_to_prop.
-    (*
-    - inversion H; subst; clear H.
-      constructor.*)
     - destruct (r_step r) eqn:Hr; inversion H; subst; clear H.
       constructor; auto using r_step_to_prop.
     - destruct l; inversion H; constructor.
@@ -376,7 +578,7 @@ Section Defs.
     red_leaf_to_a_step := red_to_prop;
     a_step_to_red_leaf := prop_to_red;
     step_to_is_value_false := red_to_value_false;
-    step_is_value_true := value_true_to_leaf;
+    (*step_is_value_true := value_true_to_leaf;*)
   }.
 End Defs.
 
@@ -389,7 +591,7 @@ Module Examples.
   Fixpoint bstep fuel steps s :=
   match fuel with
   | 0 => (steps,s)
- | S n =>
+  | S n =>
     match step s with
     | Some s => bstep n (S steps) s
     | _ => (steps, s)
@@ -402,7 +604,7 @@ Module Examples.
   Definition BAD :=
     C1.For (variable "x") (NNum 0, NNum 2) i1 C1.Skip.
 
-  Compute run 8 (SymExe.Leaf ([], BAD)).
+  Compute run 8 [([], BAD)].
 
   Definition GOOD1 :=
     let x := variable "x" in
@@ -410,7 +612,7 @@ Module Examples.
       C1.Acc (NVar x, NRel NEq (NVar TID) (NVar x)) C1.Skip
     ) C1.Skip.
 
-  Compute run 8 (SymExe.Leaf ([], GOOD1)).
+  Compute run 8 [([], GOOD1)].
 
 End Examples.
 

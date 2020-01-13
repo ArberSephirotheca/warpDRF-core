@@ -145,6 +145,30 @@ Section SO.
   | NNum n => NNum n
   end.
 
+  Lemma n_step_subst_next:
+    forall x a n1 n2,
+    NStep (n_subst x (NNum n1) a) n2 ->
+    forall m1, exists m2, NStep (n_subst x (NNum m1) a) m2.
+  Proof.
+    induction a; simpl; intros.
+    - exists n.
+      constructor.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        exists m1.
+        constructor.
+      }
+      exists n2.
+      assumption.
+    - inversion H; subst; clear H.
+      assert (Ha1 := IHa1 _ _ H4 m1).
+      assert (Ha2 := IHa2 _ _ H5 m1).
+      destruct Ha1 as (ma1, Ha1).
+      destruct Ha2 as (ma2, Ha2).
+      exists (eval_nbin n ma1 ma2).
+      constructor; auto.
+  Qed.
+
   Fixpoint b_subst x v e :=
   match e with
   | NRel o e1 e2 => NRel o (n_subst x v e1) (n_subst x v e2)
@@ -152,6 +176,33 @@ Section SO.
   | BNot b => BNot (b_subst x v b)
   | BBool b => BBool b
   end.
+
+  Lemma b_step_subst_next:
+    forall x e n b1,
+    BStep (b_subst x (NNum n) e) b1 ->
+    forall m, exists b2, BStep (b_subst x (NNum m) e) b2.
+  Proof.
+    induction e; intros; inversion H; subst; clear H; simpl.
+    - exists b1.
+      constructor.
+    - apply n_step_subst_next with (m1:=m) in H4.
+      apply n_step_subst_next with (m1:=m) in H5.
+      destruct H4 as (ma, Ha).
+      destruct H5 as (mb, Hb).
+      exists (eval_nrel n ma mb).
+      constructor; auto.
+    - apply IHe1 with (m:=m) in H4.
+      apply IHe2 with (m:=m) in H5.
+      destruct H4 as (ba, Ha).
+      destruct H5 as (bb, Hb).
+      exists (eval_brel b ba bb).
+      constructor; auto.
+    - apply IHe with (m:=m) in H1.
+      destruct H1 as (b1, Hb).
+      exists (negb b1).
+      constructor.
+      assumption.
+  Qed.
 
   Fixpoint i_subst x v l :=
   match l with

@@ -22,7 +22,7 @@ Section Ops.
 
   Definition list_prod {A:Type} (l1: list (list A)) (l2: list (list A)) : list (list A) :=
     List.fold_right (fun x accum => prepend_list x l2 ++ accum) [] l1. 
-Section Ops.
+End Ops.
 
 Section filter.
   Lemma filter_app:
