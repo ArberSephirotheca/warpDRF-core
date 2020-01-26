@@ -3,6 +3,7 @@ Require Import Coq.Strings.String.
 Require Import Coq.Relations.Relation_Definitions.
 Require Import Coq.Relations.Relation_Operators.
 Require Import Coq.Relations.Operators_Properties.
+Require Coq.Sets.Constructive_sets.
 Require Coq.omega.Omega.
 Require Import Recdef.
 Require Omega.
@@ -51,6 +52,11 @@ Class Access := {
     forall m,
     exists v',
     access_step (access_subst x (NNum m) a, NNum m) v';
+
+  access_safe_sym:
+    forall x y,
+    access_safe x y ->
+    access_safe y x;
 }.
 
 Module Hist.
@@ -60,6 +66,10 @@ Section Defs.
   Definition Safe2 (h1 h2:history) := forall x y, List.In x h1 -> List.In y h2 -> access_safe x y.
 
   Definition Safe (h:history) := forall x y, List.In x h -> List.In y h -> access_safe x y.
+
+  Definition MSafe (m:list history) := forall h1 h2, List.In h1 m -> List.In h2 m -> Safe2 h1 h2.
+
+  Definition MSafe2 (m1 m2:list history) := forall h1 h2, List.In h1 m1 -> List.In h2 m2 -> Safe2 h1 h2.
 
   Inductive GenAccess x a: nat -> list (list access_val) -> Prop :=
   | gen_access_nil:
@@ -960,7 +970,178 @@ Section Defs.
     apply IHm in H0; auto.
     destruct H0 as (l, Hg).
     eauto using gen_access_cons.
-  Qed. 
+  Qed.
+
+  Lemma safe2_sym:
+    forall h1 h2,
+    Safe2 h1 h2 <-> Safe2 h2 h1.
+  Proof.
+    unfold Safe2; split; intros.
+    - auto using access_safe_sym.
+    - auto using access_safe_sym.
+  Qed.
+
+  Lemma safe2_app:
+    forall h1 h2,
+    Safe h1 /\ Safe h2 /\ Safe2 h1 h2 <-> Safe (h1 ++ h2).
+  Proof.
+    unfold Safe, Safe2; split; intros.
+    - destruct H as (Ha, (Hb, Hc)).
+      apply in_app_or in H0.
+      apply in_app_or in H1.
+      destruct H0, H1; auto using access_safe_sym.
+    - repeat split; intros; apply H; apply in_app_iff; auto.
+  Qed.
+
+  Lemma safe_app_to_safe2:
+    forall h1 h2,
+    Safe (h1 ++ h2) ->
+    Safe2 h1 h2.
+  Proof.
+    intros.
+    apply safe2_app in H.
+    destruct H as (_, (_, ?)).
+    assumption.
+  Qed.
+
+  Lemma safe_inv_app:
+    forall h1 h2,
+    Safe (h1 ++ h2) ->
+    Safe h1 /\ Safe h2.
+  Proof.
+    intros.
+    apply safe2_app in H.
+    destruct H as [H1 [H2 H3]].
+    intuition.
+  Qed.
+
+  Lemma safe_inv_app_l:
+    forall h1 h2,
+    Safe (h1 ++ h2) ->
+    Safe h1.
+  Proof.
+    intros.
+    apply safe_inv_app in H.
+    destruct H; assumption.
+  Qed.
+
+  Lemma safe_inv_app_r:
+    forall h1 h2,
+    Safe (h1 ++ h2) ->
+    Safe h2.
+  Proof.
+    intros.
+    apply safe_inv_app in H.
+    destruct H; assumption.
+  Qed.
+
+  Lemma gen_access_fun:
+    forall x e n v1 v2,
+    GenAccess x e n v1 ->
+    GenAccess x e n v2 ->
+    v1 = v2.
+  Proof.
+    intros.
+    apply prop_to_gen_access in H.
+    apply prop_to_gen_access in H0.
+    rewrite H in *.
+    inversion H0.
+    auto.
+  Qed.
+
+  Lemma msafe_prepend:
+    forall h1 h2 hs,
+    AllIncl (prepend_list h1 hs) (h1 ++ h2) ->
+    Safe (h1 ++ h2) ->
+    MSafe (prepend_list h1 hs).
+  Proof.
+    intros ? ? ?.
+    intros Hp.
+    intros Hs.
+    apply safe2_app in Hs.
+    destruct Hs as [Sh1 [Sh2 Sh1h2]].
+    unfold MSafe.
+    intros l1 l2 Hl1 Hl2.
+    destruct (in_prepend_inv _ _ _ _ Hl1) as (la, ?); subst.
+    destruct (in_prepend_inv _ _ _ _ Hl2) as (lb, ?); subst.
+    eapply all_incl_to_incl in Hl1; eauto.
+    eapply all_incl_to_incl in Hl2; eauto.
+    unfold Safe2 in *.
+    intros.
+    assert (Hi: In x (h1 ++ h2)). {
+      eauto using List.in_incl.
+    }
+    assert (Hj: In y (h1 ++ h2)). {
+      eauto using List.in_incl.
+    }
+    apply in_app_iff in Hi.
+    apply in_app_iff in Hj.
+    destruct Hi, Hj; auto using access_safe_sym.
+  Qed.
+
+  Lemma safe_to_msafe:
+    forall h hs,
+    Safe h ->
+    AllIncl hs h ->
+    MSafe hs.
+  Proof.
+    unfold Safe, AllIncl, MSafe, Safe2.
+    intros.
+    rewrite Forall_forall in *.
+    apply H0 in H1.
+    apply H0 in H2.
+    auto.
+  Qed.
+
+  Lemma pair_in_safe2:
+    forall x y h,
+    PairIn (x, y) h ->
+    Safe2 h h ->
+    access_safe x y.
+  Proof.
+    unfold Safe2; intros.
+    inversion H; subst; clear H.
+    auto.
+  Qed.
+
+  Lemma msafe_pair_in_to_safe:
+    forall h hs x y,
+    MSafe hs ->
+    In h hs ->
+    PairIn (x, y) h ->
+    access_safe x y.
+  Proof.
+    intros.
+    unfold MSafe in *.
+    assert (Safe2 h h) by auto.
+    eauto using pair_in_safe2.
+  Qed.
+
+  Lemma msafe_mpair_in_to_safe:
+    forall hs x y,
+    MSafe hs ->
+    MPairIn (x, y) hs ->
+    access_safe x y.
+  Proof.
+    unfold MPairIn.
+    intros.
+    rewrite Exists_exists in *.
+    destruct H0 as (h, (Hi, Hp)).
+    eauto using msafe_pair_in_to_safe.
+  Qed.
+
+  Lemma msafe_to_safe:
+    forall h hs,
+    MSafe hs ->
+    PairIncl h hs ->
+    Safe h.
+  Proof.
+    unfold Safe, Safe2.
+    intros.
+    assert (Hi: PairIn (x, y) h) by auto using pair_in_def.
+    assert (Hj: MPairIn (x, y) hs) by eauto using pair_incl_in.
+    eauto using msafe_mpair_in_to_safe.
+  Qed.
 End Defs.
 End Hist.
 
@@ -1135,6 +1316,20 @@ Module OneDim.
     econstructor; eauto using n_step_num.
   Qed.
 
+  Lemma safe_sym:
+    forall a1 a2,
+    Safe a1 a2 ->
+    Safe a2 a1.
+  Proof.
+    unfold Safe.
+    intros.
+    destruct H as [H|[H1 H2]]. {
+      left.
+      rewrite H.
+      reflexivity.
+    }
+    repeat split; auto.
+  Qed.
 End OneDim.
 
 Instance ONE_DIM : Access := {|
@@ -1149,6 +1344,7 @@ Instance ONE_DIM : Access := {|
   access_safe_eq_tid := OneDim.safe_eq_tid;
   access_step_inv_tid := OneDim.access_step_inv_tid;
   access_step_next := OneDim.access_step_next;
+  access_safe_sym := OneDim.safe_sym;
 |}.
 
 
