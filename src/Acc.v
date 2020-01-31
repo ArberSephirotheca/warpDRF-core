@@ -1129,18 +1129,22 @@ Section Defs.
     destruct H0 as (h, (Hi, Hp)).
     eauto using msafe_pair_in_to_safe.
   Qed.
+  Definition InclAll {A} h hs := forall (x:A), List.In x h -> MIn x hs.
 
   Lemma msafe_to_safe:
     forall h hs,
     MSafe hs ->
-    PairIncl h hs ->
+    InclAll h hs ->
     Safe h.
   Proof.
     unfold Safe, Safe2.
     intros.
-    assert (Hi: PairIn (x, y) h) by auto using pair_in_def.
-    assert (Hj: MPairIn (x, y) hs) by eauto using pair_incl_in.
-    eauto using msafe_mpair_in_to_safe.
+    unfold MSafe,Safe2 in *.
+    apply H0 in H1.
+    apply H0 in H2.
+    inversion H1; subst; clear H1.
+    inversion H2; subst; clear H2.
+    eauto.
   Qed.
 End Defs.
 End Hist.

@@ -882,8 +882,9 @@ Section Defs.
   Notation "⊢" := Hist.Safe.
   Notation "⊨" := Hist.MSafe.
   Infix "*⊆" := AllIncl (at level 80).
+  Infix "⊆*" := InclAll (at level 80).
   Infix "*⊆*" := AllInclAll (at level 70).
-  (*Infix "⊆" := AllIncl (at level 80). *)
+  Infix "×" := list_prod (at level 50).
   Infix "↓" := (C1.Run TID_COUNT TID) (at level 80).
   Notation "i '[' x ':=' n ']'" := (C1.i_subst x n i) (at level 40).
 
@@ -977,36 +978,61 @@ Section Defs.
     - assumption.
   Qed.
 
-  Lemma run_to_pair_incl:
+  Lemma run_to_incl_all:
     forall i h,
     C1.Run TID_COUNT TID i h ->
     forall hs,
     Run i hs ->
-    PairIncl h hs.
+    InclAll h hs.
   Proof.
-    intros i h H.
-    induction H; intros.
-    - inversion H; subst; clear H.
-      apply pair_incl_nil_l.
-    - inversion H1; subst; clear H1.
-      run_clean.
-      assert (IHRun := IHRun _ H6).
+    intros i h H; induction H; intros.
+    - apply incl_all_nil.
+    - inversion H1; subst; clear H1; run_clean.
       assert (hs0 <> []) by eauto using run_nonempty.
-      eauto using pair_incl_prepend_list.
-    - inversion H1; subst; clear H1.
-      run_clean.
-      eauto.
-    - inversion H1; subst; clear H1.
+      apply IHRun in H6; clear IHRun.
+      apply incl_all_app.
+      + auto using incl_all_prepend_list_l.
+      + auto using incl_all_prepend_list_r.
+    - inversion H1; subst; clear H1; run_clean.
+      auto.
+    - inversion H1; subst; clear H1; run_clean.
       apply run_inv_seq in H8.
-      destruct H8 as (hs3, (hs4, (?, (Hr1, Hr2)))).
-      subst.
+      destruct H8 as (hs3, (hs4, (?, (Hr1, Hr2)))); subst.
+      assert (hs4 <> nil) by eauto using run_nonempty.
       assert (IHRun1 := IHRun1 _ Hr1).
       assert (IHRun2 := IHRun2 _ H9).
-      give_up.
+      eapply run_inv_loop_all_incl_all in Hr2; eauto.
+      apply incl_all_app.
+      + apply incl_all_app_l.
+        auto using incl_all_prod_l.
+      + apply incl_all_app_r.
+        auto.
     - inversion H0; subst; clear H0.
       auto.
-  Admitted.
+  Qed.
 
+  Theorem soundness:
+    forall i h,
+    C1.Run TID_COUNT TID i h ->
+    forall hs,
+    Run i hs ->
+    Hist.MSafe hs ->
+    Hist.Safe h.
+  Proof.
+    intros.
+    assert (InclAll h hs) by eauto using run_to_incl_all.
+    eauto using Hist.msafe_to_safe.
+  Qed.
+
+  Corollary msafe_safe_iff:
+    forall i h hs,
+    C1.Run TID_COUNT TID i h ->
+    Run i hs ->
+    Hist.MSafe hs <-> Hist.Safe h.
+  Proof.
+    intros.
+    split; eauto using completeness, soundness.
+  Qed.
 
 End Defs.
 

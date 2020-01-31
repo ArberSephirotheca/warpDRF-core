@@ -54,6 +54,10 @@ Section Ops.
   Definition AllInclAll {A:Type} (ls1 ls2:list (list A)) :=
     Included A (fun a => MIn a ls1) (fun a => MIn a ls2).
 
+  (** Every element of l is in some list of ls *)
+  Definition InclAll {A:Type} (l:list A) (ls:list (list A)) :=
+    Included A (fun (a:A) => List.In a l) (fun a => MIn a ls).
+
   Lemma in_prepend_list:
     forall A ls (l1 l2:list A),
     List.In l2 ls ->
@@ -74,17 +78,18 @@ Section Ops.
   Lemma in_prepend_inv:
     forall A ls l1 l2,
     List.In l1 (@prepend_list A l2 ls) ->
-    exists l3, l1 = l2 ++ l3.
+    exists l3, l1 = l2 ++ l3 /\ List.In l3 ls.
   Proof.
     induction ls; intros. {
       simpl in *.
       contradiction.
     }
     inversion H; subst; clear H. {
-      eauto.
+      eauto using in_eq.
     }
     apply IHls in H0.
-    eauto.
+    destruct H0 as (?, (?, Hi)).
+    eauto using in_cons.
   Qed.
 
   (** XXX: MOVE TO ANICETO *)
@@ -132,6 +137,71 @@ Section Ops.
     rewrite List.Forall_forall in *.
     intros.
     eauto using in_prepend_list, incl_app_r.
+  Qed.
+
+  Lemma incl_all_nil:
+    forall A ls,
+    @InclAll A [] ls.
+  Proof.
+    unfold InclAll; intros.
+    unfold Included.
+    intros.
+    contradiction.
+  Qed.
+
+  Lemma incl_all_app:
+    forall A l1 l2 ls,
+    InclAll l1 ls ->
+    InclAll l2 ls ->
+    @InclAll A (l1 ++ l2) ls.
+  Proof.
+    unfold InclAll, Included, Ensembles.In; intros.
+    apply in_app_iff in H1.
+    destruct H1; auto.
+  Qed.
+
+  Lemma m_in_eq:
+    forall A (x:A) l ls, 
+    List.In x l ->
+    MIn x (l::ls).
+  Proof.
+    eauto using m_in_def, in_eq.
+  Qed.
+
+  Lemma incl_all_prepend_list_l:
+    forall A l ls,
+    ls <> [] ->
+    @InclAll A l (prepend_list l ls).
+  Proof.
+    unfold InclAll, Included, Ensembles.In. intros.
+    destruct ls. {
+      contradiction.
+    }
+    simpl.
+    apply m_in_eq.
+    apply in_app_iff.
+    auto.
+  Qed.
+
+  Lemma m_in_prepend_list:
+    forall A (x:A) l ls,
+    MIn x ls ->
+    MIn x (prepend_list l ls).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eapply m_in_def; eauto using in_prepend_list.
+    apply in_app_iff.
+    auto.
+  Qed.
+
+  Lemma incl_all_prepend_list_r:
+    forall A l1 l2 ls,
+    @InclAll A l1 ls ->
+    InclAll l1 (prepend_list l2 ls).
+  Proof.
+    unfold InclAll, Included, Ensembles.In. intros.
+    auto using m_in_prepend_list.
   Qed.
 
   Lemma all_incl_nil:
@@ -323,6 +393,52 @@ Section Ops.
     intros.
     apply incl_appl.
     auto.
+  Qed.
+
+  Lemma m_in_app_l:
+    forall A (x:A) ls1 ls2,
+    MIn x ls1 ->
+    MIn x (ls1 ++ ls2).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eapply m_in_def; eauto.
+    apply in_app_iff.
+    auto.
+  Qed.
+
+  Lemma m_in_app_r:
+    forall A (x:A) ls1 ls2,
+    MIn x ls2 ->
+    MIn x (ls1 ++ ls2).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eapply m_in_def; eauto.
+    apply in_app_iff.
+    auto.
+  Qed.
+
+  Lemma incl_all_app_l:
+    forall A l ls1 ls2,
+    @InclAll A l ls1 ->
+    InclAll l (ls1 ++ ls2).
+  Proof.
+    unfold InclAll, Included, Ensembles.In.
+    intros.
+    apply H in H0.
+    auto using m_in_app_l.
+  Qed.
+
+  Lemma incl_all_app_r:
+    forall A l ls1 ls2,
+    @InclAll A l ls2 ->
+    InclAll l (ls1 ++ ls2).
+  Proof.
+    unfold InclAll, Included, Ensembles.In.
+    intros.
+    apply H in H0.
+    auto using m_in_app_r.
   Qed.
 
   Lemma all_incl_prepend_list:
@@ -529,20 +645,7 @@ Section Ops.
     apply par_not_in_nil in H.
     contradiction.
   Qed.
-(*
-  Lemma pair_in_app_iff:
-    forall A (p:A*A) l1 l2,
-    PairIn p (l1 ++ l2) <-> PairIn p l1 \/ PairIn p l2.
-  Proof.
-    split; intros. {
-      inversion H; subst; clear H.
-      apply in_app_iff in H0.
-      apply in_app_iff in H1.
-      destruct H1, H0; eauto using pair_in_def.
-      - 
-    }
-  Qed.
-   *)
+
   Lemma pair_in_app_l:
     forall A p l1 l2,
     @PairIn A p l1 ->
@@ -696,6 +799,117 @@ Section Ops.
     - auto using pair_in_prepend_list_4, pair_in_def.
   Qed.
 
+  Lemma in_prod:
+    forall (A : Type) (x : list A) a ls1 ls2,
+    List.In a ls1 ->
+    List.In x (prepend_list a ls2) ->
+    List.In x (list_prod ls1 ls2).
+  Proof.
+    induction ls1; intros. {
+      contradiction.
+    }
+    inversion H; subst; clear H; simpl; apply in_app_iff; auto.
+  Qed.
+
+  Lemma m_in_prod_r:
+    forall A (x:A) ls1 ls2,
+    ls1 <> [] ->
+    MIn x ls2 ->
+    MIn x (list_prod ls1 ls2).
+  Proof.
+    induction ls1; intros. {
+      contradiction.
+    }
+    clear H.
+    destruct ls1. {
+      simpl.
+      rewrite app_nil_r.
+      auto using m_in_prepend_list.
+    }
+    apply IHls1 in H0.
+    + simpl in *.
+      auto using m_in_app_r.
+    + intros N.
+      inversion N.
+  Qed.
+
+  Lemma m_in_inv:
+    forall A (x:A) l ls,
+    MIn x (l :: ls) ->
+    List.In x l \/ MIn x ls.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0. {
+      auto.
+    }
+    eauto using m_in_def.
+  Qed.
+
+  Lemma m_in_nil:
+    forall A (x:A), 
+    ~ MIn x [].
+  Proof.
+    intros.
+    intros N.
+    inversion N; subst; clear N.
+    contradiction.
+  Qed.
+
+  Lemma m_in_prepend_list_l:
+    forall A (x:A) l ls,
+    ls <> [] ->
+    List.In x l ->
+    MIn x (prepend_list l ls).
+  Proof.
+    intros.
+    destruct ls. {
+      contradiction.
+    }
+    simpl.
+    apply m_in_eq.
+    apply in_app_iff.
+    auto.
+  Qed.
+
+  Lemma m_in_prod_l:
+    forall A (x:A) ls1 ls2,
+    ls2 <> [] ->
+    MIn x ls1 ->
+    MIn x (list_prod ls1 ls2).
+  Proof.
+    induction ls1; intros. {
+      apply m_in_nil in H0.
+      contradiction.
+    }
+    apply m_in_inv in H0.
+    simpl.
+    destruct H0. {
+      auto using m_in_app_l, m_in_prepend_list_l.
+    }
+    apply m_in_app_r.
+    auto.
+  Qed.
+
+  Lemma incl_all_prod_l:
+    forall A l ls1 ls2,
+    ls2 <> [] ->
+    @InclAll A l ls1 ->
+    InclAll l (list_prod ls1 ls2).
+  Proof.
+    unfold InclAll, Included, Ensembles.In.
+    auto using m_in_prod_l.
+  Qed.
+
+  Lemma incl_all_prod_r:
+    forall A l ls1 ls2,
+    ls1 <> [] ->
+    @InclAll A l ls2 ->
+    InclAll l (list_prod ls1 ls2).
+  Proof.
+    unfold InclAll, Included, Ensembles.In.
+    auto using m_in_prod_r.
+  Qed.
 End Ops.
 
 Section filter.
