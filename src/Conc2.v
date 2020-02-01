@@ -143,6 +143,30 @@ Module C2.
       (Leaf (h, Branch x (n::l) c1 c2))
       (Par (Leaf (h, seq (i_subst x (NNum n) c1) c2)) (Leaf (h, Branch x l c1 c2))).
 
+  Inductive Run: inst -> list history -> Prop :=
+  | run_skip:
+    Run Skip [[]]
+  | run_access:
+    forall i e v hs,
+    access_step e v ->
+    Run i hs ->
+    Run (Acc e i) (prepend_list v hs)
+  | run_decl:
+    forall r l i1 i2 x hs,
+    RStep r l ->
+    Run (Branch x l i1 i2) hs ->
+    Run (Decl x r i1 i2) hs
+  | run_branch_cons:
+    forall x n l i1 i2 hs1 hs2,
+    Run (seq (i_subst x (NNum n) i1) i2) hs1 ->
+    Run (Branch x l i1 i2) hs2 ->
+    Run (Branch x (n::l) i1 i2) (hs1 ++ hs2)
+  | run_loop_nil:
+    forall x i1 i2 hs,
+    Run i2 hs ->
+    Run (Branch x [] i1 i2) hs.
+
+
   Definition red_par f s1 s2 :=
     match s1, s2 with
     | Empty, s => Some s
