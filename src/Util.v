@@ -23,7 +23,7 @@ Section Ops.
   (** Product of two lists. That is for each two elements x,y of lists l1 l2, yields
       x ++ y *)
 
-  Definition list_prod {A:Type} (l1: list (list A)) (l2: list (list A)) : list (list A) :=
+  Definition prod {A:Type} (l1: list (list A)) (l2: list (list A)) : list (list A) :=
     List.fold_right (fun x accum => prepend x l2 ++ accum) [] l1. 
 
   Definition AllIncl {A:Type} (ls:list (list A)) (l:list A) :=
@@ -491,9 +491,9 @@ Section Ops.
     reflexivity.
   Qed.
 
-  Lemma list_prod_app:
+  Lemma prod_app:
     forall A ll1 ll2 ll3, 
-    @list_prod A ll1 ll3 ++ list_prod ll2 ll3 = list_prod (ll1 ++ ll2) ll3.
+    @prod A ll1 ll3 ++ prod ll2 ll3 = prod (ll1 ++ ll2) ll3.
   Proof.
     induction ll1; intros. {
       simpl.
@@ -519,7 +519,7 @@ Section Ops.
 
   Lemma prepend_prod:
     forall {A:Type} (l:list A) ll1 ll2,
-    prepend l (list_prod ll1 ll2) = list_prod (prepend l ll1) ll2.
+    prepend l (prod ll1 ll2) = prod (prepend l ll1) ll2.
   Proof.
     induction ll1; intros; simpl. {
       reflexivity.
@@ -557,12 +557,12 @@ Section Ops.
     eauto.
   Qed.
 *)
-  Lemma in_list_prod_inv:
+  Lemma in_prod_inv:
     forall A x ls1 ls2,
-    List.In x (@list_prod A ls1 ls2) ->
+    List.In x (@prod A ls1 ls2) ->
     exists a, List.In a ls1 /\ List.In x (prepend a ls2).
   Proof.
-    unfold list_prod; induction ls1; simpl; intros. {
+    unfold prod; induction ls1; simpl; intros. {
       contradiction.
     }
     apply in_app_iff in H.
@@ -576,16 +576,16 @@ Section Ops.
     intuition.
   Qed.
 
-  Lemma all_incl_list_prod:
+  Lemma all_incl_prod:
     forall A l1 l2 ls,
     AllIncl l1 ls ->
     AllIncl l2 ls ->
-    @AllIncl A (list_prod l1 l2) ls.
+    @AllIncl A (prod l1 l2) ls.
   Proof.
     unfold AllIncl. intros.
     rewrite Forall_forall in *.
     intros.
-    apply in_list_prod_inv in H1.
+    apply in_prod_inv in H1.
     destruct H1 as (a, (Hi, Hj)).
     apply in_prepend_inv in Hj.
     destruct Hj as (y, (?, Hj)).
@@ -803,7 +803,7 @@ Section Ops.
     forall (A : Type) (x : list A) a ls1 ls2,
     List.In a ls1 ->
     List.In x (prepend a ls2) ->
-    List.In x (list_prod ls1 ls2).
+    List.In x (prod ls1 ls2).
   Proof.
     induction ls1; intros. {
       contradiction.
@@ -815,7 +815,7 @@ Section Ops.
     forall A (x:A) ls1 ls2,
     ls1 <> [] ->
     MIn x ls2 ->
-    MIn x (list_prod ls1 ls2).
+    MIn x (prod ls1 ls2).
   Proof.
     induction ls1; intros. {
       contradiction.
@@ -876,7 +876,7 @@ Section Ops.
     forall A (x:A) ls1 ls2,
     ls2 <> [] ->
     MIn x ls1 ->
-    MIn x (list_prod ls1 ls2).
+    MIn x (prod ls1 ls2).
   Proof.
     induction ls1; intros. {
       apply m_in_nil in H0.
@@ -895,7 +895,7 @@ Section Ops.
     forall A l ls1 ls2,
     ls2 <> [] ->
     @InclAll A l ls1 ->
-    InclAll l (list_prod ls1 ls2).
+    InclAll l (prod ls1 ls2).
   Proof.
     unfold InclAll, Included, Ensembles.In.
     auto using m_in_prod_l.
@@ -905,7 +905,7 @@ Section Ops.
     forall A l ls1 ls2,
     ls1 <> [] ->
     @InclAll A l ls2 ->
-    InclAll l (list_prod ls1 ls2).
+    InclAll l (prod ls1 ls2).
   Proof.
     unfold InclAll, Included, Ensembles.In.
     auto using m_in_prod_r.

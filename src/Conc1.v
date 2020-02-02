@@ -736,7 +736,7 @@ Section Defs.
     Run i1 hs1 ->
     forall i2 hs2,
     Run i2 hs2 ->
-    Run (C1.seq i1 i2) (list_prod hs1 hs2).
+    Run (C1.seq i1 i2) (prod hs1 hs2).
   Proof.
     intros i1 hs1 H.
     induction H; intros.
@@ -751,7 +751,7 @@ Section Defs.
     - apply IHRun in H1.
       simpl.
       eapply run_for; eauto.
-    - rewrite <- list_prod_app.
+    - rewrite <- prod_app.
       simpl.
       apply run_loop_cons; eauto.
       remember (C1.i_subst _ _ _).
@@ -769,7 +769,7 @@ Section Defs.
     forall i2 hs2 hs,
     Run i2 hs2 ->
     Run (C1.seq i1 i2) hs ->
-    hs = list_prod hs1 hs2.
+    hs = prod hs1 hs2.
   Proof.
     intros i1 hs1 H.
     induction H; intros; simpl in *.
@@ -790,7 +790,7 @@ Section Defs.
       rewrite <- seq_seq_rw in H9.
       assert (IHRun1 := IHRun1 _ _ _ H1 H9).
       subst.
-      rewrite <- list_prod_app.
+      rewrite <- prod_app.
       reflexivity.
     - inversion H1; subst; clear H1.
       eapply IHRun in H6; eauto.
@@ -864,11 +864,11 @@ Section Defs.
   Lemma run_inv_seq:
     forall i1 i2 hs,
     Run (C1.seq i1 i2) hs ->
-    exists hs1 hs2, hs = list_prod hs1 hs2 /\ Run i1 hs1 /\ Run i2 hs2.
+    exists hs1 hs2, hs = prod hs1 hs2 /\ Run i1 hs1 /\ Run i2 hs2.
   Proof.
     intros.
     destruct (run_inv_seq_2 i1 i2 hs) as (hs1, (hs2, (Hr1, Hr2))); auto.
-    assert (hs = list_prod hs1 hs2). {
+    assert (hs = prod hs1 hs2). {
       eauto using run_inv_seq_1.
     }
     subst.
@@ -884,7 +884,7 @@ Section Defs.
   Infix "*⊆" := AllIncl (at level 80).
   Infix "⊆*" := InclAll (at level 80).
   Infix "*⊆*" := AllInclAll (at level 70).
-  Infix "×" := list_prod (at level 50).
+  Infix "×" := prod (at level 50).
   Infix "↓" := (C1.Run TID_COUNT TID) (at level 80).
   Notation "i '[' x ':=' n ']'" := (C1.i_subst x n i) (at level 40).
 
@@ -935,7 +935,7 @@ Section Defs.
       subst.
       eapply run_inv_loop_all_incl_all in Hr2; eauto.
       apply all_incl_app.
-      + apply all_incl_list_prod.
+      + apply all_incl_prod.
         * auto using all_incl_appl.
         * apply all_incl_appr.
           apply all_incl_all_incl_all with (ls2:=hs2); auto.
