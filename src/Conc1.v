@@ -66,7 +66,7 @@ Section C1.
   | step_access:
     forall h e v i,
     GenAccess TID e TID_COUNT v ->
-    Step (h, Acc e i) (List.flat_map id v ++ h, i)
+    Step (h, Acc e i) (List.concat v ++ h, i)
   | step_for:
     forall x r h l i1 i2,
     RStep r l ->
@@ -85,7 +85,7 @@ Section C1.
     forall i h e v,
     GenAccess TID e TID_COUNT v ->
     Run i h ->
-    Run (Acc e i) (List.flat_map id v ++ h)
+    Run (Acc e i) (List.concat v ++ h)
   | run_for:
     forall r l i1 i2 x h,
     RStep r l ->
@@ -169,7 +169,7 @@ Section C1.
     match i with
     | Acc e j =>
       match gen_access TID e TID_COUNT with
-      | Some l => Some (List.flat_map id l ++ h, j) 
+      | Some l => Some (List.concat l ++ h, j) 
       | None => None
       end
     | For x r i1 i2 =>
@@ -201,7 +201,7 @@ Section C1.
     match p with
     | Acc e _ =>
       match gen_access TID e TID_COUNT with
-      | Some v => flat_map id v
+      | Some v => List.concat v
       | None => []
       end
     | Skip
@@ -308,7 +308,7 @@ Section C1.
   | Skip => Some []
   | Acc e i =>
     match gen_access TID e TID_COUNT, run i with
-    | Some v, Some h => Some (flat_map id v ++ h)
+    | Some v, Some h => Some (List.concat v ++ h)
     | _, _ => None
     end
   | For x r i1 i2 =>
@@ -556,7 +556,7 @@ Section Defs.
   | red_acc:
     forall e v h c, 
     Hist.GenAccess TID e TID_COUNT v ->
-    Red (h, C1.Acc e c) [(List.flat_map id v ++ h, c)]
+    Red (h, C1.Acc e c) [(List.concat v ++ h, c)]
   | red_for:
     forall h x r l c1 c2,
     RStep r l ->
@@ -575,7 +575,7 @@ Section Defs.
     forall i e v hs,
     Hist.GenAccess TID e TID_COUNT v ->
     Run i hs ->
-    Run (C1.Acc e i) (prepend (List.flat_map id v) hs)
+    Run (C1.Acc e i) (prepend (List.concat v) hs)
   | run_for:
     forall r l i1 i2 x hs,
     RStep r l ->
@@ -604,7 +604,7 @@ Section Defs.
   match c with
   | C1.Acc e c =>
     match Hist.gen_access TID e TID_COUNT with
-    | Some l => Some [(List.flat_map id l ++ h, c)]
+    | Some l => Some [(List.concat l ++ h, c)]
     | None => None
     end
   | C1.For x r c1 c2 =>
@@ -814,10 +814,10 @@ Section Defs.
       split; auto using run_skip.
     - destruct i1; simpl in *; try inversion Heqi; subst; try clear Heqi.
       + exists [[]].
-        exists (prepend (flat_map id v) hs).
+        exists (prepend (List.concat v) hs).
         split; auto using run_skip, run_access.
       + edestruct IHRun as (hs1, (hs2, (?, ?))); eauto.
-        exists (prepend (flat_map id v) hs1).
+        exists (prepend (List.concat v) hs1).
         exists hs2.
         split; auto using run_access.
     - destruct i3; simpl in *; try inversion Heqi; subst; try clear Heqi. {

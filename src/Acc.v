@@ -680,7 +680,7 @@ Section Defs.
   Lemma gen_access_iter_rw:
     forall x a n l,
     GenAccess x a n l ->
-    gen_access_iter x a n = flat_map id l.
+    gen_access_iter x a n = List.concat l.
   Proof.
     intros x a n l Hg.
     unfold gen_access_iter, gen_access_item; induction Hg. {
@@ -720,7 +720,7 @@ Section Defs.
     forall x n a v t1,
     GenAccess x a n v ->
     t1 >= n ->
-    proj t1 (flat_map id v) = [].
+    proj t1 (List.concat v) = [].
   Proof.
     induction n; intros. {
       inversion H; subst; clear H.
@@ -729,7 +729,7 @@ Section Defs.
     inversion H; subst; clear H.
     simpl.
     rewrite proj_app.
-    assert (R: proj t1 (id v0) = []). {
+    assert (R: proj t1 v0 = []). {
       eapply step_proj_neq; eauto with *.
     }
     rewrite R; clear R.
@@ -742,7 +742,7 @@ Section Defs.
     GenAccess x a n v ->
     forall t1,
     t1 < n ->
-    proj t1 (flat_map id v) = gen_access_item x a t1.
+    proj t1 (List.concat v) = gen_access_item x a t1.
   Proof.
     induction n; intros. {
       omega.
@@ -762,7 +762,7 @@ Section Defs.
       rewrite H3.
       apply app_nil_r.
     }
-    assert (R: proj t1 (id v0) = []). {
+    assert (R: proj t1 v0 = []). {
       eapply step_proj_neq; eauto with *.
     }
     rewrite R.
@@ -775,7 +775,7 @@ Section Defs.
     GenAccess x a n v ->
     t1 < n ->
     access_step (access_subst x (NNum t1) a, NNum t1) l ->
-    proj t1 (flat_map id v) = l.
+    proj t1 (List.concat v) = l.
   Proof.
     intros.
     erewrite gen_access_proj_lt; eauto.
@@ -814,7 +814,7 @@ Section Defs.
     GenAccess x a n v ->
     n1 >= n ->
     n2 >= n ->
-    proj2 n1 n2 (flat_map id v) = [].
+    proj2 n1 n2 (List.concat v) = [].
   Proof.
     induction n; intros. {
       inversion H; subst; clear H.
@@ -823,7 +823,7 @@ Section Defs.
     inversion H; subst; clear H.
     simpl.
     rewrite proj2_app.
-    assert (R: proj2 n1 n2 (id v0) = []). {
+    assert (R: proj2 n1 n2 v0 = []). {
       eapply proj2_neq; eauto with *.
     }
     rewrite R; clear R.
@@ -837,7 +837,7 @@ Section Defs.
     forall t1 t2,
     t1 < n ->
     t2 >= n ->
-    proj2 t1 t2 (flat_map id v) = gen_access_item x a t1.
+    proj2 t1 t2 (List.concat v) = gen_access_item x a t1.
   Proof.
     induction n; intros. {
       omega.
@@ -845,11 +845,10 @@ Section Defs.
     inversion H; subst; clear H.
     simpl.
     rewrite proj2_app.
-    assert (R: id v0 = v0) by auto; rewrite R; clear R.
     inversion H0; subst; clear H0. {
       (* t1 = 0 /\ n = 1 *)
       erewrite proj2_id_l; eauto.
-      assert (R: proj2 n t2 (flat_map id l) = []). {
+      assert (R: proj2 n t2 (List.concat l) = []). {
         erewrite gen_access_proj2_1; eauto.
         omega.
       }
@@ -876,14 +875,13 @@ Section Defs.
     t1 < n ->
     t2 < n ->
     t1 < t2 ->
-    proj2 t1 t2 (flat_map id v) = gen_access_item x a t2 ++ gen_access_item x a t1.
+    proj2 t1 t2 (List.concat v) = gen_access_item x a t2 ++ gen_access_item x a t1.
   Proof.
     induction n; intros; inversion H; subst; clear H. {
       inversion H0.
     }
     simpl.
     rewrite proj2_app.
-    assert (R: id v0 = v0) by auto; rewrite R; clear R.
     inversion H0; subst; clear H0. {
       (* t1 = n *)
       inversion H1; subst; clear H1. {
@@ -896,7 +894,7 @@ Section Defs.
     assert (t1 < n) by auto.
     inversion H1; subst; clear H1. {
       (* t2 = n *)
-      assert (R: proj2 t1 n (flat_map id l) = gen_access_item x a t1). {
+      assert (R: proj2 t1 n (List.concat l) = gen_access_item x a t1). {
         eapply gen_access_proj2_2; eauto.
       }
       rewrite R; clear R.
@@ -925,9 +923,9 @@ Section Defs.
     t1 < n ->
     t2 < n ->
     t1 <> t2 ->
-    (t1 < t2 /\ proj2 t1 t2 (flat_map id v) = gen_access_item x a t2 ++ gen_access_item x a t1)
+    (t1 < t2 /\ proj2 t1 t2 (List.concat v) = gen_access_item x a t2 ++ gen_access_item x a t1)
     \/
-    (t2 < t1 /\ proj2 t1 t2 (flat_map id v) = gen_access_item x a t1 ++ gen_access_item x a t2)
+    (t2 < t1 /\ proj2 t1 t2 (List.concat v) = gen_access_item x a t1 ++ gen_access_item x a t2)
     .
   Proof.
     intros.
