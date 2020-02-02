@@ -150,7 +150,7 @@ Module C2.
     forall i e v hs,
     access_step e v ->
     Run i hs ->
-    Run (Acc e i) (prepend_list v hs)
+    Run (Acc e i) (prepend v hs)
   | run_decl:
     forall r l i1 i2 x hs,
     RStep r l ->

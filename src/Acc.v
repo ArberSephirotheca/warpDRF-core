@@ -1051,9 +1051,9 @@ Section Defs.
 
   Lemma msafe_prepend:
     forall h1 h2 hs,
-    AllIncl (prepend_list h1 hs) (h1 ++ h2) ->
+    AllIncl (prepend h1 hs) (h1 ++ h2) ->
     Safe (h1 ++ h2) ->
-    MSafe (prepend_list h1 hs).
+    MSafe (prepend h1 hs).
   Proof.
     intros ? ? ?.
     intros Hp.

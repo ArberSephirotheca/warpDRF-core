@@ -575,7 +575,7 @@ Section Defs.
     forall i e v hs,
     Hist.GenAccess TID e TID_COUNT v ->
     Run i hs ->
-    Run (C1.Acc e i) (prepend_list (List.flat_map id v) hs)
+    Run (C1.Acc e i) (prepend (List.flat_map id v) hs)
   | run_for:
     forall r l i1 i2 x hs,
     RStep r l ->
@@ -741,12 +741,12 @@ Section Defs.
     intros i1 hs1 H.
     induction H; intros.
     - simpl.
-      rewrite prepend_list_nil.
+      rewrite prepend_nil.
       rewrite app_nil_r.
       assumption.
     - assert (Hx := IHRun _ _ H1).
       simpl.
-      rewrite <- prepend_list_prod.
+      rewrite <- prepend_prod.
       apply run_access; auto.
     - apply IHRun in H1.
       simpl.
@@ -773,14 +773,14 @@ Section Defs.
   Proof.
     intros i1 hs1 H.
     induction H; intros; simpl in *.
-    - rewrite prepend_list_nil.
+    - rewrite prepend_nil.
       rewrite app_nil_r.
       eapply run_fun; eauto.
     - inversion H2; subst; clear H2.
       run_clean.
       apply IHRun with (hs2:=hs2) in H7; auto.
       subst.
-      rewrite prepend_list_prod.
+      rewrite prepend_prod.
       reflexivity.
     - inversion H2; subst; clear H2.
       run_clean.
@@ -814,10 +814,10 @@ Section Defs.
       split; auto using run_skip.
     - destruct i1; simpl in *; try inversion Heqi; subst; try clear Heqi.
       + exists [[]].
-        exists (prepend_list (flat_map id v) hs).
+        exists (prepend (flat_map id v) hs).
         split; auto using run_skip, run_access.
       + edestruct IHRun as (hs1, (hs2, (?, ?))); eauto.
-        exists (prepend_list (flat_map id v) hs1).
+        exists (prepend (flat_map id v) hs1).
         exists hs2.
         split; auto using run_access.
     - destruct i3; simpl in *; try inversion Heqi; subst; try clear Heqi. {
@@ -921,7 +921,7 @@ Section Defs.
     - inversion H1; subst; clear H1.
       run_clean.
       assert (AllIncl hs0 h) by auto.
-      auto using all_incl_prepend_list.
+      auto using all_incl_prepend.
     - inversion H1; subst; clear H1.
       run_clean.
       auto.
@@ -991,8 +991,8 @@ Section Defs.
       assert (hs0 <> []) by eauto using run_nonempty.
       apply IHRun in H6; clear IHRun.
       apply incl_all_app.
-      + auto using incl_all_prepend_list_l.
-      + auto using incl_all_prepend_list_r.
+      + auto using incl_all_prepend_l.
+      + auto using incl_all_prepend_r.
     - inversion H1; subst; clear H1; run_clean.
       auto.
     - inversion H1; subst; clear H1; run_clean.

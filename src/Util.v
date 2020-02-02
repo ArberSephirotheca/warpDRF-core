@@ -17,14 +17,14 @@ Section Ops.
 
   (** Prepends every element of a list with a prefix *)
 
-  Definition prepend_list {A:Type} (l1:list A) (l2: list (list A)) : list (list A) :=
+  Definition prepend {A:Type} (l1:list A) (l2: list (list A)) : list (list A) :=
     List.fold_right (fun x accum => (l1 ++ x) :: accum) [] l2.  
 
   (** Product of two lists. That is for each two elements x,y of lists l1 l2, yields
       x ++ y *)
 
   Definition list_prod {A:Type} (l1: list (list A)) (l2: list (list A)) : list (list A) :=
-    List.fold_right (fun x accum => prepend_list x l2 ++ accum) [] l1. 
+    List.fold_right (fun x accum => prepend x l2 ++ accum) [] l1. 
 
   Definition AllIncl {A:Type} (ls:list (list A)) (l:list A) :=
     List.Forall (fun (l':list A) => incl l' l) ls.
@@ -58,10 +58,10 @@ Section Ops.
   Definition InclAll {A:Type} (l:list A) (ls:list (list A)) :=
     Included A (fun (a:A) => List.In a l) (fun a => MIn a ls).
 
-  Lemma in_prepend_list:
+  Lemma in_prepend:
     forall A ls (l1 l2:list A),
     List.In l2 ls ->
-    List.In (l1 ++ l2) (prepend_list l1 ls).
+    List.In (l1 ++ l2) (prepend l1 ls).
   Proof.
     induction ls; intros. {
       contradiction.
@@ -77,7 +77,7 @@ Section Ops.
 
   Lemma in_prepend_inv:
     forall A ls l1 l2,
-    List.In l1 (@prepend_list A l2 ls) ->
+    List.In l1 (@prepend A l2 ls) ->
     exists l3, l1 = l2 ++ l3 /\ List.In l3 ls.
   Proof.
     induction ls; intros. {
@@ -128,15 +128,15 @@ Section Ops.
     intuition.
   Qed.
 
-  Lemma all_incl_inv_prepend_list_1:
+  Lemma all_incl_inv_prepend_1:
     forall A (l1 l2:list A) ls,
-    AllIncl (prepend_list l1 ls) l2 ->
+    AllIncl (prepend l1 ls) l2 ->
     AllIncl ls l2.
   Proof.
     unfold AllIncl; intros.
     rewrite List.Forall_forall in *.
     intros.
-    eauto using in_prepend_list, incl_app_r.
+    eauto using in_prepend, incl_app_r.
   Qed.
 
   Lemma incl_all_nil:
@@ -168,10 +168,10 @@ Section Ops.
     eauto using m_in_def, in_eq.
   Qed.
 
-  Lemma incl_all_prepend_list_l:
+  Lemma incl_all_prepend_l:
     forall A l ls,
     ls <> [] ->
-    @InclAll A l (prepend_list l ls).
+    @InclAll A l (prepend l ls).
   Proof.
     unfold InclAll, Included, Ensembles.In. intros.
     destruct ls. {
@@ -183,25 +183,25 @@ Section Ops.
     auto.
   Qed.
 
-  Lemma m_in_prepend_list:
+  Lemma m_in_prepend:
     forall A (x:A) l ls,
     MIn x ls ->
-    MIn x (prepend_list l ls).
+    MIn x (prepend l ls).
   Proof.
     intros.
     inversion H; subst; clear H.
-    eapply m_in_def; eauto using in_prepend_list.
+    eapply m_in_def; eauto using in_prepend.
     apply in_app_iff.
     auto.
   Qed.
 
-  Lemma incl_all_prepend_list_r:
+  Lemma incl_all_prepend_r:
     forall A l1 l2 ls,
     @InclAll A l1 ls ->
-    InclAll l1 (prepend_list l2 ls).
+    InclAll l1 (prepend l2 ls).
   Proof.
     unfold InclAll, Included, Ensembles.In. intros.
-    auto using m_in_prepend_list.
+    auto using m_in_prepend.
   Qed.
 
   Lemma all_incl_nil:
@@ -441,10 +441,10 @@ Section Ops.
     auto using m_in_app_r.
   Qed.
 
-  Lemma all_incl_prepend_list:
+  Lemma all_incl_prepend:
     forall A ls1 (l1:list A) l2,
     AllIncl ls1 l2 ->
-    AllIncl (prepend_list l1 ls1) (l1 ++ l2).
+    AllIncl (prepend l1 ls1) (l1 ++ l2).
   Proof.
     induction ls1; intros. {
       simpl.
@@ -480,9 +480,9 @@ Section Ops.
     assumption.
   Qed.
 
-  Lemma prepend_list_app:
+  Lemma prepend_app:
     forall {A} (l:list A) ll1 ll2,
-    prepend_list l (ll1 ++ ll2) = prepend_list l ll1 ++ prepend_list l ll2.
+    prepend l (ll1 ++ ll2) = prepend l ll1 ++ prepend l ll2.
   Proof.
     induction ll1; intros; simpl. {
       reflexivity.
@@ -505,9 +505,9 @@ Section Ops.
     reflexivity.
   Qed.
 
-  Lemma prepend_list_assoc:
+  Lemma prepend_assoc:
     forall A ll l1 l2,
-    @prepend_list A l1 (prepend_list l2 ll) = prepend_list (l1 ++ l2) ll.
+    @prepend A l1 (prepend l2 ll) = prepend (l1 ++ l2) ll.
   Proof.
     induction ll; intros; simpl. {
       reflexivity.
@@ -517,35 +517,35 @@ Section Ops.
     reflexivity.
   Qed.
 
-  Lemma prepend_list_prod:
+  Lemma prepend_prod:
     forall {A:Type} (l:list A) ll1 ll2,
-    prepend_list l (list_prod ll1 ll2) = list_prod (prepend_list l ll1) ll2.
+    prepend l (list_prod ll1 ll2) = list_prod (prepend l ll1) ll2.
   Proof.
     induction ll1; intros; simpl. {
       reflexivity.
     }
-    rewrite prepend_list_app.
+    rewrite prepend_app.
     rewrite IHll1.
-    rewrite prepend_list_assoc.
+    rewrite prepend_assoc.
     reflexivity.
   Qed.
 
-  Lemma prepend_list_nil:
+  Lemma prepend_nil:
     forall A l,
-    @prepend_list A [] l = l.
+    @prepend A [] l = l.
   Proof.
     induction l; simpl.
     - reflexivity.
     - rewrite IHl.
       reflexivity.
   Qed.
-
-  Lemma in_prepend_list_inv:
+(*
+  Lemma in_prepend_inv:
     forall A x l ls,
-    List.In x (@prepend_list A l ls) ->
+    List.In x (@prepend A l ls) ->
     exists y, l ++ y = x /\ List.In y ls.
   Proof.
-    induction ls; unfold prepend_list; simpl; intros. {
+    induction ls; unfold prepend; simpl; intros. {
       contradiction.
     }
     destruct H. {
@@ -556,11 +556,11 @@ Section Ops.
     subst.
     eauto.
   Qed.
-
+*)
   Lemma in_list_prod_inv:
     forall A x ls1 ls2,
     List.In x (@list_prod A ls1 ls2) ->
-    exists a, List.In a ls1 /\ List.In x (prepend_list a ls2).
+    exists a, List.In a ls1 /\ List.In x (prepend a ls2).
   Proof.
     unfold list_prod; induction ls1; simpl; intros. {
       contradiction.
@@ -587,7 +587,7 @@ Section Ops.
     intros.
     apply in_list_prod_inv in H1.
     destruct H1 as (a, (Hi, Hj)).
-    apply in_prepend_list_inv in Hj.
+    apply in_prepend_inv in Hj.
     destruct Hj as (y, (?, Hj)).
     subst.
     apply incl_app; auto.
@@ -666,11 +666,11 @@ Section Ops.
     apply pair_in_def; apply in_app_iff; intuition.
   Qed.
 
-  Lemma pair_in_prepend_list_1:
+  Lemma pair_in_prepend_1:
     forall A p l ls,
     ls <> [] ->
     @PairIn A p l ->
-    MPairIn p (prepend_list l ls).
+    MPairIn p (prepend l ls).
   Proof.
     intros.
     apply Exists_exists.
@@ -683,47 +683,47 @@ Section Ops.
     auto using pair_in_app_l.
   Qed.
 
-  Lemma pair_in_prepend_list_2:
+  Lemma pair_in_prepend_2:
     forall A (x:A) y l ls,
     MIn x ls ->
     List.In y l ->
-    MPairIn (x, y) (prepend_list l ls).
+    MPairIn (x, y) (prepend l ls).
   Proof.
     intros.
     apply Exists_exists.
     inversion H; subst; clear H.
     exists (l ++ l0).
     split.
-    - auto using in_prepend_list.
+    - auto using in_prepend.
     - apply pair_in_def; apply in_app_iff; intuition.
   Qed.
 
-  Lemma pair_in_prepend_list_3:
+  Lemma pair_in_prepend_3:
     forall A (x:A) y l ls,
     List.In x l ->
     MIn y ls ->
-    MPairIn (x, y) (prepend_list l ls).
+    MPairIn (x, y) (prepend l ls).
   Proof.
     intros.
     apply Exists_exists.
     inversion H0; subst; clear H0.
     exists (l ++ l0).
     split.
-    - auto using in_prepend_list.
+    - auto using in_prepend.
     - apply pair_in_def; apply in_app_iff; intuition.
   Qed.
 
-  Lemma pair_in_prepend_list_4:
+  Lemma pair_in_prepend_4:
     forall A p ls l,
     @MPairIn A p ls ->
-    MPairIn p (prepend_list l ls).
+    MPairIn p (prepend l ls).
   Proof.
     intros.
     apply Exists_exists in H.
     destruct H as (l1, (Hi, Hj)).
     apply Exists_exists.
     exists (l++l1).
-    split; auto using in_prepend_list, pair_in_app_r.
+    split; auto using in_prepend, pair_in_app_r.
   Qed.
 
   Lemma pair_in_to_in_l:
@@ -768,12 +768,12 @@ Section Ops.
     eauto using m_in_def.
   Qed.
 
-  Lemma pair_incl_prepend_list:
+  Lemma pair_incl_prepend:
     forall A l2 ls,
     ls <> [] ->
     @PairIncl A l2 ls ->
     forall l1,
-    PairIncl (l1 ++ l2) (prepend_list l1 ls).
+    PairIncl (l1 ++ l2) (prepend l1 ls).
   Proof.
     unfold PairIncl, Included, Ensembles.In; intros.
     inversion H1; subst; clear H1.
@@ -793,16 +793,16 @@ Section Ops.
       eauto using m_pair_in_to_in_l.
     }
     destruct H3, H2.
-    - eauto using pair_in_prepend_list_1, pair_in_def.
-    - auto using pair_in_prepend_list_2.
-    - auto using pair_in_prepend_list_3.
-    - auto using pair_in_prepend_list_4, pair_in_def.
+    - eauto using pair_in_prepend_1, pair_in_def.
+    - auto using pair_in_prepend_2.
+    - auto using pair_in_prepend_3.
+    - auto using pair_in_prepend_4, pair_in_def.
   Qed.
 
   Lemma in_prod:
     forall (A : Type) (x : list A) a ls1 ls2,
     List.In a ls1 ->
-    List.In x (prepend_list a ls2) ->
+    List.In x (prepend a ls2) ->
     List.In x (list_prod ls1 ls2).
   Proof.
     induction ls1; intros. {
@@ -824,7 +824,7 @@ Section Ops.
     destruct ls1. {
       simpl.
       rewrite app_nil_r.
-      auto using m_in_prepend_list.
+      auto using m_in_prepend.
     }
     apply IHls1 in H0.
     + simpl in *.
@@ -856,11 +856,11 @@ Section Ops.
     contradiction.
   Qed.
 
-  Lemma m_in_prepend_list_l:
+  Lemma m_in_prepend_l:
     forall A (x:A) l ls,
     ls <> [] ->
     List.In x l ->
-    MIn x (prepend_list l ls).
+    MIn x (prepend l ls).
   Proof.
     intros.
     destruct ls. {
@@ -885,7 +885,7 @@ Section Ops.
     apply m_in_inv in H0.
     simpl.
     destruct H0. {
-      auto using m_in_app_l, m_in_prepend_list_l.
+      auto using m_in_app_l, m_in_prepend_l.
     }
     apply m_in_app_r.
     auto.
