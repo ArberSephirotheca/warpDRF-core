@@ -552,8 +552,8 @@ Section Defs.
   Qed.
 
   Lemma proj_id:
-    forall x a n l,
-    access_step (access_subst x (NNum n) a, NNum n) l ->
+    forall a n l,
+    access_step (a, NNum n) l ->
     proj n l = l.
   Proof.
     intros.
@@ -697,8 +697,8 @@ Section Defs.
   Qed.
 
   Lemma step_proj_neq:
-    forall x n p a l,
-    access_step (access_subst x (NNum p) a, NNum p) l ->
+    forall n p a l,
+    access_step (a, NNum p) l ->
     p <> n ->
     proj n l = [].
   Proof.
