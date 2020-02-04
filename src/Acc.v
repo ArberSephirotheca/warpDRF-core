@@ -263,6 +263,9 @@ Section Defs.
   Definition proj task : history -> history :=
     List.filter (fun a => (Nat.eqb (access_tid a) task)).
 
+  Definition m_proj task : list history -> list history :=
+    List.map (proj task).
+
   Definition proj2 t1 t2 := List.filter
     (fun a => orb
       (Nat.eqb (access_tid a) t1)
@@ -1129,6 +1132,21 @@ Section Defs.
   Qed.
   Definition InclAll {A} h hs := forall (x:A), List.In x h -> MIn x hs.
 
+  Lemma map_proj_prepend:
+    forall hs vs n v,
+    proj n (List.concat vs) = v ->
+    map (proj n) (prepend (List.concat vs) hs) = prepend v (map (proj n) hs).
+  Proof.
+    induction hs; simpl; intros. {
+      reflexivity.
+    }
+    rewrite proj_app in *.
+    rewrite H.
+    apply IHhs in H.
+    rewrite H.
+    reflexivity.
+  Qed.
+
   Lemma msafe_to_safe:
     forall h hs,
     MSafe hs ->
@@ -1144,6 +1162,26 @@ Section Defs.
     inversion H2; subst; clear H2.
     eauto.
   Qed.
+  Lemma m_proj_prepend:
+    forall hs x m e n vs v,
+    n < m ->
+    GenAccess x e m vs ->
+    access_step (access_subst x (NNum n) e, NNum n) v ->
+    m_proj n (prepend (List.concat vs) hs) = prepend v (m_proj n hs).
+  Proof.
+    induction hs. {
+      intros.
+      reflexivity.
+    }
+    intros.
+    assert (Hx := gen_access_proj_rw x m e vs v n H0 H H1).
+    simpl.
+    rewrite proj_app.
+    rewrite Hx.
+    unfold m_proj.
+    erewrite map_proj_prepend; eauto.
+  Qed.
+
 End Defs.
 End Hist.
 
@@ -1332,6 +1370,7 @@ Module OneDim.
     }
     repeat split; auto.
   Qed.
+
 End OneDim.
 
 Instance ONE_DIM : Access := {|
