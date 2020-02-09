@@ -32,13 +32,11 @@ Section C1.
   match i with
   | Acc a i => Acc (access_subst x v a) (i_subst x v i)  
   | For y r i2 i3 =>
-    if VAR.eq_dec x y
-    then For y r i2 (i_subst x v i3)
-    else For y (r_subst x v r) (i_subst x v i2) (i_subst x v i3) 
+    let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
+    For y (r_subst x v r) i2' (i_subst x v i3)
   | Loop y r i2 i3 =>
-    if VAR.eq_dec x y
-    then Loop y r i2 (i_subst x v i3)
-    else Loop x r (i_subst x v i2) (i_subst x v i3)
+    let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
+    Loop y r i2' (i_subst x v i3)
   | Skip => Skip
   end.
 
@@ -59,6 +57,93 @@ Section C1.
   | Loop x r i3 i4 => Loop x r i3 (seq i4 i2)
   end.
 
+  Infix ";;" := seq (at level 50).
+
+  Lemma i_subst_seq:
+    forall x n i1 i2,
+    i_subst x n (i1 ;; i2) = i_subst x n i1 ;; i_subst x n i2.
+  Proof.
+    induction i1; simpl; intros.
+    - reflexivity.
+    - rewrite IHi1.
+      reflexivity.
+    - rewrite IHi1_2.
+      reflexivity.
+    - rewrite IHi1_2.
+      reflexivity.
+  Qed.
+
+  Lemma i_subst_subst_eq:
+    forall x i n1 n2,
+    i_subst x (NNum n1) (i_subst x (NNum n2) i) = i_subst x (NNum n2) i.
+  Proof.
+    induction i; simpl; intros.
+    - reflexivity.
+    - rewrite IHi.
+      rewrite access_subst_subst_eq.
+      reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        rewrite IHi2.
+        rewrite r_subst_subst_eq.
+        reflexivity.
+      }
+      rewrite IHi1.
+      rewrite IHi2.
+      rewrite r_subst_subst_eq.
+      reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        rewrite IHi2.
+        subst.
+        reflexivity.
+      }
+      rewrite IHi1.
+      rewrite IHi2.
+      reflexivity.
+  Qed.
+
+  Lemma i_subst_subst_neq:
+    forall x y i n1 n2,
+    x <> y ->
+    i_subst x (NNum n1) (i_subst y (NNum n2) i) =
+    i_subst y (NNum n2) (i_subst x (NNum n1) i).
+  Proof.
+    induction i; intros; simpl.
+    - reflexivity.
+    - rewrite IHi; auto.
+      rewrite access_subst_subst_neq; auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        destruct (Set_VAR.MF.eq_dec y v). {
+          subst.
+          contradiction.
+        }
+        subst.
+        rewrite IHi2; auto.
+        rewrite r_subst_subst_neq; auto.
+      }
+      destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        rewrite IHi2; auto.
+        rewrite r_subst_subst_neq; auto.
+      }
+      rewrite IHi2; auto.
+      rewrite IHi1; auto.
+      rewrite r_subst_subst_neq; auto.
+    - destruct (Set_VAR.MF.eq_dec y v). {
+        destruct (Set_VAR.MF.eq_dec x v). {
+          subst.
+          contradiction.
+        }
+        subst.
+        rewrite IHi2; auto.
+      }
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        rewrite IHi2; auto.
+      }
+      rewrite IHi2; auto.
+      rewrite IHi1; auto.
+  Qed.
 
   (** Parallelize an access for [n] tasks. *)
 

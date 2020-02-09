@@ -905,5 +905,228 @@ Section SO.
     inversion H0.
     reflexivity.
   Qed.
+
+  Inductive In (x: var): nexp -> Prop :=
+  | in_eq:
+    In x (NVar x)
+  | in_bin_l:
+    forall o n1 n2,
+    In x n1 ->
+    In x (NBin o n1 n2)
+  | in_bin_r:
+    forall o n1 n2,
+    In x n2 ->
+    In x (NBin o n1 n2).
+
+  Lemma not_in_bin_l:
+    forall x o n1 n2,
+    ~ In x (NBin o n1 n2) ->
+    ~ In x n1.
+  Proof.
+    intros.
+    intros N.
+    contradict H.
+    constructor; auto.
+  Qed.
+
+  Lemma not_in_bin_r:
+    forall x o n1 n2,
+    ~ In x (NBin o n1 n2) ->
+    ~ In x n2.
+  Proof.
+    intros.
+    intros N.
+    contradict H.
+    apply in_bin_r.
+    assumption.
+  Qed.
+
+  Lemma not_in_bin:
+    forall x o n1 n2,
+    ~ In x (NBin o n1 n2) ->
+    ~ In x n1 /\ ~ In x n2.
+  Proof.
+    intros.
+    split.
+    - eauto using not_in_bin_l.
+    - eauto using not_in_bin_r.
+  Qed.
+
+  Lemma n_subst_not_in:
+    forall x v n,
+    ~ In x n ->
+    n_subst x v n = n.
+  Proof.
+    induction n; intros.
+    - reflexivity.
+    - assert (x <> v0). {
+        intros N.
+        subst.
+        contradict H.
+        constructor.
+      }
+      simpl.
+      destruct (Set_VAR.MF.eq_dec x v0). {
+        contradiction.
+      }
+      reflexivity.
+    - apply not_in_bin in H.
+      destruct H as (Ha, Hb).
+      apply IHn1 in Ha.
+      apply IHn2 in Hb.
+      simpl.
+      rewrite Ha.
+      rewrite Hb.
+      reflexivity.
+  Qed.
+
+  Lemma n_subst_to_not_in:
+    forall x v n1 n2,
+    n_subst x (NNum v) n1 = n2 ->
+    ~ In x n2.
+  Proof.
+    induction n1; simpl; intros; subst; intros N.
+    - inversion N.
+    - destruct (Set_VAR.MF.eq_dec x v0). {
+        subst.
+        inversion N.
+      }
+      inversion N; subst.
+      contradiction.
+    - inversion N; subst; clear N.
+      + remember (n_subst _ _ _) as j.
+        symmetry in Heqj.
+        apply IHn1_1 in H0; auto.
+      + remember (n_subst _ _ _) as j.
+        symmetry in Heqj.
+        apply IHn1_2 in H0; auto.
+  Qed.
+
+  Lemma n_subst_subst_eq:
+    forall x n n1 n2,
+    n_subst x (NNum n1) (n_subst x (NNum n2) n) = n_subst x (NNum n2) n.
+  Proof.
+    induction n; intros; simpl.
+    - reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        simpl.
+        reflexivity.
+      }
+      simpl.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        contradiction.
+      }
+      reflexivity.
+    - assert (IHn1 := IHn1 n0 n4).
+      rewrite IHn1.
+      assert (IHn2 := IHn2 n0 n4).
+      rewrite IHn2.
+      reflexivity.
+  Qed.
+
+  Lemma n_subst_subst_neq:
+    forall x y n n1 n2,
+    x <> y ->
+    n_subst x (NNum n1) (n_subst y (NNum n2) n) =
+    n_subst y (NNum n2) (n_subst x (NNum n1) n).
+  Proof.
+    induction n; simpl; intros.
+    - reflexivity.
+    - destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        simpl.
+        destruct (Set_VAR.MF.eq_dec x v). {
+          contradiction.
+        }
+        simpl.
+        destruct (Set_VAR.MF.eq_dec v v). {
+          reflexivity.
+        }
+        contradiction.
+      }
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        simpl.
+        destruct (Set_VAR.MF.eq_dec v v). {
+          reflexivity.
+        }
+        contradiction.
+      }
+      simpl.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        contradiction.
+      }
+      destruct (Set_VAR.MF.eq_dec y v). {
+        contradiction.
+      }
+      reflexivity.
+    - rewrite IHn1; auto.
+      rewrite IHn2; auto.
+  Qed.
+
+  Lemma b_subst_subst_eq:
+    forall x n1 n2 b,
+    b_subst x (NNum n1) (b_subst x (NNum n2) b) = b_subst x (NNum n2) b.
+  Proof.
+    induction b; simpl.
+    - reflexivity.
+    - repeat rewrite n_subst_subst_eq.
+      reflexivity.
+    - rewrite IHb2.
+      rewrite IHb1.
+      reflexivity.
+    - rewrite IHb.
+      reflexivity.
+  Qed.
+
+  Lemma b_subst_subst_neq:
+    forall x y n1 n2 b,
+    x <> y ->
+    b_subst x (NNum n1) (b_subst y (NNum n2) b) =
+    b_subst y (NNum n2) (b_subst x (NNum n1) b).
+  Proof.
+    induction b; simpl; intros.
+    - reflexivity.
+    - remember (n_subst x _ _) as a.
+      symmetry in Heqa.
+      remember (n_subst y _ (n_subst _ _ n3)) as b.
+      symmetry in Heqb.
+      rewrite n_subst_subst_neq in Heqa; auto.
+      rewrite n_subst_subst_neq in Heqb; auto.
+      subst.
+      reflexivity.
+    - assert (IHb1 := IHb1 H).
+      assert (IHb2 := IHb2 H).
+      rewrite IHb1.
+      rewrite IHb2.
+      reflexivity.
+    - rewrite IHb; auto.
+  Qed.
+
+  Lemma r_subst_subst_eq:
+    forall x n1 n2 r,
+    r_subst x (NNum n1) (r_subst x (NNum n2) r) = r_subst x (NNum n2) r.
+  Proof.
+    intros.
+    destruct r; simpl.
+    repeat rewrite n_subst_subst_eq.
+    reflexivity.
+  Qed.
+
+  Lemma r_subst_subst_neq:
+    forall x y n1 n2 r,
+    x <> y ->
+    r_subst x (NNum n1) (r_subst y (NNum n2) r) =
+    r_subst y (NNum n2) (r_subst x (NNum n1) r).
+  Proof.
+    destruct r; simpl; intros.
+    rewrite n_subst_subst_neq; auto.
+    remember (n_subst y _ (n_subst x _ n0)) as a.
+    symmetry in Heqa.
+    rewrite n_subst_subst_neq in Heqa; auto.
+    subst.
+    reflexivity.
+  Qed.
 End SO.
 

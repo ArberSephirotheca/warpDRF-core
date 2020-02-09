@@ -57,11 +57,24 @@ Class Access := {
     forall x y,
     access_safe x y ->
     access_safe y x;
+
+  access_subst_subst_eq:
+    forall x n1 n2 a,
+    access_subst x (NNum n1) (access_subst x (NNum n2) a) =
+    access_subst x (NNum n2) a;
+
+  access_subst_subst_neq:
+    forall x y n1 n2 a,
+    x <> y ->
+    access_subst x (NNum n1) (access_subst y (NNum n2) a) =
+    access_subst y (NNum n2) (access_subst x (NNum n1) a);
+
 }.
 
 Module Hist.
 Section Defs.
   Context {A:Access}.
+
   Definition history := list access_val.
   Definition Safe2 (h1 h2:history) := forall x y, List.In x h1 -> List.In y h2 -> access_safe x y.
 
@@ -94,12 +107,12 @@ Section Defs.
       inversion H; subst.
     }
     inversion H0; subst; clear H0. {
-      eauto using in_eq.
+      eauto using List.in_eq.
     }
     assert (Hx: m < n) by auto with *.
     apply IHHg in Hx.
     destruct Hx as (l', (Hs, Hi)).
-    eauto using in_cons.
+    eauto using List.in_cons.
   Qed.
 
   Lemma gen_access_in:
@@ -236,8 +249,8 @@ Section Defs.
     intros.
     assert (H := H (access_tid x) (access_tid y)).
     destruct H as (Hp, Hs).
-    assert (In x (f (access_tid x) (access_tid y) h)) by eauto using proj2_in_l.
-    assert (In y (f (access_tid x) (access_tid y) h)) by eauto using proj2_in_r.
+    assert (List.In x (f (access_tid x) (access_tid y) h)) by eauto using proj2_in_l.
+    assert (List.In y (f (access_tid x) (access_tid y) h)) by eauto using proj2_in_r.
     eauto using safe_in.
   Qed.
 
@@ -254,8 +267,8 @@ Section Defs.
     intros.
     assert (H := H (access_tid x) (access_tid y)).
     destruct H as (Hp1, (Hp2, Hs)).
-    assert (In x (f (access_tid x) h)) by eauto using proj_in.
-    assert (In y (f (access_tid y) h)) by eauto using proj_in.
+    assert (List.In x (f (access_tid x) h)) by eauto using proj_in.
+    assert (List.In y (f (access_tid y) h)) by eauto using proj_in.
     apply safe_in with (h:=f (access_tid x) h ++ f (access_tid y) h); auto;
       apply in_or_app; auto.
   Qed.
@@ -286,9 +299,9 @@ Section Defs.
 
   Lemma in_proj:
     forall a h tid,
-    In a h ->
+    List.In a h ->
     access_tid a = tid ->
-    In a (proj tid h).
+    List.In a (proj tid h).
   Proof.
     intros.
     unfold proj.
@@ -298,9 +311,9 @@ Section Defs.
 
   Lemma in_proj2_seq_or:
     forall tid1 tid2 h a,
-    In a h ->
+    List.In a h ->
     (access_tid a = tid1 \/ access_tid a = tid2) ->
-    In a (proj2_seq tid1 tid2 h).
+    List.In a (proj2_seq tid1 tid2 h).
   Proof.
     intros.
     unfold proj2_seq.
@@ -314,8 +327,8 @@ Section Defs.
 
   Lemma in_proj2_seq_inv:
     forall a tid1 tid2 h,
-    In a (proj2_seq tid1 tid2 h) ->
-    In a (proj tid1 h) \/ In a (proj tid2 h).
+    List.In a (proj2_seq tid1 tid2 h) ->
+    List.In a (proj tid1 h) \/ List.In a (proj tid2 h).
   Proof.
     unfold proj2.
     intros.
@@ -325,8 +338,8 @@ Section Defs.
 
   Lemma in_proj_inv:
     forall a tid h,
-    In a (proj tid h) ->
-    In a h /\ access_tid a = tid.
+    List.In a (proj tid h) ->
+    List.In a h /\ access_tid a = tid.
   Proof.
     unfold proj. intros.
     apply filter_In in H.
@@ -337,8 +350,8 @@ Section Defs.
 
   Lemma in_proj_inv_in:
     forall a tid h,
-    In a (proj tid h) ->
-    In a h.
+    List.In a (proj tid h) ->
+    List.In a h.
   Proof.
     intros.
     apply in_proj_inv in H; auto.
@@ -347,7 +360,7 @@ Section Defs.
 
   Lemma in_proj_inv_tid:
     forall a tid h,
-    In a (proj tid h) ->
+    List.In a (proj tid h) ->
     access_tid a = tid.
   Proof.
     intros.
@@ -357,8 +370,8 @@ Section Defs.
 
   Lemma in_proj2_seq_inv_in:
     forall a tid1 tid2 h,
-    In a (proj2_seq tid1 tid2 h) ->
-    In a h.
+    List.In a (proj2_seq tid1 tid2 h) ->
+    List.In a h.
   Proof.
     intros.
     apply in_proj2_seq_inv in H.
@@ -367,7 +380,7 @@ Section Defs.
 
   Lemma in_proj2_seq_inv_tid:
     forall a tid1 tid2 h,
-    In a (proj2_seq tid1 tid2 h) ->
+    List.In a (proj2_seq tid1 tid2 h) ->
     access_tid a = tid1 \/ access_tid a = tid2.
   Proof.
     intros.
@@ -416,7 +429,7 @@ Section Defs.
 
   Lemma in_proj2_inv_tid:
     forall x y a h,
-    In a (proj2 x y h) ->
+    List.In a (proj2 x y h) ->
     access_tid a = x \/ access_tid a = y.
   Proof.
     intros.
@@ -429,7 +442,7 @@ Section Defs.
 
   Lemma in_proj2_inv_tid_eq:
     forall x a h,
-    In a (proj2 x x h) ->
+    List.In a (proj2 x x h) ->
     access_tid a = x.
   Proof.
     intros.
@@ -470,8 +483,8 @@ Section Defs.
 
   Lemma proj2_in:
     forall a tid1 tid2 h,
-    In a (proj2 tid1 tid2 h) ->
-    In a h.
+    List.In a (proj2 tid1 tid2 h) ->
+    List.In a h.
   Proof.
     unfold proj2; intros.
     eauto using List.filter_in.
@@ -532,6 +545,16 @@ Section Defs.
     intros.
     unfold proj.
     rewrite filter_app.
+    reflexivity.
+  Qed.
+
+  Lemma m_proj_app:
+    forall t h1 h2,
+    m_proj t (h1 ++ h2) = m_proj t h1 ++ m_proj t h2.
+  Proof.
+    unfold m_proj.
+    intros.
+    rewrite map_app.
     reflexivity.
   Qed.
 
@@ -1069,10 +1092,10 @@ Section Defs.
     eapply all_incl_to_incl in Hl2; eauto.
     unfold Safe2 in *.
     intros.
-    assert (Hi: In x (h1 ++ h2)). {
+    assert (Hi: List.In x (h1 ++ h2)). {
       eauto using List.in_incl.
     }
-    assert (Hj: In y (h1 ++ h2)). {
+    assert (Hj: List.In y (h1 ++ h2)). {
       eauto using List.in_incl.
     }
     apply in_app_iff in Hi.
@@ -1108,7 +1131,7 @@ Section Defs.
   Lemma msafe_pair_in_to_safe:
     forall h hs x y,
     MSafe hs ->
-    In h hs ->
+    List.In h hs ->
     PairIn (x, y) h ->
     access_safe x y.
   Proof.
@@ -1371,6 +1394,29 @@ Module OneDim.
     repeat split; auto.
   Qed.
 
+  Lemma subst_subst_eq:
+    forall x n1 n2 a,
+    subst x (NNum n1) (subst x (NNum n2) a) = subst x (NNum n2) a.
+  Proof.
+    intros.
+    destruct a.
+    simpl.
+    rewrite Exp.n_subst_subst_eq.
+    rewrite Exp.b_subst_subst_eq.
+    reflexivity.
+  Qed.
+
+  Lemma subst_subst_neq:
+    forall x y n1 n2 a,
+    x <> y ->
+    subst x (NNum n1) (subst y (NNum n2) a) =
+    subst y (NNum n2) (subst x (NNum n1) a).
+  Proof.
+    destruct a; simpl; intros.
+    rewrite n_subst_subst_neq; auto.
+    rewrite b_subst_subst_neq; auto.
+  Qed.
+
 End OneDim.
 
 Instance ONE_DIM : Access := {|
@@ -1386,6 +1432,8 @@ Instance ONE_DIM : Access := {|
   access_step_inv_tid := OneDim.access_step_inv_tid;
   access_step_next := OneDim.access_step_next;
   access_safe_sym := OneDim.safe_sym;
+  access_subst_subst_eq := OneDim.subst_subst_eq;
+  access_subst_subst_neq := OneDim.subst_subst_neq;
 |}.
 
 

@@ -31,14 +31,12 @@ Module C2.
   match i with
   | Skip => Skip
   | Acc (a, e) j => Acc (access_subst x v a, n_subst x v e) (i_subst x v j)  
-  | Decl y r i1 i2 =>
-    if VAR.eq_dec x y
-    then Decl y r i1 (i_subst x v i2)
-    else Decl y (r_subst x v r) (i_subst x v i1) (i_subst x v i2) 
-  | Branch y r i1 i2 =>
-    if VAR.eq_dec x y
-    then Branch x r i1 (i_subst x v i2) 
-    else Branch x r (i_subst x v i1) (i_subst x v i2) 
+  | Decl y r i2 i3 =>
+    let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
+    Decl y (r_subst x v r) i2' (i_subst x v i3)
+  | Branch y r i2 i3 =>
+    let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
+    Branch y r i2' (i_subst x v i3)
   end.
 
   Fixpoint seq (i1 i2:inst) :=
@@ -366,6 +364,7 @@ Module Compiler.
   Definition do_proj x c :=
     proj (NVar x) (C1.i_subst TID (NVar x) c).
 
+
   Definition translate (c:C1.inst) : C2.inst :=
       (C2.Decl T1 (NNum 1, NNum TID_COUNT)
         (C2.Decl T2 (NNum 0, NVar T1)
@@ -373,6 +372,93 @@ Module Compiler.
         C2.Skip)
       C2.Skip).
 
+  Lemma i_subst_proj_rw:
+    forall x n1 n2 i,
+    C2.i_subst x (NNum n1) (proj (NNum n2) i) = proj (NNum n2) (C1.i_subst x (NNum n1) i).
+  Proof.
+    induction i; simpl; intros.
+    - reflexivity.
+    - rewrite IHi.
+      reflexivity.
+    - rewrite IHi1.
+      rewrite IHi2.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        reflexivity.
+      }
+      reflexivity.
+    - rewrite IHi1.
+      rewrite IHi2.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        reflexivity.
+      }
+      reflexivity.
+  Qed.
+  Lemma proj_seq:
+    forall n i1 i2,
+    proj n (C1.seq i1 i2) = C2.seq (proj n i1) (proj n i2).
+  Proof.
+    induction i1; intros; simpl.
+    - reflexivity.
+    - rewrite IHi1.
+      reflexivity.
+    - rewrite IHi1_2.
+      reflexivity.
+    - rewrite IHi1_2.
+      reflexivity.
+  Qed.
+
+  Theorem part1:
+    forall i hs2,
+    C1SX.Run TID_COUNT TID i hs2 ->
+    forall n hs1,
+    n < TID_COUNT ->
+    C2.Run (proj (NNum n) (C1.i_subst TID (NNum n) i)) hs1 ->
+    Hist.m_proj n hs2 = hs1.
+  Proof.
+    intros i hs2 H.
+    induction H; intros.
+    - inversion H0; subst; clear H0.
+      reflexivity.
+    - inversion H2; subst; clear H2.
+      assert (IHRun := IHRun _ _ H1 H7).
+      subst.
+      erewrite Hist.m_proj_prepend; eauto.
+    - simpl in *.
+      inversion H2; subst; clear H2.
+      assert (l0 = l) by give_up.
+      subst.
+      eauto.
+    - simpl in *.
+      inversion H2; subst; clear H2.
+      apply IHRun2 in H10; auto; clear IHRun2.
+      subst.
+      rewrite Hist.m_proj_app.
+      destruct (Set_VAR.MF.eq_dec TID x). {
+        subst.
+        assert (Hist.m_proj n0 hs1 = hs3). {
+          apply IHRun1; auto.
+          rewrite C1.i_subst_seq.
+          rewrite C1.i_subst_subst_eq.
+          rewrite i_subst_proj_rw in *.
+          rewrite proj_seq in *.
+          assumption.
+        }
+        subst.
+        reflexivity.
+      }
+      assert (Hist.m_proj n0 hs1 = hs3). {
+        apply IHRun1; auto.
+        rewrite C1.i_subst_seq.
+        rewrite i_subst_proj_rw in *.
+        rewrite proj_seq in *.
+        rewrite C1.i_subst_subst_neq in H9; auto.
+      }
+      subst.
+      auto.
+    - inversion H1; subst; clear H1.
+      auto.
+  Admitted.
 (*
   Theorem soudness:
     forall c,
