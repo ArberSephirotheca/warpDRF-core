@@ -421,7 +421,27 @@ Module C2.
     - inversion H0; subst; clear H0.
       eauto.
   Qed.
-(*
+
+  Ltac run_clean :=
+    repeat match goal with
+    | [ H: Run [] _ |- _ ] => inversion H; subst; clear H
+    | [ H: Hist.Safe [] |- _ ] => clear H
+    | [ H: Run [Skip] _ |- _ ] => inversion H; subst; clear H
+    | [ H: Run _ _ Skip _ |- _] => inversion H; subst; clear H
+    | [ H1: access_step ?e ?v1,
+        H2: access_step ?e ?v2 |- _ ] =>
+          let H := fresh in
+          assert (H: v2 = v1) by eauto using access_step_fun;
+          rewrite H in *; clear H;
+          clear H1
+    | [ H1: RStep ?r ?l1,
+        H2:RStep ?r ?l2 |- _ ] =>
+          let H := fresh in
+          assert (H: l2 = l1) by eauto using r_step_fun;
+          rewrite H in *; clear H;
+          clear H1
+    end.
+
   Lemma run_inv_seq_1:
     forall i1 hs1,
     Run i1 hs1 ->
@@ -457,11 +477,11 @@ Module C2.
 
   Lemma run_inv_seq_2:
     forall i1 i2 hs,
-    Run (C1.seq i1 i2) hs ->
+    Run (seq i1 i2) hs ->
     exists hs1 hs2, Run i1 hs1 /\ Run i2 hs2.
   Proof.
     intros i1 i2 hs H.
-    remember (C1.seq _ _) as i.
+    remember (seq _ _) as i.
     generalize dependent i1.
     generalize dependent i2.
     induction H; intros; symmetry in Heqi.
@@ -473,56 +493,56 @@ Module C2.
       split; auto using run_skip.
     - destruct i1; simpl in *; try inversion Heqi; subst; try clear Heqi.
       + exists [[]].
-        exists (prepend (List.concat v) hs).
+        exists (prepend v hs).
         split; auto using run_skip, run_access.
       + edestruct IHRun as (hs1, (hs2, (?, ?))); eauto.
-        exists (prepend (List.concat v) hs1).
+        exists (prepend v hs1).
         exists hs2.
         split; auto using run_access.
     - destruct i3; simpl in *; try inversion Heqi; subst; try clear Heqi. {
         exists [[]].
         exists hs.
-        split; eauto using run_skip, run_for.
+        split; eauto using run_skip, run_decl.
       }
-      destruct (IHRun i0 (C1.Loop x l i1 i3_2) eq_refl) as (hs1, (hs2, (Hr1, Hr2)));
+      destruct (IHRun i0 (Branch x l i1 i3_2) eq_refl) as (hs1, (hs2, (Hr1, Hr2)));
       clear IHRun.
       exists hs1.
       exists hs2.
-      split; eauto using run_for.
+      split; eauto using run_decl.
     - destruct i3; simpl in *; try inversion Heqi; subst; try clear Heqi. {
         clear H1.
         exists [[]].
         exists (hs1 ++ hs2).
         split; auto using run_skip.
-        apply run_loop_cons; auto.
+        apply run_branch_cons; auto.
       }
-      remember (C1.i_subst _ _ _).
-      destruct (IHRun1 i0 (C1.seq i i3_2)) as (hsa, (hsb, (Hr1, Hr2))). {
+      remember (i_subst _ _ _).
+      destruct (IHRun1 i0 (seq i i3_2)) as (hsa, (hsb, (Hr1, Hr2))). {
         rewrite seq_seq_rw.
         reflexivity.
       }
       clear IHRun1.
-      destruct (IHRun2 i0 (C1.Loop x l i1 i3_2) eq_refl) as (hsa1, (hsb1, (Hra, Hrb))).
+      destruct (IHRun2 i0 (Branch x l i1 i3_2) eq_refl) as (hsa1, (hsb1, (Hra, Hrb))).
       assert (hsb = hsb1) by eauto using run_fun.
       clear Hrb.
       exists (hsa ++ hsa1).
       exists hsb.
       subst.
-      split; auto using run_loop_cons.
+      split; auto using run_branch_cons.
     - destruct i3; simpl in *; try inversion Heqi; subst; try clear Heqi. {
         exists [[]].
         exists hs.
-        split; auto using run_skip, run_loop_nil.
+        split; auto using run_skip, run_branch_nil.
       }
       destruct (IHRun _ _ eq_refl) as (hs1, (hs2, (?, ?))).
       exists hs1.
       exists hs2.
-      split; auto using run_loop_nil.
+      split; auto using run_branch_nil.
   Qed.
 
   Lemma run_inv_seq:
     forall i1 i2 hs,
-    Run (C1.seq i1 i2) hs ->
+    Run (seq i1 i2) hs ->
     exists hs1 hs2, hs = prod hs1 hs2 /\ Run i1 hs1 /\ Run i2 hs2.
   Proof.
     intros.
@@ -534,7 +554,7 @@ Module C2.
     exists hs1, hs2.
     repeat split; auto.
   Qed.
-*)
+
 End Defs.
 End C2.
 
