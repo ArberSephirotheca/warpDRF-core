@@ -681,6 +681,49 @@ Module Compiler.
     - inversion H1; subst; clear H1.
       auto.
   Qed.
+
+  Lemma in_decl_inv:
+    forall l hs x i1 i2,
+    C2.Run (C2.Branch x l i1 i2) hs ->
+    forall n,
+    List.In n l ->
+    exists hs2,
+    incl hs2 hs /\ C2.Run (C2.seq (C2.i_subst x (NNum n) i1) i2) hs2.
+  Proof.
+    induction l; intros. {
+      contradiction.
+    }
+    inversion H0; subst; clear H0;
+        inversion H; subst; clear H. {
+      exists hs1.
+      repeat split; auto using incl_app_refl_l.
+    }
+    assert (IHl := IHl hs2 x i1 i2 H8 _ H1).
+    destruct IHl as (hs3, (Hinc, Hr)).
+    exists hs3.
+    split; auto.
+    apply incl_appr.
+    auto.
+  Qed.
+
+  Theorem correctness:
+    forall i hs1,
+    C1SX.Run TID_COUNT TID i hs1 ->
+    forall hs2,
+    C2.Run (translate i) hs2 ->
+    Hist.MSafe hs2 ->
+    Hist.MSafeStrong hs2.
+  Proof.
+    intros.
+    unfold Hist.MSafeStrong.
+    intros.
+    unfold translate, do_proj in *.
+    apply Exists_exists in H2.
+    destruct H2 as (l, (Hi, Hj)).
+    inversion H0; subst; clear H0.
+    inversion Hj; subst; clear Hj.
+  Qed.
+
   End Defs.
 
 End Compiler.

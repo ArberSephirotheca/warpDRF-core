@@ -82,6 +82,9 @@ Section Defs.
 
   Definition MSafe (m:list history) := forall h1 h2, List.In h1 m -> List.In h2 m -> Safe2 h1 h2.
 
+  (* Strong safety holds when every history is safe independently of the others. *)
+  Definition MSafeStrong (m:list history) := forall x y, MPairIn (x,y) m -> access_safe x y.
+
   Definition MSafe2 (m1 m2:list history) := forall h1 h2, List.In h1 m1 -> List.In h2 m2 -> Safe2 h1 h2.
 
   Inductive GenAccess x a: nat -> list (list access_val) -> Prop :=
@@ -1204,7 +1207,17 @@ Section Defs.
     unfold m_proj.
     erewrite map_proj_prepend; eauto.
   Qed.
-
+(*
+  Lemma in_m_proj_to_m_pair_prod_m_proj:
+    forall x y n1 n2 hs,
+    MIn x (m_proj n1 hs) ->
+    MIn y (m_proj n2 hs) ->
+    MPairIn (x,y) (prod (m_proj n1 hs) (m_proj n2 hs)).
+  Proof.
+    intros.
+    apply m_pair_in_prod; auto.
+  Qed.
+*)
 End Defs.
 End Hist.
 

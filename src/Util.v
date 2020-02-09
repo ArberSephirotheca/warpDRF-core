@@ -910,6 +910,82 @@ Section Ops.
     unfold InclAll, Included, Ensembles.In.
     auto using m_in_prod_r.
   Qed.
+
+  Lemma m_in_prod_inv:
+    forall {A} (x:A) ls1 ls2,
+    MIn x (prod ls1 ls2) ->
+    MIn x ls1 \/ MIn x ls2.
+  Proof.
+    intros.
+    inversion H in H; subst; clear H.
+    apply in_prod_inv in H0.
+    destruct H0 as (a, (Hi, Hj)).
+    apply in_prepend_inv in Hj.
+    destruct Hj as (b, (?, Hj)).
+    subst.
+    apply in_app_iff in H1.
+    destruct H1; eauto using m_in_def.
+  Qed.
+
+  Lemma m_pair_in_prod:
+    forall {A} (x:A) y ls1 ls2,
+    MIn x ls1 ->
+    MIn y ls2 ->
+    MPairIn (x,y) (prod ls1 ls2).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0.
+    apply Exists_exists.
+    exists (l ++ l0).
+    split.
+    - eapply in_prod; eauto.
+      eapply in_prepend; eauto.
+    - eapply pair_in_def; apply in_app_iff; auto.
+  Qed.
+
+  Lemma m_pair_in_prod_l:
+    forall {A} p ls1 ls2,
+    @MPairIn A p ls1 ->
+    ls2 <> [] ->
+    MPairIn p (prod ls1 ls2).
+  Proof.
+    intros.
+    apply Exists_exists in H.
+    destruct H as (l, (Hi, Hp)).
+    destruct ls2. {
+      contradiction.
+    }
+    apply Exists_exists.
+    exists (l ++ l0).
+    split.
+    - eapply in_prod; eauto.
+      eapply in_prepend; eauto using in_eq.
+    - auto using pair_in_app_l.
+  Qed.
+
+  Lemma m_pair_in_prod_r:
+    forall {A} p ls1 ls2,
+    @MPairIn A p ls2 ->
+    ls1 <> [] ->
+    MPairIn p (prod ls1 ls2).
+  Proof.
+    intros.
+    apply Exists_exists in H.
+    destruct H as (l, (Hi, Hp)).
+    destruct ls1. {
+      contradiction.
+    }
+    apply Exists_exists.
+    exists (l0 ++ l).
+    split.
+    - simpl.
+      apply in_app_iff.
+      left.
+      eapply in_prepend; eauto using in_eq.
+    - auto using pair_in_app_r.
+  Qed.
+
 End Ops.
 
 Section filter.
