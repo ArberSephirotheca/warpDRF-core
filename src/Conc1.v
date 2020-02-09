@@ -784,13 +784,30 @@ Section Defs.
           rewrite H in *; clear H;
           clear H1
     end.
+
   Lemma run_fun:
-    forall i hs1 hs2,
+    forall i hs1,
     Run i hs1 ->
-    Run i hs2 ->
+    forall hs2, Run i hs2 ->
     hs1 = hs2.
   Proof.
-  Admitted.
+    intros i hs1 H.
+    induction H; intros.
+    - inversion H; subst; clear H; auto.
+    - inversion H1; subst; clear H1.
+      assert (v0 = v) by eauto using Hist.gen_access_fun.
+      subst.
+      erewrite IHRun; eauto.
+    - inversion H1; subst; clear H1.
+      assert (l0 = l) by eauto using r_step_fun; eauto.
+      subst.
+      erewrite IHRun; eauto.
+    - inversion H1; subst; clear H1.
+      erewrite IHRun1; eauto.
+      erewrite IHRun2; eauto.
+    - inversion H0; subst; clear H0.
+      eauto.
+  Qed.
 
   Lemma seq_inv_skip:
     forall i1 i2,

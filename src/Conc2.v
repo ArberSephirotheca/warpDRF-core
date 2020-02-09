@@ -159,7 +159,7 @@ Module C2.
     Run (seq (i_subst x (NNum n) i1) i2) hs1 ->
     Run (Branch x l i1 i2) hs2 ->
     Run (Branch x (n::l) i1 i2) (hs1 ++ hs2)
-  | run_loop_nil:
+  | run_branch_nil:
     forall x i1 i2 hs,
     Run i2 hs ->
     Run (Branch x [] i1 i2) hs.
@@ -340,6 +340,201 @@ Module C2.
 
   Definition BStep := BigStep _ Step Value.
 
+
+  Lemma seq_inv_skip:
+    forall i1 i2,
+    seq i1 i2 = Skip ->
+    i1 = Skip /\ i2 = Skip.
+  Proof.
+    intros.
+    destruct i1; simpl in *; subst; auto;
+    inversion H.
+  Qed.
+
+  Lemma seq_seq_rw:
+    forall i1 i2 i3,
+    seq (seq i1 i2) i3 = (seq i1 (seq i2 i3)).
+  Proof.
+    induction i1; intros; simpl in *.
+    - reflexivity.
+    - rewrite IHi1.
+      reflexivity.
+    - rewrite <- IHi1_2.
+      reflexivity.
+    - rewrite <- IHi1_2.
+      reflexivity.
+  Qed.
+
+  Lemma run_seq:
+    forall i1 hs1,
+    Run i1 hs1 ->
+    forall i2 hs2,
+    Run i2 hs2 ->
+    Run (seq i1 i2) (prod hs1 hs2).
+  Proof.
+    intros i1 hs1 H.
+    induction H; intros.
+    - simpl.
+      rewrite prepend_nil.
+      rewrite app_nil_r.
+      assumption.
+    - assert (Hx := IHRun _ _ H1).
+      simpl.
+      rewrite <- prepend_prod.
+      apply run_access; auto.
+    - apply IHRun in H1.
+      simpl.
+      eapply run_decl; eauto.
+    - rewrite <- prod_app.
+      simpl.
+      apply run_branch_cons; eauto.
+      remember (i_subst _ _ _).
+      assert (Hx := IHRun1 _ _ H1).
+      rewrite seq_seq_rw in *.
+      assumption.
+    - simpl.
+      apply run_branch_nil.
+      auto.
+  Qed.
+
+  Lemma run_fun:
+    forall i hs1,
+    Run i hs1 ->
+    forall hs2, Run i hs2 ->
+    hs1 = hs2.
+  Proof.
+    intros i hs1 H.
+    induction H; intros.
+    - inversion H; subst; clear H; auto.
+    - inversion H1; subst; clear H1.
+      erewrite IHRun; eauto.
+      assert (v0 = v) by eauto using access_step_fun.
+      subst.
+      reflexivity.
+    - inversion H1; subst; clear H1.
+      assert (l0 = l) by eauto using r_step_fun; eauto.
+      subst.
+      erewrite IHRun; eauto.
+    - inversion H1; subst; clear H1.
+      erewrite IHRun1; eauto.
+      erewrite IHRun2; eauto.
+    - inversion H0; subst; clear H0.
+      eauto.
+  Qed.
+(*
+  Lemma run_inv_seq_1:
+    forall i1 hs1,
+    Run i1 hs1 ->
+    forall i2 hs2 hs,
+    Run i2 hs2 ->
+    Run (seq i1 i2) hs ->
+    hs = prod hs1 hs2.
+  Proof.
+    intros i1 hs1 H.
+    induction H; intros; simpl in *.
+    - rewrite prepend_nil.
+      rewrite app_nil_r.
+      eapply run_fun; eauto.
+    - inversion H2; subst; clear H2.
+      run_clean.
+      apply IHRun with (hs2:=hs2) in H7; auto.
+      subst.
+      rewrite prepend_prod.
+      reflexivity.
+    - inversion H2; subst; clear H2.
+      run_clean.
+      apply IHRun with (hs2:=hs2) in H9; auto.
+    - inversion H2; subst; clear H2.
+      assert (IHRun2 := IHRun2 _ _ _ H1 H10); subst.
+      rewrite <- seq_seq_rw in H9.
+      assert (IHRun1 := IHRun1 _ _ _ H1 H9).
+      subst.
+      rewrite <- prod_app.
+      reflexivity.
+    - inversion H1; subst; clear H1.
+      eapply IHRun in H6; eauto.
+  Qed.
+
+  Lemma run_inv_seq_2:
+    forall i1 i2 hs,
+    Run (C1.seq i1 i2) hs ->
+    exists hs1 hs2, Run i1 hs1 /\ Run i2 hs2.
+  Proof.
+    intros i1 i2 hs H.
+    remember (C1.seq _ _) as i.
+    generalize dependent i1.
+    generalize dependent i2.
+    induction H; intros; symmetry in Heqi.
+    - apply seq_inv_skip in Heqi.
+      destruct Heqi.
+      subst.
+      exists [[]].
+      exists [[]].
+      split; auto using run_skip.
+    - destruct i1; simpl in *; try inversion Heqi; subst; try clear Heqi.
+      + exists [[]].
+        exists (prepend (List.concat v) hs).
+        split; auto using run_skip, run_access.
+      + edestruct IHRun as (hs1, (hs2, (?, ?))); eauto.
+        exists (prepend (List.concat v) hs1).
+        exists hs2.
+        split; auto using run_access.
+    - destruct i3; simpl in *; try inversion Heqi; subst; try clear Heqi. {
+        exists [[]].
+        exists hs.
+        split; eauto using run_skip, run_for.
+      }
+      destruct (IHRun i0 (C1.Loop x l i1 i3_2) eq_refl) as (hs1, (hs2, (Hr1, Hr2)));
+      clear IHRun.
+      exists hs1.
+      exists hs2.
+      split; eauto using run_for.
+    - destruct i3; simpl in *; try inversion Heqi; subst; try clear Heqi. {
+        clear H1.
+        exists [[]].
+        exists (hs1 ++ hs2).
+        split; auto using run_skip.
+        apply run_loop_cons; auto.
+      }
+      remember (C1.i_subst _ _ _).
+      destruct (IHRun1 i0 (C1.seq i i3_2)) as (hsa, (hsb, (Hr1, Hr2))). {
+        rewrite seq_seq_rw.
+        reflexivity.
+      }
+      clear IHRun1.
+      destruct (IHRun2 i0 (C1.Loop x l i1 i3_2) eq_refl) as (hsa1, (hsb1, (Hra, Hrb))).
+      assert (hsb = hsb1) by eauto using run_fun.
+      clear Hrb.
+      exists (hsa ++ hsa1).
+      exists hsb.
+      subst.
+      split; auto using run_loop_cons.
+    - destruct i3; simpl in *; try inversion Heqi; subst; try clear Heqi. {
+        exists [[]].
+        exists hs.
+        split; auto using run_skip, run_loop_nil.
+      }
+      destruct (IHRun _ _ eq_refl) as (hs1, (hs2, (?, ?))).
+      exists hs1.
+      exists hs2.
+      split; auto using run_loop_nil.
+  Qed.
+
+  Lemma run_inv_seq:
+    forall i1 i2 hs,
+    Run (C1.seq i1 i2) hs ->
+    exists hs1 hs2, hs = prod hs1 hs2 /\ Run i1 hs1 /\ Run i2 hs2.
+  Proof.
+    intros.
+    destruct (run_inv_seq_2 i1 i2 hs) as (hs1, (hs2, (Hr1, Hr2))); auto.
+    assert (hs = prod hs1 hs2). {
+      eauto using run_inv_seq_1.
+    }
+    subst.
+    exists hs1, hs2.
+    repeat split; auto.
+  Qed.
+*)
 End Defs.
 End C2.
 
