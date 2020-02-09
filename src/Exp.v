@@ -1128,5 +1128,75 @@ Section SO.
     subst.
     reflexivity.
   Qed.
+
+  Inductive RIn x : range -> Prop :=
+  | r_in_l:
+    forall n1 n2,
+    In x n1 ->
+    RIn x (n1, n2)
+  | r_in_r:
+    forall n1 n2,
+    In x n2 ->
+    RIn x (n1, n2).
+
+  Lemma n_step_to_not_in:
+    forall e n,
+    NStep e n ->
+    forall x,
+    ~ In x e.
+  Proof.
+    intros e n H.
+    induction H; intros; intros N; inversion N; subst; clear N.
+    - apply IHNStep1 in H2.
+      auto.
+    - apply IHNStep2 in H2; auto.
+  Qed.
+
+  Lemma r_step_to_not_in:
+    forall r l,
+    RStep r l ->
+    forall x,
+    ~ RIn x r.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    intros N.
+    inversion N; subst; clear N.
+    - apply n_step_to_not_in with (x:=x) in H0.
+      contradiction.
+    - apply n_step_to_not_in with (x:=x) in H1.
+      contradiction.
+  Qed.
+
+  Lemma not_r_in_to_in:
+    forall x n1 n2,
+    ~ RIn x (n1, n2) ->
+    ~ In x n1 /\ ~ In x n2.
+  Proof.
+    intros.
+    split; intros N.
+    - contradict H.
+      auto using r_in_l.
+    - contradict H.
+      auto using r_in_r.
+  Qed.
+
+  Lemma r_subst_not_in:
+    forall x v r,
+    ~ RIn x r ->
+    r_subst x v r = r.
+  Proof.
+    intros.
+    destruct r as (n1, n2).
+    apply not_r_in_to_in in H.
+    simpl.
+    destruct H as [Ha Hb].
+    apply n_subst_not_in with (v:=v) in Ha.
+    apply n_subst_not_in with (v:=v) in Hb.
+    rewrite Ha.
+    rewrite Hb.
+    reflexivity.
+  Qed.
+
 End SO.
 

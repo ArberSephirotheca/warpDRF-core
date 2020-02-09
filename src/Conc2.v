@@ -408,7 +408,7 @@ Module Compiler.
       reflexivity.
   Qed.
 
-  Theorem part1:
+  Theorem run_m_proj:
     forall i hs2,
     C1SX.Run TID_COUNT TID i hs2 ->
     forall n hs1,
@@ -426,7 +426,14 @@ Module Compiler.
       erewrite Hist.m_proj_prepend; eauto.
     - simpl in *.
       inversion H2; subst; clear H2.
-      assert (l0 = l) by give_up.
+      assert (l0 = l). {
+        assert (R: r_subst TID (NNum n) r = r). {
+          apply r_subst_not_in.
+          eapply r_step_to_not_in; eauto.
+        }
+        rewrite R in *.
+        eauto using r_step_fun.
+      }
       subst.
       eauto.
     - simpl in *.
@@ -458,13 +465,7 @@ Module Compiler.
       auto.
     - inversion H1; subst; clear H1.
       auto.
-  Admitted.
-(*
-  Theorem soudness:
-    forall c,
-    C1.BStep c v ->
-    C2.BStep (translate c v) w. 
-*)
+  Qed.
   End Defs.
 
 End Compiler.
