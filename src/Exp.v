@@ -1198,5 +1198,77 @@ Section SO.
     reflexivity.
   Qed.
 
+  Lemma range_list_inv_in:
+    forall l n1 n2 n,
+    RangeList n1 n2 l ->
+    List.In n l ->
+    n1 <= n /\ n < n2. 
+  Proof.
+    induction l; intros. {
+      contradiction.
+    }
+    inversion H0; subst; clear H0;
+        inversion H; subst; clear H. {
+      auto with *.
+    }
+    eapply IHl in H6; eauto.
+    auto with *.
+  Qed.
+  
+  Lemma range_list_inv_lt:
+    forall l n1 n2 n,
+    RangeList n1 n2 l ->
+    n1 <= n ->
+    n < n2 ->
+    List.In n l.
+  Proof.
+    Import Omega.
+    induction l; intros. {
+      inversion H.
+      subst.
+      omega.
+    }
+    simpl.
+    inversion H; subst; clear H.
+    assert (Hx: a < n \/ a = n) by omega.
+    destruct Hx. {
+      eapply IHl in H7; eauto.
+    }
+    auto.
+  Qed.
+
+  Lemma range_list_inv_nil:
+    forall n1 n2,
+    RangeList n1 n2 [] ->
+    n1 >= n2.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    auto.
+  Qed.
+
+  Lemma range_list_inv:
+    forall l n1 n2,
+    RangeList n1 n2 l ->
+    (l = [] /\ n1 >= n2) \/
+    (l <> [] /\ forall n, n1 <= n /\ n < n2 <-> List.In n l).
+  Proof.
+    intros.
+    destruct l. {
+      left.
+      apply range_list_inv_nil in H.
+      auto.
+    }
+    right.
+    split. {
+      intros N; inversion N.
+    }
+    intros n0.
+    split; intros X. {
+      destruct X; eauto using range_list_inv_lt.
+    }
+    eauto using range_list_inv_in.
+  Qed.
+
 End SO.
 

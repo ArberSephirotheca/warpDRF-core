@@ -555,6 +555,21 @@ Module C2.
     repeat split; auto.
   Qed.
 
+  Lemma i_subst_seq:
+    forall x v i1 i2,
+    i_subst x v (seq i1 i2) = seq (i_subst x v i1) (i_subst x v i2).
+  Proof.
+    induction i1; simpl; intros.
+    - reflexivity.
+    - destruct p as (a, e).
+      simpl.
+      rewrite IHi1.
+      reflexivity.
+    - rewrite IHi1_2.
+      reflexivity.
+    - rewrite IHi1_2.
+      reflexivity.
+  Qed.
 End Defs.
 End C2.
 
@@ -682,7 +697,7 @@ Module Compiler.
       auto.
   Qed.
 
-  Lemma in_decl_inv:
+  Lemma in_branch_inv:
     forall l hs x i1 i2,
     C2.Run (C2.Branch x l i1 i2) hs ->
     forall n,
@@ -706,7 +721,41 @@ Module Compiler.
     auto.
   Qed.
 
-  Theorem correctness:
+  Lemma in_decl_inv:
+    forall e1 e2 hs x i1 i2,
+    C2.Run (C2.Decl x (e1, e2) i1 i2) hs ->
+    exists n1 n2,
+    NStep e1 n1 /\
+    NStep e2 n2 /\
+    ((n1 >= n2 /\ C2.Run i2 hs)
+    \/
+    forall n,
+    n1 <= n < n2 ->
+    exists hs2,
+    incl hs2 hs /\ C2.Run (C2.seq (C2.i_subst x (NNum n) i1) i2) hs2).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    inversion H5; subst.
+    exists n1.
+    exists n2.
+    split; auto.
+    split; auto.
+    apply range_list_inv in H4.
+    destruct H4 as [(Ha,Hb)| (Hl, Ha)]. {
+      subst.
+      inversion H6; subst; clear H6.
+      auto.
+    }
+    right.
+    intros.
+    apply (Ha n) in H.
+    eapply in_branch_inv in H6; eauto.
+  Qed.
+
+
+  Theorem correctness (tid_ge_2: TID_COUNT > 2) (t1_neq_t2: T1 <> T2)
+      (in_heap: forall x i hs, C2.Run i hs -> MIn x hs -> access_tid x < TID_COUNT):
     forall i hs1,
     C1SX.Run TID_COUNT TID i hs1 ->
     forall hs2,
@@ -714,14 +763,53 @@ Module Compiler.
     Hist.MSafe hs2 ->
     Hist.MSafeStrong hs2.
   Proof.
+    Import Omega.
     intros.
     unfold Hist.MSafeStrong.
     intros.
     unfold translate, do_proj in *.
     apply Exists_exists in H2.
     destruct H2 as (l, (Hi, Hj)).
-    inversion H0; subst; clear H0.
-    inversion Hj; subst; clear Hj.
+    (* Check the tids of both accesses. *)
+    assert (Ht: access_tid x = access_tid y \/ access_tid x < access_tid y \/ access_tid x > access_tid y)
+      by omega.
+    destruct Ht as [Ht | Ht]. {
+      auto using access_safe_eq_tid.
+    }
+    assert (Horig := H0).
+    (* Get the smallest task *)
+    assert (Hx := in_decl_inv _ _ _ _ _ _ H0); clear H0.
+    destruct Hx as (n1, (n2, (Hn1, (Hn2, [(Ha,Hb)|Ha])))). {
+      inversion Hn1; subst; clear Hn1.
+      assert (n2 = TID_COUNT). {
+        inversion Hn2; subst; clear Hn2.
+        reflexivity.
+      }
+      subst.
+      omega.
+    }
+    assert (n2 = TID_COUNT). {
+      inversion Hn2; subst; clear Hn2.
+      reflexivity.
+    }
+    clear Hn2.
+    inversion Hn1; subst; clear Hn1.
+    subst.
+    (* Simplify the expression under Ha *)
+    simpl in Ha.
+    destruct (Set_VAR.MF.eq_dec T1 T1) as [e|e]; try contradiction; clear e.
+    destruct (Set_VAR.MF.eq_dec T1 T2) as [e|e]; try contradiction; clear e.
+    destruct Ht. {
+      assert (Hlt:  1 <= access_tid y < TID_COUNT). {
+        assert (access_tid y < TID_COUNT). {
+          eapply in_heap; eauto.
+          eapply m_in_def; eauto using pair_in_to_in_r.
+        }
+        omega.
+      }
+      assert (Ha := Ha (access_tid y) Hlt).
+      destruct Ha as (Hs3, (Hinc, Ha)).
+    rewrite C2.i_subst_seq in Ha.
   Qed.
 
   End Defs.
