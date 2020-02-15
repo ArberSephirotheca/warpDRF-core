@@ -1,4 +1,5 @@
 Set Implicit Arguments.
+Require Coq.Lists.List.
 
 Section Props.
   Variable A : Type.
@@ -47,7 +48,6 @@ Section Props.
       end
   | nil => None
   end.
-  Require List.
   Definition Value := List.Forall (fun x => a_is_value x = true).
 
   Theorem step_to_prop:

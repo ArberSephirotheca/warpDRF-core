@@ -17,11 +17,11 @@ Section ListEq.
   end.
 End ListEq.
 
-Module ListOrderedType(O:OrderedType) <: OrderedType.
-  Module MO := OrderedTypeFacts(O).
-  Definition t := list O.t.
+Module ListOrderedType(OT:OrderedType) <: OrderedType.
+  Module MO := OrderedTypeFacts(OT).
+  Definition t := list OT.t.
 
-  Definition eq := @list_eq O.t O.eq.
+  Definition eq := @list_eq OT.t OT.eq.
 
   Definition eq_dec: forall x y, { eq x y } + { ~ eq x y }.
   Proof.
@@ -35,7 +35,7 @@ Module ListOrderedType(O:OrderedType) <: OrderedType.
       right; simpl; intros N; inversion N.
     }
     destruct (IHx y). {
-      destruct (O.eq_dec a t0). {
+      destruct (OT.eq_dec a t0). {
         left.
         simpl; auto.
       }
@@ -54,7 +54,7 @@ Module ListOrderedType(O:OrderedType) <: OrderedType.
 
   Lemma eq_refl: forall x: t, eq x x.
   Proof.
-    induction x; simpl; auto.
+    induction x; simpl; auto using OT.eq_refl.
   Qed.
 
   Lemma eq_sym: forall x y,
@@ -62,7 +62,7 @@ Module ListOrderedType(O:OrderedType) <: OrderedType.
   Proof.
     induction x; intros; simpl in *; destruct y; simpl; auto.
     destruct H.
-    eauto.
+    eauto using OT.eq_sym.
   Qed.
 
   Lemma eq_trans: forall x y z:t,
@@ -86,14 +86,14 @@ Module ListOrderedType(O:OrderedType) <: OrderedType.
     }
     simpl in *.
     destruct H.
-    eauto.
+    eauto using OT.eq_trans.
   Qed.
 
-  Fixpoint lt (l1 l2: list O.t) : Prop :=
+  Fixpoint lt (l1 l2: list OT.t) : Prop :=
   match l1, l2 with
   | _, nil => False
   | nil, cons _ _ => True
-  | cons x l1, cons y l2 => O.lt x y \/ (O.eq x y /\ lt l1 l2)
+  | cons x l1, cons y l2 => OT.lt x y \/ (OT.eq x y /\ lt l1 l2)
   end.
 
   Lemma lt_r_nil:
@@ -126,7 +126,7 @@ Module ListOrderedType(O:OrderedType) <: OrderedType.
       + inversion H0.
       + simpl in *.
         intuition.
-        * eauto.
+        * eauto using OT.lt_trans.
         * subst.
           destruct l3; inversion H2.
           left.
@@ -141,17 +141,18 @@ Module ListOrderedType(O:OrderedType) <: OrderedType.
       }
       simpl in *.
       intuition.
-      + eauto.
+      + eauto using OT.lt_trans.
       + subst.
         destruct l3.
         * inversion H2.
         * eauto using MO.lt_eq.
-      + eauto using MO.lt_eq.
+      + left.
+        apply MO.eq_lt with (y:=a); auto.
       + subst; destruct l3; intuition.
         * right.
-          split; eauto using O.eq_trans.
+          split; eauto using OT.eq_trans.
         * right.
-          split; eauto using O.eq_trans.
+          split; eauto using OT.eq_trans.
   Qed.
 
   Lemma lt_not_eq:
@@ -171,7 +172,7 @@ Module ListOrderedType(O:OrderedType) <: OrderedType.
     simpl in H.
     intuition. {
       inversion H0; subst; clear H0.
-      apply O.lt_not_eq in H1.
+      apply OT.lt_not_eq in H1.
       contradiction.
     }
     inversion H0; subst; clear H0.
@@ -191,7 +192,7 @@ Module ListOrderedType(O:OrderedType) <: OrderedType.
       apply GT.
       simpl; auto.
     }
-    destruct (O.compare a t0).
+    destruct (OT.compare a t0).
     - apply LT.
       simpl; auto.
     - subst.
@@ -205,7 +206,7 @@ Module ListOrderedType(O:OrderedType) <: OrderedType.
         auto.
       + apply GT.
         simpl.
-        auto.
+        auto using OT.eq_sym.
     - apply GT; simpl; auto.
   Defined.
 End ListOrderedType.

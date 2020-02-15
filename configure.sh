@@ -19,5 +19,5 @@ install_aniceto() {
 
 install_coq &&
 install_aniceto &&
-(test -f Makefile.coq || coq_makefile -f _CoqProject -o Makefile.coq)
+(test -f Makefile || coq_makefile -f _CoqProject -o Makefile)
 

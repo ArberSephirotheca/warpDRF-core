@@ -4,8 +4,8 @@
 *.log
 *.out
 *.synctex.gz
-/Makefile.coq.conf
-/Makefile.coq
+/Makefile.conf
+/Makefile
 *.aux
 *.glob
 *.vo
@@ -17,3 +17,6 @@
 *.blg
 *.xdv
 /.vscode/
+*.vos
+*.vok
+/.Makefile.d
