@@ -1002,6 +1002,52 @@ Section SO.
       reflexivity.
   Qed.
 
+  Lemma not_in_n_rel:
+    forall x o n1 n2,
+    ~ BIn x (NRel o n1 n2) ->
+    ~ NIn x n1 /\ ~ NIn x n2.
+  Proof.
+    intros.
+    split; intros N; contradict H; auto using b_in_n_rel_l, b_in_n_rel_r.
+  Qed.
+
+  Lemma not_in_b_rel:
+    forall x o b1 b2,
+    ~ BIn x (BRel o b1 b2) ->
+    ~ BIn x b1 /\ ~ BIn x b2.
+  Proof.
+    intros.
+    repeat split; intros N; contradict H; auto using b_in_b_rel_l, b_in_b_rel_r.
+  Qed.
+
+  Lemma not_in_not:
+    forall x b,
+    ~ BIn x (BNot b) ->
+    ~ BIn x b.
+  Proof.
+    intros.
+    intros N; contradict H; auto using b_in_not.
+  Qed.
+
+  Lemma b_subst_not_in:
+    forall x v b,
+    ~ BIn x b ->
+    b_subst x v b = b.
+  Proof.
+    induction b; simpl; intros.
+    - reflexivity.
+    - apply not_in_n_rel in H.
+      destruct H.
+      rewrite n_subst_not_in; auto.
+      rewrite n_subst_not_in; auto.
+    - apply not_in_b_rel in H.
+      destruct H.
+      rewrite IHb1; auto.
+      rewrite IHb2; auto.
+    - apply not_in_not in H.
+      rewrite IHb; auto.
+  Qed.
+
   Lemma n_subst_to_not_in:
     forall x v n1 n2,
     n_subst x (NNum v) n1 = n2 ->
@@ -1131,17 +1177,6 @@ Section SO.
   Proof.
     intros.
     split; contradict H; auto using b_in_b_rel_l, b_in_b_rel_r.
-  Qed.
-
-  Lemma not_in_not:
-    forall x e,
-    ~ BIn x (BNot e) ->
-    ~ BIn x e.
-  Proof.
-    intros.
-    intros N.
-    contradict H.
-    auto using b_in_not.
   Qed.
 
   Lemma b_subst_subst_trans:
@@ -1294,6 +1329,20 @@ Section SO.
     rewrite Ha.
     rewrite Hb.
     reflexivity.
+  Qed.
+
+  Lemma r_subst_subst_trans:
+    forall e x v y,
+    ~ RIn x e ->
+    r_subst x v (r_subst y (NVar x) e) = r_subst y v e.
+  Proof.
+    intros.
+    destruct e.
+    apply not_r_in_to_in in H.
+    destruct H.
+    simpl.
+    rewrite n_subst_subst_trans; auto.
+    rewrite n_subst_subst_trans; auto.
   Qed.
 
   Lemma range_list_inv_in:

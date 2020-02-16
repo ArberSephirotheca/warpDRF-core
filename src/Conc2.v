@@ -677,8 +677,107 @@ Module C2.
       rewrite IHi1; auto.
   Qed.
 
+  Inductive In (x:var) : inst -> Prop :=
+  | in_acc_1:
+    forall e n i,
+    access_in x e ->
+    In x (Acc (e, n) i)
+  | in_acc_2:
+    forall e n i,
+    NIn x n ->
+    In x (Acc (e, n) i)
+  | in_acc_3:
+    forall e n i,
+    In x i ->
+    In x (Acc (e, n) i)
+  | in_decl_1:
+    forall r i1 i2 y,
+    RIn x r ->
+    In x (Decl y r i1 i2)
+  | in_decl_2:
+    forall r i1 i2,
+    In x (Decl x r i1 i2)
+  | in_decl_3:
+    forall r i1 i2 y,
+    In x i1 ->
+    In x (Decl y r i1 i2)
+  | in_decl_4:
+    forall r i1 i2 y,
+    In x i2 ->
+    In x (Decl y r i1 i2)
+  | in_branch_1:
+    forall l i1 i2,
+    In x (Branch x l i1 i2)
+  | in_branch_2:
+    forall l y i1 i2,
+    In x i1 ->
+    In x (Branch y l i1 i2)
+  | in_branch_3:
+    forall l y i1 i2,
+    In x i2 ->
+    In x (Branch y l i1 i2).
+
+  Lemma not_in_acc:
+    forall x a n i,
+    ~ In x (Acc (a, n) i) ->
+    ~ In x i /\ ~ access_in x a /\ ~ NIn x n.
+  Proof.
+    intros.
+    repeat split; intros N; contradict H;
+      auto using in_acc_1, in_acc_2, in_acc_3.
+  Qed.
+
+  Lemma not_in_decl:
+    forall x y r i1 i2,
+    ~ In x (Decl y r i1 i2) ->
+    x <> y /\ ~ RIn x r /\ ~ In x i1 /\ ~ In x i2.
+  Proof.
+    intros.
+    repeat split; intros N; contradict H; subst;
+      auto using in_decl_1, in_decl_2, in_decl_3, in_decl_4.
+  Qed.
+
+  Lemma not_in_branch:
+    forall x y r i1 i2,
+    ~ In x (Branch y r i1 i2) ->
+    x <> y /\ ~ In x i1 /\ ~ In x i2.
+  Proof.
+    intros.
+    repeat split; intros N; contradict H; subst;
+      auto using in_branch_1, in_branch_2, in_branch_3.
+  Qed.
+
+  Lemma i_subst_not_in:
+    forall i x v,
+    ~ In x i ->
+    i_subst x v i = i.
+  Proof.
+    induction i; intros; simpl.
+    - reflexivity.
+    - destruct p.
+      apply not_in_acc in H.
+      destruct H as (H0, (H1, H2)).
+      rewrite access_subst_not_in; auto.
+      rewrite n_subst_not_in; auto.
+      rewrite IHi; auto.
+    - apply not_in_decl in H.
+      destruct H as (H, (H1, (H2, H3))).
+      destruct (Set_VAR.MF.eq_dec x v). {
+        contradiction.
+      }
+      rewrite r_subst_not_in; auto.
+      rewrite IHi1; auto.
+      rewrite IHi2; auto.
+    - apply not_in_branch in H.
+      destruct H as (H, (H1, H2)).
+      destruct (Set_VAR.MF.eq_dec x v); try contradiction.
+      rewrite IHi1; auto.
+      rewrite IHi2; auto.
+  Qed.
+
   Lemma i_subst_subst_trans:
     forall i x y v,
+    ~ In x i ->
     i_subst x v (i_subst y (NVar x) i) =
     i_subst y v i.
   Proof.
@@ -686,8 +785,34 @@ Module C2.
     - reflexivity.
     - destruct p.
       simpl.
-      rewrite IHi.
-      rewrite access_
+      apply not_in_acc in H.
+      destruct H as (H1, (H2, H3)).
+      rewrite IHi; auto.
+      rewrite access_subst_subst_trans; auto.
+      rewrite n_subst_subst_trans; auto.
+    - apply not_in_decl in H.
+      destruct H as (H0, (H1, (H2, H3))).
+      rewrite r_subst_subst_trans; auto.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        contradiction.
+      }
+      destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        rewrite IHi2; auto.
+        rewrite i_subst_not_in; auto.
+      }
+      rewrite IHi1; auto.
+      rewrite IHi2; auto.
+    - apply not_in_branch in H.
+      destruct H as (H, (H1, H2)).
+      destruct (Set_VAR.MF.eq_dec x v); try contradiction.
+      destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        rewrite i_subst_not_in; auto.
+        rewrite IHi2; auto.
+      }
+      rewrite IHi1; auto.
+      rewrite IHi2; auto.
   Qed.
 
 End Defs.
