@@ -80,6 +80,13 @@ Class Access := {
     ~ access_in x e ->
     access_subst x v e = e;
 
+  access_in_subst_neq:
+    forall e x y v,
+    access_in x (access_subst y v e) ->
+    ~ NIn x v ->
+    x <> y ->
+    access_in x e;
+
 }.
 
 Module Hist.
@@ -1498,6 +1505,22 @@ Module OneDim.
     rewrite b_subst_not_in; auto.
   Qed.
 
+  Lemma in_subst_neq:
+    forall e x y v,
+    In x (subst y v e) ->
+    ~ NIn x v ->
+    x <> y ->
+    In x e.
+  Proof.
+    intros.
+    destruct e; simpl in *.
+    inversion H; subst; clear H.
+    - apply in_n_subst_neq in H3; auto.
+      apply e_in_l; auto.
+    - apply in_b_subst_neq in H3; auto.
+      apply e_in_r; auto.
+  Qed.
+
 End OneDim.
 
 Instance ONE_DIM : Access := {|
@@ -1518,6 +1541,7 @@ Instance ONE_DIM : Access := {|
   access_subst_subst_neq := OneDim.subst_subst_neq;
   access_subst_subst_trans := OneDim.subst_subst_trans;
   access_subst_not_in := OneDim.subst_not_in;
+  access_in_subst_neq := OneDim.in_subst_neq;
 |}.
 
 

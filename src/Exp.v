@@ -1161,6 +1161,51 @@ Section SO.
       rewrite IHe2; auto.
   Qed.
 
+  Lemma in_n_subst_neq:
+    forall e x y v,
+    NIn x (n_subst y v e) ->
+    ~ NIn x v ->
+    x <> y ->
+    NIn x e.
+  Proof.
+    induction e; simpl; intros; inversion H; subst; rename H into N.
+    - destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        contradiction.
+      }
+      auto.
+    - destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        contradiction.
+      }
+      (* contradiction *)
+      inversion H2.
+    - destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        contradiction.
+      }
+      (* contradiction *)
+      inversion H2.
+    - subst.
+      apply IHe1 in H3; auto using n_in_bin_l.
+    - apply IHe2 in H3; auto using n_in_bin_r.
+  Qed.
+
+  Lemma in_b_subst_neq:
+    forall e x y v,
+    BIn x (b_subst y v e) ->
+    ~ NIn x v ->
+    x <> y ->
+    BIn x e.
+  Proof.
+    induction e; simpl; intros; inversion H; subst; rename H into N.
+    - apply in_n_subst_neq in H3; auto using b_in_n_rel_l.
+    - apply in_n_subst_neq in H3; auto using b_in_n_rel_r.
+    - apply IHe1 in H3; auto using b_in_b_rel_l.
+    - apply IHe2 in H3; auto using b_in_b_rel_r.
+    - apply IHe in H3; auto using b_in_not.
+  Qed.
+
   Lemma not_in_n_bin_n_rel:
     forall o n1 n2 x,
     ~ BIn x (NRel o n1 n2) ->
@@ -1343,6 +1388,20 @@ Section SO.
     simpl.
     rewrite n_subst_subst_trans; auto.
     rewrite n_subst_subst_trans; auto.
+  Qed.
+
+  Lemma in_r_subst_neq:
+    forall e x y v,
+    RIn x (r_subst y v e) ->
+    ~ NIn x v ->
+    x <> y ->
+    RIn x e.
+  Proof.
+    intros.
+    destruct e.
+    inversion H; subst; clear H.
+    - apply in_n_subst_neq in H3; auto using r_in_l.
+    - apply in_n_subst_neq in H3; auto using r_in_r.
   Qed.
 
   Lemma range_list_inv_in:

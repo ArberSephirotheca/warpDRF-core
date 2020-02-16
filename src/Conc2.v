@@ -815,6 +815,39 @@ Module C2.
       rewrite IHi2; auto.
   Qed.
 
+  Lemma in_i_subst_neq:
+    forall i x y v,
+    In x (i_subst y v i) ->
+    x <> y ->
+    ~ NIn x v ->
+    In x i.
+  Proof.
+    induction i; simpl; intros.
+    - inversion H.
+    - destruct p.
+      inversion H; subst; clear H.
+      + apply access_in_subst_neq in H3; auto using in_acc_1.
+      + apply in_n_subst_neq in H3; auto using in_acc_2.
+      + apply IHi in H3; auto using in_acc_3.
+    - inversion H; subst; clear H.
+      + apply in_r_subst_neq in H3; auto using in_decl_1.
+      + auto using in_decl_2.
+      + destruct (Set_VAR.MF.eq_dec y v). {
+          subst.
+          auto using in_decl_3.
+        }
+        apply IHi1 in H3; auto using in_decl_3.
+      + apply IHi2 in H3; auto using in_decl_4.
+    - inversion H; subst; clear H.
+      + auto using in_branch_1.
+      + destruct (Set_VAR.MF.eq_dec y v). {
+          subst.
+          auto using in_branch_2.
+        }
+        apply IHi1 in H3; auto using in_branch_2.
+      + apply IHi2 in H3; auto using in_branch_3.
+  Qed.
+
 End Defs.
 End C2.
 
@@ -844,11 +877,36 @@ Module Compiler.
           (C2.seq (do_proj T1 c) (do_proj T2 c))
         C2.Skip)
       C2.Skip).
-
+(*
   Notation "i '[' x ':=' n ']'" := (C2.i_subst x n i) (at level 40).
   Notation "i '[' x ':=' n ']'" := (C1.i_subst x n i) (at level 40).
 (*  Notation "'[[' i ']]'" := (proj i) (at level 40). *)
   Coercion NNum: nat >-> nexp.
+*)
+
+  Lemma in_to_in_proj:
+    forall x i,
+    C1.In x i ->
+    C2.In x (proj i).
+  Proof.
+    induction i; simpl; intros; inversion H; subst; clear H;
+        auto using C2.in_acc_1, C2.in_acc_3, C2.in_decl_1, C2.in_decl_2, C2.in_decl_3,
+          C2.in_decl_4, C2.in_branch_1, C2.in_branch_2, C2.in_branch_3.
+  Qed.
+
+  Lemma in_proj_to_in:
+    forall x i,
+    x <> TID ->
+    C2.In x (proj i) ->
+    C1.In x i.
+  Proof.
+    induction i; simpl; intros; inversion H0; subst; clear H0;
+        auto using C1.in_acc_1, C1.in_acc_2, C1.in_for_1, C1.in_for_2, C1.in_for_3,
+          C1.in_for_4, C1.in_loop_1, C1.in_loop_2, C1.in_loop_3.
+    inversion H2; subst; clear H2.
+    contradiction.
+  Qed.
+
 (*
   Lemma i_subst_proj_rw:
     forall x n1 n2 i,
@@ -930,13 +988,14 @@ Module Compiler.
     - rewrite IHi1_2.
       reflexivity.
   Qed.
-(*
+
   Theorem run_m_proj:
     forall i hs2,
     C1SX.Run TID_COUNT TID i hs2 ->
     forall n hs1,
     n < TID_COUNT ->
-    C2.Run (proj (NNum n) (C1.i_subst TID (NNum n) i)) hs1 ->
+    C2.Run (C2.i_subst TID (NNum n) (proj i)) hs1 ->
+    ~ C1.Var TID i ->
     Hist.m_proj n hs2 = hs1.
   Proof.
     intros i hs2 H.
@@ -944,8 +1003,11 @@ Module Compiler.
     - inversion H0; subst; clear H0.
       reflexivity.
     - inversion H2; subst; clear H2.
-      assert (IHRun := IHRun _ _ H1 H7).
+      apply C1.var_not_in_acc in H3.
+      assert (IHRun := IHRun _ _ H1 H8 H3).
       subst.
+      destruct (var_eq_dec_rw_eq TID) as (?, R).
+      rewrite R in *; clear R.
       erewrite Hist.m_proj_prepend; eauto.
     - simpl in *.
       inversion H2; subst; clear H2.
@@ -958,20 +1020,45 @@ Module Compiler.
         eauto using r_step_fun.
       }
       subst.
+      assert (~ C1.Var TID (C1.Loop x l i1 i2)). {
+        intros N.
+        contradict H3.
+        eauto using C1.var_loop_to_for.
+      }
       eauto.
     - simpl in *.
       inversion H2; subst; clear H2.
-      apply IHRun2 in H10; auto; clear IHRun2.
+      assert (~ C1.Var TID (C1.Loop x l i1 i2)). {
+        intros N.
+        contradict H3.
+        auto using C1.var_loop_cons.
+      }
+      apply IHRun2 in H11; auto; clear IHRun2.
       subst.
       rewrite Hist.m_proj_app.
+      assert (Hist.m_proj n0 hs1 = hs3). {
+        destruct (Set_VAR.MF.eq_dec TID x). {
+          apply C1.var_not_in_loop in H3.
+          destruct H3 as (?, _).
+          contradiction.
+        }
+        apply IHRun1; auto.
+        + rewrite proj_seq in *.
+          rewrite C2.i_subst_seq.
+          (* We need to show that:
+            x <> TID ->
+             (proj (C1.i_subst x (NNum n) i))
+             = C1.i_subst x (NNum n) (proj i)
+           *)
+      }
       destruct (Set_VAR.MF.eq_dec TID x). {
         subst.
         assert (Hist.m_proj n0 hs1 = hs3). {
           apply IHRun1; auto.
-          rewrite C1.i_subst_seq.
+          rewrite proj_seq in *.
+          rewrite C2.i_subst_seq.
           rewrite C1.i_subst_subst_eq.
           rewrite i_subst_proj_rw in *.
-          rewrite proj_seq in *.
           assumption.
         }
         subst.
@@ -1047,18 +1134,24 @@ Module Compiler.
   Qed.
 
 
-
   Theorem correctness (tid_ge_2: TID_COUNT > 2) (t1_neq_t2: T1 <> T2)
-      (in_heap: forall x i hs, C2.Run i hs -> MIn x hs -> access_tid x < TID_COUNT):
+      (t1_neq_tid: T1 <> TID)
+      (t2_neq_tid: T2 <> TID)
+      (in_heap: forall x i hs, C2.Run i hs -> MIn x hs -> access_tid x < TID_COUNT)
+    :
     forall i hs1,
     C1SX.Run TID_COUNT TID i hs1 ->
     forall hs2,
     C2.Run (translate i) hs2 ->
     Hist.MSafe hs2 ->
+    ~ C1.In T1 i ->
+    ~ C1.In T2 i -> 
     Hist.MSafeStrong hs2.
   Proof.
     Import Omega.
     intros.
+    rename H2 into T1_nin_i.
+    rename H3 into T2_nin_i. 
     unfold Hist.MSafeStrong.
     intros.
     unfold translate, do_proj in *.
@@ -1102,7 +1195,7 @@ Module Compiler.
         omega.
       }
       assert (Ha := Ha (access_tid y) Hlt).
-      destruct Ha as (Hs3, (Hinc, Ha)).
+      destruct Ha as (hs3, (Hinc, Ha)).
       (* We have a run-object, now use in_decl_inv *)
       assert (Hx := in_decl_inv _ _ _ _ _ _ Ha); clear Ha.
       destruct Hx as (n1, (n2, (Hn1, (Hn2, [(Ha,Hb)|Ha])))). {
@@ -1122,12 +1215,55 @@ Module Compiler.
       inversion Hb; subst; clear Hb.
       rewrite C2.i_subst_seq in Ha.
       rewrite C2.i_subst_seq in Ha.
-      rewrite (C2.i_subst_subst_neq T2 T1) in *.
-      (*
-      var tid, [tid] -> var tid, ([tid], tid) 
-       *)
+      assert (t1_nin_proj_i: ~ C2.In T1 (proj i)). {
+        intros N.
+        contradict T1_nin_i.
+        apply in_proj_to_in; auto.
+      }
+      assert (t2_nin_proj_i: ~ C2.In T2 (proj i)). {
+        intros N.
+        contradict T2_nin_i.
+        apply in_proj_to_in; auto.
+      }
+      (* Simplify Ha in terms of y *)
+      assert (R:
+         C2.i_subst T2 (NNum (access_tid x))
+             (C2.i_subst T1 (NNum (access_tid y)) (C2.i_subst TID (NVar T1) (proj i)))
+         =
+             C2.i_subst TID (NNum (access_tid y)) (proj i)
+      ). {
+        rewrite C2.i_subst_subst_trans; auto.
+        assert (~ C2.In T2 (C2.i_subst TID (NNum (access_tid y)) (proj i))). {
+          intros N.
+          contradict t2_nin_proj_i.
+          apply C2.in_i_subst_neq in N; auto.
+          intros M.
+          inversion M.
+        }
+        rewrite C2.i_subst_not_in; auto.
+      }
+      rewrite R in *; clear R.
+      (* Simplify Ha in terms of x *)
+      assert (R:
+           C2.i_subst T2 (NNum (access_tid x))
+               (C2.i_subst T1 (NNum (access_tid y)) (C2.i_subst TID (NVar T2) (proj i)))
+           =
+               C2.i_subst TID (NNum (access_tid x)) (proj i)
+        ). {
+        rewrite C2.i_subst_subst_neq; auto.
+        rewrite C2.i_subst_not_in; auto.
+        rewrite C2.i_subst_subst_trans; auto.
+        give_up.
+      }
+      rewrite R in *; clear R.
+      apply C2.run_inv_seq in Ha.
+      destruct Ha as (hs4, (hs5, (?, (Ha, Hb)))).
+      subst.
+      clear Horig.
+    (*
+    var tid, [tid] -> var tid, ([tid], tid) 
+     *)
 
-    rewrite C2.i_subst_seq in Ha.
   Qed.
 
   End Defs.

@@ -46,6 +46,112 @@ Section C1.
 
   Definition state := (history * inst) % type.
 
+  Inductive In (x:var) : inst -> Prop :=
+  | in_acc_1:
+    forall e i,
+    access_in x e ->
+    In x (Acc e i)
+  | in_acc_2:
+    forall e i,
+    In x i ->
+    In x (Acc e i)
+  | in_for_1:
+    forall r i1 i2 y,
+    RIn x r ->
+    In x (For y r i1 i2)
+  | in_for_2:
+    forall r i1 i2,
+    In x (For x r i1 i2)
+  | in_for_3:
+    forall r i1 i2 y,
+    In x i1 ->
+    In x (For y r i1 i2)
+  | in_for_4:
+    forall r i1 i2 y,
+    In x i2 ->
+    In x (For y r i1 i2)
+  | in_loop_1:
+    forall l i1 i2,
+    In x (Loop x l i1 i2)
+  | in_loop_2:
+    forall l y i1 i2,
+    In x i1 ->
+    In x (Loop y l i1 i2)
+  | in_loop_3:
+    forall l y i1 i2,
+    In x i2 ->
+    In x (Loop y l i1 i2).
+
+  Inductive Var (x:var) : inst -> Prop :=
+  | var_acc:
+    forall p i,
+    Var x i ->
+    Var x (Acc p i)
+  | var_for_1:
+    forall r i1 i2,
+    Var x (For x r i1 i2)
+  | var_for_2:
+    forall r y i1 i2,
+    Var x i2 ->
+    Var x (For y r i1 i2)
+  | var_for_3:
+    forall r i1 i2 y,
+    Var x i1 ->
+    Var x (For y r i1 i2)
+  | var_loop_1:
+    forall l i1 i2,
+    Var x (Loop x l i1 i2)
+  | var_loop_2:
+    forall y i1 i2 l,
+    Var x i1 ->
+    Var x (Loop y l i1 i2)
+  | var_loop_3:
+    forall y i1 i2 l,
+    Var x i2 ->
+    Var x (Loop y l i1 i2).
+
+  Lemma var_not_in_acc:
+    forall x e i,
+    ~ Var x (Acc e i) ->
+    ~ Var x i.
+  Proof.
+    intros.
+    intros N.
+    contradict H.
+    auto using var_acc.
+  Qed.
+
+  Lemma var_not_in_loop:
+    forall x y l i1 i2,
+    ~ Var x (Loop y l i1 i2) ->
+    x <> y /\ ~ Var x i1 /\ ~ Var x i2.
+  Proof.
+    intros.
+    repeat split; intros N; subst; contradict H;
+      auto using var_loop_1, var_loop_2, var_loop_3.
+  Qed.
+
+  Lemma var_loop_to_for:
+    forall x y i1 i2 l r,
+    Var x (Loop y l i1 i2) ->
+    Var x (For y r i1 i2).
+  Proof.
+    intros.
+    inversion H; subst; clear H; auto using var_for_1, var_for_2, var_for_3.
+  Qed.
+
+  Lemma var_loop_cons:
+    forall x y l i1 i2 n,
+    Var x (Loop y l i1 i2) ->
+    Var x (Loop y (n :: l) i1 i2).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    - auto using var_loop_1.
+    - auto using var_loop_2.
+    - auto using var_loop_3.
+  Qed.
+
   Variable TID_COUNT: nat.
   Variable TID : var.
 
