@@ -17,6 +17,7 @@ Import ListNotations.
 Class Access := {
   access_exp: Type;
   access_val: Type;
+  access_in: var -> access_exp -> Prop;
   access_subst: var -> nexp -> access_exp -> access_exp;
   access_step: (access_exp * nexp) -> list access_val -> Prop;
   access_eval1: (access_exp * nexp) -> option (list access_val);
@@ -68,6 +69,11 @@ Class Access := {
     x <> y ->
     access_subst x (NNum n1) (access_subst y (NNum n2) a) =
     access_subst y (NNum n2) (access_subst x (NNum n1) a);
+
+  access_subst_subst_trans:
+    forall e x v y,
+    ~ access_in x e ->
+    access_subst x v (access_subst y (NVar x) e) = access_subst y v e;
 
 }.
 
@@ -1236,6 +1242,18 @@ Module OneDim.
 
   Definition E := (nexp * bexp) % type.
 
+  Inductive EIn x : nexp * bexp -> Prop :=
+  | e_in_l:
+    forall n b,
+    NIn x n ->
+    EIn x (n, b)
+  | e_in_r:
+    forall n b,
+    BIn x b ->
+    EIn x (n, b).
+
+  Definition In := EIn. 
+
   Definition subst x v (e:E) :=
     let (idx, b) := e in
     (n_subst x v idx, b_subst x v b).
@@ -1430,12 +1448,44 @@ Module OneDim.
     rewrite b_subst_subst_neq; auto.
   Qed.
 
+  Lemma not_e_in_inv:
+    forall x n b,
+    ~ EIn x (n, b) ->
+    ~ NIn x n /\ ~ BIn x b.
+  Proof.
+    intros.
+    split.
+    - intros N.
+      contradict H.
+      constructor.
+      assumption.
+    - intros N.
+      contradict H.
+      eauto using e_in_r.
+  Qed.
+
+  Lemma subst_subst_trans:
+    forall e x v y,
+    ~ In x e ->
+    subst x v (subst y (NVar x) e) = subst y v e.
+  Proof.
+    unfold In.
+    intros.
+    destruct e as (n, b).
+    simpl.
+    apply not_e_in_inv in H.
+    destruct H.
+    rewrite n_subst_subst_trans; auto.
+    rewrite b_subst_subst_trans; auto.
+  Qed.
+
 End OneDim.
 
 Instance ONE_DIM : Access := {|
   access_subst := OneDim.subst;
   access_step := OneDim.Step;
   access_safe := OneDim.Safe;
+  access_in := OneDim.In;
   access_step_fun := OneDim.a_step_fun;
   access_eval1 := OneDim.a_step;
   access_eval1_to_step := OneDim.a_step_to_prop;
@@ -1447,6 +1497,7 @@ Instance ONE_DIM : Access := {|
   access_safe_sym := OneDim.safe_sym;
   access_subst_subst_eq := OneDim.subst_subst_eq;
   access_subst_subst_neq := OneDim.subst_subst_neq;
+  access_subst_subst_trans := OneDim.subst_subst_trans;
 |}.
 
 

@@ -906,22 +906,44 @@ Section SO.
     reflexivity.
   Qed.
 
-  Inductive In (x: var): nexp -> Prop :=
-  | in_eq:
-    In x (NVar x)
-  | in_bin_l:
+  Inductive NIn (x: var): nexp -> Prop :=
+  | n_in_eq:
+    NIn x (NVar x)
+  | n_in_bin_l:
     forall o n1 n2,
-    In x n1 ->
-    In x (NBin o n1 n2)
-  | in_bin_r:
+    NIn x n1 ->
+    NIn x (NBin o n1 n2)
+  | n_in_bin_r:
     forall o n1 n2,
-    In x n2 ->
-    In x (NBin o n1 n2).
+    NIn x n2 ->
+    NIn x (NBin o n1 n2).
 
-  Lemma not_in_bin_l:
+  Inductive BIn (x: var): bexp -> Prop :=
+  | b_in_n_rel_l:
+    forall o n1 n2,
+    NIn x n1 ->
+    BIn x (NRel o n1 n2)
+  | b_in_n_rel_r:
+    forall o n1 n2,
+    NIn x n2 ->
+    BIn x (NRel o n1 n2)
+  | b_in_b_rel_l:
+    forall o b1 b2,
+    BIn x b1 ->
+    BIn x (BRel o b1 b2)
+  | b_in_b_rel_r:
+    forall o b1 b2,
+    BIn x b2 ->
+    BIn x (BRel o b1 b2)
+  | b_in_not:
+    forall b,
+    BIn x b ->
+    BIn x (BNot b).
+
+  Lemma not_n_in_bin_l:
     forall x o n1 n2,
-    ~ In x (NBin o n1 n2) ->
-    ~ In x n1.
+    ~ NIn x (NBin o n1 n2) ->
+    ~ NIn x n1.
   Proof.
     intros.
     intros N.
@@ -929,32 +951,32 @@ Section SO.
     constructor; auto.
   Qed.
 
-  Lemma not_in_bin_r:
+  Lemma not_n_in_bin_r:
     forall x o n1 n2,
-    ~ In x (NBin o n1 n2) ->
-    ~ In x n2.
+    ~ NIn x (NBin o n1 n2) ->
+    ~ NIn x n2.
   Proof.
     intros.
     intros N.
     contradict H.
-    apply in_bin_r.
+    apply n_in_bin_r.
     assumption.
   Qed.
 
-  Lemma not_in_bin:
+  Lemma not_n_in_bin:
     forall x o n1 n2,
-    ~ In x (NBin o n1 n2) ->
-    ~ In x n1 /\ ~ In x n2.
+    ~ NIn x (NBin o n1 n2) ->
+    ~ NIn x n1 /\ ~ NIn x n2.
   Proof.
     intros.
     split.
-    - eauto using not_in_bin_l.
-    - eauto using not_in_bin_r.
+    - eauto using not_n_in_bin_l.
+    - eauto using not_n_in_bin_r.
   Qed.
 
   Lemma n_subst_not_in:
     forall x v n,
-    ~ In x n ->
+    ~ NIn x n ->
     n_subst x v n = n.
   Proof.
     induction n; intros.
@@ -970,7 +992,7 @@ Section SO.
         contradiction.
       }
       reflexivity.
-    - apply not_in_bin in H.
+    - apply not_n_in_bin in H.
       destruct H as (Ha, Hb).
       apply IHn1 in Ha.
       apply IHn2 in Hb.
@@ -983,7 +1005,7 @@ Section SO.
   Lemma n_subst_to_not_in:
     forall x v n1 n2,
     n_subst x (NNum v) n1 = n2 ->
-    ~ In x n2.
+    ~ NIn x n2.
   Proof.
     induction n1; simpl; intros; subst; intros N.
     - inversion N.
@@ -1065,6 +1087,82 @@ Section SO.
       rewrite IHn2; auto.
   Qed.
 
+  Lemma n_subst_subst_trans:
+    forall e x v y,
+    ~ NIn x e ->
+    n_subst x v (n_subst y (NVar x) e) = n_subst y v e.
+  Proof.
+    induction e; simpl; intros.
+    - reflexivity.
+    - destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        simpl.
+        destruct (Set_VAR.MF.eq_dec x x). {
+          reflexivity.
+        }
+        contradiction.
+      }
+      simpl.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        contradict H.
+        auto using n_in_eq.
+      }
+      reflexivity.
+    - apply not_n_in_bin in H.
+      destruct H as (Ha, Hb).
+      rewrite IHe1; auto.
+      rewrite IHe2; auto.
+  Qed.
+
+  Lemma not_in_n_bin_n_rel:
+    forall o n1 n2 x,
+    ~ BIn x (NRel o n1 n2) ->
+    ~ NIn x n1 /\ ~ NIn x n2.
+  Proof.
+    intros.
+    split; contradict H; auto using b_in_n_rel_l, b_in_n_rel_r.
+  Qed.
+
+  Lemma not_in_n_bin_b_rel:
+    forall o b1 b2 x,
+    ~ BIn x (BRel o b1 b2) ->
+    ~ BIn x b1 /\ ~ BIn x b2.
+  Proof.
+    intros.
+    split; contradict H; auto using b_in_b_rel_l, b_in_b_rel_r.
+  Qed.
+
+  Lemma not_in_not:
+    forall x e,
+    ~ BIn x (BNot e) ->
+    ~ BIn x e.
+  Proof.
+    intros.
+    intros N.
+    contradict H.
+    auto using b_in_not.
+  Qed.
+
+  Lemma b_subst_subst_trans:
+    forall e x v y,
+    ~ BIn x e ->
+    b_subst x v (b_subst y (NVar x) e) = b_subst y v e.
+  Proof.
+    induction e; simpl; intros.
+    - reflexivity.
+    - apply not_in_n_bin_n_rel in H.
+      destruct H.
+      rewrite n_subst_subst_trans; auto.
+      rewrite n_subst_subst_trans; auto.
+    - apply not_in_n_bin_b_rel in H.
+      destruct H.
+      rewrite IHe1; auto.
+      rewrite IHe2; auto.
+    - apply not_in_not in H.
+      rewrite IHe; auto.
+  Qed.
+
   Lemma b_subst_subst_eq:
     forall x n1 n2 b,
     b_subst x (NNum n1) (b_subst x (NNum n2) b) = b_subst x (NNum n2) b.
@@ -1132,18 +1230,18 @@ Section SO.
   Inductive RIn x : range -> Prop :=
   | r_in_l:
     forall n1 n2,
-    In x n1 ->
+    NIn x n1 ->
     RIn x (n1, n2)
   | r_in_r:
     forall n1 n2,
-    In x n2 ->
+    NIn x n2 ->
     RIn x (n1, n2).
 
   Lemma n_step_to_not_in:
     forall e n,
     NStep e n ->
     forall x,
-    ~ In x e.
+    ~ NIn x e.
   Proof.
     intros e n H.
     induction H; intros; intros N; inversion N; subst; clear N.
@@ -1171,7 +1269,7 @@ Section SO.
   Lemma not_r_in_to_in:
     forall x n1 n2,
     ~ RIn x (n1, n2) ->
-    ~ In x n1 /\ ~ In x n2.
+    ~ NIn x n1 /\ ~ NIn x n2.
   Proof.
     intros.
     split; intros N.

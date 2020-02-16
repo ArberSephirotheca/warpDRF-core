@@ -27,6 +27,34 @@ Module C2.
   | Decl : var -> range -> inst -> inst -> inst
   | Branch : var -> list nat -> inst -> inst -> inst.
 
+  Inductive Var (x:var) : inst -> Prop :=
+  | var_acc:
+    forall p i,
+    Var x i ->
+    Var x (Acc p i)
+  | var_decl_eq:
+    forall r i1 i2,
+    Var x (Decl x r i1 i2)
+  | var_decl_r:
+    forall r y i1 i2,
+    Var x i2 ->
+    Var x (Decl y r i1 i2)
+  | var_decl_l:
+    forall r i1 i2 y,
+    Var x i1 ->
+    Var x (Decl y r i1 i2)
+  | var_branch_eq:
+    forall l i1 i2,
+    Var x (Branch x l i1 i2)
+  | var_branch_l:
+    forall y i1 i2 l,
+    Var x i1 ->
+    Var x (Branch y l i1 i2)
+  | var_branch_r:
+    forall y i1 i2 l,
+    Var x i2 ->
+    Var x (Branch y l i1 i2).
+
   Fixpoint i_subst x v i :=
   match i with
   | Skip => Skip
@@ -570,6 +598,98 @@ Module C2.
     - rewrite IHi1_2.
       reflexivity.
   Qed.
+
+  Lemma i_subst_subst_eq:
+    forall x i n1 n2,
+    i_subst x (NNum n1) (i_subst x (NNum n2) i) = i_subst x (NNum n2) i.
+  Proof.
+    induction i; simpl; intros.
+    - reflexivity.
+    - destruct p.
+      simpl.
+      rewrite access_subst_subst_eq.
+      rewrite IHi.
+      rewrite n_subst_subst_eq.
+      reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        rewrite IHi2.
+        rewrite r_subst_subst_eq.
+        reflexivity.
+      }
+      rewrite IHi1.
+      rewrite IHi2.
+      rewrite r_subst_subst_eq.
+      reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        rewrite IHi2.
+        subst.
+        reflexivity.
+      }
+      rewrite IHi1.
+      rewrite IHi2.
+      reflexivity.
+  Qed.
+
+  Lemma i_subst_subst_neq:
+    forall x y i n1 n2,
+    x <> y ->
+    i_subst x (NNum n1) (i_subst y (NNum n2) i) =
+    i_subst y (NNum n2) (i_subst x (NNum n1) i).
+  Proof.
+    induction i; intros; simpl.
+    - reflexivity.
+    - destruct p.
+      simpl.
+      rewrite IHi; auto.
+      rewrite n_subst_subst_neq; auto.
+      rewrite access_subst_subst_neq; auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        destruct (Set_VAR.MF.eq_dec y v). {
+          subst.
+          contradiction.
+        }
+        subst.
+        rewrite IHi2; auto.
+        rewrite r_subst_subst_neq; auto.
+      }
+      destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        rewrite IHi2; auto.
+        rewrite r_subst_subst_neq; auto.
+      }
+      rewrite IHi2; auto.
+      rewrite IHi1; auto.
+      rewrite r_subst_subst_neq; auto.
+    - destruct (Set_VAR.MF.eq_dec y v). {
+        destruct (Set_VAR.MF.eq_dec x v). {
+          subst.
+          contradiction.
+        }
+        subst.
+        rewrite IHi2; auto.
+      }
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        rewrite IHi2; auto.
+      }
+      rewrite IHi2; auto.
+      rewrite IHi1; auto.
+  Qed.
+
+  Lemma i_subst_subst_trans:
+    forall i x y v,
+    i_subst x v (i_subst y (NVar x) i) =
+    i_subst y v i.
+  Proof.
+    induction i; simpl; intros.
+    - reflexivity.
+    - destruct p.
+      simpl.
+      rewrite IHi.
+      rewrite access_
+  Qed.
+
 End Defs.
 End C2.
 
@@ -580,20 +700,18 @@ Module Compiler.
   Variable TID_COUNT: nat.
   Variable TID : var.
 
-  Fixpoint proj (t:nexp) (c:C1.inst) : C2.inst :=
+  Fixpoint proj (c:C1.inst) : C2.inst :=
     match c with
     | C1.Skip => C2.Skip
-    | C1.Acc a c1 => C2.Acc (a, t) (proj t c1)
-    | C1.For x r c1 c2 => C2.Decl x r (proj t c1) (proj t c2)
-    | C1.Loop x l c1 c2 => C2.Branch x l (proj t c1) (proj t c2) 
+    | C1.Acc a c1 => C2.Acc (a, NVar TID) (proj c1)
+    | C1.For x r c1 c2 => C2.Decl x r (proj c1) (proj c2)
+    | C1.Loop x l c1 c2 => C2.Branch x l (proj c1) (proj c2) 
     end.
 
   Variable T1: var.
   Variable T2: var.
 
-  Definition do_proj x c :=
-    proj (NVar x) (C1.i_subst TID (NVar x) c).
-
+  Definition do_proj x i := C2.i_subst TID (NVar x) (proj i).
 
   Definition translate (c:C1.inst) : C2.inst :=
       (C2.Decl T1 (NNum 1, NNum TID_COUNT)
@@ -602,13 +720,21 @@ Module Compiler.
         C2.Skip)
       C2.Skip).
 
+  Notation "i '[' x ':=' n ']'" := (C2.i_subst x n i) (at level 40).
+  Notation "i '[' x ':=' n ']'" := (C1.i_subst x n i) (at level 40).
+(*  Notation "'[[' i ']]'" := (proj i) (at level 40). *)
+  Coercion NNum: nat >-> nexp.
+(*
   Lemma i_subst_proj_rw:
     forall x n1 n2 i,
     C2.i_subst x (NNum n1) (proj (NNum n2) i) = proj (NNum n2) (C1.i_subst x (NNum n1) i).
   Proof.
     induction i; simpl; intros.
     - reflexivity.
-    - rewrite IHi.
+    - rewrite IHi; clear IHi.
+      destruct (Set_VAR.MF.eq_dec x TID). {
+        subst.
+      }
       reflexivity.
     - rewrite IHi1.
       rewrite IHi2.
@@ -624,9 +750,51 @@ Module Compiler.
       }
       reflexivity.
   Qed.
+*)
+  Lemma var_eq_dec_rw_eq:
+    forall x,
+    exists e, Set_VAR.MF.eq_dec x x = @left _ _ e.
+  Proof.
+    intros.
+    destruct (Set_VAR.MF.eq_dec x x).
+    - exists e.
+      reflexivity.
+    - contradiction.
+  Qed.
+
+(*
+  Lemma i_subst_proj_eq:
+    forall x n i,
+    C2.i_subst x (NNum n) (proj (NVar x) i) = proj (NNum n) (C1.i_subst x (NNum n) i).
+  Proof.
+    induction i; intros; simpl.
+    - reflexivity.
+    - destruct (var_eq_dec_rw_eq x) as (e, Hr).
+      rewrite Hr.
+      rewrite IHi.
+      reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        (* ([decl x in i][tid=x] ) [x := n] <> ([decl x in i][tid=n])[x=n]  *)
+        rewrite IHi2.
+        give_up.
+      }
+      rewrite IHi2.
+      rewrite IHi1.
+      reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        rewrite IHi2.
+        give_up.
+      }
+      rewrite IHi1.
+      rewrite IHi2.
+      reflexivity.
+  Qed.
+*)
   Lemma proj_seq:
-    forall n i1 i2,
-    proj n (C1.seq i1 i2) = C2.seq (proj n i1) (proj n i2).
+    forall i1 i2,
+    proj (C1.seq i1 i2) = C2.seq (proj i1) (proj i2).
   Proof.
     induction i1; intros; simpl.
     - reflexivity.
@@ -637,7 +805,7 @@ Module Compiler.
     - rewrite IHi1_2.
       reflexivity.
   Qed.
-
+(*
   Theorem run_m_proj:
     forall i hs2,
     C1SX.Run TID_COUNT TID i hs2 ->
@@ -696,7 +864,7 @@ Module Compiler.
     - inversion H1; subst; clear H1.
       auto.
   Qed.
-
+*)
   Lemma in_branch_inv:
     forall l hs x i1 i2,
     C2.Run (C2.Branch x l i1 i2) hs ->
@@ -754,6 +922,7 @@ Module Compiler.
   Qed.
 
 
+
   Theorem correctness (tid_ge_2: TID_COUNT > 2) (t1_neq_t2: T1 <> T2)
       (in_heap: forall x i hs, C2.Run i hs -> MIn x hs -> access_tid x < TID_COUNT):
     forall i hs1,
@@ -809,6 +978,30 @@ Module Compiler.
       }
       assert (Ha := Ha (access_tid y) Hlt).
       destruct Ha as (Hs3, (Hinc, Ha)).
+      (* We have a run-object, now use in_decl_inv *)
+      assert (Hx := in_decl_inv _ _ _ _ _ _ Ha); clear Ha.
+      destruct Hx as (n1, (n2, (Hn1, (Hn2, [(Ha,Hb)|Ha])))). {
+        inversion Hn1; subst; clear Hn1.
+        inversion Hn2; subst; clear Hn2.
+        (* tid y <= 0 /\ tid y >= 1 -> False *)
+        omega.
+      }
+      inversion Hn1; subst; clear Hn1.
+      inversion Hn2; subst; clear Hn2.
+      assert (Hlt2: 0 <= access_tid x < access_tid y) by omega.
+      assert (Ha := Ha (access_tid x) Hlt2).
+      destruct Ha as (hs4, (Hinc2, Ha)).
+      apply C2.run_inv_seq in Ha.
+      destruct Ha as (Ha_hs1, (Ha_hs2, (?, (Ha,Hb)))).
+      subst.
+      inversion Hb; subst; clear Hb.
+      rewrite C2.i_subst_seq in Ha.
+      rewrite C2.i_subst_seq in Ha.
+      rewrite (C2.i_subst_subst_neq T2 T1) in *.
+      (*
+      var tid, [tid] -> var tid, ([tid], tid) 
+       *)
+
     rewrite C2.i_subst_seq in Ha.
   Qed.
 
