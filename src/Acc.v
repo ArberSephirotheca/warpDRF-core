@@ -1278,6 +1278,19 @@ Section Defs.
     clear H0.
     eauto using m_safe_eq.
   Qed.
+
+  Lemma m_safe_strong_to_m_safe:
+    forall hs1 hs2,
+    MSafeStrong hs2 ->
+    MPairIncl hs1 hs2 ->
+    MSafe hs1.
+  Proof.
+    intros.
+    unfold MSafeStrong, AllInclAll,Ensembles.Included,Ensembles.In, MPairIncl, MSafe, Safe2; intros.
+    apply H.
+    apply H0; eauto using m_in_def.
+  Qed.
+
 End Defs.
 End Hist.
 

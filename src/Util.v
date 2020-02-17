@@ -49,7 +49,14 @@ Section Ops.
     forall l,
     List.In l ls ->
     List.In a l ->
-    MIn a ls. 
+    MIn a ls.
+
+  (* Every pair in l must also be in a list of ls *)
+  Definition MPairIncl {A:Type} ls1 ls2 :=
+    forall x y,
+      MIn x ls1 ->
+      MIn y ls1 ->
+      @MPairIn A (x, y) ls2.
 
   Definition AllInclAll {A:Type} (ls1 ls2:list (list A)) :=
     Included A (fun a => MIn a ls1) (fun a => MIn a ls2).
