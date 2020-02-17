@@ -768,6 +768,15 @@ Section Ops.
     eauto using m_in_def.
   Qed.
 
+  Lemma m_pair_in_to_in:
+    forall A (x:A) y ls,
+    MPairIn (x, y) ls ->
+    MIn x ls /\ MIn y ls.
+  Proof.
+    intros.
+    split; eauto using m_pair_in_to_in_l, m_pair_in_to_in_r.
+  Qed.
+
   Lemma pair_incl_prepend:
     forall A l2 ls,
     ls <> [] ->

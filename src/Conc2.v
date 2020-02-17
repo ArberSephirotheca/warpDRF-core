@@ -393,6 +393,20 @@ Module C2.
       reflexivity.
   Qed.
 
+  Lemma seq_nil_rw:
+    forall i,
+    seq i Skip = i.
+  Proof.
+    induction i; intros; simpl.
+    - reflexivity.
+    - rewrite IHi.
+      reflexivity.
+    - rewrite IHi2.
+      reflexivity.
+    - rewrite IHi2.
+      reflexivity.
+  Qed.
+
   Lemma run_seq:
     forall i1 hs1,
     Run i1 hs1 ->
@@ -1045,12 +1059,16 @@ Module Compiler.
         apply IHRun1; auto.
         + rewrite proj_seq in *.
           rewrite C2.i_subst_seq.
+          give_up.
           (* We need to show that:
             x <> TID ->
              (proj (C1.i_subst x (NNum n) i))
              = C1.i_subst x (NNum n) (proj i)
            *)
       }
+      subst.
+      reflexivity.
+      (*
       destruct (Set_VAR.MF.eq_dec TID x). {
         subst.
         assert (Hist.m_proj n0 hs1 = hs3). {
@@ -1073,10 +1091,16 @@ Module Compiler.
       }
       subst.
       auto.
+      *)
     - inversion H1; subst; clear H1.
+      assert (~ C1.Var TID i2). {
+        intros N.
+        contradict H2.
+        auto using C1.var_loop_3.
+      }
       auto.
-  Qed.
-*)
+  Admitted.
+
   Lemma in_branch_inv:
     forall l hs x i1 i2,
     C2.Run (C2.Branch x l i1 i2) hs ->
@@ -1133,7 +1157,6 @@ Module Compiler.
     eapply in_branch_inv in H6; eauto.
   Qed.
 
-
   Theorem correctness (tid_ge_2: TID_COUNT > 2) (t1_neq_t2: T1 <> T2)
       (t1_neq_tid: T1 <> TID)
       (t2_neq_tid: T2 <> TID)
@@ -1143,15 +1166,17 @@ Module Compiler.
     C1SX.Run TID_COUNT TID i hs1 ->
     forall hs2,
     C2.Run (translate i) hs2 ->
-    Hist.MSafe hs2 ->
+    Hist.MSafe hs1 ->
     ~ C1.In T1 i ->
-    ~ C1.In T2 i -> 
+    ~ C1.In T2 i ->
+    ~ C1.Var TID i -> 
     Hist.MSafeStrong hs2.
   Proof.
     Import Omega.
     intros.
     rename H2 into T1_nin_i.
     rename H3 into T2_nin_i. 
+    rename H4 into TID_nvar_i.
     unfold Hist.MSafeStrong.
     intros.
     unfold translate, do_proj in *.
@@ -1259,7 +1284,12 @@ Module Compiler.
       apply C2.run_inv_seq in Ha.
       destruct Ha as (hs4, (hs5, (?, (Ha, Hb)))).
       subst.
+      (*
       clear Horig.
+      *)
+      apply run_m_proj with (hs2:=hs1) in Ha; auto with *.
+      apply run_m_proj with (hs2:=hs1) in Hb; auto with *.
+      subst.
     (*
     var tid, [tid] -> var tid, ([tid], tid) 
      *)

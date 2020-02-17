@@ -1174,7 +1174,6 @@ Section Defs.
     destruct H0 as (h, (Hi, Hp)).
     eauto using msafe_pair_in_to_safe.
   Qed.
-  Definition InclAll {A} h hs := forall (x:A), List.In x h -> MIn x hs.
 
   Lemma map_proj_prepend:
     forall hs vs n v,
@@ -1236,6 +1235,49 @@ Section Defs.
     apply m_pair_in_prod; auto.
   Qed.
 *)
+(*
+  Lemma m_safe_strong_to_m_safe:
+    forall hs1 hs2,
+    MSafeStrong hs2 ->
+    AllInclAll hs1 hs2 ->
+    MSafe hs1.
+  Proof.
+    unfold MSafe, MSafeStrong, Safe2.
+    intros.
+    intros.
+    assert (H := H x y).
+    apply H; clear H. 
+  Qed.
+*)
+  Lemma m_safe_eq:
+    forall hs x y,
+    MSafe hs ->
+    MIn x hs ->
+    MIn y hs ->
+    access_safe x y.
+  Proof.
+    unfold MSafe, Safe2; intros.
+    inversion H0; subst; clear H0.
+    inversion H1; subst; clear H1.
+    eauto.
+  Qed.
+
+  Lemma m_safe_to_m_safe_strong:
+    forall hs1 hs2,
+    MSafe hs1 ->
+    AllInclAll hs2 hs1 ->
+    MSafeStrong hs2.
+  Proof.
+    unfold MSafeStrong, Safe2.
+    intros.
+    apply m_pair_in_to_in in H1.
+    destruct H1.
+    apply H0 in H1.
+    apply H0 in H2.
+    unfold Ensembles.In in *.
+    clear H0.
+    eauto using m_safe_eq.
+  Qed.
 End Defs.
 End Hist.
 
