@@ -192,6 +192,46 @@ Module C2.
     Run i2 hs ->
     Run (Branch x [] i1 i2) hs.
 
+  Inductive DoLoop : var -> list nat -> inst -> inst -> list (list history) -> Prop :=
+  | do_loop_nil:
+    forall i1 i2 x hs,
+    Run i2 hs ->
+    DoLoop x [] i1 i2 [hs]
+  | do_loop_cons:
+    forall x n l i1 i2 hss hs,
+    Run (seq (i_subst x (NNum n) i1) i2) hs ->
+    DoLoop x l i1 i2 hss ->
+    DoLoop x (n::l) i1 i2 (hs::hss).
+
+  Lemma run_branch_to_do_loop:
+    forall x l i1 i2 hs,
+    Run (Branch x l i1 i2) hs ->
+    exists hss, hs = List.concat hss /\ DoLoop x l i1 i2 hss.
+  Proof.
+    intros.
+    remember (Branch _ _ _ _).
+    generalize dependent x.
+    generalize dependent i1.
+    generalize dependent i2.
+    generalize dependent l.
+    induction H; intros; inversion Heqi; subst; clear Heqi. {
+      assert (IHRun2 := IHRun2 _ _ _ _ eq_refl).
+      destruct IHRun2 as (hss, (?, Hd)).
+      exists (hs1::hss).
+      split. {
+        simpl.
+        subst.
+        auto.
+      }
+      apply do_loop_cons; auto.
+    }
+    exists [hs].
+    simpl.
+    split. {
+      auto with *.
+    }
+    auto using do_loop_nil.
+  Qed.
 
   Definition red_par f s1 s2 :=
     match s1, s2 with
@@ -891,6 +931,7 @@ Module Compiler.
           (C2.seq (do_proj T1 c) (do_proj T2 c))
         C2.Skip)
       C2.Skip).
+
 (*
   Notation "i '[' x ':=' n ']'" := (C2.i_subst x n i) (at level 40).
   Notation "i '[' x ':=' n ']'" := (C1.i_subst x n i) (at level 40).
@@ -1101,6 +1142,7 @@ Module Compiler.
       auto.
   Admitted.
 
+
   Lemma in_branch_inv:
     forall l hs x i1 i2,
     C2.Run (C2.Branch x l i1 i2) hs ->
@@ -1155,6 +1197,182 @@ Module Compiler.
     intros.
     apply (Ha n) in H.
     eapply in_branch_inv in H6; eauto.
+  Qed.
+(*
+  Theorem m_pair_incl
+      (tid_ge_2: TID_COUNT > 2)
+      (t1_neq_t2: T1 <> T2)
+      (t1_neq_tid: T1 <> TID)
+      (t2_neq_tid: T2 <> TID)
+      (in_heap: forall x i hs, C2.Run i hs -> MIn x hs -> access_tid x < TID_COUNT)
+      (i:C1.inst)
+      (T1_nin_i: ~ C1.In T1 i)
+      (T2_nin_i: ~ C1.In T2 i)
+      (TID_nvar_i: ~ C1.Var TID i)
+    :
+    forall hs1,
+    C1SX.Run TID_COUNT TID i hs1 ->
+    forall hs2,
+    C2.Run (translate i) hs2 ->
+    MPairIncl hs1 hs2.
+  Proof.
+    intros hs1 H.
+    induction H; intros.
+    - give_up.
+    - 
+  Qed.
+*)
+
+  Theorem m_pair_incl (tid_ge_2: TID_COUNT > 2) (t1_neq_t2: T1 <> T2)
+      (t1_neq_tid: T1 <> TID)
+      (t2_neq_tid: T2 <> TID)
+      (in_heap: forall x i hs, C2.Run i hs -> MIn x hs -> access_tid x < TID_COUNT)
+      i
+      (T1_nin_i: ~ C1.In T1 i)
+      (T2_nin_i: ~ C1.In T2 i)
+      (TID_nvar_i: ~ C1.Var TID i)
+    :
+    forall hs1,
+    C1SX.Run TID_COUNT TID i hs1 ->
+    forall hs2,
+    C2.Run (translate i) hs2 ->
+    MPairIncl hs1 hs2.
+  Proof.
+    Import Omega.
+    intros hs1 H.
+    induction H; unfold MPairIncl; intros.
+    - apply m_in_nil_nil in H0.
+      contradiction.
+    - apply m_in_prepend_inv in H2.
+      apply m_in_prepend_inv in H3.
+      destruct H2 as [H2|H2], H3 as [H3|H3];
+        try (
+          apply m_in_concat in H2;
+          eapply Hist.m_in_gen_access_inv in H2; eauto;
+          destruct H2 as (n1, (l1, (H_lt1, (H_acc1, H_in1)))));
+        try (
+          apply m_in_concat in H3;
+          eapply Hist.m_in_gen_access_inv in H3; eauto;
+          destruct H3 as (n2, (l2, (H_lt2, (H_acc2, H_in2))))
+        ).
+      + 
+        eapply Hist.m_in_gen_access_inv in H3; eauto.
+        
+      
+      unfold translate in *.
+      (* Check the tids of both accesses. *)
+      assert (Ht: access_tid x = access_tid y \/ access_tid x < access_tid y \/ access_tid x > access_tid y)
+        by omega.
+      destruct Ht as [Ht | Ht]. {
+        give_up.
+      }
+      C2.DoLoop
+      assert (Horig := H1).
+      (* Get the smallest task *)
+      assert (Hx := in_decl_inv _ _ _ _ _ _ H1); clear H1.
+      destruct Hx as (n1, (n2, (Hn1, (Hn2, [(Ha,Hb)|Ha])))). {
+        inversion Hn1; subst; clear Hn1.
+        assert (n2 = TID_COUNT). {
+        inversion Hn2; subst; clear Hn2.
+        reflexivity.
+      }
+      subst.
+      omega.
+      }
+      assert (n2 = TID_COUNT). {
+      inversion Hn2; subst; clear Hn2.
+      reflexivity.
+    }
+    clear Hn2.
+    inversion Hn1; subst; clear Hn1.
+    subst.
+    (* Simplify the expression under Ha *)
+    simpl in Ha.
+    destruct (Set_VAR.MF.eq_dec T1 T1) as [e|e]; try contradiction; clear e.
+    destruct (Set_VAR.MF.eq_dec T1 T2) as [e|e]; try contradiction; clear e.
+    destruct Ht. {
+      assert (Hlt:  1 <= access_tid y < TID_COUNT). {
+        assert (access_tid y < TID_COUNT). {
+          eapply in_heap; eauto.
+          eapply m_in_def; eauto using pair_in_to_in_r.
+        }
+        omega.
+      }
+      assert (Ha := Ha (access_tid y) Hlt).
+      destruct Ha as (hs3, (Hinc, Ha)).
+      (* We have a run-object, now use in_decl_inv *)
+      assert (Hx := in_decl_inv _ _ _ _ _ _ Ha); clear Ha.
+      destruct Hx as (n1, (n2, (Hn1, (Hn2, [(Ha,Hb)|Ha])))). {
+        inversion Hn1; subst; clear Hn1.
+        inversion Hn2; subst; clear Hn2.
+        (* tid y <= 0 /\ tid y >= 1 -> False *)
+        omega.
+      }
+      inversion Hn1; subst; clear Hn1.
+      inversion Hn2; subst; clear Hn2.
+      assert (Hlt2: 0 <= access_tid x < access_tid y) by omega.
+      assert (Ha := Ha (access_tid x) Hlt2).
+      destruct Ha as (hs4, (Hinc2, Ha)).
+      apply C2.run_inv_seq in Ha.
+      destruct Ha as (Ha_hs1, (Ha_hs2, (?, (Ha,Hb)))).
+      subst.
+      inversion Hb; subst; clear Hb.
+      rewrite C2.i_subst_seq in Ha.
+      rewrite C2.i_subst_seq in Ha.
+      assert (t1_nin_proj_i: ~ C2.In T1 (proj i)). {
+        intros N.
+        contradict T1_nin_i.
+        apply in_proj_to_in; auto.
+      }
+      assert (t2_nin_proj_i: ~ C2.In T2 (proj i)). {
+        intros N.
+        contradict T2_nin_i.
+        apply in_proj_to_in; auto.
+      }
+      (* Simplify Ha in terms of y *)
+      assert (R:
+         C2.i_subst T2 (NNum (access_tid x))
+             (C2.i_subst T1 (NNum (access_tid y)) (C2.i_subst TID (NVar T1) (proj i)))
+         =
+             C2.i_subst TID (NNum (access_tid y)) (proj i)
+      ). {
+        rewrite C2.i_subst_subst_trans; auto.
+        assert (~ C2.In T2 (C2.i_subst TID (NNum (access_tid y)) (proj i))). {
+          intros N.
+          contradict t2_nin_proj_i.
+          apply C2.in_i_subst_neq in N; auto.
+          intros M.
+          inversion M.
+        }
+        rewrite C2.i_subst_not_in; auto.
+      }
+      rewrite R in *; clear R.
+      (* Simplify Ha in terms of x *)
+      assert (R:
+           C2.i_subst T2 (NNum (access_tid x))
+               (C2.i_subst T1 (NNum (access_tid y)) (C2.i_subst TID (NVar T2) (proj i)))
+           =
+               C2.i_subst TID (NNum (access_tid x)) (proj i)
+        ). {
+        rewrite C2.i_subst_subst_neq; auto.
+        rewrite C2.i_subst_not_in; auto.
+        rewrite C2.i_subst_subst_trans; auto.
+        give_up.
+      }
+      rewrite R in *; clear R.
+      apply C2.run_inv_seq in Ha.
+      destruct Ha as (hs4, (hs5, (?, (Ha, Hb)))).
+      subst.
+      (*
+      clear Horig.
+      *)
+      apply run_m_proj with (hs2:=hs1) in Ha; auto with *.
+      apply run_m_proj with (hs2:=hs1) in Hb; auto with *.
+      subst.
+    (*
+    var tid, [tid] -> var tid, ([tid], tid) 
+     *)
+
   Qed.
 
   Theorem correctness (tid_ge_2: TID_COUNT > 2) (t1_neq_t2: T1 <> T2)

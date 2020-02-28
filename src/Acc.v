@@ -1017,6 +1017,32 @@ Section Defs.
     eauto using gen_access_cons.
   Qed.
 
+  Lemma m_in_gen_access_inv:
+    forall x a m v vs,
+    GenAccess x a m vs ->
+    MIn v vs ->
+    exists n l,
+    n < m /\ access_step (access_subst x (NNum n) a, NNum n) l /\ List.In l vs.
+  Proof.
+    induction m; intros. {
+      inversion H; subst; clear H.
+      apply m_in_nil in H0.
+      contradiction.
+    }
+    inversion H; subst; clear H.
+    apply m_in_inv in H0.
+    destruct H0. {
+      exists m.
+      exists v0.
+      repeat split; auto using in_eq.
+    }
+    eapply IHm in H2; eauto.
+    destruct H2 as (n, (l2, (?, (?, ?)))).
+    exists n.
+    exists l2.
+    repeat split; auto using in_cons with *.
+  Qed.
+
   Lemma safe2_sym:
     forall h1 h2,
     Safe2 h1 h2 <-> Safe2 h2 h1.

@@ -202,6 +202,45 @@ Section Ops.
     auto.
   Qed.
 
+  Lemma m_in_prepend_inv:
+    forall A (x:A) l ls,
+    MIn x (prepend l ls) ->
+    List.In x l \/ MIn x ls.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    apply in_prepend_inv in H0.
+    destruct H0 as (l3, (?, Hi)).
+    subst.
+    apply in_app_iff in H1.
+    destruct H1; eauto using m_in_def.
+  Qed.
+
+  Lemma m_in_cons:
+    forall A (x:A) l ll,
+    MIn x ll ->
+    MIn x (l::ll).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eauto using m_in_def, in_cons.
+  Qed.
+
+  Lemma in_concat_to_m_in:
+    forall A (x:A) ll,
+    List.In x (List.concat ll) ->
+    MIn x ll.
+  Proof.
+    induction ll; intros. {
+      inversion H.
+    }
+    simpl in *.
+    apply in_app_iff in H.
+    destruct H.
+    - auto using m_in_eq.
+    - auto using m_in_cons.
+  Qed.
+
   Lemma incl_all_prepend_r:
     forall A l1 l2 ls,
     @InclAll A l1 ls ->
@@ -862,6 +901,19 @@ Section Ops.
     eauto using m_in_def.
   Qed.
 
+  Lemma m_in_inv_cons_nil:
+    forall A (x:A) (l:list A),
+    MIn x [l] ->
+    List.In x l.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0. {
+      assumption.
+    }
+    inversion H.
+  Qed.
+
   Lemma m_in_nil:
     forall A (x:A), 
     ~ MIn x [].
@@ -870,6 +922,38 @@ Section Ops.
     intros N.
     inversion N; subst; clear N.
     contradiction.
+  Qed.
+
+  Lemma m_in_nil_nil:
+    forall A (x:A), 
+    ~ MIn x [[]].
+  Proof.
+    intros.
+    intros N.
+    apply m_in_inv_cons_nil in N.
+    inversion N.
+  Qed.
+
+  Lemma m_in_to_in_concat:
+    forall A (x:A) ll,
+    MIn x ll ->
+    List.In x (List.concat ll).
+  Proof.
+    induction ll; intros. {
+      apply m_in_nil in H.
+      contradiction.
+    }
+    apply m_in_inv in H.
+    simpl.
+    apply in_app_iff.
+    destruct H; auto.
+  Qed.
+
+  Lemma m_in_concat:
+    forall A (x:A) ll,
+    MIn x ll <-> List.In x (List.concat ll).
+  Proof.
+    split; intros; auto using m_in_to_in_concat, in_concat_to_m_in.
   Qed.
 
   Lemma m_in_prepend_l:
@@ -1001,7 +1085,6 @@ Section Ops.
       eapply in_prepend; eauto using in_eq.
     - auto using pair_in_app_r.
   Qed.
-
 End Ops.
 
 Section filter.
