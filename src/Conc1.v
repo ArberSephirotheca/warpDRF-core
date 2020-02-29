@@ -251,6 +251,54 @@ Section C1.
       rewrite IHi1; auto.
   Qed.
 
+  Lemma var_seq_inv:
+    forall x i1 i2,
+    Var x (seq i1 i2) ->
+    Var x i1 \/ Var x i2.
+  Proof.
+    induction i1; simpl; intros.
+    - auto.
+    - inversion H; subst; clear H.
+      apply IHi1 in H1.
+      destruct H1; auto using var_acc.
+    - inversion H; subst; clear H; auto using var_for_1, var_for_3.
+      apply IHi1_2 in H1.
+      destruct H1; auto using var_for_2.
+    - inversion H; subst; clear H; auto using var_loop_1, var_loop_2.
+      apply IHi1_2 in H1.
+      destruct H1; auto using var_loop_3.
+  Qed.
+
+  Lemma var_subst_inv_1:
+    forall y x n i,
+    Var y (i_subst x (NNum n) i) ->
+    Var y i.
+  Proof.
+    induction i; simpl; intros.
+    - inversion H.
+    - inversion H; subst; clear H.
+      apply IHi in H1.
+      auto using var_acc.
+    - destruct (Set_VAR.MF.eq_dec x v);
+        inversion H; subst; clear H; auto using var_for_1, var_for_2, var_for_3.
+    - destruct (Set_VAR.MF.eq_dec x v);
+        inversion H; subst; clear H; auto using var_loop_1, var_loop_2, var_loop_3.
+  Qed.
+
+  Lemma var_iter_loop:
+    forall x y n i1 i2 l,
+    Var y (seq (i_subst x (NNum n) i1) i2) ->
+    Var y (Loop x l i1 i2).
+  Proof.
+    intros.
+    apply var_seq_inv in H.
+    destruct H as [N|N]. {
+      apply var_subst_inv_1 in N.
+      auto using var_loop_2.
+    }
+    auto using var_loop_3.
+  Qed.
+
   (** Parallelize an access for [n] tasks. *)
 
   Inductive Step: state -> state -> Prop :=
