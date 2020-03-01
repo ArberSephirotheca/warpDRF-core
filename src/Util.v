@@ -537,6 +537,19 @@ Section Ops.
     reflexivity.
   Qed.
 
+  Lemma prod_nil_nil_r:
+    forall A ll, 
+    @prod A ll [[]] = ll.
+  Proof.
+    induction ll. {
+      reflexivity.
+    }
+    simpl.
+    rewrite IHll.
+    rewrite app_nil_r.
+    reflexivity.
+  Qed.
+
   Lemma prod_app:
     forall A ll1 ll2 ll3, 
     @prod A ll1 ll3 ++ prod ll2 ll3 = prod (ll1 ++ ll2) ll3.
@@ -1084,6 +1097,60 @@ Section Ops.
       left.
       eapply in_prepend; eauto using in_eq.
     - auto using pair_in_app_r.
+  Qed.
+
+  Lemma m_pair_in_app_l:
+    forall A p (ls1 ls2: list (list A)),
+    MPairIn p ls1 ->
+    MPairIn p (ls1 ++ ls2).
+  Proof.
+    induction ls1; intros. {
+      inversion H.
+    }
+    inversion H; subst; clear H. {
+      apply Exists_exists.
+      exists a.
+      simpl.
+      intuition.
+    }
+    apply IHls1 with (ls2:=ls2) in H1; eauto.
+    unfold MPairIn.
+    simpl.
+    apply Exists_cons.
+    right.
+    auto.
+  Qed.
+
+  Lemma m_pair_in_app_r:
+    forall A p (ls1 ls2: list (list A)),
+    MPairIn p ls2 ->
+    MPairIn p (ls1 ++ ls2).
+  Proof.
+    induction ls1; intros. {
+      simpl.
+      assumption.
+    }
+    simpl.
+    apply IHls1 in H.
+    apply Exists_cons.
+    auto.
+  Qed.
+
+  Lemma m_pair_in_concat:
+    forall {A} p (ls:list (list A)) lls,
+    List.In ls lls ->
+    MPairIn p ls ->
+    MPairIn p (List.concat lls).
+  Proof.
+    induction lls; intros. {
+      contradiction.
+    }
+    simpl.
+    inversion H; subst; clear H. {
+      apply m_pair_in_app_l; auto.
+    }
+    apply m_pair_in_app_r.
+    auto.
   Qed.
 End Ops.
 

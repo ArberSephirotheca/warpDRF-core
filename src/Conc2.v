@@ -203,7 +203,7 @@ Module C2.
     DoLoop x l i1 i2 hss ->
     DoLoop x (n::l) i1 i2 (hs::hss).
 
-  Lemma run_branch_to_do_loop:
+  Let run_branch_to_do_loop:
     forall x l i1 i2 hs,
     Run (Branch x l i1 i2) hs ->
     exists hss, hs = List.concat hss /\ DoLoop x l i1 i2 hss.
@@ -232,12 +232,112 @@ Module C2.
     }
     auto using do_loop_nil.
   Qed.
-(*
-  Lemma run_branch_inv:
+
+  Let do_loop_inv_1:
     forall x l i1 i2 hss,
     DoLoop x l i1 i2 hss ->
-    *)
+    forall n,
+    List.In n l ->
+    exists hs, Run (seq (i_subst x (NNum n) i1) i2) hs /\ List.In hs hss.
+  Proof.
+    induction l; intros. {
+      contradiction.
+    }
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0. {
+      exists hs.
+      auto using List.in_eq.
+    }
+    eapply IHl in H8; eauto.
+    destruct H8 as (hs', (Hi,Hj)).
+    eauto using in_cons.
+  Qed.
 
+  Let run_branch_inv:
+    forall x l i1 i2 hs,
+    Run (Branch x l i1 i2) hs ->
+    exists hss, hs = List.concat hss /\
+    forall n,
+    List.In n l ->
+    exists hs, Run (seq (i_subst x (NNum n) i1) i2) hs /\ List.In hs hss.
+  Proof.
+    intros.
+    apply run_branch_to_do_loop in H.
+    destruct H as (hss, (?, Ha)).
+    exists hss.
+    split; auto.
+    intros.
+    eapply do_loop_inv_1; eauto.
+  Qed.
+
+  Lemma run_decl_inv:
+    forall x e1 e2 i1 i2 hs,
+    Run (Decl x (e1, e2) i1 i2) hs ->
+    exists n1 n2,
+    NStep e1 n1 /\
+    NStep e2 n2 /\ (
+    (n1 >= n2 /\ Run i2 hs)
+    \/
+    (
+    exists hss, hs = List.concat hss /\
+    forall n,
+    n1 <= n < n2 ->
+    exists hs, Run (seq (i_subst x (NNum n) i1) i2) hs /\ List.In hs hss)
+     ).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    inversion H5; subst.
+    exists n1.
+    exists n2.
+    repeat (split; auto).
+    apply range_list_inv in H4.
+    destruct H4 as [(Ha,Hb)| (Hl, Ha)]. {
+      subst.
+      inversion H6; subst; clear H6.
+      auto.
+    }
+    right.
+    apply run_branch_inv in H6.
+    destruct H6 as (hss, (?, Hc)).
+    exists hss.
+    split; auto.
+    intros.
+    apply (Ha n) in H0.
+    apply Hc in H0.
+    assumption.
+  Qed.
+
+
+(*
+    exists n1 n2,
+    NStep e1 n1 /\
+    NStep e2 n2 /\
+    ((n1 >= n2 /\ C2.Run i2 hs)
+    \/
+    forall n,
+    n1 <= n < n2 ->
+    exists hs2,
+    incl hs2 hs /\ C2.Run (C2.seq (C2.i_subst x (NNum n) i1) i2) hs2).
+  Proof.
+    intros.
+    inversion H5; subst.
+    exists n1.
+    exists n2.
+    split; auto.
+    split; auto.
+    apply range_list_inv in H4.
+    destruct H4 as [(Ha,Hb)| (Hl, Ha)]. {
+      subst.
+      inversion H6; subst; clear H6.
+      auto.
+    }
+    right.
+    intros.
+    apply (Ha n) in H.
+    eapply in_branch_inv in H6; eauto.
+  Qed.
+*)
   Definition red_par f s1 s2 :=
     match s1, s2 with
     | Empty, s => Some s
@@ -1225,13 +1325,11 @@ Module Compiler.
     apply (Ha n) in H.
     eapply in_branch_inv in H6; eauto.
   Qed.
-(*
+
+
+  Variable tid_ge_2: TID_COUNT > 2.
+
   Theorem m_pair_incl
-      (tid_ge_2: TID_COUNT > 2)
-      (t1_neq_t2: T1 <> T2)
-      (t1_neq_tid: T1 <> TID)
-      (t2_neq_tid: T2 <> TID)
-      (in_heap: forall x i hs, C2.Run i hs -> MIn x hs -> access_tid x < TID_COUNT)
       (i:C1.inst)
       (T1_nin_i: ~ C1.In T1 i)
       (T2_nin_i: ~ C1.In T2 i)
@@ -1240,13 +1338,73 @@ Module Compiler.
     forall hs1,
     C1SX.Run TID_COUNT TID i hs1 ->
     forall hs2,
+    (forall x, MIn x hs1 -> access_tid x < TID_COUNT) ->
     C2.Run (translate i) hs2 ->
     MPairIncl hs1 hs2.
   Proof.
-    intros hs1 H.
-    induction H; intros.
-    - give_up.
-    - 
+    unfold translate.
+    intros.
+    unfold MPairIncl.
+    intros.
+    apply C2.run_decl_inv in H1.
+    destruct H1 as (n1, (n2, (Hn1, (Hn2, Hx)))).
+    inversion Hn1; subst; clear Hn1.
+    assert (n2 = TID_COUNT). {
+      inversion Hn2; subst; clear Hn2.
+      reflexivity.
+    }
+    subst.
+    clear Hn2.
+    destruct Hx as [(N,Hx)|(hss, (?, Hx))]. {
+      Import Omega.
+      omega.
+    }
+    subst.
+    assert (x_lt_tc: access_tid x < TID_COUNT) by eauto.
+    assert (y_lt_tc: access_tid y < TID_COUNT) by eauto.
+    (* Check the tids of both accesses. *)
+    assert (Ht: access_tid x = access_tid y \/ access_tid x < access_tid y \/ access_tid x > access_tid y)
+      by omega.
+    destruct Ht as [Ht | Ht]. {
+      assert (Hwhat: access_tid x = 0 \/ 1 <= access_tid x) by omega.
+      destruct Hwhat. {
+        assert (Ha : 1 <= 1 < TID_COUNT) by omega.
+        assert (Hx := Hx 1 Ha).
+        destruct Hx as (hs, (Hx,Hy)).
+        apply C2.run_inv_seq in Hx.
+        destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
+        inversion Hr2; subst; clear Hr2.
+        rewrite prod_nil_nil_r in *.
+        simpl in *.
+        destruct (Set_VAR.MF.eq_dec T1 T1) as [_| N]; try contradiction.
+        destruct (Set_VAR.MF.eq_dec T1 T2) as [N| _]; try contradiction.
+        apply C2.run_decl_inv in Hr1.
+        destruct Hr1 as (nn1, (nn2, (Hnn1, (Hnn2, Hr1)))).
+        inversion Hnn1; subst; clear Hnn1.
+        inversion Hnn2; subst; clear Hnn2.
+        destruct Hr1 as [(?, _)|(hssr, (?,Hr1))]. {
+          omega.
+        }
+        subst.
+        assert (Hw : 0 <= 0 < 1) by omega.
+        assert (Hr1 := Hr1 0 Hw).
+        destruct Hr1 as (hrs, (Hr1, Hr2)).
+        apply C2.run_inv_seq in Hr1.
+        destruct Hr1 as (hrr1, (hrr2, (?, (Hr1, Hr3)))).
+        inversion Hr3; subst; clear Hr3.
+        rewrite prod_nil_nil_r in *.
+        eapply run_proj_proj in Hr1; eauto with *.
+        subst.
+        eapply m_pair_in_concat; eauto.
+        eapply m_pair_in_concat; eauto.
+        (* MIn (Hist.m_proj 0) *)
+      }
+      Import Omega.
+      assert (Ha : 1 <= access_tid x < TID_COUNT) by omega.
+      assert (Hx := Hx (access_tid x)).
+    }
+
+    destruct H
   Qed.
 *)
 (*
