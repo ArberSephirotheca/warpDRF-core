@@ -101,9 +101,20 @@ Section Defs.
   Definition MSafe (m:list history) := forall h1 h2, List.In h1 m -> List.In h2 m -> Safe2 h1 h2.
 
   (* Strong safety holds when every history is safe independently of the others. *)
-  Definition MSafeStrong (m:list history) := forall x y, MPairIn (x,y) m -> access_safe x y.
+  Definition MSafeStrong (m:list history) :=
+    forall x y,
+    access_tid x <> access_tid y ->
+    MPairIn (x,y) m ->
+    access_safe x y.
 
   Definition MSafe2 (m1 m2:list history) := forall h1 h2, List.In h1 m1 -> List.In h2 m2 -> Safe2 h1 h2.
+
+  Definition APairIncl hs hss :=
+    forall x y,
+    access_tid x <> access_tid y ->
+    MIn x hs ->
+    MIn y hs ->
+    MPairIn (x, y) hss.
 
   Inductive GenAccess x a: nat -> list (list access_val) -> Prop :=
   | gen_access_nil:
@@ -1296,10 +1307,10 @@ Section Defs.
   Proof.
     unfold MSafeStrong, Safe2.
     intros.
-    apply m_pair_in_to_in in H1.
-    destruct H1.
-    apply H0 in H1.
-    apply H0 in H2.
+    apply m_pair_in_to_in in H2.
+    destruct H2 as (Ha, Hb).
+    apply H0 in Ha.
+    apply H0 in Hb.
     unfold Ensembles.In in *.
     clear H0.
     eauto using m_safe_eq.
@@ -1308,13 +1319,15 @@ Section Defs.
   Lemma m_safe_strong_to_m_safe:
     forall hs1 hs2,
     MSafeStrong hs2 ->
-    MPairIncl hs1 hs2 ->
+    APairIncl hs1 hs2 ->
     MSafe hs1.
   Proof.
     intros.
     unfold MSafeStrong, AllInclAll,Ensembles.Included,Ensembles.In, MPairIncl, MSafe, Safe2; intros.
-    apply H.
-    apply H0; eauto using m_in_def.
+    destruct (Nat.eq_dec (access_tid x) (access_tid y)). {
+      auto using access_safe_eq_tid.
+    }
+    eauto using m_in_def.
   Qed.
 
 End Defs.

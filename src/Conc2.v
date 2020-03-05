@@ -1210,6 +1210,78 @@ Module Compiler.
   Variable t2_neq_tid: T2 <> TID.
   Variable t1_neq_t2: T1 <> T2.
 
+
+  Lemma run_do_proj_do_proj:
+    forall i hs2,
+    C1SX.Run TID_COUNT TID i hs2 ->
+    forall n1 n2 hs1,
+    n1 < TID_COUNT ->
+    n2 < TID_COUNT ->
+    C2.Run
+        (C2.i_subst T2 (NNum n1)
+           (C2.i_subst T1 (NNum n2) (C2.seq (do_proj T1 i) (do_proj T2 i)))) hs1 ->
+    ~ C1.Var TID i ->
+    ~ C1.In T1 i ->
+    ~ C1.In T2 i ->
+    prod (Hist.m_proj n2 hs2) (Hist.m_proj n1 hs2) = hs1.
+  Proof.
+    intros.
+    rewrite C2.i_subst_seq in H2.
+    rewrite C2.i_subst_seq in H2.
+    apply C2.run_inv_seq in H2.
+    destruct H2 as (hsa, (hsb, (?, (Hra, Hrb)))).
+    subst.
+    assert (t1_nin_proj_i: ~ C2.In T1 (proj i)). {
+      intros N.
+      contradict H4.
+      auto using in_proj_to_in.
+    }
+    assert (t2_nin_proj_i: ~ C2.In T2 (proj i)). {
+      intros N.
+      contradict H5.
+      auto using in_proj_to_in.
+    }
+    (* Simplify Hra: *)
+    assert (~ C2.In T2 (C2.i_subst T1 (NNum n2) (do_proj T1 i))). {
+      intros N.
+      contradict t2_nin_proj_i.
+      apply C2.in_i_subst_neq in N; auto. {
+        unfold do_proj in N.
+        apply C2.in_i_subst_neq in N; auto.
+        intros M.
+        inversion M.
+        subst.
+        contradiction.
+      }
+      intros M.
+      inversion M.
+    }
+    rewrite C2.i_subst_not_in in Hra; auto.
+    eapply run_do_proj in Hra; eauto.
+    subst.
+    (* Simplify Hrb *)
+    rewrite C2.i_subst_subst_neq in Hrb; auto.
+    assert (~ C2.In T1 (C2.i_subst T2 (NNum n1) (do_proj T2 i))). {
+      intros N.
+      contradict t1_nin_proj_i.
+      apply C2.in_i_subst_neq in N; auto. {
+        unfold do_proj in N.
+        apply C2.in_i_subst_neq in N; auto.
+        intros M.
+        inversion M.
+        subst.
+        contradiction.
+      }
+      intros M.
+      inversion M.
+    }
+    rewrite C2.i_subst_not_in in Hrb; auto.
+    eapply run_do_proj in Hrb; eauto.
+    subst.
+    reflexivity.
+  Qed.
+
+  (*
   Lemma run_proj_proj:
     forall i hs2,
     C1SX.Run TID_COUNT TID i hs2 ->
@@ -1269,7 +1341,7 @@ Module Compiler.
     subst.
     reflexivity.
   Qed.
-
+*)
   Lemma in_branch_inv:
     forall l hs x i1 i2,
     C2.Run (C2.Branch x l i1 i2) hs ->
@@ -1329,7 +1401,7 @@ Module Compiler.
 
   Variable tid_ge_2: TID_COUNT > 2.
 
-  Theorem m_pair_incl
+  Theorem a_pair_incl
       (i:C1.inst)
       (T1_nin_i: ~ C1.In T1 i)
       (T2_nin_i: ~ C1.In T2 i)
@@ -1340,11 +1412,11 @@ Module Compiler.
     forall hs2,
     (forall x, MIn x hs1 -> access_tid x < TID_COUNT) ->
     C2.Run (translate i) hs2 ->
-    MPairIncl hs1 hs2.
+    Hist.APairIncl hs1 hs2.
   Proof.
     unfold translate.
     intros.
-    unfold MPairIncl.
+    unfold Hist.APairIncl.
     intros.
     apply C2.run_decl_inv in H1.
     destruct H1 as (n1, (n2, (Hn1, (Hn2, Hx)))).
@@ -1365,7 +1437,9 @@ Module Compiler.
     (* Check the tids of both accesses. *)
     assert (Ht: access_tid x = access_tid y \/ access_tid x < access_tid y \/ access_tid x > access_tid y)
       by omega.
-    destruct Ht as [Ht | Ht]. {
+    destruct Ht as [Ht | [Ht|Ht]].
+    - (* x = y *)
+      (*
       assert (Hwhat: access_tid x = 0 \/ 1 <= access_tid x) by omega.
       destruct Hwhat. {
         assert (Ha : 1 <= 1 < TID_COUNT) by omega.
@@ -1376,8 +1450,11 @@ Module Compiler.
         inversion Hr2; subst; clear Hr2.
         rewrite prod_nil_nil_r in *.
         simpl in *.
+        (*
         destruct (Set_VAR.MF.eq_dec T1 T1) as [_| N]; try contradiction.
+        *)
         destruct (Set_VAR.MF.eq_dec T1 T2) as [N| _]; try contradiction.
+        (*
         apply C2.run_decl_inv in Hr1.
         destruct Hr1 as (nn1, (nn2, (Hnn1, (Hnn2, Hr1)))).
         inversion Hnn1; subst; clear Hnn1.
@@ -1397,14 +1474,61 @@ Module Compiler.
         subst.
         eapply m_pair_in_concat; eauto.
         eapply m_pair_in_concat; eauto.
+        apply m_pair_in_prod_r. {
+          
+        }
         (* MIn (Hist.m_proj 0) *)
+        *)
       }
+      *)
       Import Omega.
       assert (Ha : 1 <= access_tid x < TID_COUNT) by omega.
-      assert (Hx := Hx (access_tid x)).
-    }
-
-    destruct H
+      assert (Hx := Hx (access_tid x) Ha).
+      destruct Hx as (hs, (Hx,Hy)).
+      apply C2.run_inv_seq in Hx.
+      destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
+      inversion Hr2; subst; clear Hr2.
+      rewrite prod_nil_nil_r in *.
+      simpl in *.
+      destruct (Set_VAR.MF.eq_dec T1 T1) as [_| N]; try contradiction.
+    - (* x < y *)
+      Import Omega.
+      (* Satisfy outer-forall and unpax the existential in Hx *)
+      assert (Ha : 1 <= access_tid y < TID_COUNT) by omega.
+      assert (Hx := Hx (access_tid y) Ha).
+      destruct Hx as (hs, (Hx,Hy)).
+      apply C2.run_inv_seq in Hx.
+      destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
+      inversion Hr2; subst; clear Hr2.
+      rewrite prod_nil_nil_r in *.
+      simpl in *.
+      destruct (Set_VAR.MF.eq_dec T1 T1) as [_| N]; try contradiction.
+      apply C2.run_decl_inv in Hr1.
+      destruct Hr1 as (n1, (n2, (Hn1, (Hn2, [(N, Hr1)|(Hss, (?, Hx))])))). {
+        inversion Hn1; subst; clear Hn1.
+        inversion Hn2; subst; clear Hn2.
+        (* tid(y) = 0 /\ tid(y) > 0 *)
+        omega.
+      }
+      inversion Hn1; subst; clear Hn1.
+      inversion Hn2; subst; clear Hn2.
+      (* Satisfy the outer forall and unpax the existential in Hx *)
+      assert (Hb : 0 <= access_tid x < access_tid y) by omega.
+      assert (Hx := Hx (access_tid x) Hb).
+      destruct Hx as (hs, (Hx,Hz)).
+      destruct (Set_VAR.MF.eq_dec T1 T2) as [e|_]. {
+        subst.
+        contradiction.
+      }
+      (* Now we want to handle the seq in Hx *)
+      apply C2.run_inv_seq in Hx.
+      destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
+      inversion Hr2; subst; clear Hr2.
+      rewrite prod_nil_nil_r in *.
+      eapply run_do_proj_do_proj in Hr1; eauto.
+      subst.
+      eapply m_pair_in_concat; eauto.
+      eapply m_pair_in_concat; eauto.
   Qed.
 *)
 (*
@@ -1641,7 +1765,7 @@ Module Compiler.
       eapply run_proj_proj in Ha; eauto with *.
       subst.
       inversion Hb; subst; clear Hb.
-
+      
     (*
     var tid, [tid] -> var tid, ([tid], tid) 
      *)

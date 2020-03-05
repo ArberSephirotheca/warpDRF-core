@@ -1152,6 +1152,38 @@ Section Ops.
     apply m_pair_in_app_r.
     auto.
   Qed.
+
+  Lemma m_pair_in_def:
+    forall A ll p (l:list A),
+    PairIn p l ->
+    List.In l ll ->
+    MPairIn p ll.
+  Proof.
+    intros.
+    apply Exists_exists.
+    eauto.
+  Qed.
+(*
+  Lemma m_pair_in_prod_r:
+    forall {A} (x:A) y l r,
+    l <> [] ->
+    MPairIn (x,y) r ->
+    MPairIn (x, y) (prod l r).
+  Proof.
+    induction l; intros. {
+      contradiction.
+    }
+    simpl.
+    destruct l. {
+      simpl in *.
+      rewrite app_nil_r.
+      apply pair_in_prepend_4.
+      eauto using m_pair_in_def.
+      Search (MPairIn _ (prepend _ _)).
+
+    apply IHl.
+  Qed.
+*)
 End Ops.
 
 Section filter.
