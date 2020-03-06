@@ -1040,7 +1040,7 @@ Section Ops.
     destruct H1; eauto using m_in_def.
   Qed.
 
-  Lemma m_pair_in_prod:
+  Lemma m_pair_in_prod_1:
     forall {A} (x:A) y ls1 ls2,
     MIn x ls1 ->
     MIn y ls2 ->
@@ -1051,6 +1051,23 @@ Section Ops.
     inversion H0; subst; clear H0.
     apply Exists_exists.
     exists (l ++ l0).
+    split.
+    - eapply in_prod; eauto.
+      eapply in_prepend; eauto.
+    - eapply pair_in_def; apply in_app_iff; auto.
+  Qed.
+
+  Lemma m_pair_in_prod_2:
+    forall {A} (x:A) y ls1 ls2,
+    MIn x ls2 ->
+    MIn y ls1 ->
+    MPairIn (x,y) (prod ls1 ls2).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0.
+    apply Exists_exists.
+    exists (l0 ++ l).
     split.
     - eapply in_prod; eauto.
       eapply in_prepend; eauto.

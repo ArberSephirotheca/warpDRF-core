@@ -590,6 +590,27 @@ Section Defs.
     reflexivity.
   Qed.
 
+  Lemma in_m_proj:
+    forall x t hs,
+    MIn x hs ->
+    access_tid x = t ->
+    MIn x (m_proj t hs).
+  Proof.
+    induction hs; intros. {
+      apply m_in_nil in H.
+      contradiction.
+    }
+    apply m_in_inv in H.
+    destruct H. {
+      simpl.
+      apply m_in_eq.
+      auto using in_proj.
+    }
+    simpl.
+    apply m_in_cons.
+    auto.
+  Qed.
+
   Lemma forall_tid_proj_id:
     forall n l,
     Forall (fun a => access_tid a = n) l ->

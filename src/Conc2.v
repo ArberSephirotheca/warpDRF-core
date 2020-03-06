@@ -1529,8 +1529,52 @@ Module Compiler.
       subst.
       eapply m_pair_in_concat; eauto.
       eapply m_pair_in_concat; eauto.
+      apply m_pair_in_prod_2.
+      + auto using Hist.in_m_proj.
+      + auto using Hist.in_m_proj.
+    - (* y < x *)
+      Import Omega.
+      (* Satisfy outer-forall and unpax the existential in Hx *)
+      assert (Ha : 1 <= access_tid x < TID_COUNT) by omega.
+      assert (Hx := Hx (access_tid x) Ha).
+      destruct Hx as (hs, (Hx,Hy)).
+      apply C2.run_inv_seq in Hx.
+      destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
+      inversion Hr2; subst; clear Hr2.
+      rewrite prod_nil_nil_r in *.
+      simpl in *.
+      destruct (Set_VAR.MF.eq_dec T1 T1) as [_| N]; try contradiction.
+      apply C2.run_decl_inv in Hr1.
+      destruct Hr1 as (n1, (n2, (Hn1, (Hn2, [(N, Hr1)|(Hss, (?, Hx))])))). {
+        inversion Hn1; subst; clear Hn1.
+        inversion Hn2; subst; clear Hn2.
+        (* tid(y) = 0 /\ tid(y) > 0 *)
+        omega.
+      }
+      inversion Hn1; subst; clear Hn1.
+      inversion Hn2; subst; clear Hn2.
+      (* Satisfy the outer forall and unpax the existential in Hx *)
+      assert (Hb : 0 <= access_tid y < access_tid x) by omega.
+      assert (Hx := Hx (access_tid y) Hb).
+      destruct Hx as (hs, (Hx,Hz)).
+      destruct (Set_VAR.MF.eq_dec T1 T2) as [e|_]. {
+        subst.
+        contradiction.
+      }
+      (* Now we want to handle the seq in Hx *)
+      apply C2.run_inv_seq in Hx.
+      destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
+      inversion Hr2; subst; clear Hr2.
+      rewrite prod_nil_nil_r in *.
+      eapply run_do_proj_do_proj in Hr1; eauto.
+      subst.
+      eapply m_pair_in_concat; eauto.
+      eapply m_pair_in_concat; eauto.
+      apply m_pair_in_prod_1.
+      + auto using Hist.in_m_proj.
+      + auto using Hist.in_m_proj.
   Qed.
-*)
+
 (*
   Theorem m_pair_incl (tid_ge_2: TID_COUNT > 2) (t1_neq_t2: T1 <> T2)
       (t1_neq_tid: T1 <> TID)
