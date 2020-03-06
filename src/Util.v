@@ -465,6 +465,17 @@ Section Ops.
     auto.
   Qed.
 
+  Lemma m_in_inv_app:
+    forall A (x:A) ls1 ls2,
+    MIn x (ls1 ++ ls2) ->
+    MIn x ls1 \/ MIn x ls2.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    apply in_app_iff in H0.
+    destruct H0; eauto using m_in_def.
+  Qed.
+
   Lemma incl_all_app_l:
     forall A l ls1 ls2,
     @InclAll A l ls1 ->
