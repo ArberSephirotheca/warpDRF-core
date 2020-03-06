@@ -1439,60 +1439,8 @@ Module Compiler.
       by omega.
     destruct Ht as [Ht | [Ht|Ht]].
     - (* x = y *)
-      (*
-      assert (Hwhat: access_tid x = 0 \/ 1 <= access_tid x) by omega.
-      destruct Hwhat. {
-        assert (Ha : 1 <= 1 < TID_COUNT) by omega.
-        assert (Hx := Hx 1 Ha).
-        destruct Hx as (hs, (Hx,Hy)).
-        apply C2.run_inv_seq in Hx.
-        destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
-        inversion Hr2; subst; clear Hr2.
-        rewrite prod_nil_nil_r in *.
-        simpl in *.
-        (*
-        destruct (Set_VAR.MF.eq_dec T1 T1) as [_| N]; try contradiction.
-        *)
-        destruct (Set_VAR.MF.eq_dec T1 T2) as [N| _]; try contradiction.
-        (*
-        apply C2.run_decl_inv in Hr1.
-        destruct Hr1 as (nn1, (nn2, (Hnn1, (Hnn2, Hr1)))).
-        inversion Hnn1; subst; clear Hnn1.
-        inversion Hnn2; subst; clear Hnn2.
-        destruct Hr1 as [(?, _)|(hssr, (?,Hr1))]. {
-          omega.
-        }
-        subst.
-        assert (Hw : 0 <= 0 < 1) by omega.
-        assert (Hr1 := Hr1 0 Hw).
-        destruct Hr1 as (hrs, (Hr1, Hr2)).
-        apply C2.run_inv_seq in Hr1.
-        destruct Hr1 as (hrr1, (hrr2, (?, (Hr1, Hr3)))).
-        inversion Hr3; subst; clear Hr3.
-        rewrite prod_nil_nil_r in *.
-        eapply run_proj_proj in Hr1; eauto with *.
-        subst.
-        eapply m_pair_in_concat; eauto.
-        eapply m_pair_in_concat; eauto.
-        apply m_pair_in_prod_r. {
-          
-        }
-        (* MIn (Hist.m_proj 0) *)
-        *)
-      }
-      *)
-      Import Omega.
-      assert (Ha : 1 <= access_tid x < TID_COUNT) by omega.
-      assert (Hx := Hx (access_tid x) Ha).
-      destruct Hx as (hs, (Hx,Hy)).
-      apply C2.run_inv_seq in Hx.
-      destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
-      inversion Hr2; subst; clear Hr2.
-      rewrite prod_nil_nil_r in *.
-      simpl in *.
-      destruct (Set_VAR.MF.eq_dec T1 T1) as [_| N]; try contradiction.
+      omega.
     - (* x < y *)
-      Import Omega.
       (* Satisfy outer-forall and unpax the existential in Hx *)
       assert (Ha : 1 <= access_tid y < TID_COUNT) by omega.
       assert (Hx := Hx (access_tid y) Ha).
