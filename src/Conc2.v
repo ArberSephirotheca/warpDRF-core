@@ -1652,13 +1652,19 @@ Module Compiler.
       remove_eq TID TID.
       remove_eq T1 T1.
       Search (C2.Run (C2.Decl _ _ _ _ )).
-      apply C2.run_decl_inv_in in Hy.
-      destruct Hy as [(Hy,_)|Hy]. {
+      apply C2.run_decl_inv_in in Hx.
+      destruct Hx as [(Hy,_)|Hy]. {
         omega.
       }
-      destruct Hy as (hss2, (?, Hy)).
+      destruct Hy as (hss2, (Hr2, Hy)).
       subst.
-      assert (Hy := Hy x).
+      assert (Hy := Hy _ Hmi).
+      destruct Hy as (hs1, (?,(Hmj, Hy))).
+      destruct Hy as [N|(?, (Hle2, Hr))]. {
+        inversion N; subst; clear N.
+        apply m_in_nil_nil in Hmj.
+        contradiction.
+      }
       rewrite access_subst_subst_trans in Hy. {
         rewrite C2.i_subst_seq in Hy.
         rewrite C2.i_subst_subst_trans in Hy. {
