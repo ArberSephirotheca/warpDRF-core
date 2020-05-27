@@ -487,7 +487,7 @@ Section C1.
     assert (Hx := H _ Hlt).
     destruct p; simpl; inversion Hx; subst; clear Hx.
     - assert (Hx := H1).
-      apply access_step_to_gen_access with (m:=TID_COUNT) in H1; auto; destruct H1 as (l, Hl).
+      apply access_step_to_gen_access with (m:=TID_COUNT) in H1; auto; destruct H1 as (l, (_, Hl)).
       assert (Hg := Hl).
       apply prop_to_gen_access in Hl.
       rewrite Hl in *.

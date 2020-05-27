@@ -1022,7 +1022,7 @@ Section Defs.
     forall x m n a v,
     n < m ->
     access_step (access_subst x (NNum n) a, NNum n) v ->
-    exists l, GenAccess x a m l.
+    exists l, List.In v l /\ GenAccess x a m l.
   Proof.
     induction m; intros. {
       omega.
@@ -1030,13 +1030,14 @@ Section Defs.
     inversion H; subst; clear H. {
       destruct m. {
         exists [v].
-        auto using gen_access_cons, gen_access_nil.
+        auto using gen_access_cons, gen_access_nil, in_eq.
       }
       assert (Hx := access_step_next _ _ _ _ H0 m).
       destruct Hx as (v2, Hs).
       apply IHm in Hs; auto.
-      destruct Hs as (l, Hg).
+      destruct Hs as (l, (Hi, Hg)).
       exists (v::l).
+      split; auto using in_eq.
       apply gen_access_cons; auto.
     }
     destruct m. {
@@ -1045,8 +1046,8 @@ Section Defs.
     assert (Hy := access_step_next _ _ _ _ H0 (S m)).
     destruct Hy as (v', Hi).
     apply IHm in H0; auto.
-    destruct H0 as (l, Hg).
-    eauto using gen_access_cons.
+    destruct H0 as (l, (Hj, Hg)).
+    eauto using gen_access_cons, in_cons.
   Qed.
 
   Lemma m_in_gen_access_inv:

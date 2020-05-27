@@ -370,6 +370,30 @@ Module C2.
     assumption.
   Qed.
 
+  Lemma run_acc_inv_in:
+    forall e i hs a,
+    Run (Acc e i) hs ->
+    MIn a hs ->
+    exists hs' v,
+    access_step e v /\
+    hs = prepend v hs' /\
+    ( 
+      List.In a v
+      \/
+      MIn a hs'
+    ).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    exists hs0.
+    exists v.
+    apply m_in_prepend_inv in H0.
+    destruct H0. {
+      auto.
+    }
+    auto.
+  Qed.
+
   Lemma run_decl_inv_in:
     forall x n1 n2 i1 i2 hs,
     Run (Decl x (NNum n1, NNum n2) i1 i2) hs ->
@@ -1616,6 +1640,24 @@ Module Compiler.
   destruct (Set_VAR.MF.eq_dec ta tb);
     try contradiction; simpl in *.
 
+  Lemma access_step_subst_1:
+    forall t1 t2 e v,
+    ~ access_in T1 e ->
+    ~ access_in T2 e ->
+    access_step
+       (access_subst T2 (NNum t2)
+          (access_subst T1 (NNum t1) (access_subst TID (NVar T1) e)), 
+       NNum t1) v ->
+    access_step
+       (access_subst TID (NNum t1) e, NNum t1) v.
+  Proof.
+    intros.
+    rename H1 into Hx.
+    rewrite access_subst_subst_trans in Hx; auto.
+    rewrite access_subst_subst_neq in Hx; auto.
+    rewrite access_subst_not_in with (x:=T2) in Hx; auto.
+  Qed.
+
 
   Lemma all_incl_all
       (i:C1.inst)
@@ -1660,10 +1702,29 @@ Module Compiler.
       subst.
       assert (Hy := Hy _ Hmi).
       destruct Hy as (hs1, (?,(Hmj, Hy))).
-      destruct Hy as [N|(?, (Hle2, Hr))]. {
+      destruct Hy as [N|(?, (Hle2, Hy))]. {
         inversion N; subst; clear N.
         apply m_in_nil_nil in Hmj.
         contradiction.
+      }
+      simpl in *.
+      apply C2.run_acc_inv_in with (a:=x) in Hy; auto.
+      destruct Hy  as (hs', (w, (Hs, (?, Hx)))).
+      subst.
+      destruct Hx. {
+        apply m_in_prepend_l. {
+          give_up.
+        }
+        apply access_step_subst_1 in Hs; auto.
+        - apply Hist.access_step_to_gen_access with (m:=TID_COUNT) in Hs; auto with *.
+          destruct Hs as (l, (Hj, Hs2)).
+          assert (l = v) by eauto using H
+        Search access_subst.
+        rewrite access_subst_subst_trans in Hs. {
+          rewrite access_subst_subst_neq in Hs. {
+            
+          }
+        }
       }
       rewrite access_subst_subst_trans in Hy. {
         rewrite C2.i_subst_seq in Hy.
@@ -1671,6 +1732,10 @@ Module Compiler.
           simpl in *.
           remove_eq TID TID.
           remove_eq T1 T2.
+          simpl in *.
+          Search access_subst.
+          Search (C2.Run (C2.Acc _ _)).
+          rewrite access_subst_subst_trans in Hy.
         }
       }
     intros.
