@@ -261,29 +261,38 @@ Module C2.
     exists hs,
     MIn a hs /\
     List.In hs hss /\
-    Run i2 hs \/ exists n, List.In n l /\ Run (seq (i_subst x (NNum n) i1) i2) hs.
+    (
+      Run i2 hs \/
+      (exists n, List.In n l /\ Run (seq (i_subst x (NNum n) i1) i2) hs)
+    ).
   Proof.
     induction l; intros. {
       inversion H; subst; clear H.
       simpl in H0.
       rewrite app_nil_r in *.
       exists hs.
-      left; auto using in_eq.
+      split; auto using in_eq.
     }
     inversion H; subst; clear H.
     simpl in *.
     apply m_in_inv_app in H0.
     destruct H0 as [Hx|Hx]. {
       exists hs.
+      split; auto.
+      split; intuition.
       right.
       eauto.
     }
     eapply IHl in Hx; eauto.
-    destruct Hx as (hs', [(?,(?,?))|(n, (?,?))]).
-    - exists hs.
+    destruct Hx as (hs', (?, (?,Hx))).
+    destruct Hx as [Hx|(n, (?,?))].
+    - exists hs'.
       eauto.
-    - exists hs.
-      eauto.
+    - exists hs'.
+      repeat split; auto.
+      right.
+      exists n.
+      split; auto.
   Qed.
 
   Let run_branch_inv_in:
@@ -295,7 +304,10 @@ Module C2.
     exists hs,
     MIn a hs /\
     List.In hs hss /\
-    Run i2 hs \/ exists n, List.In n l /\ Run (seq (i_subst x (NNum n) i1) i2) hs.
+    (
+      Run i2 hs \/
+      (exists n, List.In n l /\ Run (seq (i_subst x (NNum n) i1) i2) hs)
+    ).
   Proof.
     intros.
     apply run_branch_to_do_loop in H.
@@ -369,9 +381,13 @@ Module C2.
     forall a,
     MIn a (List.concat hss) ->
     exists hs1,
-    MIn a hs1 /\
     List.In hs1 hss /\
-    Run i2 hs1 \/ exists n, n1 <= n < n2 /\ Run (seq (i_subst x (NNum n) i1) i2) hs1
+    MIn a hs1 /\
+    (
+      Run i2 hs1 
+      \/
+      (exists n, n1 <= n < n2 /\ Run (seq (i_subst x (NNum n) i1) i2) hs1)
+    )
   )).
   Proof.
     intros.
@@ -395,19 +411,18 @@ Module C2.
     split; auto.
     intros.
     apply Hx in H1; clear Hx.
-    destruct H1 as (hs, [(?,(?,?))|(n, ([?|Hi], Hz))]).
+    destruct H1 as (hs, (Hi, (Hii, Hx))).
+    destruct Hx as [Hx|(n, (Hj, Hx))].
+    - eauto.
     - exists hs.
-      eauto.
-    - subst.
-      exists hs.
+      repeat split; auto.
       right.
+      destruct Hj. {
+        subst.
+        exists n.
+        auto.
+      }
       exists n.
-      split; auto.
-    - subst.
-      exists hs.
-      right.
-      exists n.
-      split; auto.
       assert (S n0 <= n < n3) by eauto using range_list_inv_in.
       auto with *.
   Qed.
@@ -1621,22 +1636,23 @@ Module Compiler.
     - unfold do_proj in *; simpl in *.
       give_up.
     - apply C2.run_decl_inv_in in H2.
-      destruct H2 as [(N, _)|(hss, (?, Hx))]. {
+      destruct H2 as [(N, _)|(hss, (Hr1, Hx))]. {
         omega.
       }
-      subst.
+      rewrite Hr1 in *. (* subst removes this equation, which is needed *)
       assert (Hx := Hx _ H3).
-      destruct Hx as (hs2, [(Hx,(Hy,Hz))|(n,(Hn, Hy))]). {
+      destruct Hx as (hs3, (Hi, (Hmi, [Hz|(n,(Hle,Hx))]))). {
         inversion Hz; subst; clear Hz.
-        apply m_in_nil_nil in Hx.
+        apply m_in_nil_nil in Hmi.
         contradiction.
       }
       simpl in *.
-      remove_eq T1 T2.
       remove_eq T1 T1.
+      remove_eq T1 T2.
       remove_eq TID TID.
       remove_eq T1 T1.
-      apply C2.run_decl_inv in Hy.
+      Search (C2.Run (C2.Decl _ _ _ _ )).
+      apply C2.run_decl_inv_in in Hy.
       destruct Hy as [(Hy,_)|Hy]. {
         omega.
       }
