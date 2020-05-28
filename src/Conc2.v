@@ -3,6 +3,7 @@ Require Import Coq.Strings.String.
 Require Import Coq.Relations.Relation_Definitions.
 Require Import Coq.Relations.Relation_Operators.
 Require Import Coq.Relations.Operators_Properties.
+Require Coq.Sets.Ensembles.
 Require Coq.omega.Omega.
 Require Import Recdef.
 Require Omega.
@@ -1658,10 +1659,304 @@ Module Compiler.
     rewrite access_subst_not_in with (x:=T2) in Hx; auto.
   Qed.
 
+  Lemma m_in_prepend_iff:
+    forall A x l ls,
+    ls <> [] ->
+    MIn (A:=A) x (prepend l ls) <-> (List.In x l \/ MIn x ls).
+  Proof.
+    intros.
+    split; intros.
+    - apply m_in_prepend_inv in H0.
+      assumption.
+    - destruct H0. {
+        apply m_in_prepend_l; auto.
+      }
+      apply m_in_prepend; auto.
+  Qed.
 
+  Definition Member {A} l a := In (A:=A) a l.
+
+  Inductive PMember {A : Type} {B: Type} (P: B -> list A -> Prop) (ls : B) (a:A)  : Prop :=
+ | p_member_def :
+    forall l,
+    P ls l -> Member l a -> PMember P ls a.
+
+  Definition MMember {A} := PMember (@Member (list A)).
+  Definition MMMember {A} := PMember (@MMember (list A)).
+  Lemma not_in_mmember:
+    forall A (x:A),
+    ~ MMember [] x.
+  Proof.
+    intros.
+    intros N.
+    inversion N; subst; clear N.
+    unfold Member in *.
+    contradiction.
+  Qed.
+
+  Lemma not_in_mmmember:
+    forall A (x:A),
+    ~ MMMember [] x.
+  Proof.
+    intros.
+    intros N.
+    inversion N; subst; clear N.
+    apply not_in_mmember in H.
+    assumption.
+  Qed.
+
+  Lemma mmember_app_l:
+    forall A (x:A) l1 l2,
+    MMember l1 x ->
+    MMember (l1 ++ l2) x.
+  Proof.
+    unfold MMember.
+    intros.
+    inversion H; subst; clear H.
+    unfold Member in *.
+    eapply p_member_def; eauto using in_or_app.
+  Qed.
+
+  Lemma mmember_app_r:
+    forall A (x:A) l1 l2,
+    MMember l2 x ->
+    MMember (l1 ++ l2) x.
+  Proof.
+    unfold MMember.
+    intros.
+    inversion H; subst; clear H.
+    unfold Member in *.
+    eapply p_member_def; eauto using in_or_app.
+  Qed.
+
+  Lemma mmember_def_2:
+    forall A (x:A) l ls,
+    In x l ->
+    In l ls ->
+    MMember ls x.
+  Proof.
+    intros.
+    apply p_member_def with (l0:=l); auto.
+  Qed.
+
+  Lemma mmember_def:
+    forall A (x:A) l ls,
+    Member l x ->
+    Member ls l ->
+    MMember ls x.
+  Proof.
+    apply mmember_def_2.
+  Qed.
+
+
+  Lemma mmember_inv_app:
+    forall A (x:A) l1 l2,
+    MMember (l1 ++ l2) x ->
+    MMember l1 x \/ MMember l2 x.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    unfold Member in *.
+    apply in_app_or in H0.
+    destruct H0. {
+      left.
+      eauto using mmember_def.
+    }
+    right.
+    eauto using mmember_def.
+  Qed.
+
+  Lemma mmember_inv_concat:
+    forall A (x:A) ls,
+    MMember (List.concat ls) x ->
+    exists l, List.In l ls /\ MMember l x.
+  Proof.
+    induction ls; simpl; intros.
+    - apply not_in_mmember in H.
+      contradiction.
+    - apply mmember_inv_app in H.
+      destruct H. {
+        exists a.
+        auto.
+      }
+      apply IHls in H.
+      destruct H as (l, (Hi, Hm)).
+      exists l.
+      auto.
+  Qed.
+
+  Lemma mmmember_def:
+    forall A (x:A) l1 l2 ls,
+    Member l1 x ->
+    Member l2 l1 ->
+    Member ls l2 ->
+    MMMember ls x.
+  Proof.
+    intros.
+    apply p_member_def with (l:=l1); auto.
+    eauto using mmember_def.
+  Qed.
+
+  Lemma mmmember_to_mmember:
+    forall A ls (x:A),
+    MMMember ls x ->
+    MMember (List.concat ls) x.
+  Proof.
+    induction ls; intros.
+    - apply not_in_mmmember in H.
+      contradiction.
+    - inversion H; subst; clear H.
+      simpl.
+      inversion H0; subst; clear H0.
+      inversion H; subst; clear H. {
+        apply mmember_app_l.
+        eauto using mmember_def.
+      }
+      apply mmember_app_r.
+      apply IHls.
+      eauto using mmmember_def.
+  Qed.
+
+  Lemma mmmember_eq:
+    forall A a x ls,
+    @MMember A a x ->
+    MMMember (a :: ls) x.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eapply mmmember_def with (l2:=a); eauto.
+    apply in_eq.
+  Qed.
+
+  Lemma mmmember_cons:
+    forall A a x ls,
+    @MMMember A ls x ->
+    MMMember (a :: ls) x.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0.
+    eapply mmmember_def; eauto.
+    apply in_cons; auto.
+  Qed.
+
+  Lemma mmember_to_mmmember:
+    forall A ls (x:A),
+    MMember (List.concat ls) x ->
+    MMMember ls x.
+  Proof.
+    induction ls; intros. {
+      apply not_in_mmember in H.
+      contradiction.
+    }
+    simpl in *.
+    apply mmember_inv_app in H.
+    destruct H. {
+      auto using mmmember_eq.
+    }
+    apply IHls in H.
+    auto using mmmember_cons.
+  Qed.
+
+  Lemma mmember_iff_mmmember:
+    forall A ls (x:A),
+    MMember (List.concat ls) x <-> MMMember ls x.
+  Proof.
+    split; auto using mmember_to_mmmember, mmmember_to_mmember.
+  Qed.
+
+  Lemma mmember_iff_m_in:
+    forall A ls (x:A),
+    MMember ls x <-> MIn x ls.
+  Proof.
+    split; intros.
+    - inversion H; subst; clear H.
+      eauto using m_in_def.
+    - inversion H; subst; clear H.
+      eauto using mmember_def.
+  Qed.
+
+  Lemma mmember_prepend_iff:
+    forall A l ls (x:A),
+    ls <> [] ->
+    MMember (prepend l ls) x <-> Member l x \/ MMember ls x.
+  Proof.
+    intros.
+    repeat rewrite mmember_iff_m_in.
+    apply m_in_prepend_iff; assumption.
+  Qed.
+
+  Import Ensembles.
+  Lemma included_union:
+    forall A P Q R,
+    Included A P R ->
+    Included A Q R ->
+    Included A (Union A P Q) R.
+  Proof.
+    unfold Included.
+    intros.
+    destruct H1; auto.
+  Qed.
+
+  
+  Lemma included_mmmember_to_mmember:
+    forall A ls,
+    Included A (MMMember ls) (MMember (List.concat ls)).
+  Proof.
+    intros.
+    unfold Ensembles.Included, Ensembles.In;
+    auto using mmmember_to_mmember.
+  Qed.
+
+  Lemma included_mmember_to_mmmember:
+    forall A ls,
+    Included A  (MMember (List.concat ls)) (MMMember ls).
+  Proof.
+    unfold Included, In;
+    auto using mmember_to_mmmember.
+  Qed.
+
+  Lemma included_1:
+    forall A ls1 ls2,
+    Included A (MMember ls1) (MMMember ls2) ->
+    Included A (MMember ls1) (MMember (List.concat ls2)).
+  Proof.
+    intros.
+    eapply included_trans.
+    - apply H.
+    - auto using included_mmmember_to_mmember.
+  Qed.
+(*
+  Lemma included_2:
+    forall h hs P,
+    Included access_val (MMember hs) P ->
+    Included access_val (Member h) P ->
+    Included access_val (MMember (prepend h hs)) P.
+  Proof.
+    intros.
+    apply included_union.
+  Qed.
+*)
+(*
+  Lemma all_incl_all_concat_l:
+    forall A hs1 hs2 l,
+    hs2 <> [] ->
+    AllInclAll (A:=A) hs1 (prepend l hs2).
+  Proof.
+    intros.
+    unfold AllInclAll.
+    unfold Ensembles.Included, Ensembles.In.
+    intros.
+    apply m_in_prepend_iff; auto.
+    induction hss.
+    - 
+    rewrite m_in_concat in H.
+    Search (In _ (List.concat _)).
+  Qed.
+*)
   Lemma all_incl_all
       (i:C1.inst)
-      (T1_nin_i: ~ C1.In T1 i)
+      (T1_ nin_i: ~ C1.In T1 i)
       (T2_nin_i: ~ C1.In T2 i)
       (TID_nvar_i: ~ C1.Var TID i)
     :
@@ -1670,11 +1965,11 @@ Module Compiler.
     forall hs2,
     (forall x, MIn x hs2 -> access_tid x < TID_COUNT) ->
     C2.Run (translate i) hs2 ->
-    AllInclAll hs2 hs1.
+    Ensembles.Included _ (MMember hs1) (MMember hs2).
   Proof.
     unfold translate.
     intros hs1 H.
-    induction H; unfold AllInclAll, Ensembles.Included, Ensembles.In; intros.
+    induction H; intros.
     - unfold do_proj in *; simpl in *.
       give_up.
     - apply C2.run_decl_inv_in in H2.
@@ -1682,6 +1977,8 @@ Module Compiler.
         omega.
       }
       rewrite Hr1 in *. (* subst removes this equation, which is needed *)
+      apply included_1.
+      assert (hs_not_nil: hs <> nil) by give_up.
       assert (Hx := Hx _ H3).
       destruct Hx as (hs3, (Hi, (Hmi, [Hz|(n,(Hle,Hx))]))). {
         inversion Hz; subst; clear Hz.
@@ -1711,20 +2008,28 @@ Module Compiler.
       apply C2.run_acc_inv_in with (a:=x) in Hy; auto.
       destruct Hy  as (hs', (w, (Hs, (?, Hx)))).
       subst.
-      destruct Hx. {
+      clear Hmj.
+      destruct Hx as [Hx|Hx]. {
+        (* x is in v *)
         apply m_in_prepend_l. {
           give_up.
         }
         apply access_step_subst_1 in Hs; auto.
         - apply Hist.access_step_to_gen_access with (m:=TID_COUNT) in Hs; auto with *.
           destruct Hs as (l, (Hj, Hs2)).
-          assert (l = v) by eauto using H
-        Search access_subst.
-        rewrite access_subst_subst_trans in Hs. {
-          rewrite access_subst_subst_neq in Hs. {
-            
-          }
-        }
+          assert (l = v) by eauto using Hist.gen_access_fun.
+          subst.
+          clear Hs2.
+          apply m_in_to_in_concat.
+          eauto using m_in_def.
+        - give_up.
+        - give_up.
+      }
+      (* x is in hs *)
+      apply m_in_prepend.
+      clear H3 Hi.
+      clear Hmi.
+       {
       }
       rewrite access_subst_subst_trans in Hy. {
         rewrite C2.i_subst_seq in Hy.
