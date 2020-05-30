@@ -703,6 +703,19 @@ Section SO.
     auto.
   Qed.
 
+  Lemma r_step_to_range_list:
+    forall n1 n2 l,
+    RStep (NNum n1, NNum n2) l ->
+    l = range_list n1 n2.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    inversion H2; subst.
+    inversion H3; subst; clear H2 H3.
+    apply prop_to_range_list in H5.
+    auto.
+  Qed.
+
   Inductive NTypes (l: list var) : nexp -> Prop :=
   | n_types_num:
     forall n,
@@ -1420,7 +1433,7 @@ Section SO.
     eapply IHl in H6; eauto.
     auto with *.
   Qed.
-  
+
   Lemma range_list_inv_lt:
     forall l n1 n2 n,
     RangeList n1 n2 l ->
@@ -1474,6 +1487,65 @@ Section SO.
       destruct X; eauto using range_list_inv_lt.
     }
     eauto using range_list_inv_in.
+  Qed.
+
+  Lemma range_list_in:
+    forall n1 n n2, 
+    n1 <= n < n2 ->
+    In n (range_list n1 n2).
+  Proof.
+    intros.
+    remember (range_list _ _).
+    symmetry in Heql.
+    apply range_list_to_prop in Heql.
+    apply range_list_inv_lt with (n1:=n1) (n2:=n2); auto with *.
+  Qed.
+
+  Lemma range_list_inv_in_2:
+    forall n1 n n2, 
+    In n (range_list n1 n2) ->
+    n1 <= n < n2.
+  Proof.
+    intros.
+    remember (range_list _ _).
+    symmetry in Heql.
+    apply range_list_to_prop in Heql.
+    apply range_list_inv_in with (n:=n) in Heql; auto.
+  Qed.
+
+  Lemma range_list_in_iff:
+    forall n1 n n2, 
+    In n (range_list n1 n2) <-> n1 <= n < n2.
+  Proof.
+    split; intros; auto using range_list_in, range_list_inv_in_2.
+  Qed.
+
+  Lemma range_list_to_no_dup:
+    forall l n1 n2,
+    RangeList n1 n2 l ->
+    NoDup l.
+  Proof.
+    induction l; intros. {
+      apply NoDup_nil.
+    }
+    inversion H; subst; clear H.
+    apply NoDup_cons; auto. {
+      intros N.
+      apply range_list_inv_in with (n:=a) in H5; auto.
+      omega.
+    }
+    eauto.
+  Qed.
+
+  Lemma range_list_no_dup:
+    forall n1 n2,
+    NoDup (range_list n1 n2).
+  Proof.
+    intros.
+    remember (range_list n1 n2).
+    symmetry in Heql.
+    apply range_list_to_prop in Heql.
+    eauto using range_list_to_no_dup.
   Qed.
 
 End SO.
