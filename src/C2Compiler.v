@@ -908,6 +908,115 @@ Section Compiler.
       + apply C2.run_skip.
   Qed.
 
+  Definition add {A:Type} f (a:nat) (v:A) :=
+    (fun n => if Nat.eq_dec n a then v else f n).
+
+  Lemma add_eq_rw:
+    forall A f a (hs1:A),
+    add f a hs1 a = hs1.
+  Proof.
+    unfold add; intros.
+    destruct (Nat.eq_dec a a). {
+      reflexivity.
+    }
+    contradiction.
+  Qed.
+
+  Lemma add_neq_rw:
+    forall A f a b (x:A),
+    a <> b ->
+    add f a x b = f b.
+  Proof.
+    unfold add.
+    intros.
+    destruct (Nat.eq_dec b a). {
+      subst.
+      contradiction.
+    }
+    reflexivity.
+  Qed.
+
+  Lemma map_add_rw_not_in:
+    forall A a f l (x:A),
+    ~ List.In a l ->
+    map (add f a x) l = map f l.
+  Proof.
+    induction l; intros. {
+      reflexivity.
+    }
+    simpl.
+    assert (a <> a0). {
+      intros N.
+      subst.
+      contradict H.
+      auto using in_eq.
+    }
+    rewrite add_neq_rw; auto.
+    assert (Hi : ~ In a l). {
+      intros N.
+      contradict H.
+      auto using in_cons.
+    }
+    assert (IHl := IHl x Hi).
+    rewrite IHl.
+    reflexivity.
+  Qed.
+
+  Lemma c2_branch_inv:
+    forall l i1 i2 x hs',
+    C2.Run (C2.Branch x l i1 i2) hs' ->
+    NoDup l ->
+    exists f hs,
+    hs' = ((List.concat (List.map f l)) ++ hs) /\ C2.Run i2 hs
+    /\
+    (forall n, List.In n l -> C2.Run (C2.seq (C2.i_subst x (NNum n) i1) i2) (f n)).
+  Proof.
+    induction l; intros. {
+      inversion H; subst; clear H.
+      simpl.
+      exists (fun x => []).
+      exists hs'.
+      repeat split; auto.
+      intros.
+      contradiction.
+    }
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0.
+    apply IHl in H8; auto.
+    destruct H8 as (f, (hs3, (?,(?,Hr)))).
+    subst.
+    exists (add f a hs1).
+    exists hs3.
+    simpl.
+    repeat split; auto.
+    - rewrite add_eq_rw.
+      rewrite app_assoc.
+      rewrite map_add_rw_not_in; auto.
+    - intros.
+      destruct H. {
+        subst.
+        rewrite add_eq_rw.
+        assumption.
+      }
+      assert (a <> n). {
+        intros N; subst.
+        contradiction.
+      }
+      rewrite add_neq_rw; auto.
+  Qed.
+
+  Lemma c2_acc_inv:
+    forall e hs,
+    C2.Run (translate (C1.Acc e C1.Skip)) hs ->
+    False.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    simpl in *.
+    remove_eq TID TID.
+    
+  Qed.
+
   Lemma translate_acc_inv:
     forall e i hs,
     C2.Run (translate (C1.Acc e i)) hs ->
@@ -919,6 +1028,10 @@ Section Compiler.
     induction i; intros.
     - exists (prod hs (mk_empty_2 1 TID_COUNT)).
       exists (mk_empty_2 1 TID_COUNT).
+      repeat split; auto using c2_run_skip.
+      + 
+      unfold translate in *.
+      simpl in *.
       rewrite prod_nil_nil_r.
       repeat split; auto.
       unfold translate.
