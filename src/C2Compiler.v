@@ -1034,8 +1034,7 @@ Section Compiler.
     - auto using range_list_no_dup.
   Qed.
 
-  Lemma c2_acc_inv:
-    forall e hs,
+  Lemma c2_acc_inv e (t1_nin: ~ access_in T1 e) (t2_nin: ~ access_in T2 e) hs:
     C2.Run (translate (C1.Acc e C1.Skip)) hs ->
     exists f1,
     hs = branch_iter 1 TID_COUNT f1 [[]]
@@ -1043,17 +1042,11 @@ Section Compiler.
     forall n1 n2,
       1 <= n1 < TID_COUNT ->
       0 <= n2 < n1 ->
-      exists f2,
+      exists f2 v1 v2,
       f1 n1 = branch_iter 0 n1 f2 [[]] /\
-      C2.Run
-       (C2.Acc
-          (access_subst T2 (NNum n2)
-             (access_subst T1 (NNum n1) (access_subst TID (NVar T1) e)),
-          NNum n1)
-          (C2.Acc
-             (access_subst T2 (NNum n2)
-                (access_subst T1 (NNum n1) (access_subst TID (NVar T2) e)),
-             NNum n2) C2.Skip)) (f2 n2)
+      f2 n2 = prepend v1 (prepend v2 [[]]) /\
+      access_step (access_subst TID (NNum n1) e, NNum n1) v1 /\
+      access_step (access_subst TID (NNum n2) e, NNum n2) v2
    .
   Proof.
     intros.
@@ -1082,9 +1075,8 @@ Section Compiler.
     apply c2_run_decl_inv in Hr1.
     destruct Hr1 as (f2, (?, (?, (?,?)))).
     inversion H1; subst; clear H1.
-    exists f2.
-    split; auto.
     apply H2 in H0.
+    exists f2.
     apply C2.run_inv_seq in H0.
     destruct H0 as (hsa, (hsb, (?,(Hr,Hs)))).
     inversion Hs; subst; clear Hs.
@@ -1095,7 +1087,19 @@ Section Compiler.
     inversion Hr; subst; clear Hr.
     inversion H5; subst; clear H5.
     inversion H8; subst; clear H8.
-    
+    rewrite access_subst_subst_trans in H4; auto.
+    rewrite access_subst_subst_neq in H4; auto.
+    assert (R: access_subst T2 (NNum n2) e = e) by auto using access_subst_not_in.
+    rewrite R in H4; clear R.
+    rewrite access_subst_subst_neq in H6; auto.
+    rewrite access_subst_subst_trans in H6; auto.
+    rewrite access_subst_subst_neq in H6; auto.
+    assert (R: access_subst T1 (NNum n1) e = e) by auto using access_subst_not_in.
+    rewrite R in H6; clear R.
+    exists v.
+    exists v0.
+    simpl.
+    repeat split; auto.
   Qed.
 
   Lemma translate_acc_inv:
