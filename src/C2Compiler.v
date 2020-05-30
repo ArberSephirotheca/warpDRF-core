@@ -962,7 +962,7 @@ Section Compiler.
     reflexivity.
   Qed.
 
-  Lemma c2_branch_inv:
+  Lemma c2_run_branch_inv:
     forall l i1 i2 x hs',
     C2.Run (C2.Branch x l i1 i2) hs' ->
     NoDup l ->
@@ -1005,15 +1005,96 @@ Section Compiler.
       rewrite add_neq_rw; auto.
   Qed.
 
+  Definition branch_iter n1 n2 f (hs: list Hist.history) :=
+    List.concat (List.map f (range_list n1 n2)) ++ hs.
+
+
+  Lemma c2_run_decl_inv:
+    forall n1 n2 i1 i2 x hs',
+    C2.Run (C2.Decl x (NNum n1, NNum n2) i1 i2) hs' ->
+    exists f hs,
+    hs' = branch_iter n1 n2 f hs /\
+    C2.Run i2 hs /\
+    (forall n, n1 <= n < n2 -> C2.Run (C2.seq (C2.i_subst x (NNum n) i1) i2) (f n)).
+  Proof.
+    intros.
+    unfold branch_iter.
+    inversion H; subst; clear H.
+    apply r_step_to_range_list in H5.
+    subst.
+    apply c2_run_branch_inv in H6.
+    destruct H6 as (f, (hs1, (?, (Hr1, Hr2)))).
+    subst.
+    exists f.
+    exists hs1.
+    repeat split; auto.
+    intros.
+    apply Hr2.
+    - apply range_list_in_iff; assumption.
+    - auto using range_list_no_dup.
+  Qed.
+
   Lemma c2_acc_inv:
     forall e hs,
     C2.Run (translate (C1.Acc e C1.Skip)) hs ->
-    False.
+    exists f1,
+    hs = branch_iter 1 TID_COUNT f1 [[]]
+    /\
+    forall n1 n2,
+      1 <= n1 < TID_COUNT ->
+      0 <= n2 < n1 ->
+      exists f2,
+      f1 n1 = branch_iter 0 n1 f2 [[]] /\
+      C2.Run
+       (C2.Acc
+          (access_subst T2 (NNum n2)
+             (access_subst T1 (NNum n1) (access_subst TID (NVar T1) e)),
+          NNum n1)
+          (C2.Acc
+             (access_subst T2 (NNum n2)
+                (access_subst T1 (NNum n1) (access_subst TID (NVar T2) e)),
+             NNum n2) C2.Skip)) (f2 n2)
+   .
   Proof.
     intros.
-    inversion H; subst; clear H.
+    unfold translate in *.
+    apply c2_run_decl_inv in H.
+    destruct H as (f1, (hs1, (?, (Hr, Hf1)))).
+    inversion Hr; subst; clear Hr.
+    exists f1.
+    split. {
+      reflexivity.
+    }
+    intros.
+    apply Hf1 in H; clear Hf1.
+    apply C2.run_inv_seq in H.
+    destruct H as (hsa, (hsb, (?, (Hr1, Hr2)))).
+    inversion Hr2; subst; clear Hr2.
+    rewrite prod_nil_nil_r in *.
     simpl in *.
+    remove_eq T1 T1.
+    remove_eq T1 T2.
     remove_eq TID TID.
+    remove_eq T1 T1.
+    remove_eq T1 T2.
+    subst.
+    Search (prod _ [[]]).
+    apply c2_run_decl_inv in Hr1.
+    destruct Hr1 as (f2, (?, (?, (?,?)))).
+    inversion H1; subst; clear H1.
+    exists f2.
+    split; auto.
+    apply H2 in H0.
+    apply C2.run_inv_seq in H0.
+    destruct H0 as (hsa, (hsb, (?,(Hr,Hs)))).
+    inversion Hs; subst; clear Hs.
+    rewrite prod_nil_nil_r in *.
+    subst.
+    simpl in *.
+    remove_eq T2 T2.
+    inversion Hr; subst; clear Hr.
+    inversion H5; subst; clear H5.
+    inversion H8; subst; clear H8.
     
   Qed.
 
@@ -1039,7 +1120,7 @@ Section Compiler.
 
   Lemma all_incl_all
       (i:C1.inst)
-      (T1_ nin_i: ~ C1.In T1 i)
+      (T1_nin_i: ~ C1.In T1 i)
       (T2_nin_i: ~ C1.In T2 i)
       (TID_nvar_i: ~ C1.Var TID i)
     :
