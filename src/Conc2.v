@@ -279,6 +279,30 @@ Module C2.
     assumption.
   Qed.
 
+  Lemma run_decl_inv_eq:
+    forall x n1 n2 i1 i2 hs,
+    n1 < n2 ->
+    Run (Decl x (NNum n1, NNum n2) i1 i2) hs ->
+    exists hss, hs = List.concat hss /\
+    forall n,
+    n1 <= n < n2 ->
+    exists hs, Run (seq (i_subst x (NNum n) i1) i2) hs /\ List.In hs hss
+    .
+  Proof.
+    intros.
+    apply run_decl_inv in H0.
+    destruct H0 as (n3, (n4, (Hn3, (Hn4, [(N,_)|(hss, (?, Hx))])))). {
+      inversion Hn3; subst.
+      inversion Hn4; subst.
+      apply Lt.le_not_lt in N.
+      contradiction.
+    }
+    exists hss.
+    inversion Hn3; subst; clear Hn3.
+    inversion Hn4; subst; clear Hn4.
+    split; auto.
+  Qed.
+
   Lemma run_acc_inv_in:
     forall e i hs a,
     Run (Acc e i) hs ->
