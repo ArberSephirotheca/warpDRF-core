@@ -1137,19 +1137,21 @@ Section Compiler.
     rewrite subst_t2_tid_eq; auto.
   Qed.
 
-  Lemma c2_acc_inv e (t1_nin: ~ access_in T1 e) (t2_nin: ~ access_in T2 e) hs:
-    C2.Run (translate (C1.Acc e C1.Skip)) hs ->
+  Lemma c2_run_acc_inv e hs i (t1_nin: ~ C1.In T1 (C1.Acc e i)) (t2_nin: ~ C1.In T2 (C1.Acc e i)):
+    C2.Run (translate (C1.Acc e i)) hs ->
     exists f1,
     hs = branch_iter 1 TID_COUNT f1 [[]]
     /\
     forall n1 n2,
-      1 <= n1 < TID_COUNT ->
-      0 <= n2 < n1 ->
-      exists f2 v1 v2,
-      f1 n1 = branch_iter 0 n1 f2 [[]] /\
-      f2 n2 = prepend v1 (prepend v2 [[]]) /\
-      access_step (access_subst TID (NNum n1) e, NNum n1) v1 /\
-      access_step (access_subst TID (NNum n2) e, NNum n2) v2
+    1 <= n1 < TID_COUNT ->
+    0 <= n2 < n1 ->
+    exists f2 v1 v2 hr1 hr2,
+    f1 n1 = branch_iter 0 n1 f2 [[]] /\
+    f2 n2 = prod (prepend v1 hr1) (prepend v2 hr2) /\
+    access_step (access_subst TID (NNum n1) e, NNum n1) v1 /\
+    access_step (access_subst TID (NNum n2) e, NNum n2) v2 /\
+    C2.Run (C2.i_subst TID (NNum n1) (proj i)) hr1 /\
+    C2.Run (C2.i_subst TID (NNum n2) (proj i)) hr2
    .
   Proof.
     intros.
@@ -1167,16 +1169,18 @@ Section Compiler.
     destruct H as (hsa, (hsb, (?, (Hr1, Hr2)))).
     inversion Hr2; subst; clear Hr2.
     rewrite prod_nil_nil_r in *.
-    assert (X: ~ C2.In T1 (proj (C1.Acc e C1.Skip))). {
+    assert (X: ~ C2.In T1 (proj (C1.Acc e i))). {
       intros N.
       simpl in *.
+      contradict t1_nin.
       inversion N; subst; clear N.
-      - contradiction.
-      - auto using nin_t1_tid.
-      - inversion H2.
+      - auto using C1.in_acc_1.
+      - apply nin_t1_tid in H2.
+        contradiction.
+      - apply in_proj_to_in in H2; auto.
+        auto using C1.in_acc_2.
     }
     rewrite rw_1 in Hr1; auto; clear X.
-    Search (prod _ [[]]).
     apply c2_run_decl_inv in Hr1.
     destruct Hr1 as (f2, (?, (?, (?,?)))).
     inversion H1; subst; clear H1.
@@ -1187,30 +1191,22 @@ Section Compiler.
     inversion Hs; subst; clear Hs.
     rewrite prod_nil_nil_r in *.
     subst.
-    assert (X: ~ C1.In T2 (C1.Acc e C1.Skip)). {
-      intros N.
-      inversion N; subst; clear N.
-      - contradiction.
-      - inversion H0; subst; clear H0.
-    }
-    rewrite rw_2 in Hr; auto; clear X.
+    rewrite rw_2 in Hr; auto (*; clear X*).
     apply C2.run_inv_seq in Hr.
     destruct Hr as (hsc, (hsd, (?,(Hr,Hs)))).
     simpl in *.
     remove_eq TID TID.
     inversion Hr; subst; clear Hr.
-    inversion H6; subst; clear H6.
     inversion Hs; subst; clear Hs.
-    inversion H7; subst; clear H7.
-    inversion H2; subst; clear H2.
-    simpl in *.
-    Search (_ ++ []).
     exists v.
     exists v0.
-    repeat rewrite app_nil_r in *; simpl.
+    exists hs.
+    exists hs0.
     repeat split; auto.
+    inversion H2; subst; clear H2.
+    auto.
   Qed.
-
+(*
   Lemma translate_acc_inv:
     forall e i hs,
     C2.Run (translate (C1.Acc e i)) hs ->
@@ -1230,7 +1226,7 @@ Section Compiler.
       repeat split; auto.
       unfold translate.
   Qed.
-
+*)
   Lemma all_incl_all
       (i:C1.inst)
       (T1_nin_i: ~ C1.In T1 i)
@@ -1261,6 +1257,7 @@ Section Compiler.
       rewrite mmember_prepend_rw; auto.
       rewrite member_concat_rw.
       rewrite incl_l_either_iff.
+      apply c2_run_acc_inv in H2; auto.
       split. {
         clear IHRun. (* We don't need IHRun *)
         (* Show that all members of v are in hss *)
