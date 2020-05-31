@@ -1351,7 +1351,19 @@ Section Defs.
     }
     eauto using m_in_def.
   Qed.
-
+  Lemma access_in_inv_neq:
+    forall x y z a,
+    x <> y ->
+    x <> z ->
+    access_in x (access_subst z (NVar y) a) ->
+    access_in x a.
+  Proof.
+    intros.
+    apply access_in_subst_neq in H1; auto.
+    intros N.
+    inversion N.
+    contradiction.
+  Qed.
 End Defs.
 End Hist.
 

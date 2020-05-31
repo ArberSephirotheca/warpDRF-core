@@ -1121,5 +1121,20 @@ Module C2.
       + apply IHi2 in H3; auto using in_branch_3.
   Qed.
 
+  Lemma in_subst_inv_in:
+    forall e x y z,
+    x <> y ->
+    x <> z ->
+    In x (i_subst z (NVar y) e) ->
+    In x e.
+  Proof.
+    intros.
+    apply in_i_subst_neq in H1; auto.
+    intros N.
+    inversion N; subst; clear N.
+    contradiction.
+  Qed.
+
+
 End Defs.
 End C2.

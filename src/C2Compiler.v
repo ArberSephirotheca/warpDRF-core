@@ -1034,6 +1034,109 @@ Section Compiler.
     - auto using range_list_no_dup.
   Qed.
 
+  Lemma subst_t1_tid_eq:
+    forall v e,
+    ~ C2.In T1 e ->
+    C2.i_subst T1 v (C2.i_subst TID (NVar T1) e) =
+    C2.i_subst TID v e.
+  Proof.
+    intros.
+    rewrite C2.i_subst_subst_trans; auto.
+  Qed.
+
+  Lemma subst_t2_tid_eq:
+    forall v e,
+    ~ C2.In T2 e ->
+    C2.i_subst T2 v (C2.i_subst TID (NVar T2) e) =
+    C2.i_subst TID v e.
+  Proof.
+    intros.
+    rewrite C2.i_subst_subst_trans; auto.
+  Qed.
+
+  Lemma subst_t2_neq:
+    forall e n1 n2,
+    ~ C2.In T2 e ->
+    C2.i_subst T2 (NNum n2) (C2.i_subst TID (NNum n1) e)
+    =
+    C2.i_subst TID (NNum n1) e.
+  Proof.
+    intros.
+    rewrite C2.i_subst_not_in; auto.
+    intros N.
+    contradict H.
+    apply C2.in_i_subst_neq in N; auto.
+    intros M.
+    inversion M.
+  Qed.
+
+  Lemma subst_t1_t2_neq:
+    forall v e,
+    ~ C2.In T1 e ->
+    C2.i_subst T1 v (C2.i_subst TID (NVar T2) e)
+    = 
+    C2.i_subst TID (NVar T2) e.
+  Proof.
+    intros.
+    rewrite C2.i_subst_not_in; auto.
+    intros N.
+    contradict H.
+    apply C2.in_subst_inv_in in N; auto.
+  Qed.
+
+
+  Lemma rw_1 e (t1_nin: ~ C2.In T1 (proj e)):
+    forall n1,
+        C2.i_subst T1 (NNum n1)
+           (C2.Decl T2 (NNum 0, NVar T1)
+              (C2.seq (do_proj T1 e)
+                 (do_proj T2 e)) C2.Skip)
+   =
+       C2.Decl T2 (NNum 0, NNum n1)
+        (C2.seq (C2.i_subst TID (NNum n1) (proj e))
+                (do_proj T2 e)) C2.Skip.
+  Proof.
+    intros.
+    simpl.
+    remove_eq T1 T2.
+    remove_eq T1 T1.
+    rewrite C2.i_subst_seq.
+    unfold do_proj in *.
+    rewrite subst_t1_tid_eq; auto.
+    rewrite subst_t1_t2_neq; auto.
+  Qed.
+
+  Lemma nin_t1_tid:
+    ~ NIn T1 (NVar TID).
+  Proof.
+    intros N.
+    inversion N.
+    contradiction.
+  Qed.
+
+  Lemma rw_2:
+    forall e n1 n2,
+    ~ C1.In T2 e ->
+    C2.i_subst T2 (NNum n2)
+       (C2.seq
+          (C2.i_subst TID (NNum n1) (proj e))
+          (do_proj T2 e))
+    = 
+    C2.seq
+      (C2.i_subst TID (NNum n1) (proj e))
+      (C2.i_subst TID (NNum n2) (proj e)).
+  Proof.
+    intros.
+    rewrite C2.i_subst_seq.
+    assert (~ C2.In T2 (proj e)). {
+      intros N.
+      apply in_proj_to_in in N; auto.
+    }
+    rewrite subst_t2_neq; auto.
+    unfold do_proj.
+    rewrite subst_t2_tid_eq; auto.
+  Qed.
+
   Lemma c2_acc_inv e (t1_nin: ~ access_in T1 e) (t2_nin: ~ access_in T2 e) hs:
     C2.Run (translate (C1.Acc e C1.Skip)) hs ->
     exists f1,
@@ -1064,41 +1167,47 @@ Section Compiler.
     destruct H as (hsa, (hsb, (?, (Hr1, Hr2)))).
     inversion Hr2; subst; clear Hr2.
     rewrite prod_nil_nil_r in *.
-    simpl in *.
-    remove_eq T1 T1.
-    remove_eq T1 T2.
-    remove_eq TID TID.
-    remove_eq T1 T1.
-    remove_eq T1 T2.
-    subst.
+    assert (X: ~ C2.In T1 (proj (C1.Acc e C1.Skip))). {
+      intros N.
+      simpl in *.
+      inversion N; subst; clear N.
+      - contradiction.
+      - auto using nin_t1_tid.
+      - inversion H2.
+    }
+    rewrite rw_1 in Hr1; auto; clear X.
     Search (prod _ [[]]).
     apply c2_run_decl_inv in Hr1.
     destruct Hr1 as (f2, (?, (?, (?,?)))).
     inversion H1; subst; clear H1.
-    apply H2 in H0.
+    apply H3 in H0; clear H3.
     exists f2.
     apply C2.run_inv_seq in H0.
     destruct H0 as (hsa, (hsb, (?,(Hr,Hs)))).
     inversion Hs; subst; clear Hs.
     rewrite prod_nil_nil_r in *.
     subst.
+    assert (X: ~ C1.In T2 (C1.Acc e C1.Skip)). {
+      intros N.
+      inversion N; subst; clear N.
+      - contradiction.
+      - inversion H0; subst; clear H0.
+    }
+    rewrite rw_2 in Hr; auto; clear X.
+    apply C2.run_inv_seq in Hr.
+    destruct Hr as (hsc, (hsd, (?,(Hr,Hs)))).
     simpl in *.
-    remove_eq T2 T2.
+    remove_eq TID TID.
     inversion Hr; subst; clear Hr.
-    inversion H5; subst; clear H5.
-    inversion H8; subst; clear H8.
-    rewrite access_subst_subst_trans in H4; auto.
-    rewrite access_subst_subst_neq in H4; auto.
-    assert (R: access_subst T2 (NNum n2) e = e) by auto using access_subst_not_in.
-    rewrite R in H4; clear R.
-    rewrite access_subst_subst_neq in H6; auto.
-    rewrite access_subst_subst_trans in H6; auto.
-    rewrite access_subst_subst_neq in H6; auto.
-    assert (R: access_subst T1 (NNum n1) e = e) by auto using access_subst_not_in.
-    rewrite R in H6; clear R.
+    inversion H6; subst; clear H6.
+    inversion Hs; subst; clear Hs.
+    inversion H7; subst; clear H7.
+    inversion H2; subst; clear H2.
+    simpl in *.
+    Search (_ ++ []).
     exists v.
     exists v0.
-    simpl.
+    repeat rewrite app_nil_r in *; simpl.
     repeat split; auto.
   Qed.
 

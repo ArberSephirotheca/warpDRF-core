@@ -1204,6 +1204,20 @@ Section SO.
     - apply IHe2 in H3; auto using n_in_bin_r.
   Qed.
 
+  Lemma n_in_inv_subst:
+    forall x y z n,
+    x <> y ->
+    x <> z ->
+    NIn x (n_subst z (NVar y) n) ->
+    NIn x n.
+  Proof.
+    intros.
+    apply in_n_subst_neq in H1; auto.
+    intros N.
+    inversion N; subst; clear N.
+    contradiction.
+  Qed.
+
   Lemma in_b_subst_neq:
     forall e x y v,
     BIn x (b_subst y v e) ->
