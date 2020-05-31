@@ -1155,15 +1155,234 @@ Section Compiler.
   Qed.
 
   Lemma c2_run_acc_inv e hs i (t1_nin: ~ C1.In T1 (C1.Acc e i)) (t2_nin: ~ C1.In T2 (C1.Acc e i)):
+  Lemma prod_assoc:
+    forall (A:Type) l1 l2 l3,
+    prod (@prod A l1 l2) l3 =
+    prod l1 (prod l2 l3).
+  Proof.
+    induction l1; intros. {
+      reflexivity.
+    }
+    simpl.
+    rewrite <- prod_app.
+    rewrite <- prepend_prod.
+    rewrite IHl1.
+    reflexivity.
+  Qed.
+
+  Definition prepend1 {A:Type} (a:A) ls :=
+     fold_right (fun x accum => (a::x) :: accum) [] ls.
+
+  Lemma prepend_cons:
+    forall A ls (a:A) l,
+    prepend (a :: l) ls = prepend1 a (prepend l ls).
+  Proof.
+    induction ls; intros. {
+      reflexivity.
+    }
+    simpl.
+    rewrite IHls.
+    reflexivity.
+  Qed.
+
+  Lemma prod_prepend_r:
+    forall (A:Type) (l:list A) lls1 lls2,
+    prod lls1 (prepend l lls2)
+    =
+    prod (prod (lls1) [l]) lls2.
+  Proof.
+    intros.
+    destruct l; intros. {
+      simpl.
+      rewrite prod_assoc.
+      simpl.
+      rewrite app_nil_r.
+      reflexivity.
+    }
+    rewrite prod_assoc.
+    simpl.
+    rewrite app_nil_r.
+    reflexivity.
+  Qed.
+
+  Lemma c2_run_trans_inv_1 e hs (t1_nin: ~ C1.In T1 e) (t2_nin: ~ C1.In T2 e):
+    C2.Run (translate e) hs ->
+    exists hss, 
+    hs = List.concat hss /\
+    forall n1,
+      1 <= n1 < TID_COUNT ->
+      exists hssb,
+      In (List.concat hssb) hss /\
+      (forall n2,
+       0 <= n2 < n1 ->
+       exists hb hc,
+         C2.Run (C2.i_subst TID (NNum n1) (proj e)) hb /\
+         C2.Run (C2.i_subst TID (NNum n2) (proj e)) hc /\
+         In (prod hb hc) hssb /\ In (List.concat hssb) hss)
+
+  .
+  Proof.
+    intros.
+    unfold translate in *.
+    apply C2.run_decl_inv_eq in H; auto with *.
+    destruct H as (hss, (Ha, Hb)).
+    exists hss; split; auto.
+    assert (
+      forall n1,
+     1 <= n1 < TID_COUNT ->
+     exists hssb,
+    In (List.concat hssb) hss /\
+    forall n2 : nat,
+     0 <= n2 < n1 ->
+     exists hb hc,
+       C2.Run (C2.i_subst TID (NNum n1) (proj e)) hb /\
+       C2.Run (C2.i_subst TID (NNum n2) (proj e)) hc /\
+       In (prod hb hc) hssb /\ In (List.concat hssb) hss
+    ). {
+      intros n1 Hc.
+      assert (Hb := Hb _ Hc).
+      destruct Hb as (hsc, (Hb, Hd)).
+      assert (X:~ C2.In T1 (proj e)). {
+        intros N.
+        contradict t1_nin.
+        auto using in_proj_to_in.
+      }
+      rewrite rw_1 in Hb; auto.
+      apply C2.run_inv_seq in Hb.
+      destruct Hb as (hs1, (hs2, (?, (Hb, He)))).
+      inversion He; subst; clear He.
+      rewrite prod_nil_nil_r in *.
+      apply C2.run_decl_inv_eq in Hb; auto with *.
+      destruct Hb as (hssb, (?, Hb)).
+      subst.
+      assert (forall n2,
+         0 <= n2 < n1 ->
+        exists hb hc,
+        C2.Run (C2.i_subst TID (NNum n1) (proj e)) hb /\
+        C2.Run (C2.i_subst TID (NNum n2) (proj e)) hc /\
+        In (prod hb hc) hssb /\
+        In (List.concat hssb) hss
+         
+         ). {
+        intros n2 Ha.
+        assert (Hb := Hb _ Ha).
+        destruct Hb as (hs, (Hb,He)).
+        apply C2.run_inv_seq in Hb.
+        destruct Hb as (ha, (hb, (?, (Hb, Hf)))).
+        inversion Hf; subst; clear Hf.
+        rewrite prod_nil_nil_r in *.
+        rewrite rw_2 in Hb; auto.
+        apply C2.run_inv_seq in Hb.
+        destruct Hb as (hb, (hc, (Hb, (Hf,Hg)))).
+        subst.
+        exists hb.
+        eauto.
+      }
+      subst.
+      eauto.
+    }
+    auto.
+  Qed.
+
+  Lemma c2_run_trans_inv_2 e hs (t1_nin: ~ C1.In T1 e) (t2_nin: ~ C1.In T2 e):
+    C2.Run (translate e) hs ->
+    exists f1,
+    hs = branch_iter 1 TID_COUNT f1 ++ [[]]
+    /\
+    forall n1,
+    1 <= n1 < TID_COUNT ->
+    exists f2,
+    f1 n1 = branch_iter 0 n1 f2 ++ [[]] /\
+    forall n2,
+      0 <= n2 < n1 ->
+      exists hs1 hs2,
+      f2 n2 = prod hs1 hs2 /\
+      C2.Run (C2.i_subst TID (NNum n1) (proj e)) hs1 /\
+      C2.Run (C2.i_subst TID (NNum n2) (proj e)) hs2
+
+  .
+  Proof.
+    intros.
+    unfold translate in *.
+    apply c2_run_decl_inv in H.
+    destruct H as (f1, (hs1, (?, (Hs, H)))).
+    inversion Hs; subst; clear Hs.
+    exists f1.
+    split; auto.
+    intros n1 Ha.
+    apply H in Ha; clear H.
+    assert (X:~ C2.In T1 (proj e)). {
+      intros N.
+      contradict t1_nin.
+      auto using in_proj_to_in.
+    }
+    rewrite rw_1 in Ha; auto.
+    apply C2.run_inv_seq in Ha.
+    destruct Ha as (hs1, (hs2, (?, (Ha, Hc)))).
+    inversion Hc; subst; clear Hc.
+    rewrite prod_nil_nil_r in *.
+    subst.
+    apply c2_run_decl_inv in Ha.
+    destruct Ha as (f2, (hs, (?, (Ha, Hc)))); auto.
+    inversion Ha; subst; clear Ha.
+    assert (forall n2, 
+      0 <= n2 < n1 ->
+      exists hs1 hs2,
+      f2 n2 = prod hs1 hs2 /\
+      C2.Run (C2.i_subst TID (NNum n1) (proj e)) hs1 /\
+      C2.Run (C2.i_subst TID (NNum n2) (proj e)) hs2
+    ). {
+      intros n2 Hb.
+      apply Hc in Hb; clear Hc.
+      rewrite rw_2 in Hb; auto.
+      apply C2.run_inv_seq in Hb.
+      destruct Hb as (hsa, (hsb, (?,(Hr,Hs)))).
+      inversion Hs; subst; clear Hs.
+      rewrite prod_nil_nil_r in *.
+      apply C2.run_inv_seq in Hr.
+      destruct Hr as (hsb, (hsc, (?, (Ha, Hb)))).
+      subst.
+      exists hsb.
+      exists hsc.
+      auto.
+    }
+    exists f2.
+    split; auto.
+  Qed.
+
+  Lemma map_rw_func:
+    forall A B (f1:A -> B) f2 l,
+    (forall x, List.In x l -> f1 x = f2 x) ->
+    map f1 l = map f2 l.
+  Proof.
+    induction l; intros; auto.
+    simpl in *.
+    rewrite IHl; auto.
+    rewrite H; auto.
+  Qed.
+
+  Lemma branch_iter_rw_func:
+    forall f1 f2 n1 n2,
+    (forall n, n1 <= n < n2 -> f1 n = f2 n) ->
+    branch_iter n1 n2 f1 = branch_iter n1 n2 f2.
+  Proof.
+    intros.
+    unfold branch_iter.
+    rewrite map_rw_func with (f2:=f2); auto.
+    intros.
+    auto using range_list_inv_in_2.
+  Qed.
+
+  Lemma c2_run_acc_inv_1 e hs i (t1_nin: ~ C1.In T1 (C1.Acc e i)) (t2_nin: ~ C1.In T2 (C1.Acc e i)):
     C2.Run (translate (C1.Acc e i)) hs ->
     exists f1,
-    hs = branch_iter 1 TID_COUNT f1 [[]]
+    hs = branch_iter 1 TID_COUNT f1 ++ [[]]
     /\
     forall n1 n2,
     1 <= n1 < TID_COUNT ->
     0 <= n2 < n1 ->
     exists f2 v1 v2 hr1 hr2,
-    f1 n1 = branch_iter 0 n1 f2 [[]] /\
+    f1 n1 = branch_iter 0 n1 f2 ++ [[]] /\
     f2 n2 = prod (prepend v1 hr1) (prepend v2 hr2) /\
     access_step (access_subst TID (NNum n1) e, NNum n1) v1 /\
     access_step (access_subst TID (NNum n2) e, NNum n2) v2 /\
