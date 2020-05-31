@@ -1137,6 +1137,23 @@ Section Compiler.
     rewrite subst_t2_tid_eq; auto.
   Qed.
 
+  Lemma c2_decl:
+     forall f n1 n2 i1 i2 x hs hs',
+     hs' = List.concat (map f (range_list n1 n2)) ++ hs ->
+     (forall n,
+      n1 <= n < n2 ->
+      C2.Run (C2.seq (C2.i_subst x (NNum n) i1) i2) (f n)) ->
+    C2.Run i2 hs -> C2.Run (C2.Decl x (NNum n1, NNum n2) i1 i2) hs'.
+  Proof.
+    intros.
+    apply C2.run_decl with (range_list n1 n2).
+    - apply r_step_range_list.
+    - apply c2_branch with (f:=f) (hs:=hs); auto.
+      intros.
+      apply range_list_in_iff in H2.
+      auto.
+  Qed.
+
   Lemma c2_run_acc_inv e hs i (t1_nin: ~ C1.In T1 (C1.Acc e i)) (t2_nin: ~ C1.In T2 (C1.Acc e i)):
     C2.Run (translate (C1.Acc e i)) hs ->
     exists f1,
