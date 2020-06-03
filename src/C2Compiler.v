@@ -1155,56 +1155,6 @@ Section Compiler.
       auto.
   Qed.
 
-  Lemma prod_assoc:
-    forall (A:Type) l1 l2 l3,
-    prod (@prod A l1 l2) l3 =
-    prod l1 (prod l2 l3).
-  Proof.
-    induction l1; intros. {
-      reflexivity.
-    }
-    simpl.
-    rewrite <- prod_app.
-    rewrite <- prepend_prod.
-    rewrite IHl1.
-    reflexivity.
-  Qed.
-
-  Definition prepend1 {A:Type} (a:A) ls :=
-     fold_right (fun x accum => (a::x) :: accum) [] ls.
-
-  Lemma prepend_cons:
-    forall A ls (a:A) l,
-    prepend (a :: l) ls = prepend1 a (prepend l ls).
-  Proof.
-    induction ls; intros. {
-      reflexivity.
-    }
-    simpl.
-    rewrite IHls.
-    reflexivity.
-  Qed.
-
-  Lemma prod_prepend_r:
-    forall (A:Type) (l:list A) lls1 lls2,
-    prod lls1 (prepend l lls2)
-    =
-    prod (prod (lls1) [l]) lls2.
-  Proof.
-    intros.
-    destruct l; intros. {
-      simpl.
-      rewrite prod_assoc.
-      simpl.
-      rewrite app_nil_r.
-      reflexivity.
-    }
-    rewrite prod_assoc.
-    simpl.
-    rewrite app_nil_r.
-    reflexivity.
-  Qed.
-
   Lemma c2_run_trans_inv_1 e hs (t1_nin: ~ C1.In T1 e) (t2_nin: ~ C1.In T2 e):
     C2.Run (translate e) hs ->
     exists hss, 
@@ -1459,52 +1409,6 @@ Section Compiler.
     auto.
   Qed.
 
-
-  Lemma list_eq_nil:
-    forall {A:Type} (l:list A),
-    l = [] \/ l <> [].
-  Proof.
-    intros.
-    destruct l; auto.
-    right.
-    intros N.
-    inversion N.
-  Qed.
-
-  Lemma prepend_inv_nil:
-    forall A l x,
-    @prepend A x l = [] ->
-    l = [].
-  Proof.
-    induction l; intros. {
-      reflexivity.
-    }
-    inversion H.
-  Qed.
-
-  Lemma run_inv_nil:
-    forall i,
-    ~ C2.Run i [].
-  Proof.
-    intros i H.
-    remember ([]).
-    generalize dependent Heql.
-    induction H; intros.
-    - inversion Heql.
-    - 
-      apply prepend_inv_nil in Heql.
-      auto.
-    - apply IHRun in Heql.
-      assumption.
-    - apply IHRun2.
-      destruct hs2. {
-        reflexivity.
-      }
-      destruct hs1;
-        inversion Heql.
-    - auto.
-  Qed.
-
   Lemma i_subst_inv_nil:
     forall x v i,
     C2.i_subst x v i = C2.Skip ->
@@ -1579,13 +1483,13 @@ Section Compiler.
           rewrite H3.
           destruct (list_eq_nil hs1). {
             subst.
-            apply run_inv_nil in Hr1.
+            apply C2.run_inv_nil in Hr1.
             contradiction.
           }
           apply m_in_prod_r; auto.
           assert (hs0 <> []). {
             intros N; subst.
-            apply run_inv_nil in H8.
+            apply C2.run_inv_nil in H8.
             contradiction.
           }
           apply m_in_prepend_l; auto.
@@ -1624,7 +1528,7 @@ Section Compiler.
         apply m_in_prod_r. {
           intros N.
           subst.
-          apply run_inv_nil in Hr1.
+          apply C2.run_inv_nil in Hr1.
           contradiction.
         }
         clear Hr1.
@@ -1634,12 +1538,16 @@ Section Compiler.
           apply IHRun; auto.
         }
       }
+      give_up.
     - give_up.
-  Qed.
+    - give_up.
+    - give_up.
+  Admitted.
 
-
+(*
   Variable tid_ge_2: TID_COUNT > 2.
   Variable in_heap: forall x i hs, C2.Run i hs -> MIn x hs -> access_tid x < TID_COUNT.
+*)
   Theorem correctness:
     forall i hs1,
     C1SX.Run TID_COUNT TID i hs1 ->

@@ -892,6 +892,28 @@ Module C2.
     contradiction.
   Qed.
 
+  Lemma run_inv_nil:
+    forall i,
+    ~ Run i [].
+  Proof.
+    intros i H.
+    remember ([]).
+    generalize dependent Heql.
+    induction H; intros.
+    - inversion Heql.
+    - 
+      apply prepend_inv_nil in Heql.
+      auto.
+    - apply IHRun in Heql.
+      assumption.
+    - apply IHRun2.
+      destruct hs2. {
+        reflexivity.
+      }
+      destruct hs1;
+        inversion Heql.
+    - auto.
+  Qed.
 
 End Defs.
 End C2.

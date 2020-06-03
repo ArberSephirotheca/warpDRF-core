@@ -980,6 +980,80 @@ Section Ops.
     split; intros; auto using m_in_to_in_concat, in_concat_to_m_in.
   Qed.
 
+
+  Lemma list_eq_nil:
+    forall {A:Type} (l:list A),
+    l = [] \/ l <> [].
+  Proof.
+    intros.
+    destruct l; auto.
+    right.
+    intros N.
+    inversion N.
+  Qed.
+
+  Lemma prepend_inv_nil:
+    forall A l x,
+    @prepend A x l = [] ->
+    l = [].
+  Proof.
+    induction l; intros. {
+      reflexivity.
+    }
+    inversion H.
+  Qed.
+
+
+  Lemma prod_assoc:
+    forall (A:Type) l1 l2 l3,
+    prod (@prod A l1 l2) l3 =
+    prod l1 (prod l2 l3).
+  Proof.
+    induction l1; intros. {
+      reflexivity.
+    }
+    simpl.
+    rewrite <- prod_app.
+    rewrite <- prepend_prod.
+    rewrite IHl1.
+    reflexivity.
+  Qed.
+
+  Definition prepend1 {A:Type} (a:A) ls :=
+     fold_right (fun x accum => (a::x) :: accum) [] ls.
+
+  Lemma prepend_cons:
+    forall A ls (a:A) l,
+    prepend (a :: l) ls = prepend1 a (prepend l ls).
+  Proof.
+    induction ls; intros. {
+      reflexivity.
+    }
+    simpl.
+    rewrite IHls.
+    reflexivity.
+  Qed.
+
+  Lemma prod_prepend_r:
+    forall (A:Type) (l:list A) lls1 lls2,
+    prod lls1 (prepend l lls2)
+    =
+    prod (prod (lls1) [l]) lls2.
+  Proof.
+    intros.
+    destruct l; intros. {
+      simpl.
+      rewrite prod_assoc.
+      simpl.
+      rewrite app_nil_r.
+      reflexivity.
+    }
+    rewrite prod_assoc.
+    simpl.
+    rewrite app_nil_r.
+    reflexivity.
+  Qed.
+
   Lemma m_in_concat:
     forall A x ls l,
     MIn x l ->
