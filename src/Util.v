@@ -973,11 +973,30 @@ Section Ops.
     destruct H; auto.
   Qed.
 
-  Lemma m_in_concat:
+  Lemma m_in_concat_rw:
     forall A (x:A) ll,
     MIn x ll <-> List.In x (List.concat ll).
   Proof.
     split; intros; auto using m_in_to_in_concat, in_concat_to_m_in.
+  Qed.
+
+  Lemma m_in_concat:
+    forall A x ls l,
+    MIn x l ->
+    List.In l ls ->
+    @MIn A x (List.concat ls).
+  Proof.
+    induction ls; intros. {
+      contradiction.
+    }
+    destruct H0. {
+      subst.
+      simpl.
+      auto using m_in_app_l.
+    }
+    simpl.
+    apply m_in_app_r.
+    eauto.
   Qed.
 
   Lemma m_in_prepend_l:

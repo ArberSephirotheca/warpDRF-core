@@ -18,7 +18,7 @@ Require Conc1.
 Require Import SetTh.
 Import ListNotations.
 Require Import Conc2.
-
+Require Import RangeList.
 Section Compiler.
   Import Conc1.
   Section Defs.
@@ -1004,67 +1004,6 @@ Section Compiler.
       }
       rewrite add_neq_rw; auto.
   Qed.
-  Inductive MapRange {A:Type} (f:nat->A): nat -> nat -> list A -> Prop :=
-  | map_range_nil:
-    forall low high,
-    low >= high ->
-    MapRange f low high []
-  | map_range_cons:
-    forall low high l,
-    low < high ->
-    MapRange f (S low) high l ->
-    MapRange f low high (f low :: l).
-
-  Lemma map_range_list_to_map_range:
-    forall A f l1 n1 n2  l2,
-    RangeList n1 n2 l1 ->
-    @List.map nat (list A) f l1 = l2 ->
-    MapRange f n1 n2 l2.
-  Proof.
-    induction l1; intros. {
-      simpl in *.
-      inversion H; subst; clear H.
-      auto using map_range_nil.
-    }
-    simpl in *.
-    inversion H; subst; clear H.
-    eauto using map_range_cons.
-  Qed.
-
-  Lemma map_range_to_map_range_list:
-    forall A f l1 n1 n2,
-    MapRange f n1 n2 l1 ->
-    exists l2,
-    @List.map nat (list A) f l2 = l1 /\
-    RangeList n1 n2 l2.
-  Proof.
-    induction l1; intros. {
-      exists [].
-      split; auto.
-      inversion H; subst; clear H.
-      auto using range_list_nil.
-    }
-    inversion H; subst; clear H.
-    apply IHl1 in H5.
-    destruct H5 as (l2, (?, Hx)).
-    subst.
-    exists (n1 :: l2).
-    simpl.
-    split; auto.
-    auto using range_list_cons.
-  Qed.
-
-  Lemma map_range_iff:
-    forall A f n1 n2 l1,
-    MapRange f n1 n2 l1 <->
-    exists l2, @List.map nat (list A) f l2 = l1 /\ RangeList n1 n2 l2.
-  Proof.
-    split; intros.
-    - auto using map_range_to_map_range_list.
-    - destruct H as (l2, (?, ?)).
-      eauto using map_range_list_to_map_range.
-  Qed.
-  
 
   Definition branch_iter {A:Type} n1 n2 f :=
     List.concat (@List.map nat (list A) f (range_list n1 n2)).
@@ -1412,59 +1351,6 @@ Section Compiler.
     split; auto.
   Qed.
 
-  Lemma map_rw_func:
-    forall A B (f1:A -> B) f2 l,
-    (forall x, List.In x l -> f1 x = f2 x) ->
-    map f1 l = map f2 l.
-  Proof.
-    induction l; intros; auto.
-    simpl in *.
-    rewrite IHl; auto.
-    rewrite H; auto.
-  Qed.
-
-
-  Lemma map_range_spec:
-    forall A (f:nat -> list A) n1 n2 l,
-    MapRange f n1 n2 l <->
-    @List.map nat (list A) f (range_list n1 n2) = l.
-  Proof.
-    intros.
-    rewrite map_range_iff.
-    split; intros. {
-      destruct H as (l2, (Hm, ?)).
-      subst.
-      apply prop_to_range_list in H.
-      rewrite H.
-      reflexivity.
-    }
-    remember (range_list n1 n2) as l1.
-    symmetry in Heql1.
-    apply range_list_to_prop in Heql1.
-    exists l1.
-    auto.
-  Qed.
-
-  Lemma map_range_to_in:
-    forall A (f:nat -> list A) n1 n2 l,
-    MapRange f n1 n2 l ->
-    forall n : nat, n1 <= n < n2 -> In (f n) l.
-  Proof.
-    intros.
-    apply map_range_spec in H.
-    subst.
-    auto using in_map, range_list_in.
-  Qed.
-
-
-(*
-  Definition MapRange {A:Type} f n1 n2 l :=
-    forall n,
-    n1 <= n < n2 ->
-    @List.In A (f n) l.
-*)
-
-
 
   Lemma branch_iter_rw_func:
     forall A f1 f2 n1 n2,
@@ -1473,7 +1359,7 @@ Section Compiler.
   Proof.
     intros.
     unfold branch_iter.
-    rewrite map_rw_func with (f2:=f2); auto.
+    rewrite map_rw_func with (f4:=f2); auto.
     intros.
     auto using range_list_inv_in_2.
   Qed.
@@ -1559,25 +1445,6 @@ Section Compiler.
       unfold translate.
   Qed.
 *)
-  Lemma m_in_concat:
-    forall A x ls l,
-    MIn x l ->
-    List.In l ls ->
-    @MIn A x (List.concat ls).
-  Proof.
-    induction ls; intros. {
-      contradiction.
-    }
-    destruct H0. {
-      subst.
-      simpl.
-      auto using m_in_app_l.
-    }
-    simpl.
-    apply m_in_app_r.
-    eauto.
-  Qed.
-
   Lemma m_in_branch_iter:
     forall A x n n1 n2 f,
     n1 <= n < n2 ->
@@ -1656,12 +1523,11 @@ Section Compiler.
       (i:C1.inst)
       (T1_nin_i: ~ C1.In T1 i)
       (T2_nin_i: ~ C1.In T2 i)
-      (TID_nvar_i: ~ C1.Var TID i)
     :
     forall hs1,
     C1SX.Run TID_COUNT TID i hs1 ->
     forall hs2,
-    (forall x, MIn x hs2 -> access_tid x < TID_COUNT) ->
+    (forall x, MIn x hs1 -> access_tid x < TID_COUNT) ->
     C2.Run (translate i) hs2 ->
     Incl (MMember hs1) (MMember hs2).
   Proof.
@@ -1730,257 +1596,45 @@ Section Compiler.
       }
       (* Show that all members of hs are in hss *)
       (* We have that the access is in hs, so we must use the IH *)
-      apply C2.run_decl_inv_in in H2.
-      destruct H2 as [(N, _)|(hss, (Hr1, Hx))]. {
-        omega.
+      apply incl_def; intros.
+      rewrite mmember_rw in *.
+      apply m_in_app_l.
+      assert (access_tid x < TID_COUNT). {
+        apply H1.
+        apply m_in_prepend_r; auto.
       }
-      rewrite Hr1 in *. (* subst removes this equation, which is needed *)
-      rewrite mmember_concat_rw.
-      Search (Incl (Either _ _ ) _).
-      assert (Hx := Hx _ H3).
-      destruct Hx as (hs3, (Hi, (Hmi, [Hz|(n,(Hle,Hx))]))). {
-        inversion Hz; subst; clear Hz.
-        apply m_in_nil_nil in Hmi.
-        contradiction.
-      }
-      simpl in *.
-      remove_eq T1 T1.
-      remove_eq T1 T2.
-      remove_eq TID TID.
-      remove_eq T1 T1.
-      Search (C2.Run (C2.Decl _ _ _ _ )).
-      apply C2.run_decl_inv_in in Hx.
-      destruct Hx as [(Hy,_)|Hy]. {
-        omega.
-      }
-      destruct Hy as (hss2, (Hr2, Hy)).
-      subst.
-      assert (Hy := Hy _ Hmi).
-      destruct Hy as (hs1, (?,(Hmj, Hy))).
-      destruct Hy as [N|(?, (Hle2, Hy))]. {
-        inversion N; subst; clear N.
-        apply m_in_nil_nil in Hmj.
-        contradiction.
-      }
-      simpl in *.
-      apply C2.run_acc_inv_in with (a:=x) in Hy; auto.
-      destruct Hy  as (hs', (w, (Hs, (?, Hx)))).
-      subst.
-      clear Hmj.
-      destruct Hx as [Hx|Hx]. {
-        (* x is in v *)
-        apply m_in_prepend_l. {
-          give_up.
+
+      (* Knowing that some task performed the access, we need to
+         figure out whether it was T1 or T2.
+         If t = 0, then t = T2, otherwise t = T1. *)
+      assert (Hd: access_tid x = 0 \/ 1 <= access_tid x) by omega.
+      destruct Hd. {
+        apply m_in_branch_iter with (n:=1). {
+          auto with *.
         }
-        apply access_step_subst_1 in Hs; auto.
-        - apply Hist.access_step_to_gen_access with (m:=TID_COUNT) in Hs; auto with *.
-          destruct Hs as (l, (Hj, Hs2)).
-          assert (l = v) by eauto using Hist.gen_access_fun.
+        assert (Ha: 1 <= 1 < TID_COUNT) by auto with *.
+        assert (Hb: 0 <= 0 < 1) by auto with *.
+        assert (Hf1 := Hf1 1 0 Ha Hb).
+        clear Ha Hb.
+        destruct Hf1 as (f2, (hs1, (hs2, (Hf1, (Hf2, (Hr1, Hr2)))))).
+        rewrite Hf1; clear Hf1.
+        apply m_in_app_l.
+        apply m_in_branch_iter with (n:=0); auto with *.
+        rewrite Hf2; clear Hf2.
+        apply m_in_prod_r. {
+          intros N.
           subst.
-          clear Hs2.
-          apply m_in_to_in_concat.
-          eauto using m_in_def.
-        - give_up.
-        - give_up.
-      }
-      (* x is in hs *)
-      apply m_in_prepend.
-      clear H3 Hi.
-      clear Hmi.
-       {
-      }
-      rewrite access_subst_subst_trans in Hy. {
-        rewrite C2.i_subst_seq in Hy.
-        rewrite C2.i_subst_subst_trans in Hy. {
-          simpl in *.
-          remove_eq TID TID.
-          remove_eq T1 T2.
-          simpl in *.
-          Search access_subst.
-          Search (C2.Run (C2.Acc _ _)).
-          rewrite access_subst_subst_trans in Hy.
+          apply run_inv_nil in Hr1.
+          contradiction.
+        }
+        clear Hr1.
+        inversion Hr2; subst; clear Hr2.
+        (* How do we apply the induction hypothesis? *)
+        assert ( Incl (MMember hs) (MMember hs0)). {
+          apply IHRun; auto.
         }
       }
-    intros.
-    
-    
-    destruct H1 as [(N, _)|(hss, (?, Hx))]. {
-      omega.
-    }
-    subst.
-    assert (Hx := Hx _ H2).
-    destruct Hx as (hs2, [(Hx,(Hy,Hz))|(n,Hy)]). {
-      inversion Hz; subst; clear Hz.
-      apply m_in_nil_nil in Hx.
-      contradiction.
-    }
-    apply C2.run_inv_seq in Hy.
-    destruct Hy as (hsa, (hsb, (?, (Hra, Hrb)))).
-    subst.
-    inversion Hrb; subst; clear Hrb.
-    simpl in *.
-    destruct (Set_VAR.MF.eq_dec T1 T1) as [_| N]; try contradiction.
-    destruct (Set_VAR.MF.eq_dec T1 T2) as [e|_]. {
-      subst.
-      contradiction.
-    }
-    apply C2.run_decl_inv_in in Hra.
-    destruct Hra as [(?, N)|(hss1, (?, Hx))]. {
-      assert (n = 0) by omega.
-      subst.
-      inversion N; subst; clear N.
-      omega.
-    }
-    
-
-    
-    destruct H1 as (n1, (n2, (Hn1, (Hn2, Hx)))).
-    assert (n1 = 1) by (inversion Hn1; auto); clear Hn1.
-    subst.
-    assert (n2 = TID_COUNT). {
-      inversion Hn2; subst; clear Hn2.
-      reflexivity.
-    }
-    assert (Hz: n2 = TID_COUNT). {
-      inversion Hn2; subst; clear Hn2.
-      auto.
-    }
-    subst.
-    clear Hn2 Hz.
-    destruct Hx as [(N,Hx)|(hs2_part, (?, Hx))]. {
-      Import Omega.
-      omega.
-    }
-    subst.
-    assert (Hx := Hx _ H2).
-    destruct Hx as (n, (hs, (Hr,Hi))).
-    apply C2.run_inv_seq in Hr.
-    destruct Hr as (hsa, (hsb, (?, (Hra, Hrb)))).
-    subst.
-    inversion Hrb; subst; clear Hrb.
-    rewrite prod_nil_nil_r in *.
-    simpl in *.
-    apply C2.run_decl_inv_in in Hra.
-    destruct Hra as (n1, (n2, (Hn1, (Hn2, Hx)))).
-    inversion Hn1; subst; clear Hn1.
-    assert (n2 = n). {
-      inversion Hn2; subst; auto.
-    }
-    subst.
-    inversion Hn2; subst; clear Hn2.
-    destruct Hx as [(N,Hx)|(hs2_part1, (?, Hx))]. {
-      inversion Hx; subst; clear Hx.
-      assert (n = 0) by omega.
-      subst.
-    }
-
-
-    
-    Import Omega.
-    assert (x_lt_tc: access_tid x < TID_COUNT) by auto with *.
-    assert (Ht: access_tid x = 0 \/ access_tid x > 0)
-      by omega.
-    destruct Ht as [Ht | Ht]. {
-      (* tid x = 0 *)
-      (* Satisfy outer-forall and unpax the existential in Hx *)
-      assert (Ha : 1 <= 1 < TID_COUNT) by omega.
-      assert (Hx := Hx 1 Ha).
-      destruct Hx as (hs, (Hx,Hy)).
-      destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
-      inversion Hr2; subst; clear Hr2.
-      rewrite prod_nil_nil_r in *.
-      simpl in *.
-      destruct (Set_VAR.MF.eq_dec T1 T1) as [_| N]; try contradiction.
-      apply C2.run_decl_inv in Hr1.
-      destruct Hr1 as (n1, (n2, (Hn1, (Hn2, [(N, Hr1)|(hs_1_x, (?, Hx))])))). {
-        inversion Hn1; subst; clear Hn1.
-        inversion Hn2; subst; clear Hn2.
-        (* tid(y) = 0 /\ tid(y) > 0 *)
-        omega.
-      }
-      inversion Hn1; subst; clear Hn1.
-      inversion Hn2; subst; clear Hn2.
-      (* Satisfy the outer forall and unpax the existential in Hx *)
-      assert (Hb : 0 <= access_tid x < 1) by omega.
-      assert (Hx := Hx _ Hb).
-      destruct Hx as (hs, (Hx,Hz)).
-      destruct (Set_VAR.MF.eq_dec T1 T2) as [e|_]. {
-        subst.
-        contradiction.
-      }
-      (* Now we want to handle the seq in Hx *)
-      apply C2.run_inv_seq in Hx.
-      destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
-      inversion Hr2; subst; clear Hr2.
-      rewrite prod_nil_nil_r in *.
-      eapply run_do_proj_do_proj in Hr1; eauto with *.
-      subst.
-      inversion H2; subst; clear H2.
-      Search List.concat.
-      apply m_in_concat in H1.
-      apply m_in_to_in_concat in H1.
-      assert (MIn x  (prod (Hist.m_proj 1 hs1) (Hist.m_proj (access_tid x) hs1))). {
-        apply m_in_prod_r.
-        - give_up.
-        - apply Hist.in_m_proj; auto.
-          Search (MIn _ (Hist.m_proj _ _)).
-        Search (MIn _ (prod _ _)).
-        apply m_in_prod_inv.
-      }
-      assert (MIn x (List.concat hs_1_x)). {
-        eapply m_in_def; eauto.
-        - 
-      }
-      apply m_in_concat.
-
-      apply in_concat_to_m_in.
-      Search List.concat.
-      apply in_concat_to_m_in in Hy.
-      eapply m_pair_in_concat; eauto.
-      eapply m_pair_in_concat; eauto.
-      apply m_pair_in_prod_2.
-      + auto using Hist.in_m_proj.
-      + auto using Hist.in_m_proj.
-    }
-
-    assert (Ha : 1 <= 1 < TID_COUNT) by auto with *.
-    assert (Hx := Hx _ Ha).
-    destruct Hx as (hs, (Hx,Hy)).
-    apply C2.run_inv_seq in Hx.
-    destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
-    inversion Hr2; subst; clear Hr2.
-    rewrite prod_nil_nil_r in *.
-    simpl in *.
-    destruct (Set_VAR.MF.eq_dec T1 T1) as [_| N]; try contradiction.
-    apply C2.run_decl_inv in Hr1.
-    destruct Hr1 as (n1, (n2, (Hn1, (Hn2, [(N, Hr1)|(Hss, (?, Hx))])))). {
-      inversion Hn1; subst; clear Hn1.
-      inversion Hn2; subst; clear Hn2.
-      (* tid(y) = 0 /\ tid(y) > 0 *)
-      omega.
-    }
-    inversion Hn1; subst; clear Hn1.
-    inversion Hn2; subst; clear Hn2.
-    (* Satisfy the outer forall and unpax the existential in Hx *)
-    assert (Hb : 0 <= 0 < 1) by omega.
-    assert (Hx := Hx _ Hb).
-    destruct Hx as (hs, (Hx,Hz)).
-    destruct (Set_VAR.MF.eq_dec T1 T2) as [e|_]. {
-      subst.
-      contradiction.
-    }
-    (* Now we want to handle the seq in Hx *)
-    apply C2.run_inv_seq in Hx.
-    destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
-    inversion Hr2; subst; clear Hr2.
-    rewrite prod_nil_nil_r in *.
-    eapply run_do_proj_do_proj in Hr1; eauto.
-    subst.
-    eapply m_pair_in_concat; eauto.
-    eapply m_pair_in_concat; eauto.
-    apply m_pair_in_prod_1.
-    + auto using Hist.in_m_proj.
-    + auto using Hist.in_m_proj.
+    - give_up.
   Qed.
 
 
