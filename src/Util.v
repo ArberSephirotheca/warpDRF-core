@@ -996,6 +996,24 @@ Section Ops.
     auto.
   Qed.
 
+  Lemma m_in_prepend_r:
+    forall A (x:A) ls l,
+    MIn x ls ->
+    MIn x (prepend l ls).
+  Proof.
+    induction ls; unfold prepend; intros; simpl. {
+      assumption.
+    }
+    simpl.
+    apply m_in_inv in H.
+    destruct H. {
+      apply m_in_eq.
+      rewrite in_app_iff.
+      auto.
+    }
+    eauto using m_in_cons.
+  Qed.
+
   Lemma m_in_prod_l:
     forall A (x:A) ls1 ls2,
     ls2 <> [] ->
