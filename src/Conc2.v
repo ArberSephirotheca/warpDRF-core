@@ -16,6 +16,7 @@ Require Import Util.
 Require Aniceto.Graphs.Graph.
 Require Conc1.
 Require Import RangeList.
+Require Import SetTh.
 
 Import ListNotations.
 
@@ -915,5 +916,163 @@ Module C2.
     - auto.
   Qed.
 
+
+  Definition MemEquiv (m1 m2:list history) :=
+    forall p,
+    MPairIn p m1 <-> MPairIn p m2.
+
+  Lemma mem_equiv_iff_equiv:
+    forall m1 m2,
+    MemEquiv m1 m2 <-> Equiv (fun p => MPairIn p m1) (fun p => MPairIn p m2).
+  Proof.
+    intros.
+    unfold Equiv, Member, MemEquiv.
+    reflexivity.
+  Qed.
+
+  Lemma mem_equiv_refl:
+    forall m,
+    MemEquiv m m.
+  Proof.
+    intros.
+    rewrite mem_equiv_iff_equiv.
+    reflexivity.
+  Qed.
+
+  Lemma mem_equiv_sym:
+    forall m1 m2,
+    MemEquiv m1 m2 ->
+    MemEquiv m2 m1.
+  Proof.
+    intros.
+    rewrite mem_equiv_iff_equiv in *.
+    symmetry.
+    auto.
+  Qed.
+
+  Lemma mem_equiv_trans:
+    forall m1 m2 m3,
+    MemEquiv m1 m2 ->
+    MemEquiv m2 m3 ->
+    MemEquiv m1 m3.
+  Proof.
+    intros.
+    rewrite mem_equiv_iff_equiv in *.
+    eapply equiv_trans; eauto.
+  Qed.
+
+  (** Register [Equiv] in Coq's tactics. *)
+  Global Add Parametric Relation : (list history) MemEquiv
+    reflexivity proved by mem_equiv_refl
+    symmetry proved by mem_equiv_sym
+    transitivity proved by mem_equiv_trans
+    as mem_equiv_setoid.
+
+  Lemma m_pair_in_inv_cons_nil:
+    forall A p l,
+    @MPairIn A p ([] :: l) ->
+    MPairIn p l.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    - apply par_not_in_nil in H1.
+      contradiction.
+    - assumption.
+  Qed.
+
+  Lemma m_pair_in_nil:
+    forall A p,
+    ~ @MPairIn A p [].
+  Proof.
+    intros.
+    intros N.
+    inversion N.
+  Qed.
+
+  Lemma mem_equiv_nil_rw:
+    forall n,
+    MemEquiv (repeat [] n) [].
+  Proof.
+    induction n; intros. {
+      simpl.
+      reflexivity.
+    }
+    simpl.
+    unfold MemEquiv.
+    split; intros. {
+      unfold Hist.history in *.
+      apply m_pair_in_inv_cons_nil in H.
+      apply IHn in H.
+      assumption.
+    }
+    apply m_pair_in_nil in H.
+    contradiction.
+  Qed.
+
+  Lemma mem_equiv_cons_nil_rw:
+    MemEquiv [[]] [].
+  Proof.
+    rewrite <- (mem_equiv_nil_rw 1).
+    simpl.
+    reflexivity.
+  Qed.
+
+  Lemma m_pair_in_eq:
+    forall A p l ls,
+    @PairIn A p l ->
+    MPairIn p (l :: ls).
+  Proof.
+    intros.
+    apply m_pair_in_def with (l:=l); auto using in_eq.
+  Qed.
+
+  Lemma m_pair_in_cons:
+    forall A p l ls,
+    @MPairIn A p ls ->
+    MPairIn p (l :: ls).
+  Proof.
+    intros.
+    unfold MPairIn in H.
+    rewrite Exists_exists in H.
+    destruct H as (l1, (Hi, Hp)).
+    eauto using m_pair_in_def, in_cons, in_eq.
+  Qed.
+
+  Lemma m_pair_in_app_or:
+    forall A p ls1 ls2,
+    @MPairIn A p (ls1 ++ ls2) ->
+    MPairIn p ls1 \/ MPairIn p ls2.
+  Proof.
+    intros.
+    unfold MPairIn in H.
+    apply Exists_exists in H.
+    destruct H as (l, (Hi, Hp)).
+    apply in_app_or in Hi.
+    destruct Hi as [Hi|Hi];
+      eauto using m_pair_in_def.
+  Qed.
+
+  Lemma m_pair_in_app_sym:
+    forall A p m1 m2,
+    @MPairIn A p (m1 ++ m2) ->
+    MPairIn p (m2 ++ m1).
+  Proof.
+    intros.
+    apply m_pair_in_app_or in H.
+      destruct H;
+        eauto using m_pair_in_app_r, m_pair_in_app_l.
+  Qed.
+
+  Lemma mem_equiv_app_sym:
+    forall m1 m2,
+    MemEquiv (m1 ++ m2) (m2 ++ m1).
+  Proof.
+    split; intros; eauto using m_pair_in_app_sym.
+  Qed.
+
 End Defs.
 End C2.
+
+Module C2Notations.
+  Infix "==" := C2.MemEquiv (at level 40).
+End C2Notations.
