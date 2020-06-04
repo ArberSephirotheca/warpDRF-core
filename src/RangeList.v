@@ -17,7 +17,7 @@ Qed.
 
 Section Defs.
   Variable A:Type.
-
+  (* XXX: use Coq.Lists.List.seq instead of range_list *)
   Inductive InvRangeList : nat -> nat -> list nat -> Prop :=
   | inv_range_list_nil:
     forall n m,
