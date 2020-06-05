@@ -575,6 +575,36 @@ Section Defs.
     apply range_list_to_prop in Heql.
     eauto using range_list_to_no_dup.
   Qed.
+
+  Lemma range_list_length:
+    forall l n1 n2,
+    RangeList n1 n2 l ->
+    Datatypes.length l = n2 - n1.
+  Proof.
+    induction l; intros. {
+      inversion H; subst; clear H.
+      simpl.
+      assert (Hle: n2 <= n1) by auto with *.
+      apply Nat.sub_0_le in Hle.
+      rewrite Hle.
+      reflexivity.
+    }
+    inversion H; subst; clear H.
+    apply IHl in H5.
+    simpl.
+    auto with *.
+  Qed.
+
+  Lemma range_list_fun_length:
+    forall n1 n2,
+    Datatypes.length (range_list n1 n2) = n2 - n1.
+  Proof.
+    intros.
+    remember (range_list n1 n2).
+    symmetry in Heql.
+    apply range_list_to_prop in Heql.
+    auto using range_list_length.
+  Qed.
 End Defs.
 
 Lemma map_range_spec:

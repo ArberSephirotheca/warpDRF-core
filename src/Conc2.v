@@ -1101,6 +1101,18 @@ Module C2.
       symmetry in H0.
       eauto using m_pair_in_app_equiv.
   Qed.
+
+  Lemma mem_equiv_app_refl_rw:
+    forall m,
+    MemEquiv (m ++ m) m.
+  Proof.
+    split; intros.
+    + apply m_pair_in_app_or in H.
+      destruct H; auto.
+    + apply m_pair_in_app_l.
+      assumption.
+  Qed.
+
   Import Morphisms.
 
   Global Instance app_mem_equiv_proper: Proper (MemEquiv ==> MemEquiv ==> MemEquiv) (@app history).
@@ -1152,6 +1164,24 @@ Module C2.
       subst.
       eauto using mem_equiv_m_in.
   Qed.
+
+  Lemma mem_equiv_concat_repeat_rw:
+    forall m n,
+    n > 0 ->
+    MemEquiv (List.concat (repeat m n)) m.
+  Proof.
+    induction n; intros.
+    - simpl. inversion H.
+    - inversion H; subst; clear H.
+      + simpl.
+        rewrite app_nil_r.
+        reflexivity.
+      + simpl.
+        rewrite IHn; auto.
+        rewrite mem_equiv_app_refl_rw.
+        reflexivity.
+  Qed.
+
 End Defs.
 End C2.
 

@@ -1155,10 +1155,22 @@ Section Compiler.
       auto.
   Qed.
 
+  Lemma map_rw_repeat:
+    forall A B m l,
+    @map A B (fun _ : A => m) l = List.repeat m (List.length l).
+  Proof.
+    induction l; intros. {
+      reflexivity.
+    }
+    simpl.
+    rewrite IHl.
+    reflexivity.
+  Qed.
 
-  Lemma concat_nil_rw:
-    forall A B l,
-    @List.concat (list B) (map (fun _ : A => [@nil B]) l) = List.repeat [] (List.length l).
+
+  Lemma concat_eq_rw:
+    forall A B m l,
+    @List.concat (list B) (map (fun _ : A => [m]) l) = List.repeat m (List.length l).
   Proof.
     induction l; intros. {
       reflexivity.
@@ -1168,35 +1180,6 @@ Section Compiler.
     reflexivity.
   Qed.
   Import C2Notations.
-  Lemma range_list_length:
-    forall l n1 n2,
-    RangeList n1 n2 l ->
-    Datatypes.length l = n2 - n1.
-  Proof.
-    induction l; intros. {
-      inversion H; subst; clear H.
-      simpl.
-      assert (Hle: n2 <= n1) by auto with *.
-      apply Nat.sub_0_le in Hle.
-      rewrite Hle.
-      reflexivity.
-    }
-    inversion H; subst; clear H.
-    apply IHl in H5.
-    simpl.
-    auto with *.
-  Qed.
-
-  Lemma range_list_fun_length:
-    forall n1 n2,
-    Datatypes.length (range_list n1 n2) = n2 - n1.
-  Proof.
-    intros.
-    remember (range_list n1 n2).
-    symmetry in Heql.
-    apply range_list_to_prop in Heql.
-    auto using range_list_length.
-  Qed.
 
   Lemma c2_run_trans_inv_1 e hs (t1_nin: ~ C1.In T1 e) (t2_nin: ~ C1.In T2 e):
     C2.Run (translate e) hs ->
@@ -1345,14 +1328,123 @@ Section Compiler.
   Qed.
 
   Lemma concat_map_eq_repeat:
-    forall A n1 n2,
-    @List.concat (list A) (map (fun _ : nat => [[]]) (range_list n1 n2)) =
-    repeat [] (n2 - n1).
+    forall A m n1 n2,
+    @List.concat (list A) (map (fun _ : nat => [m]) (range_list n1 n2)) =
+    repeat m (n2 - n1).
   Proof.
     intros.
-    rewrite concat_nil_rw.
+    rewrite concat_eq_rw.
     rewrite range_list_fun_length.
     reflexivity.
+  Qed.
+(*
+  Lemma prod_cons_l:
+    forall A l1 l2 x,
+    @prod A l1 (x :: l2) = prod l1 [x] ++ prod l1 l2.
+  Proof.
+    induction l1; intros. {
+      reflexivity.
+    }
+    simpl.
+    rewrite IHl1.
+  Qed.
+*)
+(*
+  Fixpoint interleave {A:Type} (l1 l2:list A): list A :=
+  match l1, l2 with
+  | x1::l1, x2::l2 => x1::x2::(@interleave A l1 l2)
+  | [], _ => l2
+  | _, _ => l1
+  end.
+  *)
+  (*
+  Lemma map_app_prod:
+    forall A B (f1:A->list B) f2 l,
+    map (fun x => f1 x ++ f2 x) l = interleave (map f1 l) (map f2 l).
+  Proof.
+    induction l; intros. {
+      reflexivity.
+    }
+    simpl.
+    Search (prod _ (_ :: _)).
+    rewrite IHl.
+    assert (
+      prod l1 l2 =
+      prepend (f1 a) l2 ++ prod l1 (f2 a :: l2)
+    )
+    simpl.
+  Qed.
+*)
+
+  Lemma branch_iter_eq_func:
+    forall A f1 f2 n1 n2,
+    (forall n, n1 <= n < n2 -> f1 n = f2 n) ->
+    @branch_iter A n1 n2 f1 = branch_iter n1 n2 f2.
+  Proof.
+    intros.
+    unfold branch_iter.
+    rewrite map_rw_func with (f4:=f2); auto.
+    intros.
+    auto using range_list_inv_in_2.
+  Qed.
+
+
+  Lemma map_mem_equiv_func:
+    forall A f1 f2 l,
+    (forall (x:A), List.In x l -> f1 x == f2 x) ->
+    List.concat (map f1 l) == List.concat (map f2 l).
+  Proof.
+    induction l; intros; auto; simpl in *. {
+      reflexivity.
+    }
+    assert (Hx: (forall x : A0, In x l -> f1 x == f2 x)) by auto.
+    assert (IHl := IHl Hx).
+    rewrite IHl.
+    assert (R: f1 a == f2 a) by auto.
+    rewrite R.
+    reflexivity.
+  Qed.
+
+
+  Lemma branch_iter_equiv_func:
+    forall f1 f2 n1 n2,
+    (forall n, n1 <= n < n2 -> f1 n == f2 n) ->
+    branch_iter n1 n2 f1 == branch_iter n1 n2 f2.
+  Proof.
+    intros.
+    unfold branch_iter.
+    rewrite (map_mem_equiv_func _ f1 f2).
+    - reflexivity.
+    - intros.
+      apply range_list_inv_in_2 in H0.
+      auto.
+  Qed.
+
+  Lemma mk_empty_1_rw:
+    forall n1 n2,
+    mk_empty_1 n1 n2 == [].
+  Proof.
+    intros.
+    unfold mk_empty_1.
+    rewrite concat_eq_rw.
+    rewrite C2.mem_equiv_nil_rw.
+    rewrite C2.mem_equiv_cons_nil_rw.
+    reflexivity.
+  Qed.
+
+  Lemma branch_iter_absorb:
+    forall n1 n2 m,
+    n1 < n2 ->
+    branch_iter n1 n2 (fun _ : nat => m) == m.
+  Proof.
+    intros.
+    unfold branch_iter.
+    rewrite map_rw_repeat.
+    rewrite range_list_fun_length.
+    rewrite C2.mem_equiv_concat_repeat_rw. {
+      reflexivity.
+    }
+    auto with *.
   Qed.
 
   Lemma translate_seq e1 (t1_nin1: ~ C1.In T1 e1) (t2_nin1: ~ C1.In T2 e1):
@@ -1371,10 +1463,21 @@ Section Compiler.
       assert (Hx := Hr).
       apply c2_run_trans_inv_2 in Hx; auto.
       destruct Hx as (f1, (Hm1, Hx)).
-      exists (repeat [] (TID_COUNT - 1) ++ m1).
+      exists (branch_iter 1 TID_COUNT (fun n1 => mk_empty_1 0 n1 ++ m1) ++ [[]]).
       split. {
-        rewrite C2.mem_equiv_nil_rw.
-        reflexivity.
+        rewrite C2.mem_equiv_cons_nil_rw.
+        repeat rewrite app_nil_r.
+        assert (R:
+          branch_iter 1 TID_COUNT (fun n1 : nat => mk_empty_1 0 n1 ++ m1) ==
+          branch_iter 1 TID_COUNT (fun n1 : nat => m1)
+        ). {
+          apply branch_iter_equiv_func.
+          intros.
+          rewrite mk_empty_1_rw.
+          reflexivity.
+        }
+        rewrite R.
+        rewrite branch_iter_absorb; auto with *.
       }
       apply c2_decl with (f:=fun n1 => (mk_empty_1 0 n1) ++ f1 n1) (hs:=[[]]); auto. {
         rewrite Hm1.
@@ -1394,18 +1497,6 @@ Section Compiler.
       
       Search (C2.seq _ C2.Skip).*)
   Admitted.
-
-  Lemma branch_iter_rw_func:
-    forall A f1 f2 n1 n2,
-    (forall n, n1 <= n < n2 -> f1 n = f2 n) ->
-    @branch_iter A n1 n2 f1 = branch_iter n1 n2 f2.
-  Proof.
-    intros.
-    unfold branch_iter.
-    rewrite map_rw_func with (f4:=f2); auto.
-    intros.
-    auto using range_list_inv_in_2.
-  Qed.
 
   Lemma c2_run_acc_inv_1 e hs i (t1_nin: ~ C1.In T1 (C1.Acc e i)) (t2_nin: ~ C1.In T2 (C1.Acc e i)):
     C2.Run (translate (C1.Acc e i)) hs ->
