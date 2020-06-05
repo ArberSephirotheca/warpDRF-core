@@ -1155,6 +1155,49 @@ Section Compiler.
       auto.
   Qed.
 
+
+  Lemma concat_nil_rw:
+    forall A B l,
+    @List.concat (list B) (map (fun _ : A => [@nil B]) l) = List.repeat [] (List.length l).
+  Proof.
+    induction l; intros. {
+      reflexivity.
+    }
+    simpl.
+    rewrite IHl.
+    reflexivity.
+  Qed.
+  Import C2Notations.
+  Lemma range_list_length:
+    forall l n1 n2,
+    RangeList n1 n2 l ->
+    Datatypes.length l = n2 - n1.
+  Proof.
+    induction l; intros. {
+      inversion H; subst; clear H.
+      simpl.
+      assert (Hle: n2 <= n1) by auto with *.
+      apply Nat.sub_0_le in Hle.
+      rewrite Hle.
+      reflexivity.
+    }
+    inversion H; subst; clear H.
+    apply IHl in H5.
+    simpl.
+    auto with *.
+  Qed.
+
+  Lemma range_list_fun_length:
+    forall n1 n2,
+    Datatypes.length (range_list n1 n2) = n2 - n1.
+  Proof.
+    intros.
+    remember (range_list n1 n2).
+    symmetry in Heql.
+    apply range_list_to_prop in Heql.
+    auto using range_list_length.
+  Qed.
+
   Lemma c2_run_trans_inv_1 e hs (t1_nin: ~ C1.In T1 e) (t2_nin: ~ C1.In T2 e):
     C2.Run (translate e) hs ->
     exists hss, 
@@ -1235,7 +1278,7 @@ Section Compiler.
   Qed.
 
 
-  Lemma c2_run_trans_inv_2 e hs (t1_nin: ~ C1.In T1 e) (t2_nin: ~ C1.In T2 e):
+  Lemma c2_run_trans_inv_2 e  (t1_nin: ~ C1.In T1 e) (t2_nin: ~ C1.In T2 e) hs:
     C2.Run (translate e) hs ->
     exists f1,
     hs = branch_iter 1 TID_COUNT f1 ++ [[]]
@@ -1301,6 +1344,56 @@ Section Compiler.
     split; auto.
   Qed.
 
+  Lemma concat_map_eq_repeat:
+    forall A n1 n2,
+    @List.concat (list A) (map (fun _ : nat => [[]]) (range_list n1 n2)) =
+    repeat [] (n2 - n1).
+  Proof.
+    intros.
+    rewrite concat_nil_rw.
+    rewrite range_list_fun_length.
+    reflexivity.
+  Qed.
+
+  Lemma translate_seq e1 (t1_nin1: ~ C1.In T1 e1) (t2_nin1: ~ C1.In T2 e1):
+    forall e2,
+    ~ C1.In T1 e2 ->
+    ~ C1.In T2 e2 ->
+    forall m1,
+    C2.Run (translate (C1.seq e1 e2)) m1 ->
+    exists m2,
+    m1 == m2 /\ C2.Run (C2.seq (translate e1) (translate e2)) m2.
+  Proof.
+    induction e1; intros e2 t1_nin2 t2_nin2 m1 Hr; simpl.
+    - simpl in *.
+      unfold do_proj.
+      simpl.
+      assert (Hx := Hr).
+      apply c2_run_trans_inv_2 in Hx; auto.
+      destruct Hx as (f1, (Hm1, Hx)).
+      exists (repeat [] (TID_COUNT - 1) ++ m1).
+      split. {
+        rewrite C2.mem_equiv_nil_rw.
+        reflexivity.
+      }
+      apply c2_decl with (f:=fun n1 => (mk_empty_1 0 n1) ++ f1 n1) (hs:=[[]]); auto. {
+        rewrite Hm1.
+        unfold branch_iter.
+      }
+      intros n1 Hn1.
+      assert (Hx := Hx _ Hn1).
+      destruct Hx as (f2, (Hm2, Hx)).
+      simpl.
+      remove_eq T1 T1.
+      remove_eq T1 T2.
+      (*
+      apply c2_decl with (f:=fun n => [[]]) (hs:=f1 n); auto.
+    - unfold do_proj.
+      simpl.
+      remove_eq TID TID.
+      
+      Search (C2.seq _ C2.Skip).*)
+  Admitted.
 
   Lemma branch_iter_rw_func:
     forall A f1 f2 n1 n2,
@@ -1446,10 +1539,10 @@ Section Compiler.
       rewrite mmember_prepend_rw; auto.
       rewrite member_concat_rw.
       rewrite incl_l_either_iff.
-      apply c2_run_acc_inv_1 in H2; auto.
-      destruct H2 as (f1, (?, Hf1)).
-      subst.
       split. {
+        apply c2_run_acc_inv_1 in H2; auto.
+        destruct H2 as (f1, (?, Hf1)).
+        subst.
         clear IHRun. (* We don't need IHRun *)
         (* Show that all members of v are in hss *)
         (* 1. simplify defs *)
@@ -1502,43 +1595,30 @@ Section Compiler.
       (* We have that the access is in hs, so we must use the IH *)
       apply incl_def; intros.
       rewrite mmember_rw in *.
-      apply m_in_app_l.
-      assert (access_tid x < TID_COUNT). {
-        apply H1.
-        apply m_in_prepend_r; auto.
-      }
-
-      (* Knowing that some task performed the access, we need to
-         figure out whether it was T1 or T2.
-         If t = 0, then t = T2, otherwise t = T1. *)
-      assert (Hd: access_tid x = 0 \/ 1 <= access_tid x) by omega.
-      destruct Hd. {
-        apply m_in_branch_iter with (n:=1). {
-          auto with *.
-        }
-        assert (Ha: 1 <= 1 < TID_COUNT) by auto with *.
-        assert (Hb: 0 <= 0 < 1) by auto with *.
-        assert (Hf1 := Hf1 1 0 Ha Hb).
-        clear Ha Hb.
-        destruct Hf1 as (f2, (hs1, (hs2, (Hf1, (Hf2, (Hr1, Hr2)))))).
-        rewrite Hf1; clear Hf1.
-        apply m_in_app_l.
-        apply m_in_branch_iter with (n:=0); auto with *.
-        rewrite Hf2; clear Hf2.
-        apply m_in_prod_r. {
-          intros N.
-          subst.
-          apply C2.run_inv_nil in Hr1.
-          contradiction.
-        }
-        clear Hr1.
-        inversion Hr2; subst; clear Hr2.
-        (* How do we apply the induction hypothesis? *)
-        assert ( Incl (MMember hs) (MMember hs0)). {
-          apply IHRun; auto.
-        }
-      }
-      give_up.
+      assert (R: (C1.Acc e i) = C1.seq (C1.Acc e C1.Skip) i) by auto.
+      rewrite R in H2; clear R.
+      apply translate_seq in H2; auto.
+      + destruct H2 as (m, (Hm, Hr)).
+        apply C2.run_inv_seq in Hr.
+        destruct Hr as (ma, (mb, (?, (Hr1, Hr2)))).
+        assert (Hx := Hr2).
+        apply IHRun in Hx.
+        * subst.
+          rewrite Hm.
+          assert (ma <> nil). {
+            intros N; subst.
+            apply C2.run_inv_nil in Hr1.
+            assumption.
+          }
+          apply m_in_prod_r; auto.
+          give_up.
+        * give_up.
+        * give_up.
+        * give_up.
+      + give_up.
+      + give_up.
+      + give_up.
+      + give_up.
     - give_up.
     - give_up.
     - give_up.
@@ -1559,10 +1639,12 @@ Section Compiler.
     ~ C1.Var TID i -> 
     Hist.MSafeStrong hs2.
   Proof.
+    intros.
+    eapply Hist.m_safe_to_m_safe_strong; eauto.
     Import Omega.
     intros.
     rename H2 into T1_nin_i.
-    rename H3 into T2_nin_i. 
+    rename H3 into T2_nin_i.
     rename H4 into TID_nvar_i.
     unfold Hist.MSafeStrong.
     intros.
