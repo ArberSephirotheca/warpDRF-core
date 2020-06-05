@@ -1070,6 +1070,88 @@ Module C2.
     split; intros; eauto using m_pair_in_app_sym.
   Qed.
 
+  Lemma m_pair_in_app_equiv:
+    forall p m1 m2 m3 m4,
+    MemEquiv m1 m3 ->
+    MemEquiv m2 m4 ->
+    MPairIn p (m1 ++ m2) ->
+    MPairIn p (m3 ++ m4).
+  Proof.
+    intros.
+    apply m_pair_in_app_or in H1.
+    destruct H1. {
+      apply H in H1.
+      eauto using m_pair_in_app_l.
+    }
+    apply H0 in H1.
+    eauto using m_pair_in_app_r.
+  Qed.
+
+  Lemma mem_equiv_app:
+    forall m1 m2 m3 m4,
+    MemEquiv m1 m3 ->
+    MemEquiv m2 m4 ->
+    MemEquiv (m1 ++ m2) (m3 ++ m4).
+  Proof.
+    intros.
+    unfold MemEquiv.
+    split; intros.
+    - eauto using m_pair_in_app_equiv.
+    - symmetry in H.
+      symmetry in H0.
+      eauto using m_pair_in_app_equiv.
+  Qed.
+  Import Morphisms.
+
+  Global Instance app_mem_equiv_proper: Proper (MemEquiv ==> MemEquiv ==> MemEquiv) (@app history).
+  Proof.
+    unfold Proper, respectful.
+    intros.
+    auto using mem_equiv_app.
+  Qed.
+
+  Lemma pair_in_refl:
+    forall A x l,
+    @List.In A x l ->
+    PairIn (x, x) l.
+  Proof.
+    intros.
+    auto using pair_in_def.
+  Qed.
+
+  Lemma m_pair_in_refl:
+    forall A x m,
+    @MIn A x m ->
+    MPairIn (x, x) m.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eauto using m_pair_in_def, pair_in_refl.
+  Qed.
+
+  Lemma mem_equiv_m_in:
+    forall m1 m2 x,
+    MemEquiv m1 m2 ->
+    MIn x m1 ->
+    MIn x m2.
+  Proof.
+    intros.
+    assert (MPairIn (x,x) m1) by eauto using m_pair_in_refl.
+    apply H in H1.
+    eauto using m_pair_in_to_in_r.
+  Qed.
+
+  Global Instance in_mem_equiv_proper: Proper (eq ==> MemEquiv ==> iff) (@MIn access_val).
+  Proof.
+    unfold Proper, respectful.
+    intros.
+    split; intros.
+    - subst.
+      eauto using mem_equiv_m_in.
+    - symmetry in H0.
+      subst.
+      eauto using mem_equiv_m_in.
+  Qed.
 End Defs.
 End C2.
 
