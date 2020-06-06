@@ -3,6 +3,7 @@ Require Import Coq.Strings.String.
 Require Import Coq.Relations.Relation_Definitions.
 Require Import Coq.Relations.Relation_Operators.
 Require Import Coq.Relations.Operators_Properties.
+Require Coq.Arith.PeanoNat.
 Require Coq.Sets.Ensembles.
 Require Coq.omega.Omega.
 Require Import Recdef.
@@ -1180,6 +1181,221 @@ Module C2.
         rewrite IHn; auto.
         rewrite mem_equiv_app_refl_rw.
         reflexivity.
+  Qed.
+
+  Lemma run_branch_seq_skip:
+    forall x i1 m1 r,
+    Run (Branch x r i1 Skip) m1 ->
+    forall i2 m2,
+    Run i2 m2 ->
+    Run (Branch x r i1 i2) (prod m1 m2).
+  Proof.
+    intros x i1 m1 r H.
+    remember (Branch _ _ _ _).
+    generalize dependent Heqi.
+    generalize dependent x.
+    generalize dependent r.
+    generalize dependent i1.
+    induction H; intros; inversion Heqi; subst; clear Heqi.
+    - rewrite seq_nil_rw in *.
+      assert (IHRun2 := IHRun2 _ _ _ eq_refl _ _ H1).
+      rewrite <- prod_app.
+      Search (prod (_ ++ _)).
+      apply run_branch_cons.
+      + Search (Run (seq _ _)).
+        auto using run_seq.
+      + eauto.
+    - apply run_branch_nil.
+      inversion H; subst; clear H.
+      rewrite prod_nil_nil_l.
+      assumption.
+  Qed.
+
+  Lemma run_decl_seq_skip:
+    forall x r i1 i2 m1 m2,
+    Run (Decl x r i1 Skip) m1 ->
+    Run i2 m2 ->
+    Run (Decl x r i1 i2) (prod m1 m2).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    apply run_decl with (l:=l); auto using run_branch_seq_skip.
+  Qed.
+
+  Lemma run_branch_map:
+    forall f l i1 i2 x hs hs',
+    hs' = prod (List.concat (List.map f l)) hs ++ hs  ->
+    (forall n, List.In n l -> Run (i_subst x (NNum n) i1) (f n)) ->
+    Run i2 hs ->
+    Run (Branch x l i1 i2) hs'.
+  Proof.
+    induction l; intros; subst.
+    - simpl.
+      apply run_branch_nil; auto.
+    - simpl.
+      Search (_ ++ _ ++ _).
+      rewrite <- prod_app.
+      rewrite app_assoc_reverse.
+      apply run_branch_cons.
+      + apply run_seq; auto using in_eq.
+      + eauto using in_cons.
+  Qed.
+
+  Lemma r_step_range_list:
+    forall n1 n2,
+    RStep (NNum n1, NNum n2) (range_list n1 n2).
+  Proof.
+    intros.
+    remember (range_list _ _).
+    apply r_step_def with (n1:=n1) (n2:=n2); auto using n_step_num.
+    apply range_list_to_prop.
+    auto.
+  Qed.
+
+  Lemma run_decl_map:
+     forall f n1 n2 i1 i2 x hs hs',
+     hs' = prod (List.concat (map f (range_list n1 n2))) hs ++ hs  ->
+     (forall n,
+       n1 <= n < n2 ->
+       Run (i_subst x (NNum n) i1) (f n)) ->
+     Run i2 hs ->
+     Run (Decl x (NNum n1, NNum n2) i1 i2) hs'.
+  Proof.
+    intros.
+    apply run_decl with (range_list n1 n2).
+    - apply r_step_range_list.
+    - eapply run_branch_map; eauto.
+      intros.
+      apply range_list_in_iff in H2.
+      auto.
+  Qed.
+
+  Definition add {A:Type} f (a:nat) (v:A) :=
+    (fun n => if PeanoNat.Nat.eq_dec n a then v else f n).
+
+  Lemma add_eq_rw:
+    forall A f a (hs1:A),
+    add f a hs1 a = hs1.
+  Proof.
+    unfold add; intros.
+    destruct (PeanoNat.Nat.eq_dec a a). {
+      reflexivity.
+    }
+    contradiction.
+  Qed.
+
+  Lemma add_neq_rw:
+    forall A f a b (x:A),
+    a <> b ->
+    add f a x b = f b.
+  Proof.
+    unfold add.
+    intros.
+    destruct (PeanoNat.Nat.eq_dec b a). {
+      subst.
+      contradiction.
+    }
+    reflexivity.
+  Qed.
+
+  Lemma map_add_rw_not_in:
+    forall A a f l (x:A),
+    ~ List.In a l ->
+    map (add f a x) l = map f l.
+  Proof.
+    intros B n f.
+    induction l; intros. {
+      reflexivity.
+    }
+    simpl.
+    assert (n <> a). {
+      intros N.
+      subst.
+      contradict H.
+      auto using in_eq.
+    }
+    rewrite add_neq_rw; auto.
+    assert (Hi : ~ List.In n l). {
+      intros N.
+      contradict H.
+      auto using in_cons.
+    }
+    assert (IHl := IHl x Hi).
+    rewrite IHl.
+    reflexivity.
+  Qed.
+
+  Lemma run_branch_inv_map:
+    forall l i1 i2 x hs',
+    Run (Branch x l i1 i2) hs' ->
+    NoDup l ->
+    exists f hs,
+    hs' = prod (List.concat (List.map f l)) hs ++ hs  /\
+    Run i2 hs /\
+    (forall n, List.In n l -> Run (i_subst x (NNum n) i1) (f n)).
+  Proof.
+    induction l; intros. {
+      inversion H; subst; clear H.
+      simpl.
+      exists (fun x => []).
+      exists hs'.
+      repeat split; auto.
+      intros.
+      contradiction.
+    }
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0.
+    apply IHl in H8; auto; clear IHl.
+    destruct H8 as (f, (hs3, (Heq,(Hr,Hf)))).
+    apply run_inv_seq in H7.
+    destruct H7 as (m1, (m2, (?, (Hr1, Hr2)))).
+    assert (hs3 = m2) by eauto using run_fun.
+    subst.
+    exists (add f a m1).
+    exists m2.
+    simpl.
+    rewrite add_eq_rw.
+    rewrite <- prod_app.
+    rewrite map_add_rw_not_in; auto.
+    repeat rewrite app_assoc.
+    repeat split; auto.
+    intros.
+    destruct H. {
+      subst.
+      rewrite add_eq_rw.
+      assumption.
+    }
+    assert (a <> n). {
+      intros N; subst.
+      contradiction.
+    }
+    rewrite add_neq_rw; auto.
+  Qed.
+
+  Definition branch_iter n1 n2 f (hs:list history) : list history :=
+    prod (List.concat (List.map f (range_list n1 n2))) hs ++ hs.
+
+  Lemma run_decl_inv_map:
+    forall n1 n2 i1 i2 x hs',
+    Run (Decl x (NNum n1, NNum n2) i1 i2) hs' ->
+    exists f hs,
+    hs' = branch_iter n1 n2 f hs /\
+    Run i2 hs /\
+    (forall n, n1 <= n < n2 -> Run (i_subst x (NNum n) i1) (f n)).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    apply r_step_to_range_list in H5.
+    apply run_branch_inv_map in H6.
+    - destruct H6 as (f, (m1, (?,(Hr,Hf)))).
+      subst.
+      unfold branch_iter.
+      subst.
+      exists f.
+      exists m1.
+      repeat split; auto using range_list_in.
+    - subst.
+      auto using range_list_no_dup.
   Qed.
 
 End Defs.

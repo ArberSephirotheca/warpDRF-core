@@ -836,17 +836,6 @@ Section Compiler.
     contradiction.
   Qed.
 
-  Lemma r_step_range_list:
-    forall n1 n2,
-    RStep (NNum n1, NNum n2) (range_list n1 n2).
-  Proof.
-    intros.
-    remember (range_list _ _).
-    apply r_step_def with (n1:=n1) (n2:=n2); auto using n_step_num.
-    apply range_list_to_prop.
-    auto.
-  Qed.
-
   Lemma c2_branch:
     forall f l i1 i2 x hs hs',
     hs' = ((List.concat (List.map f l)) ++ hs) ->
@@ -878,7 +867,7 @@ Section Compiler.
   Proof.
     intros.
     apply C2.run_decl with (l:=range_list n1 n2).
-    - apply r_step_range_list.
+    - apply C2.r_step_range_list.
     - apply c2_branch with (f:=fun x => [[]]) (hs:=[[]]).
       + reflexivity.
       + intros.
@@ -1137,6 +1126,7 @@ Section Compiler.
     unfold do_proj.
     rewrite subst_t2_tid_eq; auto.
   Qed.
+
 
   Lemma c2_decl:
      forall f n1 n2 i1 i2 x hs hs',
@@ -1456,20 +1446,17 @@ Section Compiler.
     exists m2,
     m1 == m2 /\ C2.Run (C2.seq (translate e1) (translate e2)) m2.
   Proof.
-    induction e1; intros e2 t1_nin2 t2_nin2 m1 Hr; simpl.
-    - simpl in *.
-      unfold do_proj.
-      simpl.
+    induction e1; intros e2 t1_nin2 t2_nin2 m1 Hr; simpl; unfold do_proj; simpl.
+    - simpl in Hr.
+      (*
       assert (Hx := Hr).
       apply c2_run_trans_inv_2 in Hx; auto.
       destruct Hx as (f1, (Hm1, Hx)).
-      exists (branch_iter 1 TID_COUNT (fun n1 => mk_empty_1 0 n1 ++ m1) ++ [[]]).
+      exists (branch_iter 1 TID_COUNT (fun n1 => mk_empty_1 0 n1 ++ [[]]) ++ m1).
       split. {
-        rewrite C2.mem_equiv_cons_nil_rw.
-        repeat rewrite app_nil_r.
         assert (R:
-          branch_iter 1 TID_COUNT (fun n1 : nat => mk_empty_1 0 n1 ++ m1) ==
-          branch_iter 1 TID_COUNT (fun n1 : nat => m1)
+          branch_iter 1 TID_COUNT (fun n1 : nat => mk_empty_1 0 n1 ++ [[]]) ==
+          branch_iter 1 TID_COUNT (fun n1 : nat => [[]])
         ). {
           apply branch_iter_equiv_func.
           intros.
@@ -1478,23 +1465,23 @@ Section Compiler.
         }
         rewrite R.
         rewrite branch_iter_absorb; auto with *.
+        rewrite C2.mem_equiv_cons_nil_rw.
+        (*rewrite app_nil_r.*)
+        reflexivity.
       }
-      apply c2_decl with (f:=fun n1 => (mk_empty_1 0 n1) ++ f1 n1) (hs:=[[]]); auto. {
-        rewrite Hm1.
-        unfold branch_iter.
-      }
-      intros n1 Hn1.
-      assert (Hx := Hx _ Hn1).
-      destruct Hx as (f2, (Hm2, Hx)).
+      apply c2_decl with (f:=fun n1 => mk_empty_1 0 n1 ++ [[]]) (hs:=m1); auto.
+      intros.
       simpl.
       remove_eq T1 T1.
       remove_eq T1 T2.
+      apply c2_decl with (f:=fun n => [[]]) (hs:=f1 n); auto.
       (*
       apply c2_decl with (f:=fun n => [[]]) (hs:=f1 n); auto.
-    - unfold do_proj.
-      simpl.
-      remove_eq TID TID.
-      
+      *)
+      *)
+      give_up.
+    - remove_eq TID TID.
+      simpl in Hr.
       Search (C2.seq _ C2.Skip).*)
   Admitted.
 

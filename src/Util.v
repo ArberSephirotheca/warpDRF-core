@@ -548,6 +548,29 @@ Section Ops.
     reflexivity.
   Qed.
 
+  Lemma prepend_nil_l:
+    forall A ll, 
+    @prepend A [] ll = ll.
+  Proof.
+    induction ll; intros.
+    - reflexivity.
+    - simpl.
+      rewrite IHll.
+      reflexivity.
+  Qed.
+
+  Lemma prod_nil_nil_l:
+    forall A ll, 
+    @prod A [[]] ll = ll.
+  Proof.
+    intros.
+    unfold prod.
+    simpl.
+    rewrite app_nil_r.
+    rewrite prepend_nil_l.
+    reflexivity.
+  Qed.
+
   Lemma prod_nil_nil_r:
     forall A ll, 
     @prod A ll [[]] = ll.
