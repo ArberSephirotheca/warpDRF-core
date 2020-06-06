@@ -835,7 +835,7 @@ Section Compiler.
     apply m_in_nil in H.
     contradiction.
   Qed.
-
+(*
   Lemma c2_branch:
     forall f l i1 i2 x hs hs',
     hs' = ((List.concat (List.map f l)) ++ hs) ->
@@ -857,7 +857,8 @@ Section Compiler.
       apply H0.
       auto using in_cons.
   Qed.
-
+*)
+(*
   Definition mk_empty_1 n1 n2 : list Hist.history :=
     List.concat (map (fun _ => [[]]) (range_list n1 n2)) ++ [[]].
 
@@ -868,7 +869,7 @@ Section Compiler.
     intros.
     apply C2.run_decl with (l:=range_list n1 n2).
     - apply C2.r_step_range_list.
-    - apply c2_branch with (f:=fun x => [[]]) (hs:=[[]]).
+    - apply C2.run_branch_map with (f:=fun x => []) (hs:=[[]]).
       + reflexivity.
       + intros.
         simpl.
@@ -886,7 +887,7 @@ Section Compiler.
     unfold translate.
     simpl.
     apply C2.run_decl with (l:=range_list 1 TID_COUNT).
-    - apply r_step_range_list.
+    - apply C2.r_step_range_list.
     - apply c2_branch with (f:=fun n => mk_empty_1 0 n) (hs:=[[]]).
       + reflexivity.
       + intros.
@@ -1023,7 +1024,7 @@ Section Compiler.
     - apply range_list_in_iff; assumption.
     - auto using range_list_no_dup.
   Qed.
-
+*)
   Lemma subst_t1_tid_eq:
     forall v e,
     ~ C2.In T1 e ->
@@ -1127,7 +1128,7 @@ Section Compiler.
     rewrite subst_t2_tid_eq; auto.
   Qed.
 
-
+(*
   Lemma c2_decl:
      forall f n1 n2 i1 i2 x hs hs',
      hs' = List.concat (map f (range_list n1 n2)) ++ hs ->
@@ -1144,7 +1145,7 @@ Section Compiler.
       apply range_list_in_iff in H2.
       auto.
   Qed.
-
+*)
   Lemma map_rw_repeat:
     forall A B m l,
     @map A B (fun _ : A => m) l = List.repeat m (List.length l).
@@ -1170,7 +1171,7 @@ Section Compiler.
     reflexivity.
   Qed.
   Import C2Notations.
-
+(*
   Lemma c2_run_trans_inv_1 e hs (t1_nin: ~ C1.In T1 e) (t2_nin: ~ C1.In T2 e):
     C2.Run (translate e) hs ->
     exists hss, 
@@ -1249,17 +1250,17 @@ Section Compiler.
     }
     auto.
   Qed.
+*)
 
-
-  Lemma c2_run_trans_inv_2 e  (t1_nin: ~ C1.In T1 e) (t2_nin: ~ C1.In T2 e) hs:
+  Lemma run_trans_inv e  (t1_nin: ~ C1.In T1 e) (t2_nin: ~ C1.In T2 e) hs:
     C2.Run (translate e) hs ->
     exists f1,
-    hs = branch_iter 1 TID_COUNT f1 ++ [[]]
+    hs = C2.branch_iter 1 TID_COUNT f1 [[]]
     /\
     forall n1,
     1 <= n1 < TID_COUNT ->
     exists f2,
-    f1 n1 = branch_iter 0 n1 f2 ++ [[]] /\
+    f1 n1 = C2.branch_iter 0 n1 f2 [[]] /\
     forall n2,
       0 <= n2 < n1 ->
       exists hs1 hs2,
@@ -1271,8 +1272,9 @@ Section Compiler.
   Proof.
     intros.
     unfold translate in *.
-    apply c2_run_decl_inv in H.
+    apply C2.run_decl_inv_map in H.
     destruct H as (f1, (hs1, (?, (Hs, H)))).
+    unfold C2.branch_iter in H0.
     inversion Hs; subst; clear Hs.
     exists f1.
     split; auto.
@@ -1284,14 +1286,11 @@ Section Compiler.
       auto using in_proj_to_in.
     }
     rewrite rw_1 in Ha; auto.
-    apply C2.run_inv_seq in Ha.
-    destruct Ha as (hs1, (hs2, (?, (Ha, Hc)))).
-    inversion Hc; subst; clear Hc.
-    rewrite prod_nil_nil_r in *.
-    subst.
-    apply c2_run_decl_inv in Ha.
+    apply C2.run_decl_inv_map in Ha.
     destruct Ha as (f2, (hs, (?, (Ha, Hc)))); auto.
     inversion Ha; subst; clear Ha.
+    exists f2.
+    rewrite H.
     assert (forall n2, 
       0 <= n2 < n1 ->
       exists hs1 hs2,
@@ -1304,17 +1303,9 @@ Section Compiler.
       rewrite rw_2 in Hb; auto.
       apply C2.run_inv_seq in Hb.
       destruct Hb as (hsa, (hsb, (?,(Hr,Hs)))).
-      inversion Hs; subst; clear Hs.
-      rewrite prod_nil_nil_r in *.
-      apply C2.run_inv_seq in Hr.
-      destruct Hr as (hsb, (hsc, (?, (Ha, Hb)))).
-      subst.
-      exists hsb.
-      exists hsc.
-      auto.
+      eauto.
     }
-    exists f2.
-    split; auto.
+    auto.
   Qed.
 
   Lemma concat_map_eq_repeat:
@@ -1365,7 +1356,7 @@ Section Compiler.
     simpl.
   Qed.
 *)
-
+(*
   Lemma branch_iter_eq_func:
     forall A f1 f2 n1 n2,
     (forall n, n1 <= n < n2 -> f1 n = f2 n) ->
@@ -1377,7 +1368,8 @@ Section Compiler.
     intros.
     auto using range_list_inv_in_2.
   Qed.
-
+*)
+(*
 
   Lemma map_mem_equiv_func:
     forall A f1 f2 l,
@@ -1394,8 +1386,8 @@ Section Compiler.
     rewrite R.
     reflexivity.
   Qed.
-
-
+*)
+(*
   Lemma branch_iter_equiv_func:
     forall f1 f2 n1 n2,
     (forall n, n1 <= n < n2 -> f1 n == f2 n) ->
@@ -1436,7 +1428,7 @@ Section Compiler.
     }
     auto with *.
   Qed.
-
+*)
   Lemma translate_seq e1 (t1_nin1: ~ C1.In T1 e1) (t2_nin1: ~ C1.In T2 e1):
     forall e2,
     ~ C1.In T1 e2 ->
@@ -1481,6 +1473,10 @@ Section Compiler.
       *)
       give_up.
     - remove_eq TID TID.
+      apply run_trans_inv in Hr.
+      + destruct Hr as (f1, (?, Hf)).
+        subst.
+      unfold translate in Hr.
       simpl in Hr.
       Search (C2.seq _ C2.Skip).*)
   Admitted.
