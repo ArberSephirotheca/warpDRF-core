@@ -1114,6 +1114,7 @@ Module C2.
       assumption.
   Qed.
 
+
   Import Morphisms.
 
   Global Instance app_mem_equiv_proper: Proper (MemEquiv ==> MemEquiv ==> MemEquiv) (@app history).
@@ -1121,6 +1122,12 @@ Module C2.
     unfold Proper, respectful.
     intros.
     auto using mem_equiv_app.
+  Qed.
+
+  Global Instance app_mem_equiv_proper: Proper (MemEquiv ==> MemEquiv ==> MemEquiv) prod.
+  Proof.
+    unfold Proper, respectful.
+    intros.
   Qed.
 
   Lemma pair_in_refl:
@@ -1182,6 +1189,38 @@ Module C2.
         rewrite mem_equiv_app_refl_rw.
         reflexivity.
   Qed.
+
+
+  Lemma mem_equiv_concat_refl_rw:
+    forall m l,
+    l <> [] ->
+    (forall m', List.In m' l -> MemEquiv m' m) ->
+    MemEquiv (List.concat l) m.
+  Proof.
+    induction l; intros. {
+      contradiction.
+    }
+    simpl.
+    assert (MemEquiv a m) by eauto using in_eq.
+    destruct l. {
+      rewrite app_nil_r.
+      assumption.
+    }
+    assert (Hne : l :: l0 <> []). {
+      intros N.
+      inversion N.
+    }
+    assert (Hfl: (forall m' : list history, List.In m' (l :: l0) -> MemEquiv m' m)). {
+      eauto using in_cons.
+    }
+    assert (IHl := IHl Hne Hfl).
+    rewrite IHl.
+    rewrite H1.
+    rewrite mem_equiv_app_refl_rw.
+    reflexivity.
+  Qed.
+  
+  (* ------------------------------------------------------------ *)
 
   Lemma run_branch_seq_skip:
     forall x i1 m1 r,

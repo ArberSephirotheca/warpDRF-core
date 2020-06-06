@@ -858,19 +858,19 @@ Section Compiler.
       auto using in_cons.
   Qed.
 *)
-(*
   Definition mk_empty_1 n1 n2 : list Hist.history :=
     List.concat (map (fun _ => [[]]) (range_list n1 n2)) ++ [[]].
 
-  Lemma c2_decl_skip:
+  Lemma run_skip_1:
     forall n1 n2,
     C2.Run (C2.Decl T2 (NNum n1, NNum n2) C2.Skip C2.Skip) (mk_empty_1 n1 n2).
   Proof.
     intros.
     apply C2.run_decl with (l:=range_list n1 n2).
     - apply C2.r_step_range_list.
-    - apply C2.run_branch_map with (f:=fun x => []) (hs:=[[]]).
-      + reflexivity.
+    - apply C2.run_branch_map_def with (f:=fun x => [[]]) (hs:=[[]]).
+      + rewrite prod_nil_nil_r.
+        reflexivity.
       + intros.
         simpl.
         apply C2.run_skip.
@@ -881,20 +881,21 @@ Section Compiler.
     List.concat (map (fun n => mk_empty_1 0 n) (range_list n1 n2))
      ++ [[]].
 
-  Lemma c2_run_skip:
+  Lemma run_skip:
     C2.Run (translate C1.Skip) (mk_empty_2 1 TID_COUNT).
   Proof.
     unfold translate.
     simpl.
     apply C2.run_decl with (l:=range_list 1 TID_COUNT).
     - apply C2.r_step_range_list.
-    - apply c2_branch with (f:=fun n => mk_empty_1 0 n) (hs:=[[]]).
-      + reflexivity.
+    - apply C2.run_branch_map_def with (f:=fun n => mk_empty_1 0 n) (hs:=[[]]).
+      + rewrite prod_nil_nil_r.
+        reflexivity.
       + intros.
         simpl.
         remove_eq T1 T1.
         remove_eq T1 T2.
-        apply c2_decl_skip.
+        apply run_skip_1.
       + apply C2.run_skip.
   Qed.
 
@@ -999,7 +1000,7 @@ Section Compiler.
     List.concat (@List.map nat (list A) f (range_list n1 n2)).
 
 
-
+(*
   Lemma c2_run_decl_inv:
     forall n1 n2 i1 i2 x hs',
     C2.Run (C2.Decl x (NNum n1, NNum n2) i1 i2) hs' ->
@@ -1252,15 +1253,16 @@ Section Compiler.
   Qed.
 *)
 
+
   Lemma run_trans_inv e  (t1_nin: ~ C1.In T1 e) (t2_nin: ~ C1.In T2 e) hs:
     C2.Run (translate e) hs ->
     exists f1,
-    hs = C2.branch_iter 1 TID_COUNT f1 [[]]
+    hs = List.concat (C2.branch_iter 1 TID_COUNT f1) ++ [[]]
     /\
     forall n1,
     1 <= n1 < TID_COUNT ->
     exists f2,
-    f1 n1 = C2.branch_iter 0 n1 f2 [[]] /\
+    f1 n1 = List.concat (C2.branch_iter 0 n1 f2) ++ [[]] /\
     forall n2,
       0 <= n2 < n1 ->
       exists hs1 hs2,
@@ -1273,13 +1275,17 @@ Section Compiler.
     intros.
     unfold translate in *.
     apply C2.run_decl_inv_map in H.
-    destruct H as (f1, (hs1, (?, (Hs, H)))).
-    unfold C2.branch_iter in H0.
+    destruct H as (ms, (m, (?, (Hs, H)))).
     inversion Hs; subst; clear Hs.
+    Search (prod _ [[]]).
+    rewrite prod_nil_nil_r.
+    apply C2.decl_map_inv in H.
+    destruct H as (f1, (R1, Hf)).
     exists f1.
+    rewrite R1.
     split; auto.
     intros n1 Ha.
-    apply H in Ha; clear H.
+    apply Hf in Ha; clear Hf.
     assert (X:~ C2.In T1 (proj e)). {
       intros N.
       contradict t1_nin.
@@ -1287,10 +1293,12 @@ Section Compiler.
     }
     rewrite rw_1 in Ha; auto.
     apply C2.run_decl_inv_map in Ha.
-    destruct Ha as (f2, (hs, (?, (Ha, Hc)))); auto.
+    destruct Ha as (ms2, (hs, (R2,(Ha,Hc)))).
+    apply C2.decl_map_inv in Hc.
+    destruct Hc as (f2, (R3, Hc)). 
     inversion Ha; subst; clear Ha.
     exists f2.
-    rewrite H.
+    rewrite R2.
     assert (forall n2, 
       0 <= n2 < n1 ->
       exists hs1 hs2,
@@ -1305,7 +1313,8 @@ Section Compiler.
       destruct Hb as (hsa, (hsb, (?,(Hr,Hs)))).
       eauto.
     }
-    auto.
+    rewrite prod_nil_nil_r.
+    eauto.
   Qed.
 
   Lemma concat_map_eq_repeat:
@@ -1401,7 +1410,7 @@ Section Compiler.
       apply range_list_inv_in_2 in H0.
       auto.
   Qed.
-
+*)
   Lemma mk_empty_1_rw:
     forall n1 n2,
     mk_empty_1 n1 n2 == [].
@@ -1414,6 +1423,29 @@ Section Compiler.
     reflexivity.
   Qed.
 
+  Lemma mk_empty_2_rw:
+    forall n1 n2,
+    mk_empty_2 n1 n2 == [].
+  Proof.
+    unfold mk_empty_2.
+    intros.
+    rewrite C2.mem_equiv_cons_nil_rw.
+    rewrite app_nil_r.
+    remember (map _ _).
+    destruct (list_eq_nil l) as [R|Hne]. {
+      rewrite R.
+      reflexivity.
+    }
+    apply C2.mem_equiv_concat_refl_rw; auto.
+    intros.
+    subst.
+    apply in_map_iff in H.
+    destruct H as (n, (?, Hi)).
+    subst.
+    rewrite mk_empty_1_rw.
+    reflexivity.
+  Qed.
+(*
   Lemma branch_iter_absorb:
     forall n1 n2 m,
     n1 < n2 ->
@@ -1429,6 +1461,15 @@ Section Compiler.
     auto with *.
   Qed.
 *)
+
+  Lemma t1_not_in_proj_skip:
+    ~ C2.In T1 (proj C1.Skip).
+  Proof.
+    simpl.
+    intros N.
+    inversion N.
+  Qed.
+
   Lemma translate_seq e1 (t1_nin1: ~ C1.In T1 e1) (t2_nin1: ~ C1.In T2 e1):
     forall e2,
     ~ C1.In T1 e2 ->
@@ -1438,44 +1479,28 @@ Section Compiler.
     exists m2,
     m1 == m2 /\ C2.Run (C2.seq (translate e1) (translate e2)) m2.
   Proof.
-    induction e1; intros e2 t1_nin2 t2_nin2 m1 Hr; simpl; unfold do_proj; simpl.
+    induction e1; intros e2 t1_nin2 t2_nin2 m1 Hr.
     - simpl in Hr.
-      (*
       assert (Hx := Hr).
-      apply c2_run_trans_inv_2 in Hx; auto.
-      destruct Hx as (f1, (Hm1, Hx)).
-      exists (branch_iter 1 TID_COUNT (fun n1 => mk_empty_1 0 n1 ++ [[]]) ++ m1).
+      exists (prod (mk_empty_2 1 TID_COUNT) m1).
       split. {
-        assert (R:
-          branch_iter 1 TID_COUNT (fun n1 : nat => mk_empty_1 0 n1 ++ [[]]) ==
-          branch_iter 1 TID_COUNT (fun n1 : nat => [[]])
-        ). {
-          apply branch_iter_equiv_func.
-          intros.
-          rewrite mk_empty_1_rw.
-          reflexivity.
-        }
-        rewrite R.
-        rewrite branch_iter_absorb; auto with *.
-        rewrite C2.mem_equiv_cons_nil_rw.
-        (*rewrite app_nil_r.*)
-        reflexivity.
+        rewrite mk_empty_2_rw. (* XXX *)
+        give_up.
       }
-      apply c2_decl with (f:=fun n1 => mk_empty_1 0 n1 ++ [[]]) (hs:=m1); auto.
-      intros.
-      simpl.
-      remove_eq T1 T1.
-      remove_eq T1 T2.
-      apply c2_decl with (f:=fun n => [[]]) (hs:=f1 n); auto.
-      (*
-      apply c2_decl with (f:=fun n => [[]]) (hs:=f1 n); auto.
-      *)
-      *)
-      give_up.
+      apply C2.run_seq; auto using run_skip.
     - remove_eq TID TID.
       apply run_trans_inv in Hr.
       + destruct Hr as (f1, (?, Hf)).
         subst.
+        simpl.
+        exists (List.concat (C2.branch_iter 1 TID_COUNT f1) ++ [[]]).
+        split. {
+          reflexivity.
+        }
+        
+        apply C2.run_decl_map_def with (f:=f) .
+        Search (C2.seq _ C2.Skip).
+        rewrite C2.seq_nil_rw.
       unfold translate in Hr.
       simpl in Hr.
       Search (C2.seq _ C2.Skip).*)
