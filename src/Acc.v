@@ -93,7 +93,8 @@ Module Hist.
 Section Defs.
   Context {A:Access}.
 
-  Definition history := list access_val.
+  Notation history := (list access_val).
+  (*Global Transparent history.*)
   Definition Safe2 (h1 h2:history) := forall x y, List.In x h1 -> List.In y h2 -> access_safe x y.
 
   Definition Safe (h:history) := forall x y, List.In x h -> List.In y h -> access_safe x y.

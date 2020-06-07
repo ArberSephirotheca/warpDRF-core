@@ -42,7 +42,7 @@ Section C1.
 
   Import Hist.
 
-  Notation history := Hist.history.
+  Notation history := (list access_val).
 
   Definition state := (history * inst) % type.
 
@@ -787,7 +787,8 @@ Module C1SX.
 Section Defs.
   Import SymExe.
   Context {A:Access}.
-  Definition t := (Hist.history * C1.inst) % type.
+  Notation history := (list access_val).
+  Definition t := (history * C1.inst) % type.
   Variable TID_COUNT: nat.
   Variable TID: var.
 
@@ -807,7 +808,7 @@ Section Defs.
     forall h x c1 c2,
     Red (h, C1.Loop x [] c1 c2) [(h, c2)].
 
-  Inductive Run: C1.inst -> list Hist.history -> Prop :=
+  Inductive Run: C1.inst -> list history -> Prop :=
   | run_skip:
     Run C1.Skip [[]]
   | run_access:

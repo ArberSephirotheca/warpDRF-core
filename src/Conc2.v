@@ -79,7 +79,7 @@ Module C2.
   | Branch x r i3 i4 => Branch x r i3 (seq i4 i2)
   end.
 
-  Notation history := Hist.history.
+  Notation history := (list access_val).
 
   Inductive Run: inst -> list history -> Prop :=
   | run_skip:
@@ -969,27 +969,6 @@ Module C2.
     transitivity proved by mem_equiv_trans
     as mem_equiv_setoid.
 
-  Lemma m_pair_in_inv_cons_nil:
-    forall A p l,
-    @MPairIn A p ([] :: l) ->
-    MPairIn p l.
-  Proof.
-    intros.
-    inversion H; subst; clear H.
-    - apply par_not_in_nil in H1.
-      contradiction.
-    - assumption.
-  Qed.
-
-  Lemma m_pair_in_nil:
-    forall A p,
-    ~ @MPairIn A p [].
-  Proof.
-    intros.
-    intros N.
-    inversion N.
-  Qed.
-
   Lemma mem_equiv_nil_rw:
     forall n,
     MemEquiv (repeat [] n) [].
@@ -1001,7 +980,7 @@ Module C2.
     simpl.
     unfold MemEquiv.
     split; intros. {
-      unfold Hist.history in *.
+      (*unfold Hist.history in *.*)
       apply m_pair_in_inv_cons_nil in H.
       apply IHn in H.
       assumption.
@@ -1013,55 +992,7 @@ Module C2.
   Lemma mem_equiv_cons_nil_rw:
     MemEquiv [[]] [].
   Proof.
-    rewrite <- (mem_equiv_nil_rw 1).
-    simpl.
-    reflexivity.
-  Qed.
-
-  Lemma m_pair_in_eq:
-    forall A p l ls,
-    @PairIn A p l ->
-    MPairIn p (l :: ls).
-  Proof.
-    intros.
-    apply m_pair_in_def with (l:=l); auto using in_eq.
-  Qed.
-
-  Lemma m_pair_in_cons:
-    forall A p l ls,
-    @MPairIn A p ls ->
-    MPairIn p (l :: ls).
-  Proof.
-    intros.
-    unfold MPairIn in H.
-    rewrite Exists_exists in H.
-    destruct H as (l1, (Hi, Hp)).
-    eauto using m_pair_in_def, in_cons, in_eq.
-  Qed.
-
-  Lemma m_pair_in_app_or:
-    forall A p ls1 ls2,
-    @MPairIn A p (ls1 ++ ls2) ->
-    MPairIn p ls1 \/ MPairIn p ls2.
-  Proof.
-    intros.
-    unfold MPairIn in H.
-    apply Exists_exists in H.
-    destruct H as (l, (Hi, Hp)).
-    apply in_app_or in Hi.
-    destruct Hi as [Hi|Hi];
-      eauto using m_pair_in_def.
-  Qed.
-
-  Lemma m_pair_in_app_sym:
-    forall A p m1 m2,
-    @MPairIn A p (m1 ++ m2) ->
-    MPairIn p (m2 ++ m1).
-  Proof.
-    intros.
-    apply m_pair_in_app_or in H.
-      destruct H;
-        eauto using m_pair_in_app_r, m_pair_in_app_l.
+    apply (mem_equiv_nil_rw 1).
   Qed.
 
   Lemma mem_equiv_app_sym:
@@ -1122,31 +1053,6 @@ Module C2.
     unfold Proper, respectful.
     intros.
     auto using mem_equiv_app.
-  Qed.
-
-  Global Instance app_mem_equiv_proper: Proper (MemEquiv ==> MemEquiv ==> MemEquiv) prod.
-  Proof.
-    unfold Proper, respectful.
-    intros.
-  Qed.
-
-  Lemma pair_in_refl:
-    forall A x l,
-    @List.In A x l ->
-    PairIn (x, x) l.
-  Proof.
-    intros.
-    auto using pair_in_def.
-  Qed.
-
-  Lemma m_pair_in_refl:
-    forall A x m,
-    @MIn A x m ->
-    MPairIn (x, x) m.
-  Proof.
-    intros.
-    inversion H; subst; clear H.
-    eauto using m_pair_in_def, pair_in_refl.
   Qed.
 
   Lemma mem_equiv_m_in:

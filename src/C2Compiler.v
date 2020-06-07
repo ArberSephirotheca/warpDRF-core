@@ -858,7 +858,8 @@ Section Compiler.
       auto using in_cons.
   Qed.
 *)
-  Definition mk_empty_1 n1 n2 : list Hist.history :=
+  Notation history := (list access_val).
+  Definition mk_empty_1 n1 n2 : list history :=
     List.concat (map (fun _ => [[]]) (range_list n1 n2)) ++ [[]].
 
   Lemma run_skip_1:
@@ -877,7 +878,7 @@ Section Compiler.
       + apply C2.run_skip.
   Qed.
 
-  Definition mk_empty_2 n1 n2 : list Hist.history :=
+  Definition mk_empty_2 n1 n2 : list history :=
     List.concat (map (fun n => mk_empty_1 0 n) (range_list n1 n2))
      ++ [[]].
 
@@ -1159,7 +1160,6 @@ Section Compiler.
     reflexivity.
   Qed.
 
-
   Lemma concat_eq_rw:
     forall A B m l,
     @List.concat (list B) (map (fun _ : A => [m]) l) = List.repeat m (List.length l).
@@ -1171,6 +1171,166 @@ Section Compiler.
     rewrite IHl.
     reflexivity.
   Qed.
+
+  Definition summation :=
+  List.fold_right Nat.add 0.
+
+  Lemma repeat_app:
+    forall A (x:A) n1 n2,
+    repeat x (n1 + n2) = repeat x n1 ++ repeat x n2.
+  Proof.
+    induction n1; intros. {
+      reflexivity.
+    }
+    simpl.
+    rewrite IHn1.
+    reflexivity.
+  Qed.
+
+  Lemma concat_eq_nil_rw:
+    forall (l:list nat),
+    List.concat (map (fun n => repeat (@nil nat) n) l) =
+    List.repeat [] (summation l).
+  Proof.
+    induction l; intros. {
+      reflexivity.
+    }
+    simpl.
+    rewrite IHl.
+    rewrite repeat_app.
+    reflexivity.
+  Qed.
+
+(*
+  Lemma div2_add:
+    forall n1 n2,
+    Nat.Even n1 ->
+    Nat.Even n2 -> 
+    Nat.div2 (n1 + n2) = Nat.div2 n1 + Nat.div2 n2.
+  Proof.
+    induction n1; intros. {
+      reflexivity.
+    }
+    (* n1 = S n *)
+    simpl.
+    destruct n1. {
+      (* n1 = 2 *)
+      assert (Ho: Nat.Odd 1). {
+        apply Nat.odd_spec.
+        reflexivity.
+      }
+      Search (Nat.Odd _).
+      apply Nat.Even_Odd_False in Ho; auto.
+      contradiction.
+    }
+    Search (Nat.Even).
+  Qed. 
+*)
+(*
+  Lemma asdf:
+    forall n,
+    n + Nat.div2 (n * S n) = Nat.div2 (n + n * S (S n)).
+  Proof.
+    intros.
+    repeat rewrite Nat.mul_succ_r.
+    Search (Nat.div2(_ + _)).
+    induction n; intros. {
+      simpl.
+      reflexivity.
+    }
+    simpl.
+    rewrite <- IHn.
+    clear IHn.
+    destruct n. {
+      simpl.
+      reflexivity.
+    }
+    simpl.
+    Search (Nat.div2 _).
+  Qed.
+  *)
+  (*
+  Lemma summation_count:
+    forall n,
+    summation (count n) = Nat.div2 ((S n) * n).
+  Proof.
+    induction n; intros. {
+      reflexivity.
+    }
+    remember (summation (count (S _))) as m.
+    simpl in Heqm.
+    rewrite IHn in Heqm; clear IHn.
+    rewrite Heqm; clear Heqm.
+    simpl.
+    destruct n. {
+      simpl.
+    }
+    destruct n. {
+      simpl.
+      reflexivity.
+    }
+    simpl.
+    
+    simpl.
+    assert (n = (2*n)/2). {
+      simpl.
+      rewrite Nat.add_0_r.
+      Search (Nat.divmod).
+      Nat.div
+      rewrite Nat.divmod.
+      Search (_ + 0).
+    }
+    omega.
+  Qed.
+
+  Lemma summation_range_list:
+    forall 0 n,
+    summation (range_list 0 n) = (n * (S (n2 - n1))) / 2.
+  Proof.
+
+  Lemma summation_range_list:
+    forall n1 n2,
+    summation (range_list n1 n2) = ((n2 - n1) * (S (n2 - n1))) / 2.
+  Proof.
+    intros.
+    remember (range_list n1 n2).
+    generalize dependent n1.
+    generalize dependent n2.
+    induction l; intros; symmetry in Heql; apply range_list_to_prop in Heql;
+      inversion Heql; subst; clear Heql.
+    - assert (R: n2 - n1 = 0) by auto with *.
+      rewrite R.
+      reflexivity.
+    - apply prop_to_range_list in H4.
+      symmetry in H4.
+      apply IHl in H4; clear IHl.
+      remember (summation (a :: l)) as l1.
+      simpl in Heql1.
+      rewrite H4 in Heql1.
+      rewrite Heql1.
+      destruct n2. {
+        simpl.
+        inversion H3.
+      }
+      rewrite Nat.sub_succ.
+      
+      Search (S _ - S _).
+      simpl.
+      simpl.
+  Qed.*)
+(*
+  Lemma concat_eq_nil_rw:
+    forall A B f l,
+    @List.concat (list B) (map (fun n : A => repeat [] (f n)) l) = List.repeat [] (List.length l * (List.length l - 1)).
+  Proof.
+    induction l; intros. {
+      reflexivity.
+    }
+    simpl.
+    rewrite IHl.
+    reflexivity.
+  Qed.
+  *)
   Import C2Notations.
 (*
   Lemma c2_run_trans_inv_1 e hs (t1_nin: ~ C1.In T1 e) (t2_nin: ~ C1.In T2 e):
@@ -1470,6 +1630,178 @@ Section Compiler.
     inversion N.
   Qed.
 
+  Lemma repeat_nil_rw_1:
+    forall {A} n,
+    repeat (@nil A) n ++ [[]] = [] :: repeat [] n.
+  Proof.
+    induction n; intros. {
+      reflexivity.
+    }
+    simpl.
+    rewrite IHn.
+    reflexivity.
+  Qed.
+
+  Lemma mk_empty_1_spec:
+    forall n1 n2,
+    mk_empty_1 n1 n2 = @repeat history [] (S (n2 - n1)).
+  Proof.
+    intros.
+    unfold mk_empty_1.
+    rewrite concat_eq_rw.
+    simpl.
+    rewrite range_list_fun_length.
+    rewrite repeat_nil_rw_1.
+    reflexivity.
+  Qed.
+
+  Lemma mk_empty_2_spec:
+    forall n1 n2,
+    exists n,
+    mk_empty_2 n1 n2 = @repeat history [] (S n).
+  Proof.
+    intros.
+    unfold mk_empty_2.
+    remember (range_list n1 n2).
+    symmetry in Heql.
+    apply range_list_to_prop in Heql.
+    induction Heql.
+    - simpl.
+      exists 0.
+      reflexivity.
+    - destruct IHHeql as (n, Hr).
+      exists (S (low - 0) + n).
+      simpl.
+      rewrite app_assoc_reverse.
+      rewrite Hr; clear Hr.
+      rewrite mk_empty_1_spec.
+      rewrite Nat.sub_0_r.
+      repeat rewrite <- repeat_app.
+      rewrite Nat.add_succ_r.
+      reflexivity.
+  Qed.
+(*
+  Lemma prepend_equiv:
+    forall m1 m2 m3 m4,
+    m1 == m3 ->
+    m2 == m4 ->
+    prepend m1 m2 == prepend m3 m4.
+*)
+  Lemma mem_equiv_cons_eq_nil:
+    forall h,
+    [h] == [] ->
+    h = [].
+  Proof.
+    intros.
+    (*unfold C2.MemEquiv in H.*)
+    destruct h as [|a h]. {
+      reflexivity.
+    }
+    assert (Hi: MPairIn (a,a) [a::h]). {
+      apply m_pair_in_eq.
+      apply pair_in_refl.
+      apply in_eq.
+    }
+    apply H in Hi.
+    apply m_pair_in_nil in Hi.
+    contradiction.
+  Qed.
+
+  Lemma mequiv_cons_nil_inv:
+    forall h,
+    ([] :: h) == [] ->
+    h == [].
+  Proof.
+    induction h; intros. {
+      reflexivity.
+    }
+    split; intros. {
+      assert (Hi: MPairIn p ([] :: a :: h)) by auto using m_pair_in_cons.
+      apply H in Hi.
+      assumption.
+    }
+    apply m_pair_in_nil in H0.
+    contradiction.
+  Qed.
+
+  Lemma mem_equiv_nil_to_repeat:
+    forall h,
+    h == [] ->
+    exists n,
+    h = repeat [] n.
+  Proof.
+    induction h; intros. {
+      exists 0.
+      reflexivity.
+    }
+    destruct a. {
+      apply mequiv_cons_nil_inv in H.
+      apply IHh in H.
+      destruct H as (n, H).
+      exists (S n).
+      simpl.
+      rewrite H.
+      reflexivity.
+    }
+    assert (Hi: MPairIn (a,a) ((a::a0)::h)). {
+      apply m_pair_in_eq.
+      apply pair_in_refl.
+      apply in_eq.
+    }
+    apply H in Hi.
+    apply m_pair_in_nil in Hi.
+    contradiction.
+  Qed.
+
+  Lemma prod_repeat_rw:
+    forall m n,
+    m == prod (repeat [] (S n)) m.
+  Proof.
+    induction n. {
+      simpl.
+      rewrite prepend_nil.
+      rewrite app_nil_r.
+      reflexivity.
+    }
+    simpl in *.
+    rewrite prepend_nil in *.
+    rewrite <- IHn.
+    rewrite C2.mem_equiv_app_refl_rw.
+    reflexivity.
+  Qed.
+
+  Lemma prod_absorb_l:
+    forall m1,
+    m1 <> [] ->
+    m1 == [] ->
+    forall m2,
+    m2 == prod m1 m2.
+  Proof.
+    intros.
+    apply mem_equiv_nil_to_repeat in H0.
+    destruct H0 as (n, Hr).
+    subst.
+    destruct n. {
+      contradiction.
+    }
+    apply prod_repeat_rw.
+  Qed.
+
+  Lemma prod_mk_empty_2_rw:
+    forall m,
+    m == prod (mk_empty_2 1 TID_COUNT) m.
+  Proof.
+    intros.
+    apply prod_absorb_l.
+    - unfold mk_empty_2.
+      destruct (List.concat _). {
+        intros N.
+        inversion N.
+      }
+      intros N; inversion N.
+    - apply mk_empty_2_rw.
+  Qed.
+
   Lemma translate_seq e1 (t1_nin1: ~ C1.In T1 e1) (t2_nin1: ~ C1.In T2 e1):
     forall e2,
     ~ C1.In T1 e2 ->
@@ -1484,8 +1816,7 @@ Section Compiler.
       assert (Hx := Hr).
       exists (prod (mk_empty_2 1 TID_COUNT) m1).
       split. {
-        rewrite mk_empty_2_rw. (* XXX *)
-        give_up.
+        apply prod_mk_empty_2_rw.
       }
       apply C2.run_seq; auto using run_skip.
     - remove_eq TID TID.

@@ -1325,6 +1325,105 @@ Section Ops.
     apply Exists_exists.
     eauto.
   Qed.
+
+
+  Lemma pair_in_refl:
+    forall A x l,
+    @List.In A x l ->
+    PairIn (x, x) l.
+  Proof.
+    intros.
+    auto using pair_in_def.
+  Qed.
+
+  Lemma m_pair_in_refl:
+    forall A x m,
+    @MIn A x m ->
+    MPairIn (x, x) m.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eauto using m_pair_in_def, pair_in_refl.
+  Qed.
+
+
+  Lemma m_pair_in_inv_cons_nil:
+    forall A p l,
+    @MPairIn A p ([] :: l) ->
+    MPairIn p l.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    - apply par_not_in_nil in H1.
+      contradiction.
+    - assumption.
+  Qed.
+
+  Lemma m_pair_in_nil:
+    forall A p,
+    ~ @MPairIn A p [].
+  Proof.
+    intros.
+    intros N.
+    inversion N.
+  Qed.
+
+
+  Lemma m_pair_in_eq:
+    forall A p l ls,
+    @PairIn A p l ->
+    MPairIn p (l :: ls).
+  Proof.
+    intros.
+    apply m_pair_in_def with (l:=l); auto using in_eq.
+  Qed.
+
+  Lemma m_pair_in_cons:
+    forall A p l ls,
+    @MPairIn A p ls ->
+    MPairIn p (l :: ls).
+  Proof.
+    intros.
+    unfold MPairIn in H.
+    rewrite Exists_exists in H.
+    destruct H as (l1, (Hi, Hp)).
+    eauto using m_pair_in_def, in_cons, in_eq.
+  Qed.
+
+  Lemma m_pair_in_app_or:
+    forall A p ls1 ls2,
+    @MPairIn A p (ls1 ++ ls2) ->
+    MPairIn p ls1 \/ MPairIn p ls2.
+  Proof.
+    intros.
+    unfold MPairIn in H.
+    apply Exists_exists in H.
+    destruct H as (l, (Hi, Hp)).
+    apply in_app_or in Hi.
+    destruct Hi as [Hi|Hi];
+      eauto using m_pair_in_def.
+  Qed.
+
+  Lemma m_pair_in_app_sym:
+    forall A p m1 m2,
+    @MPairIn A p (m1 ++ m2) ->
+    MPairIn p (m2 ++ m1).
+  Proof.
+    intros.
+    apply m_pair_in_app_or in H.
+      destruct H;
+        eauto using m_pair_in_app_r, m_pair_in_app_l.
+  Qed.
+
+  Lemma m_pair_in_inv:
+    forall A p a h,
+    MPairIn p (a :: h) ->
+    PairIn p a \/ @MPairIn A p h.
+  Proof.
+    intros.
+    inversion H; subst; clear H; auto.
+  Qed.
+
 (*
   Lemma m_pair_in_prod_r:
     forall {A} (x:A) y l r,
