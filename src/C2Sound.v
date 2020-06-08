@@ -21,6 +21,7 @@ Require Import Conc2.
 Require Import RangeList.
 Require Import C2Compiler.
 Require Import Tasks.
+Require LoopFree.
 Section Compiler.
   Import Conc1.
   Import C2Compiler.
@@ -91,7 +92,7 @@ Section Compiler.
 
   Theorem run_m_proj:
     forall i hs2,
-    C1SX.Run i hs2 ->
+    LoopFree.Run i hs2 ->
     forall n hs1,
     n < TID_COUNT ->
     C2.Run (C2.i_subst TID (NNum n) (proj i)) hs1 ->
@@ -165,7 +166,7 @@ Section Compiler.
 
   Lemma run_do_proj (t:var):
     forall i hs2,
-    C1SX.Run i hs2 ->
+    LoopFree.Run i hs2 ->
     forall n hs1,
     n < TID_COUNT -> 
     C2.Run (C2.i_subst t (NNum n) (do_proj t i)) hs1 ->
@@ -182,14 +183,10 @@ Section Compiler.
       contradict H3.
       apply in_proj_to_in; auto.
   Qed.
-(*
-  Variable t1_neq_tid: T1 <> TID.
-  Variable t2_neq_tid: T2 <> TID.
-  Variable t1_neq_t2: T1 <> T2.
-*)
+
   Lemma run_do_proj_do_proj:
     forall i hs2,
-    C1SX.Run i hs2 ->
+    LoopFree.Run i hs2 ->
     forall n1 n2 hs1,
     n1 < TID_COUNT ->
     n2 < TID_COUNT ->
@@ -279,7 +276,7 @@ Section Compiler.
     apply incl_appr.
     auto.
   Qed.
- 
+
   Lemma in_decl_inv:
     forall e1 e2 hs x i1 i2,
     C2.Run (C2.Decl x (e1, e2) i1 i2) hs ->
@@ -312,9 +309,6 @@ Section Compiler.
     eapply in_branch_inv in H6; eauto.
   Qed.
 
-(*
-  Variable tid_ge_2: TID_COUNT > 2.
-*)
   Theorem soundness_1
       (i:C1.inst)
       (T1_nin_i: ~ C1.In T1 i)
@@ -322,7 +316,7 @@ Section Compiler.
       (TID_nvar_i: ~ C1.Var TID i)
     :
     forall hs1,
-    C1SX.Run i hs1 ->
+    LoopFree.Run i hs1 ->
     forall hs2,
     (forall x, MIn x hs1 -> access_tid x < TID_COUNT) ->
     C2.Run (translate i) hs2 ->
@@ -443,7 +437,7 @@ Section Compiler.
     ~ C1.In T2 i ->
     ~ C1.Var TID i ->
     Hist.MSafeStrong hs2 ->
-    C1SX.Run i hs1 ->
+    LoopFree.Run i hs1 ->
     C2.Run (translate i) hs2 ->
     Hist.MSafe hs1.
   Proof.

@@ -11,6 +11,7 @@ src/Conc1.v
 src/SymExe.v
 src/StringUtil.v
 src/SetTh.v
+src/LoopFree.v
 src/Conc2.v
 src/C2Compiler.v
 src/C2Sound.v
