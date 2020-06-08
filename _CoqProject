@@ -11,5 +11,7 @@ src/SymExe.v
 src/StringUtil.v
 src/SetTh.v
 src/Conc2.v
+src/C2Compiler.v
+src/C2Sound.v
 #src/Proto1.v
 #src/Proto.v
