@@ -15,11 +15,11 @@ Require Import Exp.
 Require Import Acc.
 Require Import Util.
 Require Aniceto.Graphs.Graph.
-Require SymExe.
+(* Require SymExe. *)
 Require Import Tasks.
-Require Import Conc1.
+Require Conc1.
 Import ListNotations.
-
+Module C1 := Conc1.
 Section Defs.
   Context {A:Access}.
   Context {T:Tasks}.

@@ -14,15 +14,16 @@ Require Import Exp.
 Require Import Acc.
 Require Import Util.
 Require Aniceto.Graphs.Graph.
-Require Conc1.
+Require LoopFree.
 Require Import SetTh.
 Import ListNotations.
 Require Import Tasks.
 Require Import Conc2.
 Require Import RangeList.
 Require Import C2Compiler.
+Require Conc1.
+Module C1 := Conc1.
 Section Compiler.
-  Import Conc1.
   Section Defs.
   Context {A:Access}.
   Context {T:Tasks}.
@@ -1434,7 +1435,7 @@ Section Compiler.
       (T2_nin_i: ~ C1.In T2 i)
     :
     forall hs1,
-    C1SX.Run TID_COUNT TID i hs1 ->
+    LoopFree.Run i hs1 ->
     forall hs2,
     (forall x, MIn x hs1 -> access_tid x < TID_COUNT) ->
     C2.Run (translate i) hs2 ->
@@ -1540,6 +1541,7 @@ Section Compiler.
   Variable tid_ge_2: TID_COUNT > 2.
   Variable in_heap: forall x i hs, C2.Run i hs -> MIn x hs -> access_tid x < TID_COUNT.
 *)
+(*
   Theorem completeness:
     forall i hs1,
     C1SX.Run TID_COUNT TID i hs1 ->
@@ -1628,11 +1630,11 @@ Section Compiler.
      *)
 
   Qed.
-
+*)
   End Defs.
 
-Section Compiler.
-
+End Compiler.
+(*
 Module Examples.
   Import Compiler.
   Import C2.
@@ -1744,3 +1746,4 @@ Module Examples.
   *)
 
 End Examples.
+*)

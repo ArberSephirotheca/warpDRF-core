@@ -20,9 +20,9 @@ Import ListNotations.
 Require Import Conc2.
 Require Import RangeList.
 Require Import Tasks.
+Module C1 := Conc1.
 
 Section Compiler.
-  Import Conc1.
   Section Defs.
   Context {A:Access}.
   Context {T:Tasks}.
