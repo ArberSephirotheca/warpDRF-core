@@ -6,41 +6,24 @@ Require Import Coq.Relations.Operators_Properties.
 Require Import Coq.Arith.PeanoNat.
 Require Import Coq.Arith.Compare_dec.
 Require Coq.omega.Omega.
-Require Import Recdef.
-Require Omega.
+
 Require Import Var.
-Require Import Tid.
 Require Import Loc.
 Require Import Exp.
 Require Import Acc.
 Require Import Util.
-Require Aniceto.Graphs.Graph.
-(* Require SymExe. *)
 Require Import Tasks.
+
 Require Conc1.
-Import ListNotations.
 Module C1 := Conc1.
+
+Import ListNotations.
+
 Section Defs.
   Context {A:Access}.
   Context {T:Tasks}.
   Notation history := (list access_val).
   Definition t := (history * C1.inst) % type.
-
-  Inductive Red: t -> list t -> Prop :=
-  | red_acc:
-    forall e v h c, 
-    Hist.GenAccess TID e TID_COUNT v ->
-    Red (h, C1.Acc e c) [(List.concat v ++ h, c)]
-  | red_for:
-    forall h x r l c1 c2,
-    RStep r l ->
-    Red (h, C1.For x r c1 c2) [(h, C1.Loop x l c1 c2)]
-  | red_branch_cons:
-    forall h l c1 c2 n x,
-    Red (h, C1.Loop x (n::l) c1 c2) [(h, C1.i_subst x (NNum n) c1); (h, C1.Loop x l c1 c2) ]
-  | red_branch_nil:
-    forall h x c1 c2,
-    Red (h, C1.Loop x [] c1 c2) [(h, c2)].
 
   Inductive Run: C1.inst -> list history -> Prop :=
   | run_skip:
@@ -73,87 +56,6 @@ Section Defs.
     | _ => false
     end.
 
-  Definition red (s:t) :=
-  let (h, c) := s in
-  match c with
-  | C1.Acc e c =>
-    match Hist.gen_access TID e TID_COUNT with
-    | Some l => Some [(List.concat l ++ h, c)]
-    | None => None
-    end
-  | C1.For x r c1 c2 =>
-    match r_step r with
-    | Some l => Some [(h, C1.Loop x l c1 c2)]
-    | _ => None
-    end
-  | C1.Loop x (n::l) c1 c2 => Some [(h, C1.i_subst x (NNum n) c1); (h, C1.Loop x l c1 c2)]
-  | C1.Loop _ [] _ c => Some [(h,c)]
-  | C1.Skip => None
-  end.
-
-  Lemma red_to_prop:
-    forall a s,
-    red a = Some s -> Red a s.
-  Proof.
-    intros.
-    destruct a as (h, i).
-    simpl in *.
-    destruct i.
-    - inversion H.
-    - destruct (Hist.gen_access _ _ _) eqn:Hg; inversion H; subst.
-      constructor; auto using Hist.gen_access_to_prop.
-    - destruct (r_step r) eqn:Hr; inversion H; subst; clear H.
-      constructor; auto using r_step_to_prop.
-    - destruct l; inversion H; constructor.
-  Qed.
-
-  Lemma prop_to_red:
-    forall a s,
-    Red a s ->
-    red a = Some s.
-  Proof.
-    intros.
-    destruct a as (h, []); simpl; inversion H; subst; clear H; auto.
-    - apply Hist.prop_to_gen_access in H4.
-      rewrite H4.
-      reflexivity.
-    - apply prop_to_r_step in H6.
-      rewrite H6.
-      reflexivity.
-  Qed.
-
-  Lemma red_to_value_false:
-    forall a s,
-    red a = Some s ->
-    is_value a = false.
-  Proof.
-    intros.
-    destruct a as (h, []); simpl in *; auto.
-    inversion H.
-  Qed.
-
-  Lemma value_true_to_leaf:
-    forall a, is_value a = true -> red a = None.
-  Proof.
-    intros.
-    destruct a as (h, []); inversion H.
-    auto.
-  Qed.
-(*
-  Instance C1_Lang : Lang t := {
-    AStep := Red;
-    a_is_value := is_value;
-    red_leaf := red;
-    red_leaf_to_a_step := red_to_prop;
-    a_step_to_red_leaf := prop_to_red;
-    step_to_is_value_false := red_to_value_false;
-    (*step_is_value_true := value_true_to_leaf;*)
-  }.
-  Definition Step := @SymExe.Step _ C1_Lang.
-  Definition Value := Forall C1.Value.
-  Definition BStep := BigStep _ Step Value.
-  Notation C1_Step := C1.Step.
-*)
   Ltac run_clean :=
     repeat match goal with
     | [ H: Run [] _ |- _ ] => inversion H; subst; clear H
