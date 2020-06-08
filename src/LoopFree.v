@@ -526,12 +526,11 @@ Section Defs.
   Qed.
 
 End Defs.
-(*
-Module Examples.
-  Definition TID := variable "TID".
 
-  Definition TID_NUM := 2.
-  Definition step := @SymExe.step _ (C1_Lang TID_NUM TID).
+Module Examples.
+  Import Conc1.Examples.
+(*
+  Definition step := 
   (* Helper function *)
   Fixpoint bstep fuel steps s :=
   match fuel with
@@ -558,8 +557,6 @@ Module Examples.
     ) C1.Skip.
 
   Compute run 8 [([], GOOD1)].
-
-End Examples.
-
 *)
+End Examples.
 

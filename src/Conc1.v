@@ -830,7 +830,7 @@ Module Examples.
   Coercion variable: string >-> var.
   Coercion NVar: var >-> nexp.
   Definition nrange := (nat*nat) % type.
- Definition n_range (p:nrange) : range := let (x,y) := p in (NNum x, NNum y).
+  Definition n_range (p:nrange) : range := let (x,y) := p in (NNum x, NNum y).
   Coercion n_range: nrange >-> range.
   Notation "'FOR' x 'IN' n1 'TO' n2 'DO' i1 'OD'" := (For x (@pair nexp nexp n1 n2) i1) (at level 20).
 
