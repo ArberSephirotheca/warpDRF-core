@@ -8,7 +8,6 @@ src/Exp.v
 src/Acc.v
 src/Util.v
 src/Conc1.v
-src/SymExe.v
 src/StringUtil.v
 src/SetTh.v
 src/LoopFree.v

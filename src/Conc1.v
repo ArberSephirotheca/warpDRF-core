@@ -15,7 +15,6 @@ Require Import Exp.
 Require Import Acc.
 Require Import Util.
 Require Aniceto.Graphs.Graph.
-Require SymExe.
 Require Import Tasks.
 
 Import ListNotations.
