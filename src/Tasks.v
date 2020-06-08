@@ -1,5 +1,5 @@
 Require Import Var.
-
+Require Import Omega.
 Class Tasks := {
   TID_COUNT: nat;
   TID : var;
@@ -35,5 +35,24 @@ Section Defs.
     unfold ge in X.
     auto.
   Qed.
+
+  Lemma other_task:
+    forall n,
+    n < TID_COUNT ->
+    exists m, n <> m /\ m < TID_COUNT.
+  Proof.
+    intros.
+    assert (Hx := tid_count_1_lt).
+    inversion H; subst; clear H. {
+      destruct n. {
+        omega.
+      }
+      exists 0.
+      omega.
+    }
+    exists m.
+    omega.
+  Qed.
+
 End Defs.
 

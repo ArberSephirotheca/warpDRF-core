@@ -16,6 +16,7 @@ Require Import Acc.
 Require Import Util.
 Require Aniceto.Graphs.Graph.
 Require SymExe.
+Require Import Tasks.
 
 Import ListNotations.
 
@@ -151,10 +152,10 @@ Section C1.
     - auto using var_loop_2.
     - auto using var_loop_3.
   Qed.
-  
+  (*
   Variable TID_COUNT: nat.
   Variable TID : var.
-
+  *)
   Fixpoint seq (i1 i2:inst) :=
   match i1 with
   | Skip => i2
@@ -301,6 +302,8 @@ Section C1.
 
   (** Parallelize an access for [n] tasks. *)
 
+  Context `{T:Tasks}.
+
   Inductive Step: state -> state -> Prop :=
   | step_access:
     forall h e v i,
@@ -423,19 +426,9 @@ Section C1.
   End Iter.
 
   Definition step (s:state) := let (h, p) := s in step_iter h p.
-
+(*
   Axiom tid_nonempty: TID_COUNT > 1.
-
-  Lemma tid_exists:
-    exists t, t < TID_COUNT.
-  Proof.
-    assert (Hx := tid_nonempty).
-    destruct TID_COUNT. {
-      inversion Hx.
-    }
-    eauto with *.
-  Qed.
-
+*)
   Definition step_hist p :=
     match p with
     | Acc e _ =>
@@ -483,11 +476,11 @@ Section C1.
     Step (h, p) (step_hist p ++ h, step_prog p).
   Proof.
     intros.
-    destruct tid_exists as (t1, Hlt).
-    assert (Hx := H _ Hlt).
+    (*destruct tid_exists as (t1, Hlt).*)
+    assert (Hx := H _ tid_count_1_lt).
     destruct p; simpl; inversion Hx; subst; clear Hx.
     - assert (Hx := H1).
-      apply access_step_to_gen_access with (m:=TID_COUNT) in H1; auto; destruct H1 as (l, (_, Hl)).
+      apply access_step_to_gen_access with (m:=TID_COUNT) in H1; auto using tid_count_1_lt; destruct H1 as (l, (_, Hl)).
       assert (Hg := Hl).
       apply prop_to_gen_access in Hl.
       rewrite Hl in *.
@@ -597,23 +590,6 @@ Section C1.
   Qed.
   Import Omega.
 
-  Let other_task:
-    forall n,
-    n < TID_COUNT ->
-    exists m, n <> m /\ m < TID_COUNT.
-  Proof.
-    intros.
-    assert (Hx := tid_nonempty).
-    inversion H; subst; clear H. {
-      destruct n. {
-        omega.
-      }
-      exists 0.
-      omega.
-    }
-    exists m.
-    omega.
-  Qed.
   (*
   Theorem step_proj_spec:
     forall h p,
@@ -787,10 +763,9 @@ Module C1SX.
 Section Defs.
   Import SymExe.
   Context {A:Access}.
+  Context {T:Tasks}.
   Notation history := (list access_val).
   Definition t := (history * C1.inst) % type.
-  Variable TID_COUNT: nat.
-  Variable TID: var.
 
   Inductive Red: t -> list t -> Prop :=
   | red_acc:
@@ -918,7 +893,7 @@ Section Defs.
   Definition Step := @SymExe.Step _ C1_Lang.
   Definition Value := Forall C1.Value.
   Definition BStep := BigStep _ Step Value.
-  Definition C1_Step := C1.Step TID_COUNT TID.
+  Notation C1_Step := C1.Step.
 
   Ltac run_clean :=
     repeat match goal with
@@ -1167,7 +1142,7 @@ Section Defs.
 
   Lemma run_to_all_incl:
     forall i h,
-    C1.Run TID_COUNT TID i h ->
+    C1.Run i h ->
     forall hs,
     Run i hs ->
     AllIncl hs h.
@@ -1203,7 +1178,7 @@ Section Defs.
 
   Theorem completeness:
     forall i h,
-    C1.Run TID_COUNT TID i h ->
+    C1.Run i h ->
     forall hs,
     Run i hs ->
     Hist.Safe h ->
@@ -1237,7 +1212,7 @@ Section Defs.
 
   Lemma run_to_incl_all:
     forall i h,
-    C1.Run TID_COUNT TID i h ->
+    C1.Run i h ->
     forall hs,
     Run i hs ->
     InclAll h hs.
@@ -1270,7 +1245,7 @@ Section Defs.
 
   Theorem soundness:
     forall i h,
-    C1.Run TID_COUNT TID i h ->
+    C1.Run i h ->
     forall hs,
     Run i hs ->
     Hist.MSafe hs ->
@@ -1283,7 +1258,7 @@ Section Defs.
 
   Corollary msafe_safe_iff:
     forall i h hs,
-    C1.Run TID_COUNT TID i h ->
+    C1.Run i h ->
     Run i hs ->
     Hist.MSafe hs <-> Hist.Safe h.
   Proof.
@@ -1292,7 +1267,7 @@ Section Defs.
   Qed.
 
 End Defs.
-
+(*
 Module Examples.
   Definition TID := variable "TID".
 
@@ -1327,9 +1302,9 @@ Module Examples.
 
 End Examples.
 
-
+*)
 End C1SX.
-
+(*
 Module Examples.
   Section Defs.
   Import C1.
@@ -1423,3 +1398,4 @@ Module Examples.
 
   End Defs.
 End Examples.
+*)
