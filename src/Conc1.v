@@ -407,7 +407,7 @@ Section C1.
 
   Section Iter.
   Variable h:history.
-  Fixpoint step_iter i : option state :=
+  Definition step_iter i : option state :=
     match i with
     | Acc e j =>
       match gen_access TID e TID_COUNT with
@@ -757,25 +757,32 @@ Section C1.
 End C1.
 End C1.
 
-(*
 Module Examples.
   Section Defs.
   Import C1.
 
-  Definition TID := variable "TID".
+  Instance two_tasks : Tasks.
+  Proof.
+    apply (Build_Tasks 2) with
+      (TID:=variable "TID")
+      (T1:=variable "T1")
+      (T2:=variable "T2").
+    - intros N; inversion N.
+    - intros N; inversion N.
+    - intros N; inversion N.
+    - apply le_n.
+  Defined.
 
-  Definition TID_NUM := 2.
+  Notation b_step := BStep.
 
-  Notation b_step := (BStep TID_NUM TID).
-
-  Infix "-->" := (Step TID_NUM TID) (at level 150).
+  Infix "-->" := Step (at level 150).
 
   (* Helper function *)
   Fixpoint bstep fuel steps s :=
   match fuel with
   | 0 => (steps,s)
   | S n =>
-    match step TID_NUM TID s with
+    match step s with
     | Some s => bstep n (S steps) s
     | _ => (steps, s)
     end
@@ -783,6 +790,13 @@ Module Examples.
 
   Definition run steps s := bstep steps 0 s.
 
+
+  Let hello_world := Acc (NNum 0, BBool true) Skip.
+
+  Goal step ([], hello_world) = Some
+  ([{| OneDim.tid := 1; OneDim.index := 0 |};
+   {| OneDim.tid := 0; OneDim.index := 0 |}], Skip) .
+  Proof. auto. Qed.
 
   (* BAD: *)
   (* for x < n {
@@ -795,12 +809,13 @@ Module Examples.
   Definition BAD :=
     For x (NNum 0, NNum 2) i1 Skip.
 
+
   Goal run 8 ([], BAD) =
     (6,
        ([{| OneDim.tid := 1; OneDim.index := 2 |}; {| OneDim.tid := 0; OneDim.index := 1 |};
          {| OneDim.tid := 1; OneDim.index := 1 |}; {| OneDim.tid := 0; OneDim.index := 0 |}], Skip)
     ).
-  auto. Qed.
+  Proof. auto. Qed.
 
   (* GOOD: *)
   (*
@@ -834,8 +849,7 @@ Module Examples.
     (6,
     ([{| OneDim.tid := 1; OneDim.index := 1 |}; {| OneDim.tid := 0; OneDim.index := 0 |}], Skip))
     .
-    compute.
-  auto. Qed.
+  Proof. auto. Qed.
 
   Definition GOOD2 :=
       Acc (NNum 9, BBool true) Skip.
@@ -845,10 +859,7 @@ Module Examples.
     (1,
     ([{| OneDim.tid := 1; OneDim.index := 9 |}; {| OneDim.tid := 0; OneDim.index := 9 |}], Skip))
     .
-    compute.
-  auto. Qed.
-
+  Proof. compute. auto. Qed.
 
   End Defs.
 End Examples.
-*)
