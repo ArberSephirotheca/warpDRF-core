@@ -28,12 +28,7 @@ Section Compiler.
   Section Defs.
   Context {A:Access}.
   Context {T:Tasks}.
-  (*
-  Variable TID_COUNT: nat.
-  Variable TID : var.
-  Variable T1: var.
-  Variable T2: var.
-  *)
+
   Lemma in_to_in_proj:
     forall x i,
     C1.In x i ->
