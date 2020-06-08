@@ -26,14 +26,17 @@ Section Compiler.
   Import C2Compiler.
   Section Defs.
   Context {A:Access}.
+  Context {T:Tasks}.
+  (*
   Variable TID_COUNT: nat.
   Variable TID : var.
   Variable T1: var.
   Variable T2: var.
+  *)
   Lemma in_to_in_proj:
     forall x i,
     C1.In x i ->
-    C2.In x (proj TID i).
+    C2.In x (proj i).
   Proof.
     induction i; simpl; intros; inversion H; subst; clear H;
         auto using C2.in_acc_1, C2.in_acc_3, C2.in_decl_1, C2.in_decl_2, C2.in_decl_3,
@@ -43,7 +46,7 @@ Section Compiler.
   Lemma i_subst_proj_rw:
     forall x i n,
     x <> TID ->
-    proj TID (C1.i_subst x (NNum n) i) = C2.i_subst x (NNum n) (proj TID i).
+    proj (C1.i_subst x (NNum n) i) = C2.i_subst x (NNum n) (proj i).
   Proof.
     induction i; simpl; intros; destruct (Set_VAR.MF.eq_dec x TID); try contradiction.
     - reflexivity.
@@ -63,7 +66,7 @@ Section Compiler.
 
   Lemma proj_seq:
     forall i1 i2,
-    proj TID (C1.seq i1 i2) = C2.seq (proj TID i1) (proj TID i2).
+    proj (C1.seq i1 i2) = C2.seq (proj i1) (proj i2).
   Proof.
     induction i1; intros; simpl.
     - reflexivity.
@@ -91,7 +94,7 @@ Section Compiler.
     C1SX.Run TID_COUNT TID i hs2 ->
     forall n hs1,
     n < TID_COUNT ->
-    C2.Run (C2.i_subst TID (NNum n) (proj TID i)) hs1 ->
+    C2.Run (C2.i_subst TID (NNum n) (proj i)) hs1 ->
     ~ C1.Var TID i ->
     Hist.m_proj n hs2 = hs1.
   Proof.
@@ -160,15 +163,15 @@ Section Compiler.
       auto.
   Qed.
 
-  Lemma run_do_proj (T:var):
+  Lemma run_do_proj (t:var):
     forall i hs2,
     C1SX.Run TID_COUNT TID i hs2 ->
     forall n hs1,
     n < TID_COUNT -> 
-    C2.Run (C2.i_subst T (NNum n) (do_proj TID T i)) hs1 ->
+    C2.Run (C2.i_subst t (NNum n) (do_proj t i)) hs1 ->
     ~ C1.Var TID i ->
-    ~ C1.In T i ->
-    T <> TID ->
+    ~ C1.In t i ->
+    t <> TID ->
     Hist.m_proj n hs2 = hs1.
   Proof.
     unfold do_proj.
@@ -177,13 +180,13 @@ Section Compiler.
     + eapply run_m_proj; eauto.
     + intros N.
       contradict H3.
-      apply in_proj_to_in with (TID0:=TID); auto.
+      apply in_proj_to_in; auto.
   Qed.
-
+(*
   Variable t1_neq_tid: T1 <> TID.
   Variable t2_neq_tid: T2 <> TID.
   Variable t1_neq_t2: T1 <> T2.
-
+*)
   Lemma run_do_proj_do_proj:
     forall i hs2,
     C1SX.Run TID_COUNT TID i hs2 ->
@@ -192,7 +195,7 @@ Section Compiler.
     n2 < TID_COUNT ->
     C2.Run
         (C2.i_subst T2 (NNum n1)
-           (C2.i_subst T1 (NNum n2) (C2.seq (do_proj TID T1 i) (do_proj TID T2 i)))) hs1 ->
+           (C2.i_subst T1 (NNum n2) (C2.seq (do_proj T1 i) (do_proj T2 i)))) hs1 ->
     ~ C1.Var TID i ->
     ~ C1.In T1 i ->
     ~ C1.In T2 i ->
@@ -204,52 +207,51 @@ Section Compiler.
     apply C2.run_inv_seq in H2.
     destruct H2 as (hsa, (hsb, (?, (Hra, Hrb)))).
     subst.
-    assert (t1_nin_proj_i: ~ C2.In T1 (proj TID i)). {
+    assert (t1_nin_proj_i: ~ C2.In T1 (proj i)). {
       intros N.
       contradict H4.
-      eauto using in_proj_to_in.
+      auto using in_proj_to_in, t1_neq_tid.
     }
-    assert (t2_nin_proj_i: ~ C2.In T2 (proj TID i)). {
+    assert (t2_nin_proj_i: ~ C2.In T2 (proj i)). {
       intros N.
       contradict H5.
-      eauto using in_proj_to_in.
+      eauto using in_proj_to_in, t2_neq_tid.
     }
     (* Simplify Hra: *)
-    assert (~ C2.In T2 (C2.i_subst T1 (NNum n2) (do_proj TID T1 i))). {
+    assert (~ C2.In T2 (C2.i_subst T1 (NNum n2) (do_proj T1 i))). {
       intros N.
       contradict t2_nin_proj_i.
-      apply C2.in_i_subst_neq in N; auto. {
+      apply C2.in_i_subst_neq in N; auto using t1_neq_t2. {
         unfold do_proj in N.
-        apply C2.in_i_subst_neq in N; auto.
+        apply C2.in_i_subst_neq in N; auto using t2_neq_tid.
         intros M.
         inversion M.
-        subst.
+        assert (T2 <> T1) by auto using t1_neq_t2.
         contradiction.
       }
       intros M.
       inversion M.
     }
     rewrite C2.i_subst_not_in in Hra; auto.
-    eapply run_do_proj in Hra; eauto.
+    eapply run_do_proj in Hra; eauto using t1_neq_tid.
     subst.
     (* Simplify Hrb *)
-    rewrite C2.i_subst_subst_neq in Hrb; auto.
-    assert (~ C2.In T1 (C2.i_subst T2 (NNum n1) (do_proj TID T2 i))). {
+    rewrite C2.i_subst_subst_neq in Hrb; auto using t1_neq_t2.
+    assert (~ C2.In T1 (C2.i_subst T2 (NNum n1) (do_proj T2 i))). {
       intros N.
       contradict t1_nin_proj_i.
-      apply C2.in_i_subst_neq in N; auto. {
+      apply C2.in_i_subst_neq in N; auto using t1_neq_t2. {
         unfold do_proj in N.
-        apply C2.in_i_subst_neq in N; auto.
+        apply C2.in_i_subst_neq in N; auto using t1_neq_tid.
         intros M.
         inversion M.
-        subst.
-        contradiction.
+        tasks_absurd.
       }
       intros M.
       inversion M.
     }
     rewrite C2.i_subst_not_in in Hrb; auto.
-    eapply run_do_proj in Hrb; eauto.
+    eapply run_do_proj in Hrb; eauto using t2_neq_tid.
     subst.
     reflexivity.
   Qed.
@@ -277,7 +279,7 @@ Section Compiler.
     apply incl_appr.
     auto.
   Qed.
-
+ 
   Lemma in_decl_inv:
     forall e1 e2 hs x i1 i2,
     C2.Run (C2.Decl x (e1, e2) i1 i2) hs ->
@@ -310,9 +312,9 @@ Section Compiler.
     eapply in_branch_inv in H6; eauto.
   Qed.
 
-
+(*
   Variable tid_ge_2: TID_COUNT > 2.
-
+*)
   Theorem soundness_1
       (i:C1.inst)
       (T1_nin_i: ~ C1.In T1 i)
@@ -323,7 +325,7 @@ Section Compiler.
     C1SX.Run TID_COUNT TID i hs1 ->
     forall hs2,
     (forall x, MIn x hs1 -> access_tid x < TID_COUNT) ->
-    C2.Run (translate TID_COUNT TID T1 T2 i) hs2 ->
+    C2.Run (translate i) hs2 ->
     Hist.APairIncl hs1 hs2.
   Proof.
     unfold translate.
@@ -340,6 +342,7 @@ Section Compiler.
     subst.
     clear Hn2.
     destruct Hx as [(N,Hx)|(hss, (?, Hx))]. {
+      assert (1 < TID_COUNT) by auto using tid_count_1_lt.
       Import Omega.
       omega.
     }
@@ -376,10 +379,7 @@ Section Compiler.
       assert (Hb : 0 <= access_tid x < access_tid y) by omega.
       assert (Hx := Hx (access_tid x) Hb).
       destruct Hx as (hs, (Hx,Hz)).
-      destruct (Set_VAR.MF.eq_dec T1 T2) as [e|_]. {
-        subst.
-        contradiction.
-      }
+      remove_eq T1 T2.
       (* Now we want to handle the seq in Hx *)
       apply C2.run_inv_seq in Hx.
       destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
@@ -403,7 +403,7 @@ Section Compiler.
       inversion Hr2; subst; clear Hr2.
       rewrite prod_nil_nil_r in *.
       simpl in *.
-      destruct (Set_VAR.MF.eq_dec T1 T1) as [_| N]; try contradiction.
+      remove_eq T1 T1.
       apply C2.run_decl_inv in Hr1.
       destruct Hr1 as (n1, (n2, (Hn1, (Hn2, [(N, Hr1)|(Hss, (?, Hx))])))). {
         inversion Hn1; subst; clear Hn1.
@@ -417,10 +417,7 @@ Section Compiler.
       assert (Hb : 0 <= access_tid y < access_tid x) by omega.
       assert (Hx := Hx (access_tid y) Hb).
       destruct Hx as (hs, (Hx,Hz)).
-      destruct (Set_VAR.MF.eq_dec T1 T2) as [e|_]. {
-        subst.
-        contradiction.
-      }
+      remove_eq T1 T2.
       (* Now we want to handle the seq in Hx *)
       apply C2.run_inv_seq in Hx.
       destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
@@ -447,7 +444,7 @@ Section Compiler.
     ~ C1.Var TID i ->
     Hist.MSafeStrong hs2 ->
     C1SX.Run TID_COUNT TID i hs1 ->
-    C2.Run (translate TID_COUNT TID T1 T2 i) hs2 ->
+    C2.Run (translate i) hs2 ->
     Hist.MSafe hs1.
   Proof.
     intros.

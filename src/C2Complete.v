@@ -24,19 +24,8 @@ Section Compiler.
   Import Conc1.
   Section Defs.
   Context {A:Access}.
-  Variable TID_COUNT: nat.
-  Variable TID : var.
-  Variable T1: var.
-  Variable T2: var.
-  Variable t1_neq_tid: T1 <> TID.
-  Variable t2_neq_tid: T2 <> TID.
-  Variable t1_neq_t2: T1 <> T2.
-  Variable tid_ge_2: TID_COUNT > 2.
-  
-  Ltac remove_eq ta tb :=
-  destruct (Set_VAR.MF.eq_dec ta tb);
-    try contradiction; simpl in *.
-
+  Context {T:Tasks}.
+ 
   Lemma access_step_subst_1:
     forall t1 t2 e v,
     ~ access_in T1 e ->
@@ -51,7 +40,7 @@ Section Compiler.
     intros.
     rename H1 into Hx.
     rewrite access_subst_subst_trans in Hx; auto.
-    rewrite access_subst_subst_neq in Hx; auto.
+    rewrite access_subst_subst_neq in Hx; auto using t2_neq_tid.
     rewrite access_subst_not_in with (x:=T2) in Hx; auto.
   Qed.
 
@@ -385,7 +374,7 @@ Section Compiler.
    
 
   Lemma run_skip:
-    C2.Run (translate TID_COUNT TID T1 T2 C1.Skip) (mk_empty_2 1 TID_COUNT).
+    C2.Run (translate C1.Skip) (mk_empty_2 1 TID_COUNT).
   Proof.
     unfold translate.
     simpl.
@@ -560,7 +549,7 @@ Section Compiler.
     rewrite C2.i_subst_not_in; auto.
     intros N.
     contradict H.
-    apply C2.in_i_subst_neq in N; auto.
+    apply C2.in_i_subst_neq in N; auto using t2_neq_tid.
     intros M.
     inversion M.
   Qed.
@@ -576,20 +565,20 @@ Section Compiler.
     rewrite C2.i_subst_not_in; auto.
     intros N.
     contradict H.
-    apply C2.in_subst_inv_in in N; auto.
+    apply C2.in_subst_inv_in in N; auto using t1_neq_t2, t1_neq_tid.
   Qed.
 
 
-  Lemma rw_1 e (t1_nin: ~ C2.In T1 (proj TID e)):
+  Lemma rw_1 e (t1_nin: ~ C2.In T1 (proj e)):
     forall n1,
         C2.i_subst T1 (NNum n1)
            (C2.Decl T2 (NNum 0, NVar T1)
-              (C2.seq (do_proj TID T1 e)
-                 (do_proj TID T2 e)) C2.Skip)
+              (C2.seq (do_proj T1 e)
+                 (do_proj T2 e)) C2.Skip)
    =
        C2.Decl T2 (NNum 0, NNum n1)
-        (C2.seq (C2.i_subst TID (NNum n1) (proj TID e))
-                (do_proj TID T2 e)) C2.Skip.
+        (C2.seq (C2.i_subst TID (NNum n1) (proj e))
+                (do_proj T2 e)) C2.Skip.
   Proof.
     intros.
     simpl.
@@ -606,7 +595,7 @@ Section Compiler.
   Proof.
     intros N.
     inversion N.
-    contradiction.
+    tasks_absurd.
   Qed.
 
   Lemma rw_2:
@@ -614,18 +603,18 @@ Section Compiler.
     ~ C1.In T2 e ->
     C2.i_subst T2 (NNum n2)
        (C2.seq
-          (C2.i_subst TID (NNum n1) (proj TID e))
-          (do_proj TID T2 e))
+          (C2.i_subst TID (NNum n1) (proj e))
+          (do_proj T2 e))
     = 
     C2.seq
-      (C2.i_subst TID (NNum n1) (proj TID e))
-      (C2.i_subst TID (NNum n2) (proj TID e)).
+      (C2.i_subst TID (NNum n1) (proj e))
+      (C2.i_subst TID (NNum n2) (proj e)).
   Proof.
     intros.
     rewrite C2.i_subst_seq.
-    assert (~ C2.In T2 (proj TID e)). {
+    assert (~ C2.In T2 (proj e)). {
       intros N.
-      eapply in_proj_to_in in N; eauto.
+      eapply in_proj_to_in in N; eauto using t2_neq_tid.
     }
     rewrite subst_t2_neq; auto.
     unfold do_proj.
@@ -917,7 +906,7 @@ Section Compiler.
 
 
   Lemma run_trans_inv e  (t1_nin: ~ C1.In T1 e) (t2_nin: ~ C1.In T2 e) hs:
-    C2.Run (translate TID_COUNT TID T1 T2 e) hs ->
+    C2.Run (translate e) hs ->
     exists f1,
     hs = List.concat (C2.branch_iter 1 TID_COUNT f1) ++ [[]]
     /\
@@ -929,8 +918,8 @@ Section Compiler.
       0 <= n2 < n1 ->
       exists hs1 hs2,
       f2 n2 = prod hs1 hs2 /\
-      C2.Run (C2.i_subst TID (NNum n1) (proj TID e)) hs1 /\
-      C2.Run (C2.i_subst TID (NNum n2) (proj TID e)) hs2
+      C2.Run (C2.i_subst TID (NNum n1) (proj e)) hs1 /\
+      C2.Run (C2.i_subst TID (NNum n2) (proj e)) hs2
 
   .
   Proof.
@@ -948,10 +937,10 @@ Section Compiler.
     split; auto.
     intros n1 Ha.
     apply Hf in Ha; clear Hf.
-    assert (X:~ C2.In T1 (proj TID e)). {
+    assert (X:~ C2.In T1 (proj e)). {
       intros N.
       contradict t1_nin.
-      eauto using in_proj_to_in.
+      auto using in_proj_to_in, t1_neq_tid.
     }
     rewrite rw_1 in Ha; auto.
     apply C2.run_decl_inv_map in Ha.
@@ -965,8 +954,8 @@ Section Compiler.
       0 <= n2 < n1 ->
       exists hs1 hs2,
       f2 n2 = prod hs1 hs2 /\
-      C2.Run (C2.i_subst TID (NNum n1) (proj TID e)) hs1 /\
-      C2.Run (C2.i_subst TID (NNum n2) (proj TID e)) hs2
+      C2.Run (C2.i_subst TID (NNum n1) (proj e)) hs1 /\
+      C2.Run (C2.i_subst TID (NNum n2) (proj e)) hs2
     ). {
       intros n2 Hb.
       apply Hc in Hb; clear Hc.
@@ -1125,7 +1114,7 @@ Section Compiler.
 *)
 
   Lemma t1_not_in_proj_skip:
-    ~ C2.In T1 (proj TID C1.Skip).
+    ~ C2.In T1 (proj C1.Skip).
   Proof.
     simpl.
     intros N.
@@ -1305,7 +1294,7 @@ Section Compiler.
   Qed.
 
   Lemma c2_run_acc_inv_1 e hs i (t1_nin: ~ C1.In T1 (C1.Acc e i)) (t2_nin: ~ C1.In T2 (C1.Acc e i)):
-    C2.Run (translate TID_COUNT TID T1 T2 (C1.Acc e i)) hs ->
+    C2.Run (translate (C1.Acc e i)) hs ->
     exists f1,
     hs = branch_iter 1 TID_COUNT f1 ++ [[]]
     /\
@@ -1317,10 +1306,10 @@ Section Compiler.
     f2 n2 = prod hs1 hs2/\
     C2.Run
         (C2.Acc (access_subst TID (NNum n1) e, NNum n1)
-           (C2.i_subst TID (NNum n1) (proj TID i))) hs1 /\
+           (C2.i_subst TID (NNum n1) (proj i))) hs1 /\
     C2.Run
         (C2.Acc (access_subst TID (NNum n2) e, NNum n2)
-           (C2.i_subst TID (NNum n2) (proj TID i))) hs2
+           (C2.i_subst TID (NNum n2) (proj i))) hs2
    .
   Proof.
     intros.
@@ -1347,9 +1336,9 @@ Section Compiler.
     ~ C1.In T1 e2 ->
     ~ C1.In T2 e2 ->
     forall m1,
-    C2.Run (translate TID_COUNT TID T1 T2 (C1.seq e1 e2)) m1 ->
+    C2.Run (translate (C1.seq e1 e2)) m1 ->
     exists m2,
-    m1 == m2 /\ C2.Run (C2.seq (translate TID_COUNT TID T1 T2 e1) (translate TID_COUNT TID T1 T2 e2)) m2.
+    m1 == m2 /\ C2.Run (C2.seq (translate e1) (translate e2)) m2.
   Proof.
     induction e1; intros e2 t1_nin2 t2_nin2 m1 Hr.
     - simpl in Hr.
@@ -1363,28 +1352,6 @@ Section Compiler.
       apply c2_run_acc_inv_1 in Hr.
       + destruct Hr as (f1, (?, Hf)).
         subst.
-        rewrite 
-      apply run_translate_inv in Hr.
-      remove_eq TID TID.
-      apply run_trans_inv in Hr.
-      + destruct Hr as (f1, (?, Hf)).
-        subst.
-        simpl.
-        exists (List.concat (C2.branch_iter 1 TID_COUNT f1) ++ [[]]).
-        split. {
-          reflexivity.
-        }
-        remove_eq TID TID.
-        remove_eq TID TID.
-        simpl.
-        apply C2.run_seq.
-        (*
-        apply C2.run_decl_map_def with (f:=f) .
-        Search (C2.seq _ C2.Skip).
-        rewrite C2.seq_nil_rw.
-      unfold translate in Hr.
-      simpl in Hr.
-      Search (C2.seq _ C2.Skip).*)
   Admitted.
 
 
