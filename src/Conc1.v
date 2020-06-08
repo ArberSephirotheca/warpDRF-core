@@ -151,7 +151,7 @@ Section C1.
     - auto using var_loop_2.
     - auto using var_loop_3.
   Qed.
-
+  
   Variable TID_COUNT: nat.
   Variable TID : var.
 

@@ -20,7 +20,7 @@ Import ListNotations.
 Require Import Conc2.
 Require Import RangeList.
 Require Import C2Compiler.
-
+Require Import Tasks.
 Section Compiler.
   Import Conc1.
   Import C2Compiler.

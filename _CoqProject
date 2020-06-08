@@ -3,6 +3,7 @@ src/RangeList.v
 src/Tid.v
 src/Loc.v
 src/Var.v
+src/Tasks.v
 src/Exp.v
 src/Acc.v
 src/Util.v

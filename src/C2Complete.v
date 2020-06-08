@@ -6,7 +6,7 @@ Require Import Coq.Relations.Operators_Properties.
 Require Coq.Sets.Ensembles.
 Require Coq.omega.Omega.
 Require Import Recdef.
-Require Omega.
+Require Import Omega.
 Require Import Var.
 Require Import Tid.
 Require Import Loc.
@@ -17,6 +17,7 @@ Require Aniceto.Graphs.Graph.
 Require Conc1.
 Require Import SetTh.
 Import ListNotations.
+Require Import Tasks.
 Require Import Conc2.
 Require Import RangeList.
 Require Import C2Compiler.
@@ -1437,7 +1438,7 @@ Section Compiler.
     forall hs2,
     (forall x, MIn x hs1 -> access_tid x < TID_COUNT) ->
     C2.Run (translate i) hs2 ->
-    Incl (MMember hs2) (MMember hs1).
+    Incl (MMember hs1) (MMember hs2).
   Proof.
     intros hs1 H.
     induction H; intros.
@@ -1473,7 +1474,7 @@ Section Compiler.
         destruct Hd. {
           (* t = T2 *)
           (* In this case, we can pick any other task, say T1 = 1 *)
-          assert (Hx1: 1 <= 1 < TID_COUNT) by omega.
+          assert (Hx1: 1 <= 1 < TID_COUNT) by auto using tid_count_1_lt with *.
           assert (Hx2: 0 <= 0 < 1 ) by omega.
           assert (Hf1 := Hf1 1 0 Hx1 Hx2); subst.
           destruct Hf1 as (f2, (hs1, (hs2, (?, (?, (Hr1, Hr2)))))).
