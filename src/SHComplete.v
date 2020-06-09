@@ -13,7 +13,6 @@ Require Import Loc.
 Require Import Exp.
 Require Import Acc.
 Require Import Util.
-Require Aniceto.Graphs.Graph.
 Require LoopFree.
 Require Import SetTh.
 Import ListNotations.
@@ -326,29 +325,7 @@ Section Compiler.
     apply m_in_nil in H.
     contradiction.
   Qed.
-(*
-  Lemma c2_branch:
-    forall f l i1 i2 x hs hs',
-    hs' = ((List.concat (List.map f l)) ++ hs) ->
-    (forall n, List.In n l -> SymHist.Run (SymHist.seq (SymHist.i_subst x (NNum n) i1) i2) (f n)) ->
-    SymHist.Run i2 hs ->
-    SymHist.Run (SymHist.Branch x l i1 i2) hs'.
-  Proof.
-    induction l; intros; subst.
-    - simpl.
-      apply SymHist.run_branch_nil; auto.
-    - simpl.
-      rewrite app_assoc_reverse.
-      Search (_ ++ _ ++ _).
-      apply SymHist.run_branch_cons. {
-        auto using in_eq.
-      }
-      apply IHl with (hs:=hs); auto.
-      intros.
-      apply H0.
-      auto using in_cons.
-  Qed.
-*)
+
   Notation history := (list access_val).
   Definition mk_empty_1 n1 n2 : list history :=
     List.concat (map (fun _ => [[]]) (range_list n1 n2)) ++ [[]].
@@ -622,24 +599,6 @@ Section Compiler.
     rewrite subst_t2_tid_eq; auto.
   Qed.
 
-(*
-  Lemma c2_decl:
-     forall f n1 n2 i1 i2 x hs hs',
-     hs' = List.concat (map f (range_list n1 n2)) ++ hs ->
-     (forall n,
-      n1 <= n < n2 ->
-      SymHist.Run (SymHist.seq (SymHist.i_subst x (NNum n) i1) i2) (f n)) ->
-    SymHist.Run i2 hs -> SymHist.Run (SymHist.Decl x (NNum n1, NNum n2) i1 i2) hs'.
-  Proof.
-    intros.
-    apply SymHist.run_decl with (range_list n1 n2).
-    - apply r_step_range_list.
-    - apply c2_branch with (f:=f) (hs:=hs); auto.
-      intros.
-      apply range_list_in_iff in H2.
-      auto.
-  Qed.
-*)
   Lemma map_rw_repeat:
     forall A B m l,
     @map A B (fun _ : A => m) l = List.repeat m (List.length l).
@@ -693,218 +652,7 @@ Section Compiler.
     reflexivity.
   Qed.
 
-(*
-  Lemma div2_add:
-    forall n1 n2,
-    Nat.Even n1 ->
-    Nat.Even n2 -> 
-    Nat.div2 (n1 + n2) = Nat.div2 n1 + Nat.div2 n2.
-  Proof.
-    induction n1; intros. {
-      reflexivity.
-    }
-    (* n1 = S n *)
-    simpl.
-    destruct n1. {
-      (* n1 = 2 *)
-      assert (Ho: Nat.Odd 1). {
-        apply Nat.odd_spec.
-        reflexivity.
-      }
-      Search (Nat.Odd _).
-      apply Nat.Even_Odd_False in Ho; auto.
-      contradiction.
-    }
-    Search (Nat.Even).
-  Qed. 
-*)
-(*
-  Lemma asdf:
-    forall n,
-    n + Nat.div2 (n * S n) = Nat.div2 (n + n * S (S n)).
-  Proof.
-    intros.
-    repeat rewrite Nat.mul_succ_r.
-    Search (Nat.div2(_ + _)).
-    induction n; intros. {
-      simpl.
-      reflexivity.
-    }
-    simpl.
-    rewrite <- IHn.
-    clear IHn.
-    destruct n. {
-      simpl.
-      reflexivity.
-    }
-    simpl.
-    Search (Nat.div2 _).
-  Qed.
-  *)
-  (*
-  Lemma summation_count:
-    forall n,
-    summation (count n) = Nat.div2 ((S n) * n).
-  Proof.
-    induction n; intros. {
-      reflexivity.
-    }
-    remember (summation (count (S _))) as m.
-    simpl in Heqm.
-    rewrite IHn in Heqm; clear IHn.
-    rewrite Heqm; clear Heqm.
-    simpl.
-    destruct n. {
-      simpl.
-    }
-    destruct n. {
-      simpl.
-      reflexivity.
-    }
-    simpl.
-    
-    simpl.
-    assert (n = (2*n)/2). {
-      simpl.
-      rewrite Nat.add_0_r.
-      Search (Nat.divmod).
-      Nat.div
-      rewrite Nat.divmod.
-      Search (_ + 0).
-    }
-    omega.
-  Qed.
-
-  Lemma summation_range_list:
-    forall 0 n,
-    summation (range_list 0 n) = (n * (S (n2 - n1))) / 2.
-  Proof.
-
-  Lemma summation_range_list:
-    forall n1 n2,
-    summation (range_list n1 n2) = ((n2 - n1) * (S (n2 - n1))) / 2.
-  Proof.
-    intros.
-    remember (range_list n1 n2).
-    generalize dependent n1.
-    generalize dependent n2.
-    induction l; intros; symmetry in Heql; apply range_list_to_prop in Heql;
-      inversion Heql; subst; clear Heql.
-    - assert (R: n2 - n1 = 0) by auto with *.
-      rewrite R.
-      reflexivity.
-    - apply prop_to_range_list in H4.
-      symmetry in H4.
-      apply IHl in H4; clear IHl.
-      remember (summation (a :: l)) as l1.
-      simpl in Heql1.
-      rewrite H4 in Heql1.
-      rewrite Heql1.
-      destruct n2. {
-        simpl.
-        inversion H3.
-      }
-      rewrite Nat.sub_succ.
-      
-      Search (S _ - S _).
-      simpl.
-      simpl.
-  Qed.*)
-(*
-  Lemma concat_eq_nil_rw:
-    forall A B f l,
-    @List.concat (list B) (map (fun n : A => repeat [] (f n)) l) = List.repeat [] (List.length l * (List.length l - 1)).
-  Proof.
-    induction l; intros. {
-      reflexivity.
-    }
-    simpl.
-    rewrite IHl.
-    reflexivity.
-  Qed.
-  *)
   Import C2Notations.
-(*
-  Lemma c2_run_trans_inv_1 e hs (t1_nin: ~ Conc.In T1 e) (t2_nin: ~ Conc.In T2 e):
-    SymHist.Run (translate e) hs ->
-    exists hss, 
-    hs = List.concat hss /\
-    forall n1,
-      1 <= n1 < TID_COUNT ->
-      exists hssb,
-      In (List.concat hssb) hss /\
-      (forall n2,
-       0 <= n2 < n1 ->
-       exists hb hc,
-         SymHist.Run (SymHist.i_subst TID (NNum n1) (proj e)) hb /\
-         SymHist.Run (SymHist.i_subst TID (NNum n2) (proj e)) hc /\
-         In (prod hb hc) hssb /\ In (List.concat hssb) hss)
-
-  .
-  Proof.
-    intros.
-    unfold translate in *.
-    apply SymHist.run_decl_inv_eq in H; auto with *.
-    destruct H as (hss, (Ha, Hb)).
-    exists hss; split; auto.
-    assert (
-      forall n1,
-     1 <= n1 < TID_COUNT ->
-     exists hssb,
-    In (List.concat hssb) hss /\
-    forall n2 : nat,
-     0 <= n2 < n1 ->
-     exists hb hc,
-       SymHist.Run (SymHist.i_subst TID (NNum n1) (proj e)) hb /\
-       SymHist.Run (SymHist.i_subst TID (NNum n2) (proj e)) hc /\
-       In (prod hb hc) hssb /\ In (List.concat hssb) hss
-    ). {
-      intros n1 Hc.
-      assert (Hb := Hb _ Hc).
-      destruct Hb as (hsc, (Hb, Hd)).
-      assert (X:~ SymHist.In T1 (proj e)). {
-        intros N.
-        contradict t1_nin.
-        auto using in_proj_to_in.
-      }
-      rewrite rw_1 in Hb; auto.
-      apply SymHist.run_inv_seq in Hb.
-      destruct Hb as (hs1, (hs2, (?, (Hb, He)))).
-      inversion He; subst; clear He.
-      rewrite prod_nil_nil_r in *.
-      apply SymHist.run_decl_inv_eq in Hb; auto with *.
-      destruct Hb as (hssb, (?, Hb)).
-      subst.
-      assert (forall n2,
-         0 <= n2 < n1 ->
-        exists hb hc,
-        SymHist.Run (SymHist.i_subst TID (NNum n1) (proj e)) hb /\
-        SymHist.Run (SymHist.i_subst TID (NNum n2) (proj e)) hc /\
-        In (prod hb hc) hssb /\
-        In (List.concat hssb) hss
-         
-         ). {
-        intros n2 Ha.
-        assert (Hb := Hb _ Ha).
-        destruct Hb as (hs, (Hb,He)).
-        apply SymHist.run_inv_seq in Hb.
-        destruct Hb as (ha, (hb, (?, (Hb, Hf)))).
-        inversion Hf; subst; clear Hf.
-        rewrite prod_nil_nil_r in *.
-        rewrite rw_2 in Hb; auto.
-        apply SymHist.run_inv_seq in Hb.
-        destruct Hb as (hb, (hc, (Hb, (Hf,Hg)))).
-        subst.
-        exists hb.
-        eauto.
-      }
-      subst.
-      eauto.
-    }
-    auto.
-  Qed.
-*)
-
 
   Lemma run_trans_inv e  (t1_nin: ~ Conc.In T1 e) (t2_nin: ~ Conc.In T2 e) hs:
     SymHist.Run (translate e) hs ->
@@ -929,7 +677,6 @@ Section Compiler.
     apply SymHist.run_decl_inv_map in H.
     destruct H as (ms, (m, (?, (Hs, H)))).
     inversion Hs; subst; clear Hs.
-    Search (prod _ [[]]).
     rewrite prod_nil_nil_r.
     apply SymHist.decl_map_inv in H.
     destruct H as (f1, (R1, Hf)).
@@ -979,90 +726,7 @@ Section Compiler.
     rewrite range_list_fun_length.
     reflexivity.
   Qed.
-(*
-  Lemma prod_cons_l:
-    forall A l1 l2 x,
-    @prod A l1 (x :: l2) = prod l1 [x] ++ prod l1 l2.
-  Proof.
-    induction l1; intros. {
-      reflexivity.
-    }
-    simpl.
-    rewrite IHl1.
-  Qed.
-*)
-(*
-  Fixpoint interleave {A:Type} (l1 l2:list A): list A :=
-  match l1, l2 with
-  | x1::l1, x2::l2 => x1::x2::(@interleave A l1 l2)
-  | [], _ => l2
-  | _, _ => l1
-  end.
-  *)
-  (*
-  Lemma map_app_prod:
-    forall A B (f1:A->list B) f2 l,
-    map (fun x => f1 x ++ f2 x) l = interleave (map f1 l) (map f2 l).
-  Proof.
-    induction l; intros. {
-      reflexivity.
-    }
-    simpl.
-    Search (prod _ (_ :: _)).
-    rewrite IHl.
-    assert (
-      prod l1 l2 =
-      prepend (f1 a) l2 ++ prod l1 (f2 a :: l2)
-    )
-    simpl.
-  Qed.
-*)
-(*
-  Lemma branch_iter_eq_func:
-    forall A f1 f2 n1 n2,
-    (forall n, n1 <= n < n2 -> f1 n = f2 n) ->
-    @branch_iter A n1 n2 f1 = branch_iter n1 n2 f2.
-  Proof.
-    intros.
-    unfold branch_iter.
-    rewrite map_rw_func with (f4:=f2); auto.
-    intros.
-    auto using range_list_inv_in_2.
-  Qed.
-*)
-(*
 
-  Lemma map_mem_equiv_func:
-    forall A f1 f2 l,
-    (forall (x:A), List.In x l -> f1 x == f2 x) ->
-    List.concat (map f1 l) == List.concat (map f2 l).
-  Proof.
-    induction l; intros; auto; simpl in *. {
-      reflexivity.
-    }
-    assert (Hx: (forall x : A0, In x l -> f1 x == f2 x)) by auto.
-    assert (IHl := IHl Hx).
-    rewrite IHl.
-    assert (R: f1 a == f2 a) by auto.
-    rewrite R.
-    reflexivity.
-  Qed.
-*)
-(*
-  Lemma branch_iter_equiv_func:
-    forall f1 f2 n1 n2,
-    (forall n, n1 <= n < n2 -> f1 n == f2 n) ->
-    branch_iter n1 n2 f1 == branch_iter n1 n2 f2.
-  Proof.
-    intros.
-    unfold branch_iter.
-    rewrite (map_mem_equiv_func _ f1 f2).
-    - reflexivity.
-    - intros.
-      apply range_list_inv_in_2 in H0.
-      auto.
-  Qed.
-*)
   Lemma mk_empty_1_rw:
     forall n1 n2,
     mk_empty_1 n1 n2 == [].
@@ -1097,22 +761,6 @@ Section Compiler.
     rewrite mk_empty_1_rw.
     reflexivity.
   Qed.
-(*
-  Lemma branch_iter_absorb:
-    forall n1 n2 m,
-    n1 < n2 ->
-    branch_iter n1 n2 (fun _ : nat => m) == m.
-  Proof.
-    intros.
-    unfold branch_iter.
-    rewrite map_rw_repeat.
-    rewrite range_list_fun_length.
-    rewrite SymHist.mem_equiv_concat_repeat_rw. {
-      reflexivity.
-    }
-    auto with *.
-  Qed.
-*)
 
   Lemma t1_not_in_proj_skip:
     ~ SymHist.In T1 (proj Conc.Skip).
@@ -1172,13 +820,7 @@ Section Compiler.
       rewrite PeanoNat.Nat.add_succ_r.
       reflexivity.
   Qed.
-(*
-  Lemma prepend_equiv:
-    forall m1 m2 m3 m4,
-    m1 == m3 ->
-    m2 == m4 ->
-    prepend m1 m2 == prepend m3 m4.
-*)
+
   Lemma mem_equiv_cons_eq_nil:
     forall h,
     [h] == [] ->
@@ -1355,51 +997,6 @@ Section Compiler.
         subst.
   Admitted.
 
-
-(*
-
-  Lemma c2_run_acc_inv_2 e hs i (t1_nin: ~ Conc.In T1 (Conc.Acc e i)) (t2_nin: ~ Conc.In T2 (Conc.Acc e i)):
-    SymHist.Run (translate (Conc.Acc e i)) hs ->
-    exists f1,
-    hs = branch_iter 1 TID_COUNT f1 ++ [[]]
-    /\
-    forall n1 n2,
-    1 <= n1 < TID_COUNT ->
-    0 <= n2 < n1 ->
-    exists f2 v1 v2 hr1 hr2,
-    f1 n1 = branch_iter 0 n1 f2 ++ [[]] /\
-    f2 n2 = prod (prepend v1 hr1) (prepend v2 hr2) /\
-    access_step (access_subst TID (NNum n1) e, NNum n1) v1 /\
-    access_step (access_subst TID (NNum n2) e, NNum n2) v2 /\
-    SymHist.Run (SymHist.i_subst TID (NNum n1) (proj i)) hr1 /\
-    SymHist.Run (SymHist.i_subst TID (NNum n2) (proj i)) hr2
-   .
-  Proof.
-   Search (prod (prepend _ _) _).
-   rewrite <- prepend_prod.
-  Qed.
-  *)
-(*
-  Lemma translate_acc_inv:
-    forall e i hs,
-    SymHist.Run (translate (Conc.Acc e i)) hs ->
-    exists hs1 hs2,
-    hs = prod hs1 hs2 /\
-    SymHist.Run (translate (Conc.Acc e Conc.Skip)) hs1 /\
-    SymHist.Run (translate i) hs2.
-  Proof.
-    induction i; intros.
-    - exists (prod hs (mk_empty_2 1 TID_COUNT)).
-      exists (mk_empty_2 1 TID_COUNT).
-      repeat split; auto using c2_run_skip.
-      + 
-      unfold translate in *.
-      simpl in *.
-      rewrite prod_nil_nil_r.
-      repeat split; auto.
-      unfold translate.
-  Qed.
-*)
   Lemma m_in_branch_iter:
     forall A x n n1 n2 f,
     n1 <= n < n2 ->
@@ -1460,7 +1057,6 @@ Section Compiler.
         (* 1. simplify defs *)
         apply incl_def; intros.
         rewrite mmember_rw in *.
-        Search (MIn _ (_ ++ _)).
         apply m_in_app_l.
         (* At this point we know that the access is in the output of 
              Hist.GenAccess TID e TID_COUNT v
@@ -1633,116 +1229,3 @@ Section Compiler.
   End Defs.
 
 End Compiler.
-(*
-Module Examples.
-  Import Compiler.
-  Import SymHist.
-
-  Fixpoint bstep fuel steps s :=
-  match fuel with
-  | 0 => (steps,s)
-  | S n =>
-    match SymHist.step s with
-    | Some s => bstep n (S steps) s
-    | _ => (steps, s)
-    end
-  end.
-
-  Definition run steps s := bstep steps 0 s.
-
-  Fixpoint hists s :=
-  match s with
-  | Par (Leaf (h, i)) s2 => h :: hists s2
-  | _ => []
-  end.
-
-  Definition run_h steps s := hists (snd (run steps s)).
-
-
-  Definition HELLO1 n := Leaf ([],
-    Decl (variable "x") (NNum 0, NNum 2) (
-      Acc ((NVar (variable "x"), BBool true), n) Skip
-    )
-    Skip
-  ).
-
-  Definition HELLO1_VAL t :=  Par (Leaf ([{| OneDim.tid := t; OneDim.index := 0 |}], Skip))
-         (Par (Leaf ([{| OneDim.tid := t; OneDim.index := 1 |}], Skip))
-          Empty).
-
-  Goal snd (run 300 (HELLO1 (NNum 9))) = HELLO1_VAL 9.
-    auto.
-  Qed.
-
-  Definition HELLO2 := Leaf ([],
-    Decl (variable "tid") (NNum 0, NNum 2) (
-    Decl (variable "x") (NNum 0, NNum 2) (
-      Acc ((NVar (variable "x"), BBool true), (NVar (variable "tid"))) Skip
-    ) Skip
-    )
-    Skip
-  ).
-
-  (**
-  
-    var t \in (0, 2) {
-      var x \in (0, 2) {
-        [x] by t
-      }
-    }
-  
-    *)
-
-  
-  Compute run 24 HELLO2.
-
-  Infix "||" := Par.
-  Notation "{}" := Empty.
-  Notation "x 'by' y" := {| OneDim.tid := y; OneDim.index := x |} (at level 50, left associativity).
-
-
-  Definition HELLO3 n := Leaf ([],
-    Decl (variable "x") (NNum 0, NNum 2) (
-      Acc ((NVar (variable "x"), BBool true), n) Skip
-    ) (Acc ((NNum 9, BBool true), NNum 9) Skip)
-  ).
-  
-  Compute run 17 (HELLO3 (NNum 10)).
-
-
-  Definition GOOD1 :=
-    translate 2 Conc1.Examples.TID (variable "T1") (variable "T2") Conc1.Examples.GOOD1.
-
-  Compute GOOD1.
-
-  Definition body x :=
-    Decl (variable "x") (NNum 0, NNum 2)
-        (Acc (NVar (variable "x"), NRel NEq x (NVar (variable "x")), x) Skip) Skip.
-
-  Compute Conc1.Examples.GOOD1.
-  Compute GOOD1.
-
-  Compute run_h 40 (Leaf ([], GOOD1)). (* 39 *)
-
-  (* ([{| OneDim.tid := 1; OneDim.index := 1 |}; {| OneDim.tid := 0; OneDim.index := 0 |}], Skip) *)
-
-  Definition GOOD2 :=
-    translate 2 Conc1.Examples.TID (variable "T1") (variable "T2") Conc1.Examples.GOOD2.
-
-  Compute run 10 (Leaf ([], GOOD2)). (* 10 *)
-
-  Definition BAD := 
-    translate 2 Conc1.Examples.TID (variable "T1") (variable "T2") Conc1.Examples.BAD.
-(*
-  Compute BAD.
-*)
-  Compute (run_h 36 (Leaf ([], BAD))). (* 35 *)
-
-  Compute hists (snd (run 36 (Leaf ([], BAD)))).
-  (*
-        [{| OneDim.tid := 1; OneDim.index := 2 |}; {| OneDim.tid := 0; OneDim.index := 1 |};
-         {| OneDim.tid := 1; OneDim.index := 1 |}; {| OneDim.tid := 0; OneDim.index := 0 |}]
-  *)
-
-End Examples.
-*)

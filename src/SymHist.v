@@ -1144,10 +1144,8 @@ Section Defs.
     - rewrite seq_nil_rw in *.
       assert (IHRun2 := IHRun2 _ _ _ eq_refl _ _ H1).
       rewrite <- prod_app.
-      Search (prod (_ ++ _)).
       apply run_branch_cons.
-      + Search (Run (seq _ _)).
-        auto using run_seq.
+      + auto using run_seq.
       + eauto.
     - apply run_branch_nil.
       inversion H; subst; clear H.
