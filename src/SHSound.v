@@ -3,46 +3,53 @@ Require Import Coq.Strings.String.
 Require Import Coq.Relations.Relation_Definitions.
 Require Import Coq.Relations.Relation_Operators.
 Require Import Coq.Relations.Operators_Properties.
+Require Import Coq.funind.Recdef.
+
 Require Coq.Sets.Ensembles.
 Require Coq.omega.Omega.
-Require Import Recdef.
-Require Omega.
+(*
+Require Aniceto.Graphs.Graph.
+*)
+
+Require Conc.
+Require LoopFree.
+
 Require Import Var.
 Require Import Tid.
 Require Import Loc.
 Require Import Exp.
 Require Import Acc.
 Require Import Util.
-Require Aniceto.Graphs.Graph.
-Require Conc1.
-Require Import SetTh.
-Import ListNotations.
-Require Import Conc2.
+Require Import SymHist.
 Require Import RangeList.
-Require Import C2Compiler.
+Require Import SHCompiler.
 Require Import Tasks.
-Require LoopFree.
+Require Import SetTh.
+
+Import ListNotations.
+
+
 Section Compiler.
-  Import Conc1.
-  Import C2Compiler.
+  Import Conc.
+  Import SHCompiler.
   Section Defs.
   Context {A:Access}.
   Context {T:Tasks}.
 
   Lemma in_to_in_proj:
     forall x i,
-    C1.In x i ->
-    C2.In x (proj i).
+    Conc.In x i ->
+    SymHist.In x (proj i).
   Proof.
     induction i; simpl; intros; inversion H; subst; clear H;
-        auto using C2.in_acc_1, C2.in_acc_3, C2.in_decl_1, C2.in_decl_2, C2.in_decl_3,
-          C2.in_decl_4, C2.in_branch_1, C2.in_branch_2, C2.in_branch_3.
+        auto using SymHist.in_acc_1, SymHist.in_acc_3, SymHist.in_decl_1, SymHist.in_decl_2, SymHist.in_decl_3,
+          SymHist.in_decl_4, SymHist.in_branch_1, SymHist.in_branch_2, SymHist.in_branch_3.
   Qed.
 
   Lemma i_subst_proj_rw:
     forall x i n,
     x <> TID ->
-    proj (C1.i_subst x (NNum n) i) = C2.i_subst x (NNum n) (proj i).
+    proj (Conc.i_subst x (NNum n) i) = SymHist.i_subst x (NNum n) (proj i).
   Proof.
     induction i; simpl; intros; destruct (Set_VAR.MF.eq_dec x TID); try contradiction.
     - reflexivity.
@@ -62,7 +69,7 @@ Section Compiler.
 
   Lemma proj_seq:
     forall i1 i2,
-    proj (C1.seq i1 i2) = C2.seq (proj i1) (proj i2).
+    proj (Conc.seq i1 i2) = SymHist.seq (proj i1) (proj i2).
   Proof.
     induction i1; intros; simpl.
     - reflexivity.
@@ -90,8 +97,8 @@ Section Compiler.
     LoopFree.Run i hs2 ->
     forall n hs1,
     n < TID_COUNT ->
-    C2.Run (C2.i_subst TID (NNum n) (proj i)) hs1 ->
-    ~ C1.Var TID i ->
+    SymHist.Run (SymHist.i_subst TID (NNum n) (proj i)) hs1 ->
+    ~ Conc.Var TID i ->
     Hist.m_proj n hs2 = hs1.
   Proof.
     intros i hs2 H.
@@ -99,7 +106,7 @@ Section Compiler.
     - inversion H0; subst; clear H0.
       reflexivity.
     - inversion H2; subst; clear H2.
-      apply C1.var_not_in_acc in H3.
+      apply Conc.var_not_in_acc in H3.
       assert (IHRun := IHRun _ _ H1 H8 H3).
       subst.
       destruct (var_eq_dec_rw_eq TID) as (?, R).
@@ -116,45 +123,45 @@ Section Compiler.
         eauto using r_step_fun.
       }
       subst.
-      assert (~ C1.Var TID (C1.Loop x l i1 i2)). {
+      assert (~ Conc.Var TID (Conc.Loop x l i1 i2)). {
         intros N.
         contradict H3.
-        eauto using C1.var_loop_to_for.
+        eauto using Conc.var_loop_to_for.
       }
       eauto.
     - simpl in *.
       inversion H2; subst; clear H2.
-      assert (~ C1.Var TID (C1.Loop x l i1 i2)). {
+      assert (~ Conc.Var TID (Conc.Loop x l i1 i2)). {
         intros N.
         contradict H3.
-        auto using C1.var_loop_cons.
+        auto using Conc.var_loop_cons.
       }
       apply IHRun2 in H11; auto; clear IHRun2.
       subst.
       rewrite Hist.m_proj_app.
       assert (Hist.m_proj n0 hs1 = hs3). {
         destruct (Set_VAR.MF.eq_dec TID x). {
-          apply C1.var_not_in_loop in H3.
+          apply Conc.var_not_in_loop in H3.
           destruct H3 as (?, _).
           contradiction.
         }
         apply IHRun1; auto; clear IHRun1.
-        + rewrite C2.i_subst_subst_neq in H10; auto.
-          rewrite <- C2.i_subst_seq in H10.
+        + rewrite SymHist.i_subst_subst_neq in H10; auto.
+          rewrite <- SymHist.i_subst_seq in H10.
           rewrite <- i_subst_proj_rw in H10; auto.
           rewrite proj_seq in *.
           auto.
         + intros N.
           contradict H2.
-          eauto using C1.var_iter_loop.
+          eauto using Conc.var_iter_loop.
       }
       subst.
       reflexivity.
     - inversion H1; subst; clear H1.
-      assert (~ C1.Var TID i2). {
+      assert (~ Conc.Var TID i2). {
         intros N.
         contradict H2.
-        auto using C1.var_loop_3.
+        auto using Conc.var_loop_3.
       }
       auto.
   Qed.
@@ -164,15 +171,15 @@ Section Compiler.
     LoopFree.Run i hs2 ->
     forall n hs1,
     n < TID_COUNT -> 
-    C2.Run (C2.i_subst t (NNum n) (do_proj t i)) hs1 ->
-    ~ C1.Var TID i ->
-    ~ C1.In t i ->
+    SymHist.Run (SymHist.i_subst t (NNum n) (do_proj t i)) hs1 ->
+    ~ Conc.Var TID i ->
+    ~ Conc.In t i ->
     t <> TID ->
     Hist.m_proj n hs2 = hs1.
   Proof.
     unfold do_proj.
     intros.
-    rewrite C2.i_subst_subst_trans in H1; auto.
+    rewrite SymHist.i_subst_subst_trans in H1; auto.
     + eapply run_m_proj; eauto.
     + intros N.
       contradict H3.
@@ -185,37 +192,37 @@ Section Compiler.
     forall n1 n2 hs1,
     n1 < TID_COUNT ->
     n2 < TID_COUNT ->
-    C2.Run
-        (C2.i_subst T2 (NNum n1)
-           (C2.i_subst T1 (NNum n2) (C2.seq (do_proj T1 i) (do_proj T2 i)))) hs1 ->
-    ~ C1.Var TID i ->
-    ~ C1.In T1 i ->
-    ~ C1.In T2 i ->
+    SymHist.Run
+        (SymHist.i_subst T2 (NNum n1)
+           (SymHist.i_subst T1 (NNum n2) (SymHist.seq (do_proj T1 i) (do_proj T2 i)))) hs1 ->
+    ~ Conc.Var TID i ->
+    ~ Conc.In T1 i ->
+    ~ Conc.In T2 i ->
     prod (Hist.m_proj n2 hs2) (Hist.m_proj n1 hs2) = hs1.
   Proof.
     intros.
-    rewrite C2.i_subst_seq in H2.
-    rewrite C2.i_subst_seq in H2.
-    apply C2.run_inv_seq in H2.
+    rewrite SymHist.i_subst_seq in H2.
+    rewrite SymHist.i_subst_seq in H2.
+    apply SymHist.run_inv_seq in H2.
     destruct H2 as (hsa, (hsb, (?, (Hra, Hrb)))).
     subst.
-    assert (t1_nin_proj_i: ~ C2.In T1 (proj i)). {
+    assert (t1_nin_proj_i: ~ SymHist.In T1 (proj i)). {
       intros N.
       contradict H4.
       auto using in_proj_to_in, t1_neq_tid.
     }
-    assert (t2_nin_proj_i: ~ C2.In T2 (proj i)). {
+    assert (t2_nin_proj_i: ~ SymHist.In T2 (proj i)). {
       intros N.
       contradict H5.
       eauto using in_proj_to_in, t2_neq_tid.
     }
     (* Simplify Hra: *)
-    assert (~ C2.In T2 (C2.i_subst T1 (NNum n2) (do_proj T1 i))). {
+    assert (~ SymHist.In T2 (SymHist.i_subst T1 (NNum n2) (do_proj T1 i))). {
       intros N.
       contradict t2_nin_proj_i.
-      apply C2.in_i_subst_neq in N; auto using t1_neq_t2. {
+      apply SymHist.in_i_subst_neq in N; auto using t1_neq_t2. {
         unfold do_proj in N.
-        apply C2.in_i_subst_neq in N; auto using t2_neq_tid.
+        apply SymHist.in_i_subst_neq in N; auto using t2_neq_tid.
         intros M.
         inversion M.
         assert (T2 <> T1) by auto using t1_neq_t2.
@@ -224,17 +231,17 @@ Section Compiler.
       intros M.
       inversion M.
     }
-    rewrite C2.i_subst_not_in in Hra; auto.
+    rewrite SymHist.i_subst_not_in in Hra; auto.
     eapply run_do_proj in Hra; eauto using t1_neq_tid.
     subst.
     (* Simplify Hrb *)
-    rewrite C2.i_subst_subst_neq in Hrb; auto using t1_neq_t2.
-    assert (~ C2.In T1 (C2.i_subst T2 (NNum n1) (do_proj T2 i))). {
+    rewrite SymHist.i_subst_subst_neq in Hrb; auto using t1_neq_t2.
+    assert (~ SymHist.In T1 (SymHist.i_subst T2 (NNum n1) (do_proj T2 i))). {
       intros N.
       contradict t1_nin_proj_i.
-      apply C2.in_i_subst_neq in N; auto using t1_neq_t2. {
+      apply SymHist.in_i_subst_neq in N; auto using t1_neq_t2. {
         unfold do_proj in N.
-        apply C2.in_i_subst_neq in N; auto using t1_neq_tid.
+        apply SymHist.in_i_subst_neq in N; auto using t1_neq_tid.
         intros M.
         inversion M.
         tasks_absurd.
@@ -242,7 +249,7 @@ Section Compiler.
       intros M.
       inversion M.
     }
-    rewrite C2.i_subst_not_in in Hrb; auto.
+    rewrite SymHist.i_subst_not_in in Hrb; auto.
     eapply run_do_proj in Hrb; eauto using t2_neq_tid.
     subst.
     reflexivity.
@@ -250,11 +257,11 @@ Section Compiler.
 
   Lemma in_branch_inv:
     forall l hs x i1 i2,
-    C2.Run (C2.Branch x l i1 i2) hs ->
+    SymHist.Run (SymHist.Branch x l i1 i2) hs ->
     forall n,
     List.In n l ->
     exists hs2,
-    incl hs2 hs /\ C2.Run (C2.seq (C2.i_subst x (NNum n) i1) i2) hs2.
+    incl hs2 hs /\ SymHist.Run (SymHist.seq (SymHist.i_subst x (NNum n) i1) i2) hs2.
   Proof.
     induction l; intros. {
       contradiction.
@@ -274,16 +281,16 @@ Section Compiler.
 
   Lemma in_decl_inv:
     forall e1 e2 hs x i1 i2,
-    C2.Run (C2.Decl x (e1, e2) i1 i2) hs ->
+    SymHist.Run (SymHist.Decl x (e1, e2) i1 i2) hs ->
     exists n1 n2,
     NStep e1 n1 /\
     NStep e2 n2 /\
-    ((n1 >= n2 /\ C2.Run i2 hs)
+    ((n1 >= n2 /\ SymHist.Run i2 hs)
     \/
     forall n,
     n1 <= n < n2 ->
     exists hs2,
-    incl hs2 hs /\ C2.Run (C2.seq (C2.i_subst x (NNum n) i1) i2) hs2).
+    incl hs2 hs /\ SymHist.Run (SymHist.seq (SymHist.i_subst x (NNum n) i1) i2) hs2).
   Proof.
     intros.
     inversion H; subst; clear H.
@@ -305,23 +312,23 @@ Section Compiler.
   Qed.
 
   Theorem soundness_1
-      (i:C1.inst)
-      (T1_nin_i: ~ C1.In T1 i)
-      (T2_nin_i: ~ C1.In T2 i)
-      (TID_nvar_i: ~ C1.Var TID i)
+      (i:Conc.inst)
+      (T1_nin_i: ~ Conc.In T1 i)
+      (T2_nin_i: ~ Conc.In T2 i)
+      (TID_nvar_i: ~ Conc.Var TID i)
     :
     forall hs1,
     LoopFree.Run i hs1 ->
     forall hs2,
     (forall x, MIn x hs1 -> access_tid x < TID_COUNT) ->
-    C2.Run (translate i) hs2 ->
+    SymHist.Run (translate i) hs2 ->
     Hist.APairIncl hs1 hs2.
   Proof.
     unfold translate.
     intros.
     unfold Hist.APairIncl.
     intros.
-    apply C2.run_decl_inv in H1.
+    apply SymHist.run_decl_inv in H1.
     destruct H1 as (n1, (n2, (Hn1, (Hn2, Hx)))).
     inversion Hn1; subst; clear Hn1.
     assert (n2 = TID_COUNT). {
@@ -349,13 +356,13 @@ Section Compiler.
       assert (Ha : 1 <= access_tid y < TID_COUNT) by omega.
       assert (Hx := Hx (access_tid y) Ha).
       destruct Hx as (hs, (Hx,Hy)).
-      apply C2.run_inv_seq in Hx.
+      apply SymHist.run_inv_seq in Hx.
       destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
       inversion Hr2; subst; clear Hr2.
       rewrite prod_nil_nil_r in *.
       simpl in *.
       destruct (Set_VAR.MF.eq_dec T1 T1) as [_| N]; try contradiction.
-      apply C2.run_decl_inv in Hr1.
+      apply SymHist.run_decl_inv in Hr1.
       destruct Hr1 as (n1, (n2, (Hn1, (Hn2, [(N, Hr1)|(Hss, (?, Hx))])))). {
         inversion Hn1; subst; clear Hn1.
         inversion Hn2; subst; clear Hn2.
@@ -370,7 +377,7 @@ Section Compiler.
       destruct Hx as (hs, (Hx,Hz)).
       remove_eq T1 T2.
       (* Now we want to handle the seq in Hx *)
-      apply C2.run_inv_seq in Hx.
+      apply SymHist.run_inv_seq in Hx.
       destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
       inversion Hr2; subst; clear Hr2.
       rewrite prod_nil_nil_r in *.
@@ -387,13 +394,13 @@ Section Compiler.
       assert (Ha : 1 <= access_tid x < TID_COUNT) by omega.
       assert (Hx := Hx (access_tid x) Ha).
       destruct Hx as (hs, (Hx,Hy)).
-      apply C2.run_inv_seq in Hx.
+      apply SymHist.run_inv_seq in Hx.
       destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
       inversion Hr2; subst; clear Hr2.
       rewrite prod_nil_nil_r in *.
       simpl in *.
       remove_eq T1 T1.
-      apply C2.run_decl_inv in Hr1.
+      apply SymHist.run_decl_inv in Hr1.
       destruct Hr1 as (n1, (n2, (Hn1, (Hn2, [(N, Hr1)|(Hss, (?, Hx))])))). {
         inversion Hn1; subst; clear Hn1.
         inversion Hn2; subst; clear Hn2.
@@ -408,7 +415,7 @@ Section Compiler.
       destruct Hx as (hs, (Hx,Hz)).
       remove_eq T1 T2.
       (* Now we want to handle the seq in Hx *)
-      apply C2.run_inv_seq in Hx.
+      apply SymHist.run_inv_seq in Hx.
       destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
       inversion Hr2; subst; clear Hr2.
       rewrite prod_nil_nil_r in *.
@@ -428,12 +435,12 @@ Section Compiler.
   Corollary soundness:
     forall hs1 hs2 i,
     (forall x, MIn x hs1 -> access_tid x < TID_COUNT) ->
-    ~ C1.In T1 i ->
-    ~ C1.In T2 i ->
-    ~ C1.Var TID i ->
+    ~ Conc.In T1 i ->
+    ~ Conc.In T2 i ->
+    ~ Conc.Var TID i ->
     Hist.MSafeStrong hs2 ->
     LoopFree.Run i hs1 ->
-    C2.Run (translate i) hs2 ->
+    SymHist.Run (translate i) hs2 ->
     Hist.MSafe hs1.
   Proof.
     intros.

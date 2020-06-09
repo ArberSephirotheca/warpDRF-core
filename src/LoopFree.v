@@ -14,8 +14,7 @@ Require Import Acc.
 Require Import Util.
 Require Import Tasks.
 
-Require Conc1.
-Module C1 := Conc1.
+Require Conc.
 
 Import ListNotations.
 
@@ -23,36 +22,36 @@ Section Defs.
   Context {A:Access}.
   Context {T:Tasks}.
   Notation history := (list access_val).
-  Definition t := (history * C1.inst) % type.
+  Definition t := (history * Conc.inst) % type.
 
-  Inductive Run: C1.inst -> list history -> Prop :=
+  Inductive Run: Conc.inst -> list history -> Prop :=
   | run_skip:
-    Run C1.Skip [[]]
+    Run Conc.Skip [[]]
   | run_access:
     forall i e v hs,
     Hist.GenAccess TID e TID_COUNT v ->
     Run i hs ->
-    Run (C1.Acc e i) (prepend (List.concat v) hs)
+    Run (Conc.Acc e i) (prepend (List.concat v) hs)
   | run_for:
     forall r l i1 i2 x hs,
     RStep r l ->
-    Run (C1.Loop x l i1 i2) hs ->
-    Run (C1.For x r i1 i2) hs
+    Run (Conc.Loop x l i1 i2) hs ->
+    Run (Conc.For x r i1 i2) hs
   | run_loop_cons:
     forall x n l i1 i2 hs1 hs2,
-    Run (C1.seq (C1.i_subst x (NNum n) i1) i2) hs1 ->
-    Run (C1.Loop x l i1 i2) hs2 ->
-    Run (C1.Loop x (n::l) i1 i2) (hs1 ++ hs2)
+    Run (Conc.seq (Conc.i_subst x (NNum n) i1) i2) hs1 ->
+    Run (Conc.Loop x l i1 i2) hs2 ->
+    Run (Conc.Loop x (n::l) i1 i2) (hs1 ++ hs2)
   | run_loop_nil:
     forall x i1 i2 hs,
     Run i2 hs ->
-    Run (C1.Loop x [] i1 i2) hs.
+    Run (Conc.Loop x [] i1 i2) hs.
 
 
   Definition is_value (s:t) :=
     let (h, p) := s in
     match p with
-    | C1.Skip => true
+    | Conc.Skip => true
     | _ => false
     end.
 
@@ -60,8 +59,8 @@ Section Defs.
     repeat match goal with
     | [ H: Run [] _ |- _ ] => inversion H; subst; clear H
     | [ H: Hist.Safe [] |- _ ] => clear H
-    | [ H: Run [C1.Skip] _ |- _ ] => inversion H; subst; clear H
-    | [ H: C1.Run _ _ C1.Skip _ |- _] => inversion H; subst; clear H
+    | [ H: Run [Conc.Skip] _ |- _ ] => inversion H; subst; clear H
+    | [ H: Conc.Run _ _ Conc.Skip _ |- _] => inversion H; subst; clear H
     | [ H1: Hist.GenAccess ?x ?a ?n ?v1,
         H2:Hist.GenAccess ?x ?a ?n ?v2 |- _ ] =>
           let H := fresh in
@@ -102,8 +101,8 @@ Section Defs.
 
   Lemma seq_inv_skip:
     forall i1 i2,
-    C1.seq i1 i2 = C1.Skip ->
-    i1 = C1.Skip /\ i2 = C1.Skip.
+    Conc.seq i1 i2 = Conc.Skip ->
+    i1 = Conc.Skip /\ i2 = Conc.Skip.
   Proof.
     intros.
     destruct i1; simpl in *; subst; auto;
@@ -112,7 +111,7 @@ Section Defs.
 
   Lemma seq_seq_rw:
     forall i1 i2 i3,
-    C1.seq (C1.seq i1 i2) i3 = (C1.seq i1 (C1.seq i2 i3)).
+    Conc.seq (Conc.seq i1 i2) i3 = (Conc.seq i1 (Conc.seq i2 i3)).
   Proof.
     induction i1; intros; simpl in *.
     - reflexivity.
@@ -129,7 +128,7 @@ Section Defs.
     Run i1 hs1 ->
     forall i2 hs2,
     Run i2 hs2 ->
-    Run (C1.seq i1 i2) (prod hs1 hs2).
+    Run (Conc.seq i1 i2) (prod hs1 hs2).
   Proof.
     intros i1 hs1 H.
     induction H; intros.
@@ -147,7 +146,7 @@ Section Defs.
     - rewrite <- prod_app.
       simpl.
       apply run_loop_cons; eauto.
-      remember (C1.i_subst _ _ _).
+      remember (Conc.i_subst _ _ _).
       assert (Hx := IHRun1 _ _ H1).
       rewrite seq_seq_rw in *.
       assumption.
@@ -161,7 +160,7 @@ Section Defs.
     Run i1 hs1 ->
     forall i2 hs2 hs,
     Run i2 hs2 ->
-    Run (C1.seq i1 i2) hs ->
+    Run (Conc.seq i1 i2) hs ->
     hs = prod hs1 hs2.
   Proof.
     intros i1 hs1 H.
@@ -191,11 +190,11 @@ Section Defs.
 
   Lemma run_inv_seq_2:
     forall i1 i2 hs,
-    Run (C1.seq i1 i2) hs ->
+    Run (Conc.seq i1 i2) hs ->
     exists hs1 hs2, Run i1 hs1 /\ Run i2 hs2.
   Proof.
     intros i1 i2 hs H.
-    remember (C1.seq _ _) as i.
+    remember (Conc.seq _ _) as i.
     generalize dependent i1.
     generalize dependent i2.
     induction H; intros; symmetry in Heqi.
@@ -218,7 +217,7 @@ Section Defs.
         exists hs.
         split; eauto using run_skip, run_for.
       }
-      destruct (IHRun i0 (C1.Loop x l i1 i3_2) eq_refl) as (hs1, (hs2, (Hr1, Hr2)));
+      destruct (IHRun i0 (Conc.Loop x l i1 i3_2) eq_refl) as (hs1, (hs2, (Hr1, Hr2)));
       clear IHRun.
       exists hs1.
       exists hs2.
@@ -230,13 +229,13 @@ Section Defs.
         split; auto using run_skip.
         apply run_loop_cons; auto.
       }
-      remember (C1.i_subst _ _ _).
-      destruct (IHRun1 i0 (C1.seq i i3_2)) as (hsa, (hsb, (Hr1, Hr2))). {
+      remember (Conc.i_subst _ _ _).
+      destruct (IHRun1 i0 (Conc.seq i i3_2)) as (hsa, (hsb, (Hr1, Hr2))). {
         rewrite seq_seq_rw.
         reflexivity.
       }
       clear IHRun1.
-      destruct (IHRun2 i0 (C1.Loop x l i1 i3_2) eq_refl) as (hsa1, (hsb1, (Hra, Hrb))).
+      destruct (IHRun2 i0 (Conc.Loop x l i1 i3_2) eq_refl) as (hsa1, (hsb1, (Hra, Hrb))).
       assert (hsb = hsb1) by eauto using run_fun.
       clear Hrb.
       exists (hsa ++ hsa1).
@@ -256,7 +255,7 @@ Section Defs.
 
   Lemma run_inv_seq:
     forall i1 i2 hs,
-    Run (C1.seq i1 i2) hs ->
+    Run (Conc.seq i1 i2) hs ->
     exists hs1 hs2, hs = prod hs1 hs2 /\ Run i1 hs1 /\ Run i2 hs2.
   Proof.
     intros.
@@ -278,18 +277,18 @@ Section Defs.
   Infix "⊆*" := InclAll (at level 80).
   Infix "*⊆*" := AllInclAll (at level 70).
   Infix "×" := prod (at level 50).
-  Infix "↓" := C1.Run (at level 80).
-  Notation "i '[' x ':=' n ']'" := (C1.i_subst x n i) (at level 40).
+  Infix "↓" := Conc.Run (at level 80).
+  Notation "i '[' x ':=' n ']'" := (Conc.i_subst x n i) (at level 40).
 
   Lemma run_inv_loop_all_incl_all:
     forall x l i1 i2 hs2,
-    Run (C1.Loop x l i1 i2) hs2 ->
+    Run (Conc.Loop x l i1 i2) hs2 ->
     forall hs1,
     Run i2 hs1 ->
     AllInclAll hs1 hs2.
   Proof.
     intros x l i1 i2 hs2 H.
-    remember (C1.Loop _ _ _ _).
+    remember (Conc.Loop _ _ _ _).
     generalize dependent i1.
     generalize dependent i2.
     generalize dependent l.
@@ -303,7 +302,7 @@ Section Defs.
 
   Lemma run_to_all_incl:
     forall i h,
-    C1.Run i h ->
+    Conc.Run i h ->
     forall hs,
     Run i hs ->
     AllIncl hs h.
@@ -323,7 +322,7 @@ Section Defs.
       destruct H8 as (hs3, (hs4, (?, (Hr1, Hr2)))); subst.
       assert (IHRun1 := IHRun1 _ Hr1).
       assert (IHRun2 := IHRun2 _ H9).
-      apply C1.run_inv_loop in H0.
+      apply Conc.run_inv_loop in H0.
       destruct H0 as (ha, (hb, (Ha, (Hb, ?)))).
       subst.
       eapply run_inv_loop_all_incl_all in Hr2; eauto.
@@ -339,7 +338,7 @@ Section Defs.
 
   Theorem completeness:
     forall i h,
-    C1.Run i h ->
+    Conc.Run i h ->
     forall hs,
     Run i hs ->
     Hist.Safe h ->
@@ -373,7 +372,7 @@ Section Defs.
 
   Lemma run_to_incl_all:
     forall i h,
-    C1.Run i h ->
+    Conc.Run i h ->
     forall hs,
     Run i hs ->
     InclAll h hs.
@@ -406,7 +405,7 @@ Section Defs.
 
   Theorem soundness:
     forall i h,
-    C1.Run i h ->
+    Conc.Run i h ->
     forall hs,
     Run i hs ->
     Hist.MSafe hs ->
@@ -419,7 +418,7 @@ Section Defs.
 
   Corollary correctness:
     forall i h hs,
-    C1.Run i h ->
+    Conc.Run i h ->
     Run i hs ->
     Hist.MSafe hs <-> Hist.Safe h.
   Proof.
@@ -446,17 +445,17 @@ Module Examples.
 
   Definition run steps s := bstep steps 0 s.
 
-  Let i1 := C1.Acc (add (NVar TID) (NVar (variable "x")), BBool true) C1.Skip.
+  Let i1 := Conc.Acc (add (NVar TID) (NVar (variable "x")), BBool true) Conc.Skip.
   Definition BAD :=
-    C1.For (variable "x") (NNum 0, NNum 2) i1 C1.Skip.
+    Conc.For (variable "x") (NNum 0, NNum 2) i1 Conc.Skip.
 
   Compute run 8 [([], BAD)].
 
   Definition GOOD1 :=
     let x := variable "x" in
-    C1.For x (NNum 0, NNum 2) (
-      C1.Acc (NVar x, NRel NEq (NVar TID) (NVar x)) C1.Skip
-    ) C1.Skip.
+    Conc.For x (NNum 0, NNum 2) (
+      Conc.Acc (NVar x, NRel NEq (NVar TID) (NVar x)) Conc.Skip
+    ) Conc.Skip.
 
   Compute run 8 [([], GOOD1)].
 End Examples.

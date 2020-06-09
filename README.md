@@ -1,22 +1,25 @@
 # Major result
 
-A state in `Conc1` is safe if, and only if, a state in `Conc2` is safe
+A state in `Conc` is safe if, and only if, a state in `SymHist` is safe
 ## Proof
-1. Prove that `Conc1` is safe if, and only if `LoopFree` is safe (`LoopFree.v`)
-2. Prove that if `LoopFree` is safe, then `Conc2` is safe (`Conc2Complete.v`)
-3. Prove that if `Conc2` is safe, then `LoopFree` is safe (`Conc2Sound.v`)
+
+`Conc + Hist.Safe <-> LoopFree + Hist.MSafe  <-> SymHist + Hist.StrongSafe`
+
+1. Prove that `Conc` is safe if, and only if `LoopFree` is safe (`LoopFree.v`)
+2. Prove that if `LoopFree` is safe, then `SymHist` is safe (`SHComplete.v`)
+3. Prove that if `SymHist` is safe, then `LoopFree` is safe (`SHSound.v`)
 
 # Module overview
 * `Acc.v`: theory of accesses (abstraction over access expressions)
 * `Tasks.v`: declares special variables `TID`, `T1`, and `T2`, which are all different from each other and `TID_COUNT >= 2`
 * `Exp.v`: numeric and boolean expressions
-* `Conc1.v`: multithreaded code with loops
-* `Conc1Impl.v`: implementation of `Conc1`
-* `LoopFree.v`: runs `Conc1` but handles loops as variable declaration, ie, running each iteration in its own independent execution thread; proof that `Conc1` is safe iff `LoopFree` is safe
-* `Conc2.v`: a sequential symbolic history
-* `Conc2Compiler.v`: takes a `LoopFree` program and outputs a `Conc2` program
-* `Conc2Sound.v`: proves that if `Conc2` is safe, then `LoopFree` is safe
-* `Conc2Complete.v`: proves that if `LoopFree` is safe, then `Conc2` is safe
+* `Conc.v`: multithreaded code with loops
+* `ConcImpl.v`: implementation of `Conc`
+* `LoopFree.v`: runs `Conc1` but handles loops as variable declaration, ie, running each iteration in its own independent execution thread; proof that `Conc` is safe iff `LoopFree` is safe
+* `SymHist.v`: a sequential symbolic history
+* `SHCompiler.v`: takes a `LoopFree` program and outputs a `SymHist` program
+* `SHSound.v`: proves that if `SymHist` is safe, then `LoopFree` is safe
+* `SHComplete.v`: proves that if `LoopFree` is safe, then `SymHist` is safe
 # Misc
 * `Var.v` and `Tid.v` and `Loc.v`: meta variables
 * `StringUtil.v`: utilities on strings

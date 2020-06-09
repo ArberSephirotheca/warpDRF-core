@@ -16,7 +16,7 @@ Require Import Acc.
 Require Import Util.
 Require Aniceto.Graphs.Graph.
 Require Import Tasks.
-Require Import Conc1.
+Require Import Conc.
 Import ListNotations.
 
 Section C1.

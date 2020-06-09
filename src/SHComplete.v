@@ -18,11 +18,10 @@ Require LoopFree.
 Require Import SetTh.
 Import ListNotations.
 Require Import Tasks.
-Require Import Conc2.
+Require Import SymHist.
 Require Import RangeList.
-Require Import C2Compiler.
-Require Conc1.
-Module C1 := Conc1.
+Require Import SHCompiler.
+Require Conc.
 Section Compiler.
   Section Defs.
   Context {A:Access}.
@@ -61,7 +60,7 @@ Section Compiler.
       apply m_in_prepend; auto.
   Qed.
 
-  Definition Member {A} l a := In (A:=A) a l.
+  Definition Member {A} l a := List.In (A:=A) a l.
 
   Inductive PMember {A : Type} {B: Type} (P: B -> list A -> Prop) (ls : B) (a:A)  : Prop :=
  | p_member_def :
@@ -118,8 +117,8 @@ Section Compiler.
 
   Lemma mmember_def_2:
     forall A (x:A) l ls,
-    In x l ->
-    In l ls ->
+    List.In x l ->
+    List.In l ls ->
     MMember ls x.
   Proof.
     intros.
@@ -331,17 +330,17 @@ Section Compiler.
   Lemma c2_branch:
     forall f l i1 i2 x hs hs',
     hs' = ((List.concat (List.map f l)) ++ hs) ->
-    (forall n, List.In n l -> C2.Run (C2.seq (C2.i_subst x (NNum n) i1) i2) (f n)) ->
-    C2.Run i2 hs ->
-    C2.Run (C2.Branch x l i1 i2) hs'.
+    (forall n, List.In n l -> SymHist.Run (SymHist.seq (SymHist.i_subst x (NNum n) i1) i2) (f n)) ->
+    SymHist.Run i2 hs ->
+    SymHist.Run (SymHist.Branch x l i1 i2) hs'.
   Proof.
     induction l; intros; subst.
     - simpl.
-      apply C2.run_branch_nil; auto.
+      apply SymHist.run_branch_nil; auto.
     - simpl.
       rewrite app_assoc_reverse.
       Search (_ ++ _ ++ _).
-      apply C2.run_branch_cons. {
+      apply SymHist.run_branch_cons. {
         auto using in_eq.
       }
       apply IHl with (hs:=hs); auto.
@@ -356,18 +355,18 @@ Section Compiler.
 
   Lemma run_skip_1:
     forall n1 n2,
-    C2.Run (C2.Decl T2 (NNum n1, NNum n2) C2.Skip C2.Skip) (mk_empty_1 n1 n2).
+    SymHist.Run (SymHist.Decl T2 (NNum n1, NNum n2) SymHist.Skip SymHist.Skip) (mk_empty_1 n1 n2).
   Proof.
     intros.
-    apply C2.run_decl with (l:=range_list n1 n2).
-    - apply C2.r_step_range_list.
-    - apply C2.run_branch_map_def with (f:=fun x => [[]]) (hs:=[[]]).
+    apply SymHist.run_decl with (l:=range_list n1 n2).
+    - apply SymHist.r_step_range_list.
+    - apply SymHist.run_branch_map_def with (f:=fun x => [[]]) (hs:=[[]]).
       + rewrite prod_nil_nil_r.
         reflexivity.
       + intros.
         simpl.
-        apply C2.run_skip.
-      + apply C2.run_skip.
+        apply SymHist.run_skip.
+      + apply SymHist.run_skip.
   Qed.
 
   Definition mk_empty_2 n1 n2 : list history :=
@@ -376,13 +375,13 @@ Section Compiler.
    
 
   Lemma run_skip:
-    C2.Run (translate C1.Skip) (mk_empty_2 1 TID_COUNT).
+    SymHist.Run (translate Conc.Skip) (mk_empty_2 1 TID_COUNT).
   Proof.
     unfold translate.
     simpl.
-    apply C2.run_decl with (l:=range_list 1 TID_COUNT).
-    - apply C2.r_step_range_list.
-    - apply C2.run_branch_map_def with (f:=fun n => mk_empty_1 0 n) (hs:=[[]]).
+    apply SymHist.run_decl with (l:=range_list 1 TID_COUNT).
+    - apply SymHist.r_step_range_list.
+    - apply SymHist.run_branch_map_def with (f:=fun n => mk_empty_1 0 n) (hs:=[[]]).
       + rewrite prod_nil_nil_r.
         reflexivity.
       + intros.
@@ -390,7 +389,7 @@ Section Compiler.
         remove_eq T1 T1.
         remove_eq T1 T2.
         apply run_skip_1.
-      + apply C2.run_skip.
+      + apply SymHist.run_skip.
   Qed.
 
   Definition add {A:Type} f (a:nat) (v:A) :=
@@ -437,7 +436,7 @@ Section Compiler.
       auto using in_eq.
     }
     rewrite add_neq_rw; auto.
-    assert (Hi : ~ In a l). {
+    assert (Hi : ~ List.In a l). {
       intros N.
       contradict H.
       auto using in_cons.
@@ -449,12 +448,12 @@ Section Compiler.
 
   Lemma c2_run_branch_inv:
     forall l i1 i2 x hs',
-    C2.Run (C2.Branch x l i1 i2) hs' ->
+    SymHist.Run (SymHist.Branch x l i1 i2) hs' ->
     NoDup l ->
     exists f hs,
-    hs' = ((List.concat (List.map f l)) ++ hs) /\ C2.Run i2 hs
+    hs' = ((List.concat (List.map f l)) ++ hs) /\ SymHist.Run i2 hs
     /\
-    (forall n, List.In n l -> C2.Run (C2.seq (C2.i_subst x (NNum n) i1) i2) (f n)).
+    (forall n, List.In n l -> SymHist.Run (SymHist.seq (SymHist.i_subst x (NNum n) i1) i2) (f n)).
   Proof.
     induction l; intros. {
       inversion H; subst; clear H.
@@ -497,11 +496,11 @@ Section Compiler.
 (*
   Lemma c2_run_decl_inv:
     forall n1 n2 i1 i2 x hs',
-    C2.Run (C2.Decl x (NNum n1, NNum n2) i1 i2) hs' ->
+    SymHist.Run (SymHist.Decl x (NNum n1, NNum n2) i1 i2) hs' ->
     exists f hs,
     hs' = branch_iter n1 n2 f ++ hs /\
-    C2.Run i2 hs /\
-    (forall n, n1 <= n < n2 -> C2.Run (C2.seq (C2.i_subst x (NNum n) i1) i2) (f n)).
+    SymHist.Run i2 hs /\
+    (forall n, n1 <= n < n2 -> SymHist.Run (SymHist.seq (SymHist.i_subst x (NNum n) i1) i2) (f n)).
   Proof.
     intros.
     unfold branch_iter.
@@ -522,71 +521,71 @@ Section Compiler.
 *)
   Lemma subst_t1_tid_eq:
     forall v e,
-    ~ C2.In T1 e ->
-    C2.i_subst T1 v (C2.i_subst TID (NVar T1) e) =
-    C2.i_subst TID v e.
+    ~ SymHist.In T1 e ->
+    SymHist.i_subst T1 v (SymHist.i_subst TID (NVar T1) e) =
+    SymHist.i_subst TID v e.
   Proof.
     intros.
-    rewrite C2.i_subst_subst_trans; auto.
+    rewrite SymHist.i_subst_subst_trans; auto.
   Qed.
 
   Lemma subst_t2_tid_eq:
     forall v e,
-    ~ C2.In T2 e ->
-    C2.i_subst T2 v (C2.i_subst TID (NVar T2) e) =
-    C2.i_subst TID v e.
+    ~ SymHist.In T2 e ->
+    SymHist.i_subst T2 v (SymHist.i_subst TID (NVar T2) e) =
+    SymHist.i_subst TID v e.
   Proof.
     intros.
-    rewrite C2.i_subst_subst_trans; auto.
+    rewrite SymHist.i_subst_subst_trans; auto.
   Qed.
 
   Lemma subst_t2_neq:
     forall e n1 n2,
-    ~ C2.In T2 e ->
-    C2.i_subst T2 (NNum n2) (C2.i_subst TID (NNum n1) e)
+    ~ SymHist.In T2 e ->
+    SymHist.i_subst T2 (NNum n2) (SymHist.i_subst TID (NNum n1) e)
     =
-    C2.i_subst TID (NNum n1) e.
+    SymHist.i_subst TID (NNum n1) e.
   Proof.
     intros.
-    rewrite C2.i_subst_not_in; auto.
+    rewrite SymHist.i_subst_not_in; auto.
     intros N.
     contradict H.
-    apply C2.in_i_subst_neq in N; auto using t2_neq_tid.
+    apply SymHist.in_i_subst_neq in N; auto using t2_neq_tid.
     intros M.
     inversion M.
   Qed.
 
   Lemma subst_t1_t2_neq:
     forall v e,
-    ~ C2.In T1 e ->
-    C2.i_subst T1 v (C2.i_subst TID (NVar T2) e)
+    ~ SymHist.In T1 e ->
+    SymHist.i_subst T1 v (SymHist.i_subst TID (NVar T2) e)
     = 
-    C2.i_subst TID (NVar T2) e.
+    SymHist.i_subst TID (NVar T2) e.
   Proof.
     intros.
-    rewrite C2.i_subst_not_in; auto.
+    rewrite SymHist.i_subst_not_in; auto.
     intros N.
     contradict H.
-    apply C2.in_subst_inv_in in N; auto using t1_neq_t2, t1_neq_tid.
+    apply SymHist.in_subst_inv_in in N; auto using t1_neq_t2, t1_neq_tid.
   Qed.
 
 
-  Lemma rw_1 e (t1_nin: ~ C2.In T1 (proj e)):
+  Lemma rw_1 e (t1_nin: ~ SymHist.In T1 (proj e)):
     forall n1,
-        C2.i_subst T1 (NNum n1)
-           (C2.Decl T2 (NNum 0, NVar T1)
-              (C2.seq (do_proj T1 e)
-                 (do_proj T2 e)) C2.Skip)
+        SymHist.i_subst T1 (NNum n1)
+           (SymHist.Decl T2 (NNum 0, NVar T1)
+              (SymHist.seq (do_proj T1 e)
+                 (do_proj T2 e)) SymHist.Skip)
    =
-       C2.Decl T2 (NNum 0, NNum n1)
-        (C2.seq (C2.i_subst TID (NNum n1) (proj e))
-                (do_proj T2 e)) C2.Skip.
+       SymHist.Decl T2 (NNum 0, NNum n1)
+        (SymHist.seq (SymHist.i_subst TID (NNum n1) (proj e))
+                (do_proj T2 e)) SymHist.Skip.
   Proof.
     intros.
     simpl.
     remove_eq T1 T2.
     remove_eq T1 T1.
-    rewrite C2.i_subst_seq.
+    rewrite SymHist.i_subst_seq.
     unfold do_proj in *.
     rewrite subst_t1_tid_eq; auto.
     rewrite subst_t1_t2_neq; auto.
@@ -602,19 +601,19 @@ Section Compiler.
 
   Lemma rw_2:
     forall e n1 n2,
-    ~ C1.In T2 e ->
-    C2.i_subst T2 (NNum n2)
-       (C2.seq
-          (C2.i_subst TID (NNum n1) (proj e))
+    ~ Conc.In T2 e ->
+    SymHist.i_subst T2 (NNum n2)
+       (SymHist.seq
+          (SymHist.i_subst TID (NNum n1) (proj e))
           (do_proj T2 e))
     = 
-    C2.seq
-      (C2.i_subst TID (NNum n1) (proj e))
-      (C2.i_subst TID (NNum n2) (proj e)).
+    SymHist.seq
+      (SymHist.i_subst TID (NNum n1) (proj e))
+      (SymHist.i_subst TID (NNum n2) (proj e)).
   Proof.
     intros.
-    rewrite C2.i_subst_seq.
-    assert (~ C2.In T2 (proj e)). {
+    rewrite SymHist.i_subst_seq.
+    assert (~ SymHist.In T2 (proj e)). {
       intros N.
       eapply in_proj_to_in in N; eauto using t2_neq_tid.
     }
@@ -629,11 +628,11 @@ Section Compiler.
      hs' = List.concat (map f (range_list n1 n2)) ++ hs ->
      (forall n,
       n1 <= n < n2 ->
-      C2.Run (C2.seq (C2.i_subst x (NNum n) i1) i2) (f n)) ->
-    C2.Run i2 hs -> C2.Run (C2.Decl x (NNum n1, NNum n2) i1 i2) hs'.
+      SymHist.Run (SymHist.seq (SymHist.i_subst x (NNum n) i1) i2) (f n)) ->
+    SymHist.Run i2 hs -> SymHist.Run (SymHist.Decl x (NNum n1, NNum n2) i1 i2) hs'.
   Proof.
     intros.
-    apply C2.run_decl with (range_list n1 n2).
+    apply SymHist.run_decl with (range_list n1 n2).
     - apply r_step_range_list.
     - apply c2_branch with (f:=f) (hs:=hs); auto.
       intros.
@@ -826,8 +825,8 @@ Section Compiler.
   *)
   Import C2Notations.
 (*
-  Lemma c2_run_trans_inv_1 e hs (t1_nin: ~ C1.In T1 e) (t2_nin: ~ C1.In T2 e):
-    C2.Run (translate e) hs ->
+  Lemma c2_run_trans_inv_1 e hs (t1_nin: ~ Conc.In T1 e) (t2_nin: ~ Conc.In T2 e):
+    SymHist.Run (translate e) hs ->
     exists hss, 
     hs = List.concat hss /\
     forall n1,
@@ -837,15 +836,15 @@ Section Compiler.
       (forall n2,
        0 <= n2 < n1 ->
        exists hb hc,
-         C2.Run (C2.i_subst TID (NNum n1) (proj e)) hb /\
-         C2.Run (C2.i_subst TID (NNum n2) (proj e)) hc /\
+         SymHist.Run (SymHist.i_subst TID (NNum n1) (proj e)) hb /\
+         SymHist.Run (SymHist.i_subst TID (NNum n2) (proj e)) hc /\
          In (prod hb hc) hssb /\ In (List.concat hssb) hss)
 
   .
   Proof.
     intros.
     unfold translate in *.
-    apply C2.run_decl_inv_eq in H; auto with *.
+    apply SymHist.run_decl_inv_eq in H; auto with *.
     destruct H as (hss, (Ha, Hb)).
     exists hss; split; auto.
     assert (
@@ -856,31 +855,31 @@ Section Compiler.
     forall n2 : nat,
      0 <= n2 < n1 ->
      exists hb hc,
-       C2.Run (C2.i_subst TID (NNum n1) (proj e)) hb /\
-       C2.Run (C2.i_subst TID (NNum n2) (proj e)) hc /\
+       SymHist.Run (SymHist.i_subst TID (NNum n1) (proj e)) hb /\
+       SymHist.Run (SymHist.i_subst TID (NNum n2) (proj e)) hc /\
        In (prod hb hc) hssb /\ In (List.concat hssb) hss
     ). {
       intros n1 Hc.
       assert (Hb := Hb _ Hc).
       destruct Hb as (hsc, (Hb, Hd)).
-      assert (X:~ C2.In T1 (proj e)). {
+      assert (X:~ SymHist.In T1 (proj e)). {
         intros N.
         contradict t1_nin.
         auto using in_proj_to_in.
       }
       rewrite rw_1 in Hb; auto.
-      apply C2.run_inv_seq in Hb.
+      apply SymHist.run_inv_seq in Hb.
       destruct Hb as (hs1, (hs2, (?, (Hb, He)))).
       inversion He; subst; clear He.
       rewrite prod_nil_nil_r in *.
-      apply C2.run_decl_inv_eq in Hb; auto with *.
+      apply SymHist.run_decl_inv_eq in Hb; auto with *.
       destruct Hb as (hssb, (?, Hb)).
       subst.
       assert (forall n2,
          0 <= n2 < n1 ->
         exists hb hc,
-        C2.Run (C2.i_subst TID (NNum n1) (proj e)) hb /\
-        C2.Run (C2.i_subst TID (NNum n2) (proj e)) hc /\
+        SymHist.Run (SymHist.i_subst TID (NNum n1) (proj e)) hb /\
+        SymHist.Run (SymHist.i_subst TID (NNum n2) (proj e)) hc /\
         In (prod hb hc) hssb /\
         In (List.concat hssb) hss
          
@@ -888,12 +887,12 @@ Section Compiler.
         intros n2 Ha.
         assert (Hb := Hb _ Ha).
         destruct Hb as (hs, (Hb,He)).
-        apply C2.run_inv_seq in Hb.
+        apply SymHist.run_inv_seq in Hb.
         destruct Hb as (ha, (hb, (?, (Hb, Hf)))).
         inversion Hf; subst; clear Hf.
         rewrite prod_nil_nil_r in *.
         rewrite rw_2 in Hb; auto.
-        apply C2.run_inv_seq in Hb.
+        apply SymHist.run_inv_seq in Hb.
         destruct Hb as (hb, (hc, (Hb, (Hf,Hg)))).
         subst.
         exists hb.
@@ -907,47 +906,47 @@ Section Compiler.
 *)
 
 
-  Lemma run_trans_inv e  (t1_nin: ~ C1.In T1 e) (t2_nin: ~ C1.In T2 e) hs:
-    C2.Run (translate e) hs ->
+  Lemma run_trans_inv e  (t1_nin: ~ Conc.In T1 e) (t2_nin: ~ Conc.In T2 e) hs:
+    SymHist.Run (translate e) hs ->
     exists f1,
-    hs = List.concat (C2.branch_iter 1 TID_COUNT f1) ++ [[]]
+    hs = List.concat (SymHist.branch_iter 1 TID_COUNT f1) ++ [[]]
     /\
     forall n1,
     1 <= n1 < TID_COUNT ->
     exists f2,
-    f1 n1 = List.concat (C2.branch_iter 0 n1 f2) ++ [[]] /\
+    f1 n1 = List.concat (SymHist.branch_iter 0 n1 f2) ++ [[]] /\
     forall n2,
       0 <= n2 < n1 ->
       exists hs1 hs2,
       f2 n2 = prod hs1 hs2 /\
-      C2.Run (C2.i_subst TID (NNum n1) (proj e)) hs1 /\
-      C2.Run (C2.i_subst TID (NNum n2) (proj e)) hs2
+      SymHist.Run (SymHist.i_subst TID (NNum n1) (proj e)) hs1 /\
+      SymHist.Run (SymHist.i_subst TID (NNum n2) (proj e)) hs2
 
   .
   Proof.
     intros.
     unfold translate in *.
-    apply C2.run_decl_inv_map in H.
+    apply SymHist.run_decl_inv_map in H.
     destruct H as (ms, (m, (?, (Hs, H)))).
     inversion Hs; subst; clear Hs.
     Search (prod _ [[]]).
     rewrite prod_nil_nil_r.
-    apply C2.decl_map_inv in H.
+    apply SymHist.decl_map_inv in H.
     destruct H as (f1, (R1, Hf)).
     exists f1.
     rewrite R1.
     split; auto.
     intros n1 Ha.
     apply Hf in Ha; clear Hf.
-    assert (X:~ C2.In T1 (proj e)). {
+    assert (X:~ SymHist.In T1 (proj e)). {
       intros N.
       contradict t1_nin.
       auto using in_proj_to_in, t1_neq_tid.
     }
     rewrite rw_1 in Ha; auto.
-    apply C2.run_decl_inv_map in Ha.
+    apply SymHist.run_decl_inv_map in Ha.
     destruct Ha as (ms2, (hs, (R2,(Ha,Hc)))).
-    apply C2.decl_map_inv in Hc.
+    apply SymHist.decl_map_inv in Hc.
     destruct Hc as (f2, (R3, Hc)). 
     inversion Ha; subst; clear Ha.
     exists f2.
@@ -956,13 +955,13 @@ Section Compiler.
       0 <= n2 < n1 ->
       exists hs1 hs2,
       f2 n2 = prod hs1 hs2 /\
-      C2.Run (C2.i_subst TID (NNum n1) (proj e)) hs1 /\
-      C2.Run (C2.i_subst TID (NNum n2) (proj e)) hs2
+      SymHist.Run (SymHist.i_subst TID (NNum n1) (proj e)) hs1 /\
+      SymHist.Run (SymHist.i_subst TID (NNum n2) (proj e)) hs2
     ). {
       intros n2 Hb.
       apply Hc in Hb; clear Hc.
       rewrite rw_2 in Hb; auto.
-      apply C2.run_inv_seq in Hb.
+      apply SymHist.run_inv_seq in Hb.
       destruct Hb as (hsa, (hsb, (?,(Hr,Hs)))).
       eauto.
     }
@@ -1071,8 +1070,8 @@ Section Compiler.
     intros.
     unfold mk_empty_1.
     rewrite concat_eq_rw.
-    rewrite C2.mem_equiv_nil_rw.
-    rewrite C2.mem_equiv_cons_nil_rw.
+    rewrite SymHist.mem_equiv_nil_rw.
+    rewrite SymHist.mem_equiv_cons_nil_rw.
     reflexivity.
   Qed.
 
@@ -1082,14 +1081,14 @@ Section Compiler.
   Proof.
     unfold mk_empty_2.
     intros.
-    rewrite C2.mem_equiv_cons_nil_rw.
+    rewrite SymHist.mem_equiv_cons_nil_rw.
     rewrite app_nil_r.
     remember (map _ _).
     destruct (list_eq_nil l) as [R|Hne]. {
       rewrite R.
       reflexivity.
     }
-    apply C2.mem_equiv_concat_refl_rw; auto.
+    apply SymHist.mem_equiv_concat_refl_rw; auto.
     intros.
     subst.
     apply in_map_iff in H.
@@ -1108,7 +1107,7 @@ Section Compiler.
     unfold branch_iter.
     rewrite map_rw_repeat.
     rewrite range_list_fun_length.
-    rewrite C2.mem_equiv_concat_repeat_rw. {
+    rewrite SymHist.mem_equiv_concat_repeat_rw. {
       reflexivity.
     }
     auto with *.
@@ -1116,7 +1115,7 @@ Section Compiler.
 *)
 
   Lemma t1_not_in_proj_skip:
-    ~ C2.In T1 (proj C1.Skip).
+    ~ SymHist.In T1 (proj Conc.Skip).
   Proof.
     simpl.
     intros N.
@@ -1186,7 +1185,7 @@ Section Compiler.
     h = [].
   Proof.
     intros.
-    (*unfold C2.MemEquiv in H.*)
+    (*unfold SymHist.MemEquiv in H.*)
     destruct h as [|a h]. {
       reflexivity.
     }
@@ -1259,7 +1258,7 @@ Section Compiler.
     simpl in *.
     rewrite prepend_nil in *.
     rewrite <- IHn.
-    rewrite C2.mem_equiv_app_refl_rw.
+    rewrite SymHist.mem_equiv_app_refl_rw.
     reflexivity.
   Qed.
 
@@ -1295,8 +1294,8 @@ Section Compiler.
     - apply mk_empty_2_rw.
   Qed.
 
-  Lemma c2_run_acc_inv_1 e hs i (t1_nin: ~ C1.In T1 (C1.Acc e i)) (t2_nin: ~ C1.In T2 (C1.Acc e i)):
-    C2.Run (translate (C1.Acc e i)) hs ->
+  Lemma c2_run_acc_inv_1 e hs i (t1_nin: ~ Conc.In T1 (Conc.Acc e i)) (t2_nin: ~ Conc.In T2 (Conc.Acc e i)):
+    SymHist.Run (translate (Conc.Acc e i)) hs ->
     exists f1,
     hs = branch_iter 1 TID_COUNT f1 ++ [[]]
     /\
@@ -1306,12 +1305,12 @@ Section Compiler.
     exists f2 hs1 hs2,
     f1 n1 = branch_iter 0 n1 f2 ++ [[]] /\
     f2 n2 = prod hs1 hs2/\
-    C2.Run
-        (C2.Acc (access_subst TID (NNum n1) e, NNum n1)
-           (C2.i_subst TID (NNum n1) (proj i))) hs1 /\
-    C2.Run
-        (C2.Acc (access_subst TID (NNum n2) e, NNum n2)
-           (C2.i_subst TID (NNum n2) (proj i))) hs2
+    SymHist.Run
+        (SymHist.Acc (access_subst TID (NNum n1) e, NNum n1)
+           (SymHist.i_subst TID (NNum n1) (proj i))) hs1 /\
+    SymHist.Run
+        (SymHist.Acc (access_subst TID (NNum n2) e, NNum n2)
+           (SymHist.i_subst TID (NNum n2) (proj i))) hs2
    .
   Proof.
     intros.
@@ -1333,14 +1332,14 @@ Section Compiler.
     auto.
   Qed.
 
-  Lemma translate_seq e1 (t1_nin1: ~ C1.In T1 e1) (t2_nin1: ~ C1.In T2 e1):
+  Lemma translate_seq e1 (t1_nin1: ~ Conc.In T1 e1) (t2_nin1: ~ Conc.In T2 e1):
     forall e2,
-    ~ C1.In T1 e2 ->
-    ~ C1.In T2 e2 ->
+    ~ Conc.In T1 e2 ->
+    ~ Conc.In T2 e2 ->
     forall m1,
-    C2.Run (translate (C1.seq e1 e2)) m1 ->
+    SymHist.Run (translate (Conc.seq e1 e2)) m1 ->
     exists m2,
-    m1 == m2 /\ C2.Run (C2.seq (translate e1) (translate e2)) m2.
+    m1 == m2 /\ SymHist.Run (SymHist.seq (translate e1) (translate e2)) m2.
   Proof.
     induction e1; intros e2 t1_nin2 t2_nin2 m1 Hr.
     - simpl in Hr.
@@ -1349,7 +1348,7 @@ Section Compiler.
       split. {
         apply prod_mk_empty_2_rw.
       }
-      apply C2.run_seq; auto using run_skip.
+      apply SymHist.run_seq; auto using run_skip.
     - simpl in Hr.
       apply c2_run_acc_inv_1 in Hr.
       + destruct Hr as (f1, (?, Hf)).
@@ -1359,8 +1358,8 @@ Section Compiler.
 
 (*
 
-  Lemma c2_run_acc_inv_2 e hs i (t1_nin: ~ C1.In T1 (C1.Acc e i)) (t2_nin: ~ C1.In T2 (C1.Acc e i)):
-    C2.Run (translate (C1.Acc e i)) hs ->
+  Lemma c2_run_acc_inv_2 e hs i (t1_nin: ~ Conc.In T1 (Conc.Acc e i)) (t2_nin: ~ Conc.In T2 (Conc.Acc e i)):
+    SymHist.Run (translate (Conc.Acc e i)) hs ->
     exists f1,
     hs = branch_iter 1 TID_COUNT f1 ++ [[]]
     /\
@@ -1372,8 +1371,8 @@ Section Compiler.
     f2 n2 = prod (prepend v1 hr1) (prepend v2 hr2) /\
     access_step (access_subst TID (NNum n1) e, NNum n1) v1 /\
     access_step (access_subst TID (NNum n2) e, NNum n2) v2 /\
-    C2.Run (C2.i_subst TID (NNum n1) (proj i)) hr1 /\
-    C2.Run (C2.i_subst TID (NNum n2) (proj i)) hr2
+    SymHist.Run (SymHist.i_subst TID (NNum n1) (proj i)) hr1 /\
+    SymHist.Run (SymHist.i_subst TID (NNum n2) (proj i)) hr2
    .
   Proof.
    Search (prod (prepend _ _) _).
@@ -1383,11 +1382,11 @@ Section Compiler.
 (*
   Lemma translate_acc_inv:
     forall e i hs,
-    C2.Run (translate (C1.Acc e i)) hs ->
+    SymHist.Run (translate (Conc.Acc e i)) hs ->
     exists hs1 hs2,
     hs = prod hs1 hs2 /\
-    C2.Run (translate (C1.Acc e C1.Skip)) hs1 /\
-    C2.Run (translate i) hs2.
+    SymHist.Run (translate (Conc.Acc e Conc.Skip)) hs1 /\
+    SymHist.Run (translate i) hs2.
   Proof.
     induction i; intros.
     - exists (prod hs (mk_empty_2 1 TID_COUNT)).
@@ -1417,8 +1416,8 @@ Section Compiler.
 
   Lemma i_subst_inv_nil:
     forall x v i,
-    C2.i_subst x v i = C2.Skip ->
-    i = C2.Skip.
+    SymHist.i_subst x v i = SymHist.Skip ->
+    i = SymHist.Skip.
   Proof.
     intros.
     destruct i; simpl in *.
@@ -1430,15 +1429,15 @@ Section Compiler.
   Qed.
 
   Lemma completeness_1
-      (i:C1.inst)
-      (T1_nin_i: ~ C1.In T1 i)
-      (T2_nin_i: ~ C1.In T2 i)
+      (i:Conc.inst)
+      (T1_nin_i: ~ Conc.In T1 i)
+      (T2_nin_i: ~ Conc.In T2 i)
     :
     forall hs1,
     LoopFree.Run i hs1 ->
     forall hs2,
     (forall x, MIn x hs1 -> access_tid x < TID_COUNT) ->
-    C2.Run (translate i) hs2 ->
+    SymHist.Run (translate i) hs2 ->
     Incl (MMember hs1) (MMember hs2).
   Proof.
     intros hs1 H.
@@ -1489,13 +1488,13 @@ Section Compiler.
           rewrite H3.
           destruct (list_eq_nil hs1). {
             subst.
-            apply C2.run_inv_nil in Hr1.
+            apply SymHist.run_inv_nil in Hr1.
             contradiction.
           }
           apply m_in_prod_r; auto.
           assert (hs0 <> []). {
             intros N; subst.
-            apply C2.run_inv_nil in H8.
+            apply SymHist.run_inv_nil in H8.
             contradiction.
           }
           apply m_in_prepend_l; auto.
@@ -1508,11 +1507,11 @@ Section Compiler.
       (* We have that the access is in hs, so we must use the IH *)
       apply incl_def; intros.
       rewrite mmember_rw in *.
-      assert (R: (C1.Acc e i) = C1.seq (C1.Acc e C1.Skip) i) by auto.
+      assert (R: (Conc.Acc e i) = Conc.seq (Conc.Acc e Conc.Skip) i) by auto.
       rewrite R in H2; clear R.
       apply translate_seq in H2; auto.
       + destruct H2 as (m, (Hm, Hr)).
-        apply C2.run_inv_seq in Hr.
+        apply SymHist.run_inv_seq in Hr.
         destruct Hr as (ma, (mb, (?, (Hr1, Hr2)))).
         assert (Hx := Hr2).
         apply IHRun in Hx.
@@ -1520,7 +1519,7 @@ Section Compiler.
           rewrite Hm.
           assert (ma <> nil). {
             intros N; subst.
-            apply C2.run_inv_nil in Hr1.
+            apply SymHist.run_inv_nil in Hr1.
             assumption.
           }
           apply m_in_prod_r; auto.
@@ -1539,18 +1538,18 @@ Section Compiler.
 
 (*
   Variable tid_ge_2: TID_COUNT > 2.
-  Variable in_heap: forall x i hs, C2.Run i hs -> MIn x hs -> access_tid x < TID_COUNT.
+  Variable in_heap: forall x i hs, SymHist.Run i hs -> MIn x hs -> access_tid x < TID_COUNT.
 *)
 (*
   Theorem completeness:
     forall i hs1,
     C1SX.Run TID_COUNT TID i hs1 ->
     forall hs2,
-    C2.Run (translate i) hs2 ->
+    SymHist.Run (translate i) hs2 ->
     Hist.MSafe hs1 ->
-    ~ C1.In T1 i ->
-    ~ C1.In T2 i ->
-    ~ C1.Var TID i -> 
+    ~ Conc.In T1 i ->
+    ~ Conc.In T2 i ->
+    ~ Conc.Var TID i -> 
     Hist.MSafeStrong hs2.
   Proof.
     intros.
@@ -1618,7 +1617,7 @@ Section Compiler.
       assert (Hlt2: 0 <= access_tid x < access_tid y) by omega.
       assert (Ha := Ha (access_tid x) Hlt2).
       destruct Ha as (hs4, (Hinc2, Ha)).
-      apply C2.run_inv_seq in Ha.
+      apply SymHist.run_inv_seq in Ha.
       destruct Ha as (Ha_hs1, (Ha_hs2, (?, (Ha,Hb)))).
       subst.
       eapply run_proj_proj in Ha; eauto with *.
@@ -1637,13 +1636,13 @@ End Compiler.
 (*
 Module Examples.
   Import Compiler.
-  Import C2.
+  Import SymHist.
 
   Fixpoint bstep fuel steps s :=
   match fuel with
   | 0 => (steps,s)
   | S n =>
-    match C2.step s with
+    match SymHist.step s with
     | Some s => bstep n (S steps) s
     | _ => (steps, s)
     end

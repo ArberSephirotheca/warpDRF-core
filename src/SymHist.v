@@ -15,14 +15,13 @@ Require Import Exp.
 Require Import Acc.
 Require Import Util.
 Require Aniceto.Graphs.Graph.
-Require Conc1.
+Require Conc.
 Require Import RangeList.
 Require Import SetTh.
 
 Import ListNotations.
 
-Module C2.
-  Section Defs.
+Section Defs.
   Context {A:Access}.
 
   Inductive inst :=
@@ -1506,8 +1505,7 @@ Module C2.
   Qed.
 *)
 End Defs.
-End C2.
 
 Module C2Notations.
-  Infix "==" := C2.MemEquiv (at level 40).
+  Infix "==" := MemEquiv (at level 40).
 End C2Notations.
