@@ -429,9 +429,9 @@ Section Defs.
 
 End Defs.
 
+(*
 Module Examples.
   Import Conc1.Examples.
-(*
   Definition step := 
   (* Helper function *)
   Fixpoint bstep fuel steps s :=
@@ -459,6 +459,6 @@ Module Examples.
     ) C1.Skip.
 
   Compute run 8 [([], GOOD1)].
-*)
 End Examples.
+*)
 
