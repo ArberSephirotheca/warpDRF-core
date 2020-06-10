@@ -10,7 +10,7 @@ Require Coq.omega.Omega.
 Require Import Var.
 Require Import Loc.
 Require Import Exp.
-Require Import Acc.
+Require Import Access.
 Require Import Util.
 Require Import Tasks.
 
@@ -460,4 +460,3 @@ Module Examples.
   Compute run 8 [([], GOOD1)].
 End Examples.
 *)
-

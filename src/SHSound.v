@@ -18,7 +18,7 @@ Require Import Var.
 Require Import Tid.
 Require Import Loc.
 Require Import Exp.
-Require Import Acc.
+Require Import Access.
 Require Import Util.
 Require Import SymHist.
 Require Import RangeList.

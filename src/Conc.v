@@ -12,7 +12,7 @@ Require Import Var.
 Require Import Tid.
 Require Import Loc.
 Require Import Exp.
-Require Import Acc.
+Require Import Access.
 Require Import Util.
 Require Aniceto.Graphs.Graph.
 Require Import Tasks.
@@ -373,5 +373,3 @@ Section C1.
     constructor.
   Qed.
 End C1.
-
-
