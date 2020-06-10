@@ -20,6 +20,7 @@ Require Import Tasks.
 Require Import SymHist.
 Require Import RangeList.
 Require Import SHCompiler.
+Require Import MultiHist.
 Require Conc.
 Section Compiler.
   Section Defs.
@@ -42,288 +43,6 @@ Section Compiler.
     rewrite access_subst_subst_trans in Hx; auto.
     rewrite access_subst_subst_neq in Hx; auto using t2_neq_tid.
     rewrite access_subst_not_in with (x:=T2) in Hx; auto.
-  Qed.
-
-  Lemma m_in_prepend_iff:
-    forall A x l ls,
-    ls <> [] ->
-    MIn (A:=A) x (prepend l ls) <-> (List.In x l \/ MIn x ls).
-  Proof.
-    intros.
-    split; intros.
-    - apply m_in_prepend_inv in H0.
-      assumption.
-    - destruct H0. {
-        apply m_in_prepend_l; auto.
-      }
-      apply m_in_prepend; auto.
-  Qed.
-
-  Definition Member {A} l a := List.In (A:=A) a l.
-
-  Inductive PMember {A : Type} {B: Type} (P: B -> list A -> Prop) (ls : B) (a:A)  : Prop :=
- | p_member_def :
-    forall l,
-    P ls l -> Member l a -> PMember P ls a.
-
-  Definition MMember {A} := PMember (@Member (list A)).
-  Definition MMMember {A} := PMember (@MMember (list A)).
-  Lemma not_in_mmember:
-    forall A (x:A),
-    ~ MMember [] x.
-  Proof.
-    intros.
-    intros N.
-    inversion N; subst; clear N.
-    unfold Member in *.
-    contradiction.
-  Qed.
-
-  Lemma not_in_mmmember:
-    forall A (x:A),
-    ~ MMMember [] x.
-  Proof.
-    intros.
-    intros N.
-    inversion N; subst; clear N.
-    apply not_in_mmember in H.
-    assumption.
-  Qed.
-
-  Lemma mmember_app_l:
-    forall A (x:A) l1 l2,
-    MMember l1 x ->
-    MMember (l1 ++ l2) x.
-  Proof.
-    unfold MMember.
-    intros.
-    inversion H; subst; clear H.
-    unfold Member in *.
-    eapply p_member_def; eauto using in_or_app.
-  Qed.
-
-  Lemma mmember_app_r:
-    forall A (x:A) l1 l2,
-    MMember l2 x ->
-    MMember (l1 ++ l2) x.
-  Proof.
-    unfold MMember.
-    intros.
-    inversion H; subst; clear H.
-    unfold Member in *.
-    eapply p_member_def; eauto using in_or_app.
-  Qed.
-
-  Lemma mmember_def_2:
-    forall A (x:A) l ls,
-    List.In x l ->
-    List.In l ls ->
-    MMember ls x.
-  Proof.
-    intros.
-    apply p_member_def with (l0:=l); auto.
-  Qed.
-
-  Lemma mmember_def:
-    forall A (x:A) l ls,
-    Member l x ->
-    Member ls l ->
-    MMember ls x.
-  Proof.
-    apply mmember_def_2.
-  Qed.
-
-
-  Lemma mmember_inv_app:
-    forall A (x:A) l1 l2,
-    MMember (l1 ++ l2) x ->
-    MMember l1 x \/ MMember l2 x.
-  Proof.
-    intros.
-    inversion H; subst; clear H.
-    unfold Member in *.
-    apply in_app_or in H0.
-    destruct H0. {
-      left.
-      eauto using mmember_def.
-    }
-    right.
-    eauto using mmember_def.
-  Qed.
-
-  Lemma mmember_inv_concat:
-    forall A (x:A) ls,
-    MMember (List.concat ls) x ->
-    exists l, List.In l ls /\ MMember l x.
-  Proof.
-    induction ls; simpl; intros.
-    - apply not_in_mmember in H.
-      contradiction.
-    - apply mmember_inv_app in H.
-      destruct H. {
-        exists a.
-        auto.
-      }
-      apply IHls in H.
-      destruct H as (l, (Hi, Hm)).
-      exists l.
-      auto.
-  Qed.
-
-  Lemma mmmember_def:
-    forall A (x:A) l1 l2 ls,
-    Member l1 x ->
-    Member l2 l1 ->
-    Member ls l2 ->
-    MMMember ls x.
-  Proof.
-    intros.
-    apply p_member_def with (l:=l1); auto.
-    eauto using mmember_def.
-  Qed.
-
-  Lemma mmmember_to_mmember:
-    forall A ls (x:A),
-    MMMember ls x ->
-    MMember (List.concat ls) x.
-  Proof.
-    induction ls; intros.
-    - apply not_in_mmmember in H.
-      contradiction.
-    - inversion H; subst; clear H.
-      simpl.
-      inversion H0; subst; clear H0.
-      inversion H; subst; clear H. {
-        apply mmember_app_l.
-        eauto using mmember_def.
-      }
-      apply mmember_app_r.
-      apply IHls.
-      eauto using mmmember_def.
-  Qed.
-
-  Lemma mmmember_eq:
-    forall A a x ls,
-    @MMember A a x ->
-    MMMember (a :: ls) x.
-  Proof.
-    intros.
-    inversion H; subst; clear H.
-    eapply mmmember_def with (l2:=a); eauto.
-    apply in_eq.
-  Qed.
-
-  Lemma mmmember_cons:
-    forall A a x ls,
-    @MMMember A ls x ->
-    MMMember (a :: ls) x.
-  Proof.
-    intros.
-    inversion H; subst; clear H.
-    inversion H0; subst; clear H0.
-    eapply mmmember_def; eauto.
-    apply in_cons; auto.
-  Qed.
-
-  Lemma mmember_to_mmmember:
-    forall A ls (x:A),
-    MMember (List.concat ls) x ->
-    MMMember ls x.
-  Proof.
-    induction ls; intros. {
-      apply not_in_mmember in H.
-      contradiction.
-    }
-    simpl in *.
-    apply mmember_inv_app in H.
-    destruct H. {
-      auto using mmmember_eq.
-    }
-    apply IHls in H.
-    auto using mmmember_cons.
-  Qed.
-
-  Lemma mmember_iff_mmmember:
-    forall A ls (x:A),
-    MMember (List.concat ls) x <-> MMMember ls x.
-  Proof.
-    split; auto using mmember_to_mmmember, mmmember_to_mmember.
-  Qed.
-
-
-  Lemma mmember_concat_rw:
-    forall A ls,
-    Equiv (MMember (List.concat ls)) (@MMMember A ls).
-  Proof.
-    auto using equiv_def, mmmember_to_mmember, mmember_to_mmmember.
-  Qed.
-
-  Lemma mmember_rw:
-    forall A ls (x:A),
-    MMember ls x <-> MIn x ls.
-  Proof.
-    split; intros.
-    - inversion H; subst; clear H.
-      eauto using m_in_def.
-    - inversion H; subst; clear H.
-      eauto using mmember_def.
-  Qed.
-
-  Lemma mmember_prepend_iff:
-    forall A l ls (x:A),
-    ls <> [] ->
-    MMember (prepend l ls) x <-> Member l x \/ MMember ls x.
-  Proof.
-    intros.
-    repeat rewrite mmember_rw.
-    apply m_in_prepend_iff; assumption.
-  Qed.
-
-  Lemma mmember_prepend_rw:
-    forall A (l:list A) ls,
-    ls <> [] ->
-    Equiv (MMember (prepend l ls)) (Either (Member l) (MMember ls)).
-  Proof.
-    intros.
-    apply equiv_def; intros a Ha.
-    - apply mmember_prepend_iff in Ha; auto.
-    - apply mmember_prepend_iff in Ha; auto.
-  Qed.
-
-  Lemma member_concat_rw:
-    forall A ls,
-    Equiv (Member (List.concat ls)) (@MMember A ls).
-  Proof.
-    intros.
-    apply equiv_def; unfold Member; intros.
-    - rewrite mmember_rw.
-      auto using in_concat_to_m_in.
-    - rewrite mmember_rw in *.
-      auto using m_in_to_in_concat.
-  Qed.
-
-  Lemma incl_mmember_nil_nil:
-    forall A P,
-    @Incl A (MMember [[]]) P.
-  Proof.
-    intros.
-    apply incl_def.
-    intros.
-    rewrite mmember_rw in H.
-    apply m_in_nil_nil in H.
-    contradiction.
-  Qed.
-
-  Lemma incl_mmember_nil:
-    forall A P,
-    @Incl A (MMember []) P.
-  Proof.
-    intros.
-    apply incl_def.
-    intros.
-    rewrite mmember_rw in H.
-    apply m_in_nil in H.
-    contradiction.
   Qed.
 
   Notation history := (list access_val).
@@ -734,8 +453,8 @@ Section Compiler.
     intros.
     unfold mk_empty_1.
     rewrite concat_eq_rw.
-    rewrite SymHist.mem_equiv_nil_rw.
-    rewrite SymHist.mem_equiv_cons_nil_rw.
+    rewrite mem_equiv_nil_rw.
+    rewrite mem_equiv_cons_nil_rw.
     reflexivity.
   Qed.
 
@@ -745,14 +464,14 @@ Section Compiler.
   Proof.
     unfold mk_empty_2.
     intros.
-    rewrite SymHist.mem_equiv_cons_nil_rw.
+    rewrite mem_equiv_cons_nil_rw.
     rewrite app_nil_r.
     remember (map _ _).
     destruct (list_eq_nil l) as [R|Hne]. {
       rewrite R.
       reflexivity.
     }
-    apply SymHist.mem_equiv_concat_refl_rw; auto.
+    apply mem_equiv_concat_refl_rw; auto.
     intros.
     subst.
     apply in_map_iff in H.
@@ -900,7 +619,7 @@ Section Compiler.
     simpl in *.
     rewrite prepend_nil in *.
     rewrite <- IHn.
-    rewrite SymHist.mem_equiv_app_refl_rw.
+    rewrite mem_equiv_app_refl_rw.
     reflexivity.
   Qed.
 
@@ -1025,6 +744,21 @@ Section Compiler.
     - inversion H.
   Qed.
 
+  Notation "'<[' x ']>'" := (translate x).
+  Coercion NNum: nat >-> nexp.  
+  Infix "⇓" := LoopFree.Run (at level 80).
+  Notation "⊢" := Hist.Safe.
+  Notation "⊨" := Hist.MSafe.
+  (*
+  Infix "*⊆" := AllIncl (at level 80).
+  Infix "⊆*" := InclAll (at level 80).
+  Infix "*⊆*" := AllInclAll (at level 70).
+  *)
+  Infix "×" := prod (at level 50).
+  Infix "⤋" := SymHist.Run (at level 80).
+  Notation "x *⊆* y" := (Incl (MMember x) (MMember y)) (at level 80).
+  Notation "i '[' x ':=' n ']'" := (Conc.i_subst x n i) (at level 40).
+
   Lemma completeness_1
       (i:Conc.inst)
       (T1_nin_i: ~ Conc.In T1 i)
@@ -1035,18 +769,33 @@ Section Compiler.
     forall hs2,
     (forall x, MIn x hs1 -> access_tid x < TID_COUNT) ->
     SymHist.Run (translate i) hs2 ->
-    Incl (MMember hs1) (MMember hs2).
+    Incl (MMember hs2) (MMember hs1).
   Proof.
     intros hs1 H.
     induction H; intros.
-    - apply incl_mmember_nil_nil.
-    - destruct (list_eq_nil hs) as [N|hs_not_nil]. {
+    - Search (Conc.Skip). 
+      assert (hs2 = mk_empty_2 1 TID_COUNT). {
+        assert (Hx := run_skip).
+        eauto using SymHist.run_fun.
+      }
+      subst.
+      (*
+      rewrite mk_empty_2_rw.
+      *)
+      admit.
+      (*apply incl_mmember_nil_nil.*)
+    - apply c2_run_acc_inv_1 in H2; auto.
+      destruct H2 as (f1, (Heq, Hf)).
+      subst.
+      destruct (list_eq_nil hs) as [N|hs_not_nil]. {
         subst.
         simpl.
         apply incl_mmember_nil.
+        admit.
       }
       rewrite mmember_prepend_rw; auto.
       rewrite member_concat_rw.
+      (*
       rewrite incl_l_either_iff.
       split. {
         apply c2_run_acc_inv_1 in H2; auto.
@@ -1130,6 +879,7 @@ Section Compiler.
     - give_up.
     - give_up.
     - give_up.
+    *)
   Admitted.
 
 (*

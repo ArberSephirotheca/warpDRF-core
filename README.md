@@ -20,6 +20,7 @@ A state in `Conc` is safe if, and only if, a state in `SymHist` is safe
 * `SHCompiler.v`: takes a `LoopFree` program and outputs a `SymHist` program
 * `SHSound.v`: proves that if `SymHist` is safe, then `LoopFree` is safe
 * `SHComplete.v`: proves that if `LoopFree` is safe, then `SymHist` is safe
+* `MultiHist`: theories on multi-histories
 # Misc
 * `Var.v` and `Tid.v` and `Loc.v`: meta variables
 * `StringUtil.v`: utilities on strings

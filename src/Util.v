@@ -1424,6 +1424,21 @@ Section Ops.
     inversion H; subst; clear H; auto.
   Qed.
 
+  Lemma m_in_prepend_iff:
+    forall A x l ls,
+    ls <> [] ->
+    MIn (A:=A) x (prepend l ls) <-> (List.In x l \/ MIn x ls).
+  Proof.
+    intros.
+    split; intros.
+    - apply m_in_prepend_inv in H0.
+      assumption.
+    - destruct H0. {
+        apply m_in_prepend_l; auto.
+      }
+      apply m_in_prepend; auto.
+  Qed.
+
 End Ops.
 
 Section filter.

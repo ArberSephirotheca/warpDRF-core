@@ -13,6 +13,7 @@ src/StringUtil.v
 src/SetTh.v
 src/LoopFree.v
 src/SymHist.v
+src/MultiHist.v
 src/SHCompiler.v
 src/SHSound.v
 src/SHComplete.v
