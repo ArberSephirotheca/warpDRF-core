@@ -289,6 +289,12 @@ Section Defs.
     transitivity proved by equiv_trans
     as l_equiv_setoid.
 
+  (** Register [Equiv] in Coq's tactics. *)
+  Global Add Parametric Relation : lang Incl
+    reflexivity proved by incl_refl
+    transitivity proved by incl_trans
+    as l_incl_setoid.
+
   (* We can now use reflexivity: *)
   Goal
     forall P,

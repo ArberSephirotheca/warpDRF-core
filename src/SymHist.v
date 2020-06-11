@@ -1028,6 +1028,140 @@ Section Defs.
       + apply IHl; auto using in_cons.
   Qed.
 
+  Definition ProgImpl i j : Prop :=
+    forall m1,
+    Run i m1 ->
+    exists m2,
+    Run j m2 /\ MemEquiv m1 m2.
+
+  Lemma prog_impl_refl:
+    forall i,
+    ProgImpl i i.
+  Proof.
+    unfold ProgImpl.
+    intros.
+    exists m1.
+    split; auto.
+    reflexivity.
+  Qed.
+
+  Definition ProgEquiv i j : Prop :=
+    ProgImpl i j /\ ProgImpl j i.
+  (*
+    forall m1 m2,
+    Run i m1 ->
+    Run j m2 ->
+    MemEquiv m1 m2.
+*)
+(*
+  Lemma prog_equiv_def:
+    forall i j m1 m2,
+    Run i m1 ->
+    Run j m2 ->
+    MemEquiv m1 m2 ->
+    ProgEquiv i j.
+  Proof.
+    unfold ProgEquiv.
+    intros i j m1 m2 Hr1 Hr2 R m3 m4 Hr3 Hr4.
+    assert (m1 = m3) by eauto using run_fun.
+    assert (m2 = m4) by eauto using run_fun.
+    subst.
+    assumption.
+  Qed.
+*)
+  Lemma run_prog_equiv_inv_l:
+    forall i m1 j,
+    Run i m1 ->
+    ProgEquiv i j ->
+    exists m2, Run j m2 /\ MemEquiv m1 m2.
+  Proof.
+    intros.
+    destruct H0 as (Hr1, Hr2).
+    apply Hr1 in H.
+    assumption.
+  Qed.
+
+  Lemma run_prog_equiv_inv_r:
+    forall i m1 j,
+    Run j m1 ->
+    ProgEquiv i j ->
+    exists m2, Run i m2 /\ MemEquiv m1 m2.
+  Proof.
+    intros.
+    destruct H0 as (Hr1, Hr2).
+    apply Hr2 in H.
+    assumption.
+  Qed.
+
+  Lemma prog_equiv_refl:
+    forall i,
+    ProgEquiv i i.
+  Proof.
+    intros.
+    unfold ProgEquiv.
+    auto using prog_impl_refl.
+    (*
+    intros.
+    assert (m1 = m2) by eauto using run_fun.
+    subst.
+    reflexivity.
+    *)
+  Qed.
+
+  Lemma prog_equiv_sym:
+    forall i j,
+    ProgEquiv i j ->
+    ProgEquiv j i.
+  Proof.
+    unfold ProgEquiv.
+    intros.
+    (* -- *)
+    destruct H.
+    split; auto.
+    (*
+    assert (H := H _ _ H1 H0).
+    rewrite H.
+    reflexivity.
+    *)
+  Qed.
+
+  Lemma branch_map_rw:
+    forall l i j x hss,
+    (forall n, List.In n l ->
+      ProgEquiv (i_subst x (NNum n) i)
+                (i_subst x (NNum n) j)) ->
+    BranchMap x i l hss ->
+    exists hss',
+    BranchMap x j l hss' /\
+    MMEquivStruct hss hss'.
+  Proof.
+    induction l; intros. {
+      inversion H0; subst; clear H0.
+      exists [].
+      split. {
+        apply branch_map_nil.
+      }
+      apply mmequiv_struct_nil.
+    }
+    inversion H0; subst; clear H0.
+    assert (hi: List.In a (a :: l)) by eauto using in_eq.
+    assert (Hx := H _ hi); clear hi.
+    assert (Hy: forall n : nat,
+       List.In n l -> ProgEquiv (i_subst x (NNum n) i) (i_subst x (NNum n) j)) by auto using in_cons.
+    assert (IHl := IHl i j x hss0 Hy H5).
+    destruct IHl as (m1, (Hb, Hm)).
+    unfold ProgEquiv in Hx.
+    eapply run_prog_equiv_inv_l in H3; eauto.
+    destruct H3 as (ma, (Hr1, R)).
+    exists (ma::m1).
+    simpl.
+    split. {
+      apply branch_map_cons; auto.
+    }
+    apply mmequiv_struct_cons; auto.
+  Qed.
+
+
   Definition add {A:Type} f (a:nat) (v:A) :=
     (fun n => if PeanoNat.Nat.eq_dec n a then v else f n).
 
@@ -1182,6 +1316,24 @@ Section Defs.
     intros.
     unfold DeclMap.
     auto using branch_map_def, range_list_inv_in_2.
+  Qed.
+
+  Lemma decl_map_rw:
+    forall n1 n2 i j x hss,
+    (forall n, n1 <= n < n2 ->
+      ProgEquiv (i_subst x (NNum n) i)
+                (i_subst x (NNum n) j)) ->
+    DeclMap x i n1 n2 hss ->
+    exists hss',
+    DeclMap x j n1 n2 hss' /\
+    MMEquivStruct hss hss'.
+  Proof.
+    intros.
+    unfold DeclMap in *.
+    apply branch_map_rw with (j:=j) in H0; auto.
+    intros.
+    apply range_list_inv_in_2 in H1.
+    auto.
   Qed.
 
   Lemma run_decl_map_def:

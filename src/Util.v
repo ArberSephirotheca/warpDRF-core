@@ -1057,6 +1057,25 @@ Section Ops.
     reflexivity.
   Qed.
 
+  Lemma prepend_rw:
+    forall (A:Type) lls l,
+    @prepend A l lls = prod [l] lls.
+  Proof.
+    induction lls; intros. {
+      simpl.
+      reflexivity.
+    }
+    simpl.
+    rewrite IHlls.
+    rewrite app_nil_r.
+    reflexivity.
+  Qed.
+
+  Definition interleave {A:Type} (p1 p2: list (list A) * list (list A)) :=
+    let (ll1, ll3) := p1 in
+    let (ll2, ll4) := p2 in
+    @prod A (prod ll1 ll2) (prod ll3 ll4).
+
   Lemma prod_prepend_r:
     forall (A:Type) (l:list A) lls1 lls2,
     prod lls1 (prepend l lls2)

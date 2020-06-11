@@ -43,6 +43,17 @@ Section Compiler.
         SymHist.Skip)
       SymHist.Skip).
 
+  (*
+  Definition translate (c:Conc.inst) : SymHist.inst :=
+      (SymHist.Decl T1 (NNum 1, NNum TID_COUNT)
+        (SymHist.seq (do_proj T1 c)
+           (SymHist.Decl T2 (NNum 0, NVar T1)
+             (do_proj T2 c)
+             SymHist.Skip
+           )
+        )
+        SymHist.Skip).
+  *)
   Lemma in_proj_to_in:
     forall x i,
     x <> TID ->

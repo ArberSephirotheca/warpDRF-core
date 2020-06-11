@@ -137,7 +137,6 @@ Section Defs.
       assumption.
   Qed.
 
-
   Import Morphisms.
 
   Global Instance app_mem_equiv_proper: Proper (MemEquiv ==> MemEquiv ==> MemEquiv) (@app history).
@@ -217,11 +216,123 @@ Section Defs.
     rewrite mem_equiv_app_refl_rw.
     reflexivity.
   Qed.
+
+  Lemma mequiv_app_nil_r:
+    forall m,
+    MemEquiv (m ++ [[]]) m.
+  Proof.
+    intros.
+    rewrite mem_equiv_cons_nil_rw.
+    rewrite app_nil_r.
+    reflexivity.
+  Qed.
+
+
+  Lemma mem_equiv_cons_eq_nil:
+    forall h,
+    MemEquiv [h] [] ->
+    h = [].
+  Proof.
+    intros.
+    (*unfold SymHist.MemEquiv in H.*)
+    destruct h as [|a h]. {
+      reflexivity.
+    }
+    assert (Hi: MPairIn (a,a) [a::h]). {
+      apply m_pair_in_eq.
+      apply pair_in_refl.
+      apply in_eq.
+    }
+    apply H in Hi.
+    apply m_pair_in_nil in Hi.
+    contradiction.
+  Qed.
+
+  Lemma mequiv_cons_nil_inv:
+    forall h,
+    MemEquiv ([] :: h) [] ->
+    MemEquiv h [].
+  Proof.
+    induction h; intros. {
+      reflexivity.
+    }
+    split; intros. {
+      assert (Hi: MPairIn p ([] :: a :: h)) by auto using m_pair_in_cons.
+      apply H in Hi.
+      assumption.
+    }
+    apply m_pair_in_nil in H0.
+    contradiction.
+  Qed.
+
+  Lemma mem_equiv_nil_to_repeat:
+    forall h,
+    MemEquiv h [] ->
+    exists n,
+    h = repeat [] n.
+  Proof.
+    induction h; intros. {
+      exists 0.
+      reflexivity.
+    }
+    destruct a. {
+      apply mequiv_cons_nil_inv in H.
+      apply IHh in H.
+      destruct H as (n, H).
+      exists (S n).
+      simpl.
+      rewrite H.
+      reflexivity.
+    }
+    assert (Hi: MPairIn (a,a) ((a::a0)::h)). {
+      apply m_pair_in_eq.
+      apply pair_in_refl.
+      apply in_eq.
+    }
+    apply H in Hi.
+    apply m_pair_in_nil in Hi.
+    contradiction.
+  Qed.
+
+  Lemma prod_repeat_rw:
+    forall m n,
+    MemEquiv m (prod (repeat [] (S n)) m).
+  Proof.
+    induction n. {
+      simpl.
+      rewrite prepend_nil.
+      rewrite app_nil_r.
+      reflexivity.
+    }
+    simpl in *.
+    rewrite prepend_nil in *.
+    rewrite <- IHn.
+    rewrite mem_equiv_app_refl_rw.
+    reflexivity.
+  Qed.
+
+  Lemma prod_absorb_l:
+    forall m1,
+    m1 <> [] ->
+    MemEquiv m1 [] ->
+    forall m2,
+    MemEquiv m2 (prod m1 m2).
+  Proof.
+    intros.
+    apply mem_equiv_nil_to_repeat in H0.
+    destruct H0 as (n, Hr).
+    subst.
+    destruct n. {
+      contradiction.
+    }
+    apply prod_repeat_rw.
+  Qed.
+
 End Defs.
 
 
 Section Member.
-
+  Context `{A:Access}.
   Definition Member {A} l a := List.In (A:=A) a l.
 
   Inductive PMember {A : Type} {B: Type} (P: B -> list A -> Prop) (ls : B) (a:A)  : Prop :=
@@ -432,6 +543,53 @@ Section Member.
       eauto using mmember_def.
   Qed.
 
+  Import Morphisms.
+
+  Global Instance member_equiv_proper: Proper (MemEquiv ==> eq ==> iff) (@MMember access_val).
+  Proof.
+    unfold Proper, respectful.
+    intros.
+    repeat rewrite mmember_rw.
+    subst.
+    rewrite H.
+    reflexivity.
+  Qed.
+
+  Global Instance member_in_equiv_proper: Proper (MemEquiv ==> @Equiv access_val) (@MMember access_val).
+  Proof.
+    unfold Proper, respectful.
+    split; unfold SetTh.Member; intros.
+    - rewrite <- H.
+      assumption.
+    - rewrite H.
+      assumption.
+  Qed.
+
+  Goal
+    forall (x:access_val),
+    @MMember access_val [[]] x <-> MMember [] x.
+  Proof.
+    intros.
+    rewrite mem_equiv_cons_nil_rw.
+    reflexivity.
+  Qed.
+
+  Goal
+    @Incl access_val (MMember [[]]) (MMember []).
+  Proof.
+    rewrite mem_equiv_cons_nil_rw.
+    reflexivity.
+  Qed.
+
+  Goal
+    forall m,
+    @Incl access_val (MMember (m++ [[]])) (MMember m).
+  Proof.
+    intros.
+    rewrite mequiv_app_nil_r.
+    reflexivity.
+  Qed.
+
   Lemma mmember_prepend_iff:
     forall A l ls (x:A),
     ls <> [] ->
@@ -488,4 +646,20 @@ Section Member.
     apply m_in_nil in H.
     contradiction.
   Qed.
+
+  Definition MMImpl mm1 mm2 :=
+    forall m1, List.In m1 mm1 -> exists m2, List.In m2 mm2 /\ MemEquiv m1 m2. 
+
+  Definition MMEquiv mm1 mm2 := MMImpl mm1 mm2 /\ MMImpl mm2 mm1.
+  Notation history := (list access_val).
+  Inductive MMEquivStruct : list (list history) -> list (list history) -> Prop :=
+  | mmequiv_struct_nil:
+    MMEquivStruct [] []
+  | mmequiv_struct_cons:
+    forall m1 m2 mm1 mm2,
+    MemEquiv m1 m2 ->
+    MMEquivStruct mm1 mm2 ->
+    MMEquivStruct (m1::mm1) (m2::mm2).
+
+  
 End Member.
