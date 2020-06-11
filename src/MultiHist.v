@@ -328,6 +328,176 @@ Section Defs.
     apply prod_repeat_rw.
   Qed.
 
+  Lemma mem_equiv_app_r:
+    forall m1 m2 m3,
+    MemEquiv m1 m2 ->
+    MemEquiv (m3 ++ m1) (m3 ++ m2).
+  Proof.
+    intros.
+    split; intros; apply m_pair_in_app_or in H0; destruct H0 as [Hx|Hx].
+    - auto using m_pair_in_app_l.
+    - apply H in Hx.
+      auto using m_pair_in_app_r.
+    - auto using m_pair_in_app_l.
+    - apply H in Hx.
+      auto using m_pair_in_app_r.
+  Qed.
+
+  Lemma mem_equiv_app_l:
+    forall m1 m2 m3,
+    MemEquiv m1 m2 ->
+    MemEquiv (m1 ++ m3) (m2 ++ m3).
+  Proof.
+    intros.
+    rewrite (mem_equiv_app_sym m1 m3).
+    rewrite (mem_equiv_app_sym m2 m3).
+    auto using mem_equiv_app_r.
+  Qed.
+
+
+  Lemma prod_app_r:
+    forall ll1 ll2 ll3, 
+    MemEquiv (prod ll1 ll2 ++ prod ll1 ll3) (prod ll1 (ll2 ++ ll3)).
+  Proof.
+    induction ll1; intros. {
+      reflexivity.
+    }
+    simpl.
+    rewrite <- IHll1.
+    rewrite prepend_app_r.
+    repeat rewrite app_assoc_reverse.
+    assert (R:
+      MemEquiv
+        (prod ll1 ll2 ++ prepend a ll3)
+        (prepend a ll3 ++ prod ll1 ll2)
+    ). {
+      rewrite mem_equiv_app_sym.
+      reflexivity.
+    }
+    repeat rewrite app_assoc.
+    apply mem_equiv_app_l.
+    repeat rewrite app_assoc_reverse.
+    rewrite R.
+    reflexivity.
+  Qed.
+
+  Lemma mem_equiv_prod_sym:
+    forall m1 m2,
+    m1 <> [] ->
+    m2 <> [] ->
+    MemEquiv (prod m1 m2) (prod m2 m1).
+  Proof.
+    intros.
+    split; intros.
+    - auto using m_pair_in_prod_sym.
+    - auto using m_pair_in_prod_sym.
+  Qed.
+
+  Lemma mem_equiv_prod_r:
+    forall m1 m2 m3,
+    m1 <> [] ->
+    m2 <> [] ->
+    m3 <> [] ->
+    MemEquiv m1 m2 ->
+    MemEquiv (prod m3 m1) (prod m3 m2).
+  Proof.
+    intros m1 m2 m3 Hn1 Hn2 Hn3 R.
+    split; intros Hi; apply m_pair_in_inv_prod in Hi; destruct Hi as [Hx|[Hx|[(Ha,Hb)|(Ha,Hb)]]].
+    - apply m_pair_in_prod_l; auto.
+    - apply R in Hx.
+      apply m_pair_in_prod_r; auto.
+    - destruct p as (v1,v2).
+      simpl in *.
+      rewrite R in Hb.
+      auto using m_pair_in_prod_1.
+    - destruct p as (v1,v2).
+      simpl in *.
+      rewrite R in Ha.
+      auto using m_pair_in_prod_2.
+    - auto using m_pair_in_prod_l.
+    - apply R in Hx.
+      auto using m_pair_in_prod_r.
+    - destruct p as (v1, v2).
+      simpl in *.
+      rewrite <- R in Hb.
+      auto using m_pair_in_prod_1.
+    - destruct p as (v1, v2).
+      simpl in *.
+      rewrite <- R in Ha.
+      auto using m_pair_in_prod_2.
+  Qed.
+
+  Lemma mem_equiv_prod_l:
+    forall m1 m2 m3,
+    m1 <> [] ->
+    m2 <> [] ->
+    m3 <> [] ->
+    MemEquiv m1 m2 ->
+    MemEquiv (prod m1 m3) (prod m2 m3).
+  Proof.
+    intros.
+    rewrite (mem_equiv_prod_sym m1 m3); auto.
+    rewrite (mem_equiv_prod_sym m2 m3); auto.
+    auto using mem_equiv_prod_r.
+  Qed.
+
+  Lemma app_prod_absorb_1:
+    forall m1 m2,
+    m1 <> [] ->
+    MemEquiv
+      ((prod m1 m2) ++ m2)
+      (prod m1 m2).
+  Proof.
+    split; intros.
+    - apply m_pair_in_app_or in H0.
+      destruct H0 as [?|Hx]; auto.
+      auto using m_pair_in_prod_r.
+    - apply m_pair_in_app_l.
+      assumption.
+  Qed.
+(*
+  Lemma prod_prod_absorb_1:
+    forall m1 m2,
+    MemEquiv
+      (prod m2 (prod m1 m2))
+      (prod m1 m2).
+  Proof.
+    split; intros.
+    - assert (m2 <> []). {
+        intros N.
+        subst.
+        simpl in *.
+        apply m_pair_in_nil in H.
+        assumption.
+      }
+      assert (m1 <> []). {
+        intros N; subst; simpl in *.
+        rewrite prod_nil_r in *.
+        apply m_pair_in_nil in H.
+        assumption.
+      }
+      apply m_pair_in_inv_prod in H.
+      destruct H as [Hx|[Hx|[(Ha,Hb)|(Ha,Hb)]]].
+      + apply m_pair_in_prod_r; auto.
+      + assumption.
+      + destruct p as (v1, v2); simpl in *.
+        apply m_in_prod_inv in Hb.
+        destruct Hb as [Hb|Hb]. {
+          eauto using m_pair_in_prod_2.
+        }
+        apply m_pair_in_prod_r; auto.
+        inversion Ha; subst.
+        apply m_pair_in_def.
+        assert (MPairIn (v1,v2) m2) by eauto using m_in_
+        eauto using m_pair_in_prod_3.
+        
+        Search (MIn _ (prod _ _)).
+        assert (MIn v1 (prod m2 m2)) by eauto using m_in_prod_r.
+        m_pair_in_def
+        Search (MIn _ _ -> MPairIn _ _).
+        Search 
+  Qed.
+*)
 End Defs.
 
 
@@ -661,5 +831,4 @@ Section Member.
     MMEquivStruct mm1 mm2 ->
     MMEquivStruct (m1::mm1) (m2::mm2).
 
-  
 End Member.

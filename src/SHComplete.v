@@ -438,6 +438,18 @@ Section Compiler.
   Definition TranslatedProj f e :=
     forall n, 0 <= n < TID_COUNT -> SymHist.Run (SymHist.i_subst TID (NNum n) (proj e)) (f n).
 
+  Lemma i_subst_do_proj:
+    forall x i n,
+    ~ In x (proj i) ->
+    i_subst x (NNum n) (do_proj x i) =
+    i_subst TID (NNum n) (proj i).
+  Proof.
+    intros.
+    unfold do_proj.
+    apply i_subst_subst_trans.
+    assumption.
+  Qed.
+
   Lemma run_trans_inv_2 e  (t1_nin: ~ Conc.In T1 e) (t2_nin: ~ Conc.In T2 e) hs:
     SymHist.Run (translate e) hs ->
     exists f, TranslatedProj f e /\
@@ -452,9 +464,22 @@ Section Compiler.
     destruct H as (mm1, (m2, (?, (Hs, Hd)))).
     subst.
     inversion Hs; subst; clear Hs.
-    apply run_trans_inv in H; auto.
-    destruct H as (f1, (Heq, Hf1)).
-    subst.
+    assert (~ In T1 (proj e)). {
+      admit.
+    }
+    apply decl_map_rw with (
+      j:=seq (do_proj T1 e) (Decl T2 (NNum 0, NVar T1) (do_proj T2 e) Skip)
+    ) in Hd.
+    2: {
+      intros.
+      rewrite rw_1; auto.
+      repeat rewrite i_subst_seq.
+      rewrite i_subst_do_proj; auto.
+      Search (i_subst _ _ _).
+      rewrite i_subst_not_in with (i:= (Decl T2 (NNum 0, NVar T1) (do_proj T2 e) Skip)).
+      Search (i_subst _ _ (Decl _ _ _ _)).
+    }
+    unshelve.
   Qed.
 
   Lemma concat_map_eq_repeat:

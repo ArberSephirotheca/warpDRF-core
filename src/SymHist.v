@@ -1422,6 +1422,135 @@ Section Defs.
     exists f.
     auto using range_list_in.
   Qed.
+(*
+  Lemma prog_impl_i_subst:
+    forall i j x n,
+    ProgImpl i j ->
+    ProgImpl (i_subst x n i) (i_subst x n j).
+  Proof.
+    unfold ProgImpl.
+    intros.
+  Qed.
+*)
+  Search (i_subst _ _ (seq _ _)).
+
+  Lemma run_not_nil:
+    forall i m,
+    Run i m ->
+    m <> [].
+  Proof.
+    intros.
+    intros N.
+    subst.
+    apply run_inv_nil in H.
+    assumption.
+  Qed.
+
+  Lemma impl_branch_seq:
+    forall x l i j k,
+    ~ In x i ->
+    l <> [] ->
+    ProgImpl
+      (Branch x l (seq i j) k)
+      (seq i (Branch x l j k)).
+  Proof.
+    unfold ProgImpl.
+    induction l. {
+      intros.
+      contradiction.
+    }
+    intros i j k Hnin _ m1 Hr1.
+    destruct l. {
+      inversion Hr1; subst; clear Hr1.
+      inversion H6; subst; clear H6.
+      repeat rewrite i_subst_seq in *.
+      apply run_inv_seq in H5.
+      destruct H5 as (m1, (m2, (?, (Hr1, Hr2)))).
+      assert (m2 = hs2) by eauto using run_fun.
+      subst.
+      apply run_inv_seq in Hr1.
+      destruct Hr1 as (m3, (m4, (?, (Hr1, Hr3)))).
+      subst.
+      eexists.
+      split. {
+        apply run_seq. {
+          (* eapply run_seq; eauto.*)
+          rewrite i_subst_not_in in Hr1; eauto.
+        }
+        apply run_branch_cons.
+        + apply run_seq; eauto.
+        + apply run_branch_nil; eauto.
+      }
+      repeat rewrite <- prod_assoc.
+      rewrite app_prod_absorb_1.
+      2: {
+        eauto using prod_neq_nil, run_not_nil.
+      }
+      repeat rewrite prod_assoc.
+      apply mem_equiv_prod_r.
+      - eauto using prod_neq_nil, run_not_nil.
+      - assert (Hr: prod m4 hs2 <> []) by eauto using prod_neq_nil, run_not_nil.
+        intros N.
+        destruct (prod m4 hs2). {
+          contradiction.
+        }
+        inversion N.
+      - eauto using run_not_nil.
+      - rewrite app_prod_absorb_1; eauto using run_not_nil.
+        reflexivity.
+    }
+    inversion Hr1; subst; clear Hr1.
+    assert (Hne2: n :: l <> []). {
+      intros N.
+      inversion N.
+    }
+    assert (IHl := IHl i j k Hnin Hne2 hs2 H6).
+    destruct IHl as (m2, (Hr1, R)).
+    rewrite i_subst_seq in H5.
+    rewrite i_subst_not_in in H5; auto.
+    apply run_inv_seq in H5.
+    destruct H5 as (m1, (m3, (?, (Hr2, Hr3)))). 
+    subst.
+    apply run_inv_seq in Hr2.
+    destruct Hr2 as (m4, (m5, (?, (Hr4, Hr5)))).
+    subst.
+    apply run_inv_seq in Hr1.
+    destruct Hr1 as (m6, (m7, (?, (Hr1, Hr2)))).
+    assert (m6 = m4) by eauto using run_fun; subst; clear Hr4.
+    eexists.
+    split. {
+      apply run_seq; eauto.
+      apply run_branch_cons; eauto.
+      apply run_seq; eauto.
+    }
+    repeat rewrite prod_assoc.
+    rewrite <- prod_app_r.
+    rewrite R.
+    reflexivity.
+  Qed.
+
+  Lemma equiv_i_subst_decl_seq_1:
+    forall i j k r x,
+    ProgImpl
+      (Decl x r (seq i j) k)
+      (seq i (Decl x r j k)).
+  Proof.
+    unfold ProgImpl.
+    intros.
+    inversion H; subst; clear H.
+  Qed.
+
+  Lemma equiv_i_subst_decl_seq:
+    forall i j k r x,
+    ProgEquiv
+      (Decl x r (seq i j) k)
+      (seq i (Decl x r j k)).
+  Proof.
+    intros.
+    unfold ProgEquiv.
+    split. {
+    }
+  Qed.
 
 (*
   Lemma run_decl_inv_map_f:

@@ -623,6 +623,18 @@ Section Ops.
     reflexivity.
   Qed.
 
+  Lemma prepend_app_r:
+    forall A l ll1 ll2,
+    @prepend A l (ll1 ++ ll2) = prepend l ll1 ++ prepend l ll2.
+  Proof.
+    induction ll1; intros. {
+      reflexivity.
+    }
+    simpl.
+    rewrite IHll1.
+    reflexivity.
+  Qed.
+
   Lemma prepend_nil:
     forall A l,
     @prepend A [] l = l.
@@ -1458,6 +1470,195 @@ Section Ops.
       apply m_in_prepend; auto.
   Qed.
 
+  Lemma pair_in_inv_app:
+    forall A p l1 l2, 
+    @PairIn A p (l1 ++ l2) ->
+    PairIn p l1 \/
+    PairIn p l2 \/
+    (List.In (fst p) l1 /\  List.In (snd p) l2) \/
+    (List.In (snd p) l1 /\  List.In (fst p) l2).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    apply in_app_or in H0.
+    apply in_app_or in H1.
+    destruct H0, H1; auto using pair_in_def.
+  Qed.
+
+  Lemma m_pair_in_inv_prepend:
+    forall A p ll l,
+    @MPairIn A p (prepend l ll) ->
+    MPairIn p ll \/
+    PairIn p l \/
+    (List.In (fst p) l /\ MIn (snd p) ll) \/
+    (List.In (snd p) l /\ MIn (fst p) ll).
+  Proof.
+    induction ll; intros. {
+      simpl in *.
+      apply m_pair_in_nil in H.
+      contradiction.
+    }
+    simpl in *.
+    apply m_pair_in_inv in H.
+    destruct H as [H|H]. {
+      apply pair_in_inv_app in H.
+      destruct H as [H|[H|[(Ha,Hb)|(Ha,Hb)]]].
+      - auto.
+      - eauto using m_pair_in_eq.
+      - right.
+        right.
+        left.
+        split; eauto using m_in_def, in_eq.
+      - right.
+        right.
+        right.
+        split; eauto using m_in_def, in_eq.
+    }
+    apply IHll in H; clear IHll.
+    destruct H as [H|[H|[(Ha,Hb)|(Ha,Hb)]]].
+    - eauto using m_pair_in_cons.
+    - auto.
+    - right. right.
+      left.
+      eauto using m_in_def, m_in_cons.
+    - right; right; right.
+      eauto using m_in_def, m_in_cons.
+  Qed.
+
+  Lemma m_pair_in_inv_prod:
+    forall A m1 m2 p,
+    @MPairIn A p (prod m1 m2) ->
+    MPairIn p m1 \/
+    MPairIn p m2 \/
+    (MIn (fst p) m1 /\ MIn (snd p) m2) \/
+    (MIn (fst p) m2 /\ MIn (snd p) m1).
+  Proof.
+    induction m1; intros. {
+      simpl in *.
+      auto.
+    }
+    simpl in *.
+    apply m_pair_in_app_or in H.
+    destruct H as [Hx|Hx]. {
+      apply m_pair_in_inv_prepend in Hx.
+      destruct Hx as [Hx|[Hx|[(Ha,Hb)|(Ha,Hb)]]].
+      - auto.
+      - auto using m_pair_in_eq.
+      - right.
+        right.
+        left.
+        eauto using m_in_eq.
+      - right.
+        right.
+        right.
+        eauto using m_in_eq.
+    }
+    apply IHm1 in Hx.
+    destruct Hx as [Hx|[Hx|[(Ha,Hb)|(Ha,Hb)]]].
+    - auto using m_pair_in_cons.
+    - auto.
+    - right.
+      right.
+      left.
+      auto using m_in_cons.
+    - right.
+      right.
+      right.
+      auto using m_in_cons.
+  Qed.
+
+  Lemma m_pair_in_prod_cons_r:
+    forall A p a m1 m2,
+    @MPairIn A p (prod m1 m2) ->
+    MPairIn p (prod m1 (a :: m2)).
+  Proof.
+    intros.
+    assert (m1 <> []). {
+      intros N; subst.
+      apply m_pair_in_nil in H.
+      assumption.
+    }
+    apply m_pair_in_inv_prod in H.
+    destruct H as [Hx|[Hx|[(Ha,Hb)|(Ha,Hb)]]].
+    - apply m_pair_in_prod_l; auto.
+      intros N; inversion N.
+    - apply m_pair_in_prod_r; auto.
+      apply m_pair_in_cons.
+      assumption.
+    - destruct p as (v1,v2).
+      simpl in *.
+      apply m_pair_in_prod_1; auto using m_in_cons.
+    - destruct p as (v1,v2).
+      simpl in *.
+      apply m_pair_in_prod_2; auto using m_in_cons.
+  Qed.
+
+  Lemma m_pair_in_prod_sym:
+    forall A p m1 m2,
+    m2 <> [] ->
+    @MPairIn A p (prod m1 m2) ->
+    MPairIn p (prod m2 m1).
+  Proof.
+    induction m1; intros. {
+      simpl in *.
+      apply m_pair_in_nil in H0.
+      contradiction.
+    }
+    simpl in *.
+    apply m_pair_in_app_or in H0.
+    destruct H0 as [Hx|Hx]. {
+      apply m_pair_in_inv_prepend in Hx.
+      destruct Hx as [Hx|[Hx|[(Ha,Hb)|(Ha,Hb)]]].
+      - apply m_pair_in_prod_l; auto.
+        intros N; inversion N.
+      - apply m_pair_in_prod_r; auto.
+        auto using m_pair_in_eq.
+      - assert (Hi: MIn (fst p) (a::m1)) by eauto using m_in_eq.
+        destruct p as (v1, v2).
+        auto using m_pair_in_prod_2.
+      - assert (Hi: MIn (snd p) (a::m1)) by eauto using m_in_eq.
+        destruct p as (v1, v2).
+        auto using m_pair_in_prod_1.
+    }
+    apply IHm1 in Hx; auto using m_pair_in_prod_cons_r.
+  Qed.
+
+  Lemma prod_nil_r:
+    forall A ll,
+    @prod A ll [] = [].
+  Proof.
+    induction ll; intros. { reflexivity. }
+    simpl.
+    rewrite IHll.
+    reflexivity.
+  Qed.
+
+  Lemma prod_neq_nil:
+    forall A ll1 ll2,
+    ll1 <> [] ->
+    ll2 <> [] ->
+    @prod A ll1 ll2 <> [].
+  Proof.
+    intros.
+    destruct ll1. {
+      contradiction.
+    }
+    simpl.
+    intros N.
+    destruct l. {
+      rewrite prepend_nil_l in *.
+      destruct ll2. {
+        contradiction.
+      }
+      inversion N.
+    }
+    destruct ll2. {
+      contradiction.
+    }
+    simpl in *.
+    inversion N.
+  Qed.
+
 End Ops.
 
 Section filter.
@@ -1658,6 +1859,8 @@ Section LinWalk2.
     inversion Hz; subst; clear Hz.
     reflexivity.
   Qed.
+
+
 End LinWalk2.
 
 Section BigStep.
