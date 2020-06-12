@@ -455,49 +455,69 @@ Section Defs.
     - apply m_pair_in_app_l.
       assumption.
   Qed.
-(*
-  Lemma prod_prod_absorb_1:
-    forall m1 m2,
-    MemEquiv
-      (prod m2 (prod m1 m2))
-      (prod m1 m2).
+
+  Definition MIncl (m1 m2:list history) : Prop :=
+    forall p, MPairIn p m1 -> MPairIn p m2.
+
+  Lemma m_incl_refl:
+    forall m,
+    MIncl m m.
   Proof.
-    split; intros.
-    - assert (m2 <> []). {
-        intros N.
-        subst.
-        simpl in *.
-        apply m_pair_in_nil in H.
-        assumption.
-      }
-      assert (m1 <> []). {
-        intros N; subst; simpl in *.
-        rewrite prod_nil_r in *.
-        apply m_pair_in_nil in H.
-        assumption.
-      }
-      apply m_pair_in_inv_prod in H.
-      destruct H as [Hx|[Hx|[(Ha,Hb)|(Ha,Hb)]]].
-      + apply m_pair_in_prod_r; auto.
-      + assumption.
-      + destruct p as (v1, v2); simpl in *.
-        apply m_in_prod_inv in Hb.
-        destruct Hb as [Hb|Hb]. {
-          eauto using m_pair_in_prod_2.
-        }
-        apply m_pair_in_prod_r; auto.
-        inversion Ha; subst.
-        apply m_pair_in_def.
-        assert (MPairIn (v1,v2) m2) by eauto using m_in_
-        eauto using m_pair_in_prod_3.
-        
-        Search (MIn _ (prod _ _)).
-        assert (MIn v1 (prod m2 m2)) by eauto using m_in_prod_r.
-        m_pair_in_def
-        Search (MIn _ _ -> MPairIn _ _).
-        Search 
+    unfold MIncl; auto.
   Qed.
-*)
+
+  Lemma m_incl_trans:
+    forall m1 m2 m3,
+    MIncl m1 m2 ->
+    MIncl m2 m3 ->
+    MIncl m1 m3.
+  Proof.
+    unfold MIncl; intros.
+    auto.
+  Qed.
+
+  Lemma m_equiv_to_m_incl:
+    forall m1 m2,
+    MemEquiv m1 m2 ->
+    MIncl m1 m2 /\ MIncl m2 m1.
+  Proof.
+    unfold MemEquiv, MIncl.
+    intros.
+    split; intros.
+    - apply H.
+      assumption.
+    - apply H.
+      assumption.
+  Qed.
+
+  (** Register [Equiv] in Coq's tactics. *)
+  Global Add Parametric Relation : (list history) MIncl
+    reflexivity proved by m_incl_refl
+    transitivity proved by m_incl_trans
+    as m_incl_setoid.
+
+  Lemma m_incl_m_equiv:
+    forall m1 m2 m3 m4,
+    MemEquiv m1 m2 ->
+    MemEquiv m3 m4 ->
+    MIncl m1 m3 ->
+    MIncl m2 m4.
+  Proof.
+    intros.
+    apply m_equiv_to_m_incl in H.
+    destruct H.
+    apply m_equiv_to_m_incl in H0.
+    destruct H0.
+    transitivity m1; auto.
+    transitivity m3; auto.
+  Qed.
+
+  Global Instance m_incl_equiv_proper: Proper (MemEquiv ==> MemEquiv ==> iff) MIncl.
+  Proof.
+    unfold Proper, respectful.
+    split; intros.
+    auto using mem_equiv_app.
+  Qed.
 End Defs.
 
 
