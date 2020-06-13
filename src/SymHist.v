@@ -1446,7 +1446,7 @@ Section Defs.
     assumption.
   Qed.
 
-  Lemma impl_branch_seq:
+  Lemma impl_branch_seq_1:
     forall x l i j k,
     ~ In x i ->
     l <> [] ->
@@ -1529,27 +1529,149 @@ Section Defs.
     reflexivity.
   Qed.
 
-  Lemma equiv_i_subst_decl_seq_1:
-    forall i j k r x,
+  Lemma impl_branch_seq_2:
+    forall x l i j k,
+    ~ In x i ->
+    l <> [] ->
     ProgImpl
-      (Decl x r (seq i j) k)
-      (seq i (Decl x r j k)).
+      (seq i (Branch x l j k))
+      (Branch x l (seq i j) k).
   Proof.
     unfold ProgImpl.
+    induction l. {
+      intros.
+      contradiction.
+    }
+    intros i j k Hnin _ m1 Hr1.
+    apply run_inv_seq in Hr1.
+    destruct Hr1 as (m2, (m3, (?, (Hr1, Hr2)))).
+    subst.
+    inversion Hr2; subst; clear Hr2.
+    apply run_inv_seq in H5.
+    destruct H5 as (m1, (m3, (?, (Hr2, Hr3)))).
+    subst.
+    destruct l. {
+      clear IHl.
+      eexists.
+      inversion H6; subst; clear H6.
+      assert (m3 = hs2) by eauto using run_fun; subst.
+      split. {
+        apply run_branch_cons. {
+          rewrite i_subst_seq.
+          rewrite i_subst_not_in; auto.
+          eauto using run_seq.
+        }
+        eauto using run_branch_nil.
+      }
+      repeat rewrite prod_assoc.
+      rewrite <- prod_app_r.
+      assert (Hi: MIncl (prod m2 hs2) (prod m2 (prod m1 hs2))). {
+        apply m_incl_prod_3.
+        - eauto using prod_neq_nil, run_not_nil.
+        - eauto using m_incl_prod_1, run_not_nil.
+      }
+      rewrite (m_incl_app_r _ _ Hi).
+      clear Hi.
+      assert (Hi: MIncl hs2 (prod m2 (prod m1 hs2))). {
+        assert (Hi: MIncl hs2 (prod m1 hs2)). {
+          apply m_incl_prod_1.
+          eauto using run_not_nil.
+        }
+        transitivity (prod m1 hs2); auto.
+        apply m_incl_prod_1.
+        eauto using run_not_nil.
+      }
+      rewrite (m_incl_app_r _ _ Hi).
+      reflexivity.
+    }
+    edestruct IHl; eauto; clear IHl.
+    - intros N; inversion N.
+    - apply run_seq; eauto.
+    - destruct H as (Hr4, Hr5).
+      eexists.
+      split. {
+        apply run_branch_cons.
+        - rewrite i_subst_seq.
+          rewrite i_subst_not_in; auto.
+          eauto using run_seq.
+        - eauto.
+      }
+      repeat rewrite prod_assoc.
+      rewrite <- prod_app_r.
+      rewrite Hr5.
+      reflexivity.
+  Qed.
+
+  Lemma equiv_i_subst_branch_seq:
+    forall i j k l x,
+    ~ In x i ->
+    l <> [] ->
+    ProgEquiv
+      (Branch x l (seq i j) k)
+      (seq i (Branch x l j k)).
+  Proof.
     intros.
-    inversion H; subst; clear H.
+    unfold ProgEquiv.
+    split; auto using impl_branch_seq_1, impl_branch_seq_2.
   Qed.
 
   Lemma equiv_i_subst_decl_seq:
-    forall i j k r x,
+    forall i j k n1 n2 x,
+    ~ In x i ->
+    n1 < n2 ->
     ProgEquiv
-      (Decl x r (seq i j) k)
-      (seq i (Decl x r j k)).
+      (Decl x (NNum n1, NNum n2) (seq i j) k)
+      (seq i (Decl x (NNum n1, NNum n2) j k)).
   Proof.
     intros.
     unfold ProgEquiv.
     split. {
+      unfold ProgImpl.
+      intros.
+      inversion H1.
+      subst.
+      assert (Hx : ProgEquiv
+        (Branch x l (seq i j) k)
+        (seq i (Branch x l j k))). {
+        apply equiv_i_subst_branch_seq; auto.
+        apply r_step_to_range_list in H7.
+        subst.
+        auto using range_list_not_nil.
+      }
+      eapply run_prog_equiv_inv_l in Hx; eauto.
+      destruct Hx as (m2, (Hr2,?)).
+      apply run_inv_seq in Hr2.
+      destruct Hr2 as (m3, (m4, (?, (Hra, Hrb)))).
+      subst.
+      eexists.
+      split. {
+        apply run_seq; eauto using run_decl.
+      }
+      assumption.
     }
+    unfold ProgImpl.
+    intros.
+    apply run_inv_seq in H1.
+    destruct H1 as (m2, (m3, (?, (Hr1, Hr2)))).
+    inversion Hr2; subst; clear Hr2.
+    assert (Hx : ProgEquiv
+      (Branch x l (seq i j) k)
+      (seq i (Branch x l j k))). {
+      apply equiv_i_subst_branch_seq; auto.
+      apply r_step_to_range_list in H7.
+      subst.
+      auto using range_list_not_nil.
+    }
+    assert (Hr: Run (seq i (Branch x l j k)) (prod m2 m3)). {
+      apply run_seq; auto.
+    }
+    eapply run_prog_equiv_inv_r in Hx; eauto.
+    destruct Hx as (m4, (Hrb, Hm)).
+    eexists.
+    split. {
+      eapply run_decl; eauto.
+    }
+    assumption.
   Qed.
 
 (*

@@ -516,8 +516,114 @@ Section Defs.
   Proof.
     unfold Proper, respectful.
     split; intros.
-    auto using mem_equiv_app.
+    - eauto using m_incl_m_equiv.
+    - symmetry in H.
+      symmetry in H0.
+      eauto using m_incl_m_equiv.
   Qed.
+
+  Lemma m_incl_app_l:
+    forall m1 m2,
+    MIncl m1 m2 ->
+    MemEquiv (m1 ++ m2) m2.
+  Proof.
+    intros.
+    split; intros. {
+      apply m_pair_in_app_or in H0.
+      destruct H0 as [Ha|Ha]; auto.
+    }
+    auto using m_pair_in_app_r.
+  Qed.
+
+  Lemma m_incl_app_r:
+    forall m1 m2,
+    MIncl m1 m2 ->
+    MemEquiv (m2 ++ m1) m2.
+  Proof.
+    intros.
+    rewrite (mem_equiv_app_sym m2 m1).
+    auto using m_incl_app_l.
+  Qed.
+
+  Lemma m_incl_prod_1:
+    forall m1 m2,
+    m1 <> [] ->
+    MIncl m2 (prod m1 m2).
+  Proof.
+    unfold MIncl; intros.
+    auto using m_pair_in_prod_r.
+  Qed.
+
+  Lemma m_incl_prod_2:
+    forall m1 m2,
+    m2 <> [] ->
+    MIncl m1 (prod m1 m2).
+  Proof.
+    unfold MIncl; intros.
+    auto using m_pair_in_prod_l.
+  Qed.
+
+  Lemma m_incl_prod_3:
+    forall m1 m2 m3,
+    m3 <> [] ->
+    MIncl m2 m3 ->
+    MIncl (prod m1 m2) (prod m1 m3).
+  Proof.
+    unfold MIncl.
+    intros.
+    destruct (list_eq_nil m1) as [?|Hne]. {
+      subst.
+      simpl in *.
+      assumption.
+    }
+    apply m_pair_in_inv_prod in H1.
+    destruct H1 as [Hx|[Hx|[(Ha,Hb)|(Ha,Hb)]]].
+    - apply m_pair_in_prod_l; auto.
+    - apply H0 in Hx.
+      auto using m_pair_in_prod_r.
+    - destruct p as (v1, v2); simpl in *.
+      assert (MIn v2 m3). {
+        eauto using m_pair_in_to_in_r, m_pair_in_refl.
+      }
+      eauto using m_pair_in_prod_1.
+    - destruct p as (v1, v2); simpl in *.
+      assert (MIn v1 m3). {
+        eauto using m_pair_in_to_in_l, m_pair_in_refl.
+      }
+      eauto using m_pair_in_prod_2.
+  Qed.
+
+(*
+  Lemma m_incl_prod_4:
+    forall m1 m2 m3,
+    m3 <> [] ->
+    MIncl m2 m3 ->
+    MIncl (prod m2 m1) (prod m3 m1).
+  Proof.
+    unfold MIncl.
+    intros.
+    destruct (list_eq_nil m1) as [?|Hne]. {
+      subst.
+      rewrite prod_nil_r in *.
+      assumption.
+    }
+    apply m_pair_in_inv_prod in H1.
+    destruct H1 as [Hx|[Hx|[(Ha,Hb)|(Ha,Hb)]]].
+    - apply m_pair_in_prod_l; auto.
+    - apply H0 in Hx.
+      auto using m_pair_in_prod_r.
+    - destruct p as (v1, v2); simpl in *.
+      assert (MIn v2 m3). {
+        eauto using m_pair_in_to_in_r, m_pair_in_refl.
+      }
+      eauto using m_pair_in_prod_1.
+    - destruct p as (v1, v2); simpl in *.
+      assert (MIn v1 m3). {
+        eauto using m_pair_in_to_in_l, m_pair_in_refl.
+      }
+      eauto using m_pair_in_prod_2.
+  Qed.
+  *)
 End Defs.
 
 

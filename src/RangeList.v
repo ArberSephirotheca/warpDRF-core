@@ -605,6 +605,18 @@ Section Defs.
     apply range_list_to_prop in Heql.
     auto using range_list_length.
   Qed.
+
+  Lemma range_list_not_nil:
+    forall n1 n2,
+    n1 < n2 ->
+    range_list n1 n2 <> [].
+  Proof.
+    intros.
+    intros N.
+    apply range_list_to_prop in N.
+    inversion N; subst.
+    omega.
+  Qed.
 End Defs.
 
 Lemma map_range_spec:
