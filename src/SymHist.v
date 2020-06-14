@@ -1045,6 +1045,29 @@ Section Defs.
     reflexivity.
   Qed.
 
+  Lemma prog_impl_trans:
+    forall i j k,
+    ProgImpl i j ->
+    ProgImpl j k ->
+    ProgImpl i k.
+  Proof.
+    unfold ProgImpl.
+    intros.
+    apply H in H1.
+    destruct H1 as (m2, (Hj, R1)).
+    apply H0 in Hj.
+    destruct Hj as (m3, (Hk, R2)).
+    exists m3.
+    split; auto; etransitivity; eauto.
+  Qed.
+
+
+  (** Register [ProgImpl] in Coq's tactics. *)
+  Global Add Parametric Relation : _ ProgImpl
+    reflexivity proved by prog_impl_refl
+    transitivity proved by prog_impl_trans
+    as prog_impl_setoid.
+
   Definition ProgEquiv i j : Prop :=
     ProgImpl i j /\ ProgImpl j i.
   (*
@@ -1100,12 +1123,6 @@ Section Defs.
     intros.
     unfold ProgEquiv.
     auto using prog_impl_refl.
-    (*
-    intros.
-    assert (m1 = m2) by eauto using run_fun.
-    subst.
-    reflexivity.
-    *)
   Qed.
 
   Lemma prog_equiv_sym:
@@ -1115,15 +1132,29 @@ Section Defs.
   Proof.
     unfold ProgEquiv.
     intros.
-    (* -- *)
     destruct H.
     split; auto.
-    (*
-    assert (H := H _ _ H1 H0).
-    rewrite H.
-    reflexivity.
-    *)
   Qed.
+
+  Lemma prog_equiv_trans:
+    forall i j k,
+    ProgEquiv i j ->
+    ProgEquiv j k ->
+    ProgEquiv i k.
+  Proof.
+    unfold ProgEquiv; split.
+    - destruct H, H0.
+      transitivity j; auto.
+    - destruct H, H0.
+      transitivity j; auto.
+  Qed.
+
+  (** Register [Equiv] in Coq's tactics. *)
+  Global Add Parametric Relation : _ ProgEquiv
+    reflexivity proved by prog_equiv_refl
+    symmetry proved by prog_equiv_sym
+    transitivity proved by prog_equiv_trans
+    as prog_equiv_setoid.
 
   Lemma branch_map_rw:
     forall l i j x hss,
@@ -1432,7 +1463,6 @@ Section Defs.
     intros.
   Qed.
 *)
-  Search (i_subst _ _ (seq _ _)).
 
   Lemma run_not_nil:
     forall i m,
@@ -1672,6 +1702,80 @@ Section Defs.
       eapply run_decl; eauto.
     }
     assumption.
+  Qed.
+
+  Definition merge {A:Type} l1 l2 :=
+    List.map
+      (fun (p:list (list A) * list (list A)) => let (v1,v2) := p in prod v1 v2)
+      (List.combine l1 l2).
+
+  Lemma branch_map_inv_seq:
+    forall l x i j ms1, 
+    BranchMap x (seq i j) l ms1 ->
+    exists ms2 ms3,
+    BranchMap x i l ms2 /\ BranchMap x j l ms3 /\ ms1 = merge ms2 ms3.
+  Proof.
+    induction l; intros. {
+      inversion H; subst; clear H.
+      eauto using branch_map_nil.
+    }
+    inversion H; subst; clear H.
+    rewrite i_subst_seq in H2.
+    apply run_inv_seq in H2.
+    destruct H2 as (hs1, (hs2, (?, (Hra, Hrb)))).
+    subst.
+    apply IHl in H4.
+    destruct H4 as (ms2, (ms3, (Hb1, (Hb2, R2)))).
+    subst.
+    eexists.
+    eexists.
+    repeat split.
+    - eauto using branch_map_cons.
+    - eauto using branch_map_cons.
+    - reflexivity.
+  Qed.
+
+  Lemma merge_cons_rw:
+    forall {A} hs1 hs2 hss1 hss2,
+    @merge A (hs1 :: hss1) (hs2 :: hss2) = 
+    prod hs1 hs2 :: merge hss1 hss2. 
+  Proof.
+    unfold merge.
+    auto.
+  Qed.
+
+  Lemma branch_map_seq:
+    forall l x i j ms1 ms2, 
+    BranchMap x i l ms1 ->
+    BranchMap x j l ms2 ->
+    BranchMap x (seq i j) l (merge ms1 ms2).
+  Proof.
+    induction l; intros; inversion H; inversion H0; subst; clear H H0. {
+      apply branch_map_nil.
+    }
+    rewrite merge_cons_rw.
+    apply branch_map_cons; auto.
+    rewrite i_subst_seq.
+    auto using run_seq.
+  Qed.
+
+  Lemma decl_map_inv_seq:
+    forall n1 n2 x i j ms1, 
+    DeclMap x (seq i j) n1 n2 ms1 ->
+    exists ms2 ms3,
+    DeclMap x i n1 n2 ms2 /\ DeclMap x j n1 n2 ms3 /\ ms1 = merge ms2 ms3.
+  Proof.
+    unfold DeclMap.
+    eauto using branch_map_inv_seq.
+  Qed.
+
+  Lemma decl_map_seq:
+    forall n1 n2 x i j ms1 ms2, 
+    DeclMap x i n1 n2 ms1 ->
+    DeclMap x j n1 n2 ms2 ->
+    DeclMap x (seq i j) n1 n2 (merge ms1 ms2).
+  Proof.
+    unfold DeclMap;auto using branch_map_seq.
   Qed.
 
 (*
