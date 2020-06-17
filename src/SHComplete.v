@@ -330,6 +330,18 @@ Section Compiler.
     reflexivity.
   Qed.
 
+  Lemma map_repeat_rw:
+    forall A B (x:B) l,
+    map (fun _ : A => x) l = List.repeat x (List.length l).
+  Proof.
+    induction l; intros. {
+      reflexivity.
+    }
+    simpl.
+    rewrite IHl.
+    reflexivity.
+  Qed.
+
   Lemma concat_eq_rw:
     forall A B m l,
     @List.concat (list B) (map (fun _ : A => [m]) l) = List.repeat m (List.length l).
@@ -450,36 +462,84 @@ Section Compiler.
     assumption.
   Qed.
 
+
+  Definition multi_prepend (m1:list (list history)) mm2 :=
+    List.map
+      (fun (p:list history * list (list history)) => let (h, m) := p in List.concat (prepend h m) )
+      (List.combine m1 mm2).
+
   Lemma run_trans_inv_2 e  (t1_nin: ~ Conc.In T1 e) (t2_nin: ~ Conc.In T2 e) hs:
     SymHist.Run (translate e) hs ->
-    exists f, TranslatedProj f e /\
-    hs = List.concat (SymHist.branch_iter 1 TID_COUNT (fun n1 =>
-      List.concat (SymHist.branch_iter 0 n1 (fun n2 =>
-        prod (f n1) (f n2)
-      )) ++ [[]]
-    )) ++ [[]].
+    exists m1 ms2,
+    MemEquiv hs (List.concat (multi_prepend m1 ms2))
+   /\
+    DeclMap T1 (do_proj T1 e) 1 TID_COUNT m1 /\
+    Map (DeclMap T2 (do_proj T2 e) 0) (range_list 1 TID_COUNT)
+        ms2
+  .
   Proof.
     intros.
     apply run_decl_inv_map in H.
     destruct H as (mm1, (m2, (?, (Hs, Hd)))).
-    subst.
     inversion Hs; subst; clear Hs.
     assert (~ In T1 (proj e)). {
-      admit.
+      intros N.
+      contradict t1_nin.
+      apply in_proj_to_in; auto using t1_neq_tid.
     }
+    rewrite prod_nil_nil_r.
     apply decl_map_rw with (
       j:=seq (do_proj T1 e) (Decl T2 (NNum 0, NVar T1) (do_proj T2 e) Skip)
     ) in Hd.
     2: {
       intros.
-      rewrite rw_1; auto.
       repeat rewrite i_subst_seq.
-      rewrite i_subst_do_proj; auto.
-      Search (i_subst _ _ _).
-      rewrite i_subst_not_in with (i:= (Decl T2 (NNum 0, NVar T1) (do_proj T2 e) Skip)).
-      Search (i_subst _ _ (Decl _ _ _ _)).
+      rewrite rw_1; auto.
+      unfold do_proj.
+      rewrite i_subst_subst_trans; auto.
+      simpl.
+      remove_eq T1 T1.
+      remove_eq T1 T2.
+      remember (i_subst TID _ _) as i1.
+      rewrite subst_t1_t2_neq; auto.
+      remember (i_subst _ (NVar T2) _) as i2.
+      apply equiv_i_subst_decl_seq; auto with *.
+      subst.
+      intros N.
+      contradict t2_nin.
+      Search (In _ (i_subst _ _ _)).
+      apply in_i_subst_neq in N; auto using t2_neq_tid.
+      - apply in_proj_to_in; auto using t2_neq_tid.
+      - intros M; inversion M.
     }
-    unshelve.
+    destruct Hd as (mm2, (Hd, R1)).
+    apply decl_map_inv_seq in Hd.
+    destruct Hd as (ms2, (ms3, (Hb1, (Hb2, ?)))).
+    subst.
+    (* -- *)
+    apply decl_map_to_map in Hb2.
+    exists ms2.
+    eexists.
+    split.
+    2: {
+      split; auto.
+    }
+    repeat split; auto.
+    (* -- *)
+    apply decl_map_inv_decl in Hb2.
+    - destruct Hb2 as (m, (f, (Hr, (Heq, (hs, (Hf2,?)))))).
+      inversion Hr; subst; clear Hr.
+      exists mm1.
+      exists ms2.
+      exists f.
+      eauto.
+    - unfold do_proj.
+      intros N.
+      apply in_subst_inv_in in N; auto using t1_neq_t2, t1_neq_tid.
+    - intros N.
+      inversion N.
+    - auto using t1_neq_t2.
+    - apply tid_count_1_lt.
   Qed.
 
   Lemma concat_map_eq_repeat:
@@ -681,7 +741,213 @@ Section Compiler.
     eauto.
   Qed.
 
-(*
+  Lemma branch_map_inv_acc:
+    forall l x e i ms,
+    BranchMap x (Acc e i) l ms ->
+    exists ms1 ms2,
+    ms = merge ms1 ms2 /\
+    BranchMap x (Acc e Skip) l ms1 /\
+    BranchMap x i l ms2.
+  Proof.
+    induction l; intros. {
+      inversion H; subst; clear H.
+      exists [].
+      exists [].
+      repeat split; auto using branch_map_nil.
+    }
+    inversion H; subst; clear H.
+    apply IHl in H4; clear IHl.
+    destruct H4 as (ms1, (ms2, (?, (Hb1, Hb2)))).
+    subst.
+    simpl in H2.
+    destruct e as (ac, e).
+    inversion H2; subst; clear H2.
+    assert (Hra: Run (Acc (access_subst x (NNum a) ac, n_subst x (NNum a) e) Skip) (prepend v [[]])). {
+      auto using run_access,  SymHist.run_skip.
+    }
+    eapply branch_map_cons in Hb1; eauto; clear Hra.
+    exists (prepend v [[]] :: ms1).
+    eapply branch_map_cons in Hb2; eauto.
+    exists (hs0 :: ms2).
+    simpl in *.
+    rewrite app_nil_r in *.
+    repeat split; auto.
+    rewrite merge_cons_rw.
+    rewrite prepend_rw.
+    reflexivity.
+  Qed.
+
+  Lemma decl_map_inv_acc:
+    forall x e i n1 n2 ms,
+    DeclMap x (Acc e i) n1 n2 ms ->
+    exists ms1 ms2,
+    ms = merge ms1 ms2 /\
+    DeclMap x (Acc e Skip) n1 n2 ms1 /\
+    DeclMap x i n1 n2 ms2.
+  Proof.
+    intros.
+    unfold DeclMap in *.
+    apply branch_map_inv_acc in H.
+    destruct H as (ms1, (ms2, (?, (Hb1, Hb2)))).
+    exists ms1.
+    exists ms2.
+    repeat split; auto.
+  Qed.
+
+  Definition multi_merge {A:Type} ls1 ls2 :=
+    map (
+      fun (p:(list (list (list A)) * list (list (list A)))) =>
+      let (l1, l2) := p in
+      merge l1 l2
+    ) (combine ls1 ls2).
+
+  Lemma multi_merge_cons_rw:
+    forall A hs3 hs4 hss1 hss2,
+    @multi_merge A (hs3 :: hss1) (hs4 :: hss2) = merge hs3 hs4 :: multi_merge hss1 hss2.
+  Proof.
+    unfold multi_merge; auto.
+  Qed.
+
+  Lemma map_branch_map_inv_acc:
+    forall l x e i (f:nat -> list nat) hs,
+    Map (fun n hss => BranchMap x (Acc e i) (f n) hss) l hs ->
+    exists hs1 hs2,
+    hs = multi_merge hs1 hs2 /\
+    Map (fun n hss => BranchMap x (Acc e Skip) (f n) hss) l hs1 /\
+    Map (fun n hss => BranchMap x i (f n) hss) l hs2.
+  Proof.
+    induction l; intros. {
+      inversion H; subst; clear H.
+      exists [].
+      exists [].
+      auto using map_nil.
+    }
+    inversion H; subst; clear H.
+    apply IHl in H5.
+    destruct H5 as (hs1, (hs2, (?, (Hm1, Hm2)))).
+    subst.
+    apply branch_map_inv_acc in H2.
+    destruct H2 as (ms1, (ms2, (?, (Hb1, Hb2)))).
+    subst.
+    eapply map_cons in Hm1; eauto.
+    eapply map_cons in Hm2; eauto.
+    eexists.
+    eexists.
+    repeat split; eauto.
+    rewrite multi_merge_cons_rw.
+    auto.
+  Qed.
+
+  Lemma map_decl_map_inv_acc:
+    forall x a i n l hs,
+    Map (DeclMap x (Acc a i) n) l hs ->
+    exists hs1 hs2,
+    hs = multi_merge hs1 hs2 /\
+    Map (DeclMap x (Acc a Skip) n) l hs1 /\
+    Map (DeclMap x i n) l hs2.
+  Proof.
+    unfold DeclMap.
+    intros.
+    apply map_branch_map_inv_acc in H.
+    destruct H as (hs1, (hs2, (?, (Hm1, Hm2)))).
+    eauto.
+  Qed.
+
+  Lemma decl_map_inv_i_subst_eq:
+    forall x y i n1 n2 m1,
+    ~ In x i ->
+    DeclMap x (i_subst y (NVar x) i) n1 n2 m1 ->
+    forall n,
+    n1 <= n < n2 ->
+    exists h, List.In h m1 /\ Run (i_subst y (NNum n) i) h.
+  Proof.
+    intros x y i n1 n2 m1 Hn1 Hd n Hn2.
+    apply decl_map_to_map in Hd.
+    destruct Hd as (l, (Hm, Hd)).
+    apply prop_to_range_list in Hd.
+    subst.
+    eapply map_in_range_list in Hn2; eauto.
+    destruct Hn2 as (v, (Hi, Hl)).
+    unfold Iter in Hi.
+    exists v.
+    rewrite i_subst_subst_trans in Hi; auto.
+  Qed.
+
+  Lemma repeat_map_range_list:
+    forall A (h:A) n1 n2, 
+    repeat h (n2 - n1) = map (fun _ : nat => h) (range_list n1 n2).
+  Proof.
+    intros.
+    rewrite map_repeat_rw.
+    rewrite range_list_fun_length.
+    reflexivity.
+  Qed.
+
+  Lemma decl_map_not_in:
+    forall x i h n1 n2,
+    ~ In x i ->
+    Run i h ->
+    DeclMap x i n1 n2 (repeat h (n2 - n1)).
+  Proof.
+    intros.
+    rewrite repeat_map_range_list.
+    apply decl_map_def.
+    intros.
+    rewrite i_subst_not_in; auto.
+  Qed.
+
+  Lemma run_translate_def2:
+    forall m1 i m2,
+    ~ In T1 (proj i) ->
+    ~ Conc.In T2 i ->
+    DeclMap T1 (i_subst TID (NVar T1) (proj i)) 1 TID_COUNT m1 ->
+    Map (DeclMap T2 (i_subst TID (NVar T2) (proj i)) 0)
+        (range_list 1 TID_COUNT) m2 ->
+    exists hs2, Run (translate i) hs2.
+  Proof.
+    intros.
+    assert (Hd: exists md,
+      DeclMap
+        T1
+        (Decl T2 (NNum 0, NVar T1) (seq (do_proj T1 i) (do_proj T2 i)) Skip) 1
+        TID_COUNT
+        md
+      ). {
+      apply decl_map_iter_def.
+      intros n1 Hn1.
+      (* -- *)
+      eapply decl_map_inv_i_subst_eq in H1; eauto.
+      destruct H1 as (h, (Hi_m1, Hr)).
+      apply decl_map_not_in with (x:=T2) (n1:=0) (n2:=n1) in Hr; auto.
+      2: {
+        intros N.
+        contradict H0.
+        apply in_i_subst_neq in N; auto using t2_neq_tid.
+        apply in_proj_to_in; auto using t2_neq_tid.
+        intros M.
+        inversion M.
+      }
+      (* -- *)
+      eapply map_in_range_list in H2; eauto.
+      destruct H2 as (v, (Ht2,Hv)).
+      simpl.
+      remove_eq T1 T2.
+      remove_eq T1 T1.
+      exists (prod (List.concat (merge (repeat h (n1 - 0)) v)) [[]] ++ [[]]).
+      eapply run_decl_map; eauto using SymHist.run_skip.
+      rewrite i_subst_seq.
+      apply decl_map_seq.
+      - unfold do_proj.
+        rewrite i_subst_subst_trans; eauto.
+      - unfold do_proj.
+        rewrite subst_t1_t2_neq; eauto.
+    }
+    destruct Hd as (m, Hd).
+    eexists.
+    unfold translate.
+    eapply run_decl_map; eauto using SymHist.run_skip.
+  Qed.
+
   Lemma translate_acc_inv_2 e hs i (t1_nin: ~ Conc.In T1 (Conc.Acc e i)) (t2_nin: ~ Conc.In T2 (Conc.Acc e i)):
     Run (translate (Conc.Acc e i)) hs ->
     exists hs1 hs2,
@@ -690,13 +956,53 @@ Section Compiler.
     hs == prod hs1 hs2.
   Proof.
     intros Hr.
+    apply run_trans_inv_2 in Hr; auto.
+    destruct Hr as (m1, (m2, (f, (?, (R1, (Hd, Hf)))))).
+    unfold do_proj in Hd, Hf.
+    simpl in Hd, Hf.
+    remove_eq TID TID.
+    apply decl_map_inv_acc in Hd.
+    destruct Hd as (ms1, (ms2, (?, (Hd1, Hd2)))).
+    apply map_decl_map_inv_acc in Hf.
+    destruct Hf as (m3, (m4, (R2, (Hm1, Hm2)))).
+    subst.
+    subst. {
+      eexists.
+      eexists.
+      split. {
+        apply run_translate.
+        3: {
+          intros n1 Hn1.
+          apply Hf in Hn1.
+          eexists.
+          split.
+          2: {
+            intros n2 Hn2.
+            unfold do_proj in Hn1.
+            simpl in Hn1.
+            remove_eq TID TID.
+            remove_eq TID TID.
+            apply decl_map_inv in Hd.
+            destruct Hd as (f1, (?, Hf1)).
+            subst.
+            eexists.
+            eexists.
+            repeat split.
+            2: {
+              assert (Hf1 := Hf1 n1).
+            }
+          }
+        }
+        Search (Run (translate _) _).
+      }
+    } 
     apply translate_acc_inv in Hr; auto.
     destruct Hr as (f1, (R1, Hf1)).
     subst.
     assert (Hx := run_translate i).
   Qed.
 *)
-(*
+
   Lemma translate_seq e1 (t1_nin1: ~ Conc.In T1 e1) (t2_nin1: ~ Conc.In T2 e1):
     forall e2,
     ~ Conc.In T1 e2 ->
@@ -715,6 +1021,11 @@ Section Compiler.
       }
       apply SymHist.run_seq; auto using run_skip.
     - simpl in Hr.
+      eexists.
+      split.
+      2: {
+        apply run_seq.
+      }
       apply c2_run_acc_inv_1 in Hr.
       + destruct Hr as (f1, (?, Hf)).
         subst.

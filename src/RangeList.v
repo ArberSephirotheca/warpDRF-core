@@ -40,17 +40,6 @@ Section Defs.
     RangeList (S low) high l ->
     RangeList low high (low::l). 
 
-  Inductive MapRange (f:nat->A): nat -> nat -> list A -> Prop :=
-  | map_range_nil:
-    forall low high,
-    low >= high ->
-    MapRange f low high []
-  | map_range_cons:
-    forall low high l,
-    low < high ->
-    MapRange f (S low) high l ->
-    MapRange f low high (f low :: l).
-
   Section range_list_fun.
     Import Omega.
     Lemma range_list_fun:
@@ -359,56 +348,6 @@ Section Defs.
 
   End range_list_fun.
 
-  Lemma map_range_list_to_map_range:
-    forall f l1 n1 n2  l2,
-    RangeList n1 n2 l1 ->
-    List.map f l1 = l2 ->
-    MapRange f n1 n2 l2.
-  Proof.
-    induction l1; intros. {
-      simpl in *.
-      inversion H; subst; clear H.
-      auto using map_range_nil.
-    }
-    simpl in *.
-    inversion H; subst; clear H.
-    eauto using map_range_cons.
-  Qed.
-
-  Lemma map_range_to_map_range_list:
-    forall f l1 n1 n2,
-    MapRange f n1 n2 l1 ->
-    exists l2,
-    List.map f l2 = l1 /\
-    RangeList n1 n2 l2.
-  Proof.
-    induction l1; intros. {
-      exists [].
-      split; auto.
-      inversion H; subst; clear H.
-      auto using range_list_nil.
-    }
-    inversion H; subst; clear H.
-    apply IHl1 in H5.
-    destruct H5 as (l2, (?, Hx)).
-    subst.
-    exists (n1 :: l2).
-    simpl.
-    split; auto.
-    auto using range_list_cons.
-  Qed.
-
-  Lemma map_range_iff:
-    forall f n1 n2 l1,
-    MapRange f n1 n2 l1 <->
-    exists l2, List.map f l2 = l1 /\ RangeList n1 n2 l2.
-  Proof.
-    split; intros.
-    - auto using map_range_to_map_range_list.
-    - destruct H as (l2, (?, ?)).
-      eauto using map_range_list_to_map_range.
-  Qed.
-  
   Lemma inv_range_list_progress:
     forall n1 n2, exists l, InvRangeList n1 n2 l.
   Proof.
@@ -617,38 +556,98 @@ Section Defs.
     inversion N; subst.
     omega.
   Qed.
+
 End Defs.
 
-Lemma map_range_spec:
-  forall (A:Type) (f:nat -> list A) n1 n2 l,
-  MapRange f n1 n2 l <->
-  @List.map nat (list A) f (range_list n1 n2) = l.
-Proof.
-  intros.
-  rewrite map_range_iff.
-  split; intros. {
-    destruct H as (l2, (Hm, ?)).
-    subst.
-    apply prop_to_range_list in H.
-    rewrite H.
-    reflexivity.
-  }
-  remember (range_list n1 n2) as l1.
-  symmetry in Heql1.
-  apply range_list_to_prop in Heql1.
-  exists l1.
-  auto.
+
+Section Map.
+  Variable A:Type.
+  Variable B:Type.
+  Inductive Map (P:A->B->Prop): list A -> list B -> Prop :=
+  | map_nil:
+    Map P [] []
+  | map_cons:
+    forall v vs k ks,
+    P k v ->
+    ~ List.In k ks ->
+    Map P ks vs ->
+    Map P (k::ks) (v::vs).
+
+  Lemma in_map:
+    forall P ks vs,
+    Map P ks vs ->
+    forall k,
+    List.In k ks ->
+    exists v, List.In (k, v) (combine ks vs).
+  Proof.
+    intros P ks vs Hm.
+    induction Hm; intros. {
+      contradiction.
+    }
+    destruct H1 as [?|Hi]. {
+      subst.
+      simpl.
+      exists v.
+      auto.
+    }
+    apply IHHm in Hi.
+    destruct Hi as (v1, Hi).
+    simpl.
+    eauto.
   Qed.
 
-Lemma map_range_to_in:
-  forall A (f:nat -> list A) n1 n2 l,
-  MapRange f n1 n2 l ->
-  forall n : nat, n1 <= n < n2 -> In (f n) l.
-Proof.
-  intros.
-  apply map_range_spec in H.
-  subst.
-  auto using in_map, range_list_in.
-Qed.
+  Lemma map_to_prop:
+    forall P ks vs,
+    Map P ks vs ->
+    forall k v,
+    List.In (k,v) (combine ks vs) ->
+    P k v.
+  Proof.
+    intros P ks vs Hm.
+    induction Hm; intros. {
+      contradiction.
+    }
+    simpl in *.
+    destruct H1 as [R|Hi]. {
+      inversion R; subst; clear R.
+      assumption.
+    }
+    auto.
+  Qed.
 
+  Lemma map_def:
+    forall P ks,
+    NoDup ks ->
+    (forall k, List.In k ks -> exists v, P k v) ->
+    exists vs, Map P ks vs.
+  Proof.
+    induction ks; intros. {
+      exists [].
+      apply map_nil.
+    }
+    inversion H; subst; clear H.
+    assert (Hi := H0 a).
+    destruct Hi as (v, Pk); auto using in_eq.
+    destruct IHks as (vs, mp); auto using in_cons.
+    exists (v::vs).
+    eauto using map_cons.
+  Qed.
+End Map.
 
+Section MapExtra.
+  Lemma map_in_range_list:
+    forall {A:Type} (P:nat -> A ->Prop) n1 n2 vs k,
+    Map P (range_list n1 n2) vs ->
+    n1 <= k < n2 ->
+    exists v, P k v /\ List.In v vs.
+  Proof.
+    intros.
+    apply range_list_in_iff in H0.
+    eapply in_map in H0; eauto.
+    destruct H0 as (v, Hi).
+    assert (Hk := Hi).
+    apply in_combine_r in Hk.
+    eapply map_to_prop in Hi; eauto.
+  Qed.
+
+End MapExtra.
