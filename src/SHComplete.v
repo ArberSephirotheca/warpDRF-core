@@ -486,6 +486,48 @@ Section Compiler.
     reflexivity.
   Qed.
 
+  Import Morphisms.
+  Lemma merge_nil_l:
+    forall A x,
+    @merge A [] x = [].
+  Proof.
+    unfold merge.
+    intros.
+    destruct x; reflexivity.
+  Qed.
+
+  Lemma merge_nil_r:
+    forall A x,
+    @merge A x [] = [].
+  Proof.
+    unfold merge.
+    intros.
+    destruct x; reflexivity.
+  Qed.
+
+  Global Instance merge_mmequiv_struct_proper: Proper (MMEquivStruct ==> MMEquivStruct ==> MMEquivStruct) merge.
+  Proof.
+    unfold Proper, respectful.
+    induction x; intros; inversion H; subst; clear H. {
+      repeat rewrite merge_nil_l.
+      reflexivity.
+    }
+    destruct y0. {
+      inversion H0; subst; clear H0.
+      repeat rewrite merge_nil_r.
+      reflexivity.
+    }
+    rewrite merge_cons_rw.
+    destruct x0. {
+      repeat rewrite merge_nil_r.
+      inversion H0.
+    }
+    rewrite merge_cons_rw.
+    inversion H0; subst; clear H0.
+    Search (merge _ _).
+  Qed.
+
+
   Lemma run_trans_inv_2 e  (t1_nin: ~ Conc.In T1 e) (t2_nin: ~ Conc.In T2 e) hs:
     SymHist.Run (translate e) hs ->
     exists m1 ms2,
@@ -539,6 +581,9 @@ Section Compiler.
       destruct Hb2 as (m, (hs, (?, (Hr, Hf2)))).
       inversion Hr; subst; clear Hr.
       exists hs.
+      rewrite mequiv_app_nil_r.
+      split; auto.
+      Search (_ ++ [[]]).
       rewrite map_simpl_1.
       rewrite mequiv_app_nil_r.
       admit.

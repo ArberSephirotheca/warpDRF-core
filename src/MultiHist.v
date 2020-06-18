@@ -1000,19 +1000,6 @@ Section Member.
     as mmequiv_struct_setoid.
 
   Import Morphisms.
-(*
-  Lemma mmequiv_struct_mequiv_cons:
-    forall ms1 ms2 m1 m2,
-    MemEquiv m1 m2 ->
-    MMEquivStruct ms1 ms2 ->
-    MMEquivStruct (m1 :: ms1) (m2 :: ms2).
-  Proof.
-    induction ms1; intros; inversion H0; subst; clear H0. {
-      auto using mmequiv_struct_cons, mmequiv_struct_nil.
-    }
-    auto using mmequiv_struct_cons
-  Qed.
-*)
 
   Global Instance cons_mmequiv_struct_proper: Proper (MemEquiv ==> MMEquivStruct ==> MMEquivStruct) cons.
   Proof.
