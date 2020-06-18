@@ -468,10 +468,28 @@ Section Compiler.
       (fun (p:list history * list (list history)) => let (h, m) := p in List.concat (prepend h m) )
       (List.combine m1 mm2).
 
+  Lemma map_simpl_1:
+    forall hs,
+    MMEquivStruct
+      (map (fun x : list (list history) => prod (List.concat x) [[]] ++ [[]])
+             hs) 
+      (map (List.concat (A:=history)) hs).
+  Proof.
+    induction hs; intros. {
+      simpl.
+      reflexivity.
+    }
+    simpl.
+    rewrite IHhs.
+    rewrite prod_nil_nil_r.
+    rewrite mequiv_app_nil_r.
+    reflexivity.
+  Qed.
+
   Lemma run_trans_inv_2 e  (t1_nin: ~ Conc.In T1 e) (t2_nin: ~ Conc.In T2 e) hs:
     SymHist.Run (translate e) hs ->
     exists m1 ms2,
-    MemEquiv hs (List.concat (multi_prepend m1 ms2))
+    hs == (List.concat ((merge m1 (map (@List.concat history) ms2))))
    /\
     DeclMap T1 (do_proj T1 e) 1 TID_COUNT m1 /\
     Map (DeclMap T2 (do_proj T2 e) 0) (range_list 1 TID_COUNT)
@@ -514,32 +532,21 @@ Section Compiler.
     }
     destruct Hd as (mm2, (Hd, R1)).
     apply decl_map_inv_seq in Hd.
-    destruct Hd as (ms2, (ms3, (Hb1, (Hb2, ?)))).
+    destruct Hd as (ms1, (ms3, (Hb1, (Hb2, ?)))).
     subst.
-    (* -- *)
-    apply decl_map_to_map in Hb2.
-    exists ms2.
-    eexists.
-    split.
-    2: {
-      split; auto.
-    }
-    repeat split; auto.
-    (* -- *)
-    apply decl_map_inv_decl in Hb2.
-    - destruct Hb2 as (m, (f, (Hr, (Heq, (hs, (Hf2,?)))))).
+    apply decl_map_inv_decl in Hb2; auto using tid_count_1_lt, t1_neq_t2.
+    - exists ms1.
+      destruct Hb2 as (m, (hs, (?, (Hr, Hf2)))).
       inversion Hr; subst; clear Hr.
-      exists mm1.
-      exists ms2.
-      exists f.
-      eauto.
+      exists hs.
+      rewrite map_simpl_1.
+      rewrite mequiv_app_nil_r.
+      admit.
     - unfold do_proj.
       intros N.
       apply in_subst_inv_in in N; auto using t1_neq_t2, t1_neq_tid.
     - intros N.
       inversion N.
-    - auto using t1_neq_t2.
-    - apply tid_count_1_lt.
   Qed.
 
   Lemma concat_map_eq_repeat:

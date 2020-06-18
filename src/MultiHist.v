@@ -54,7 +54,7 @@ Section Defs.
     eapply equiv_trans; eauto.
   Qed.
 
-  (** Register [Equiv] in Coq's tactics. *)
+  (** Register [MemEquiv] in Coq's tactics. *)
   Global Add Parametric Relation : (list history) MemEquiv
     reflexivity proved by mem_equiv_refl
     symmetry proved by mem_equiv_sym
@@ -490,7 +490,7 @@ Section Defs.
       assumption.
   Qed.
 
-  (** Register [Equiv] in Coq's tactics. *)
+  (** Register [MIncl] in Coq's tactics. *)
   Global Add Parametric Relation : (list history) MIncl
     reflexivity proved by m_incl_refl
     transitivity proved by m_incl_trans
@@ -956,5 +956,69 @@ Section Member.
     MemEquiv m1 m2 ->
     MMEquivStruct mm1 mm2 ->
     MMEquivStruct (m1::mm1) (m2::mm2).
+
+  Lemma mmequiv_struct_refl:
+    forall m,
+    MMEquivStruct m m.
+  Proof.
+    induction m; auto using mmequiv_struct_nil.
+    apply mmequiv_struct_cons; auto.
+    reflexivity.
+  Qed.
+
+  Lemma mmequiv_struct_trans:
+    forall x y z,
+    MMEquivStruct x y ->
+    MMEquivStruct y z ->
+    MMEquivStruct x z.
+  Proof.
+    intros x y.
+    generalize dependent x.
+    induction y; intros; inversion H; inversion H0; subst; clear H H0.
+    - apply mmequiv_struct_nil.
+    - apply mmequiv_struct_cons; eauto.
+      etransitivity; eauto.
+  Qed.
+
+  Lemma mmequiv_struct_sym:
+    forall x y,
+    MMEquivStruct x y ->
+    MMEquivStruct y x.
+  Proof.
+    induction x; intros; inversion H; subst; clear H. {
+      apply mmequiv_struct_nil.
+    }
+    apply IHx in H4.
+    symmetry in H2.
+    auto using mmequiv_struct_cons.
+  Qed.
+
+  Global Add Parametric Relation : _ MMEquivStruct
+    reflexivity proved by mmequiv_struct_refl
+    symmetry proved by mmequiv_struct_sym
+    transitivity proved by mmequiv_struct_trans
+    as mmequiv_struct_setoid.
+
+  Import Morphisms.
+(*
+  Lemma mmequiv_struct_mequiv_cons:
+    forall ms1 ms2 m1 m2,
+    MemEquiv m1 m2 ->
+    MMEquivStruct ms1 ms2 ->
+    MMEquivStruct (m1 :: ms1) (m2 :: ms2).
+  Proof.
+    induction ms1; intros; inversion H0; subst; clear H0. {
+      auto using mmequiv_struct_cons, mmequiv_struct_nil.
+    }
+    auto using mmequiv_struct_cons
+  Qed.
+*)
+
+  Global Instance cons_mmequiv_struct_proper: Proper (MemEquiv ==> MMEquivStruct ==> MMEquivStruct) cons.
+  Proof.
+    unfold Proper, respectful.
+    intros.
+    auto using mmequiv_struct_cons.
+  Qed.
 
 End Member.
