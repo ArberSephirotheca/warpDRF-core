@@ -1865,91 +1865,12 @@ Section Defs.
     }
     assumption.
   Qed.
-(*
-  Fixpoint mem_to_nmem {A:Type} (l:list (list A)) : option (list (nlist A)) :=
-    match l with
-    | x :: l =>
-      match list_to_nlist x, mem_to_nmem l with
-      | Some x, Some l => Some (x :: l)
-      | _, _ => None
-      end
-    | [] => Some []
-    end.
 
-*)
-(*
-  Definition list_to_nlist2 {A:Type} l :=
-    match list_to_list 
-*)
-  Definition merge {A:Type} l1 l2 :=
-    List.map
-      (fun (p:list (list A) * list (list A)) => let (v1,v2) := p in prod v1 v2)
-      (List.combine l1 l2).
-
-  Lemma merge_cons_rw:
-    forall {A} hs1 hs2 hss1 hss2,
-    @merge A (hs1 :: hss1) (hs2 :: hss2) = 
-    prod hs1 hs2 :: merge hss1 hss2. 
-  Proof.
-    unfold merge.
-    auto.
-  Qed.
-
-  Lemma merge_nil_l:
-    forall A l,
-    @merge A [] l = [].
-  Proof.
-    intros.
-    destruct l; reflexivity.
-  Qed.
-
-  Lemma merge_nil_r:
-    forall A l,
-    @merge A l [] = [].
-  Proof.
-    intros.
-    destruct l; reflexivity.
-  Qed.
-(*
-  Lemma prod_nlist:
-    forall l1 l2 n1 n2,
-    list_to_nlist l1 = Some n1
-
-  Lemma merge_nlist:
-    forall A l1 n1 l2 n2 l3,
-    list_to_nlist l1 = Some n1 ->
-    list_to_nlist l2 = Some n2 ->
-    @merge A l1 l2 = l3 ->
-    exists n3, list_to_nlist l3 = Some n3.
-  Proof.
-    induction l1; intros. {
-      inversion H.
-    }
-    destruct l2. {
-      inversion H0.
-    }
-    rewrite merge_cons_rw in H1.
-    destruct l1. {
-      rewrite merge_nil_l in H1.
-      subst.
-      intros N; inversion N.
-    }
-    destruct l2. {
-      rewrite merge_nil_r in H1.
-      subst.
-      intros N; inversion N.
-    }
-    s
-    assert (IHl1 := IHl1 l4).
-    rewrite IHl1 in H1.
-    Search (merge (_ :: _)).
-  Qed.
-*)
   Lemma branch_map_inv_seq:
     forall l x i j ms1, 
     BranchMap x (seq i j) l ms1 ->
     exists ms2 ms3,
-    BranchMap x i l ms2 /\ BranchMap x j l ms3 /\ ms1 = merge ms2 ms3.
+    BranchMap x i l ms2 /\ BranchMap x j l ms3 /\ ms1 = map2 prod ms2 ms3.
   Proof.
     induction l; intros. {
       inversion H; subst; clear H.
@@ -1975,12 +1896,12 @@ Section Defs.
     forall l x i j ms1 ms2, 
     BranchMap x i l ms1 ->
     BranchMap x j l ms2 ->
-    BranchMap x (seq i j) l (merge ms1 ms2).
+    BranchMap x (seq i j) l (map2 prod ms1 ms2).
   Proof.
     induction l; intros; inversion H; inversion H0; subst; clear H H0. {
       apply branch_map_nil.
     }
-    rewrite merge_cons_rw.
+    rewrite map2_cons_rw.
     apply branch_map_cons; auto.
     rewrite i_subst_seq.
     auto using run_seq.
@@ -1990,7 +1911,7 @@ Section Defs.
     forall n1 n2 x i j ms1, 
     DeclMap x (seq i j) n1 n2 ms1 ->
     exists ms2 ms3,
-    DeclMap x i n1 n2 ms2 /\ DeclMap x j n1 n2 ms3 /\ ms1 = merge ms2 ms3.
+    DeclMap x i n1 n2 ms2 /\ DeclMap x j n1 n2 ms3 /\ ms1 = map2 prod ms2 ms3.
   Proof.
     unfold DeclMap.
     eauto using branch_map_inv_seq.
@@ -2000,7 +1921,7 @@ Section Defs.
     forall n1 n2 x i j ms1 ms2, 
     DeclMap x i n1 n2 ms1 ->
     DeclMap x j n1 n2 ms2 ->
-    DeclMap x (seq i j) n1 n2 (merge ms1 ms2).
+    DeclMap x (seq i j) n1 n2 (map2 prod ms1 ms2).
   Proof.
     unfold DeclMap;auto using branch_map_seq.
   Qed.
@@ -2025,23 +1946,6 @@ Section Defs.
     rewrite i_subst_not_in in Hr; auto.
   Qed.
 
-  Definition plus {A:Type} l1 l2 :=
-    List.map
-      (fun (p:list (list A) * list (list A)) => let (v1,v2) := p in v1 ++ v2)
-      (List.combine l1 l2).
-
-  Lemma plus_cons_rw:
-    forall A x y l1 l2,
-    @plus A (x::l1) (y::l2) = (x ++ y)::plus l1 l2.
-  Proof.
-    unfold plus; simpl; reflexivity.
-  Qed.
-(*
-  Definition multi_prepend (m1:list (list history)) mm2 :=
-    List.map
-      (fun (p:list history * list (list history)) => let (h, m) := p in List.concat (prepend h m) )
-      (List.combine m1 mm2).
-*)
   Lemma branch_map_inv_decl:
     forall l n1 i j ms x y,
     ~ In x i ->

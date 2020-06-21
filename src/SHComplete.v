@@ -487,25 +487,9 @@ Section Compiler.
   Qed.
 
   Import Morphisms.
-  Lemma merge_nil_l:
-    forall A x,
-    @merge A [] x = [].
-  Proof.
-    unfold merge.
-    intros.
-    destruct x; reflexivity.
-  Qed.
 
-  Lemma merge_nil_r:
-    forall A x,
-    @merge A x [] = [].
-  Proof.
-    unfold merge.
-    intros.
-    destruct x; reflexivity.
-  Qed.
-
-  Global Instance merge_mmequiv_struct_proper: Proper (MMEquivStruct ==> MMEquivStruct ==> MMEquivStruct) merge.
+(*
+  Global Instance merge_mmequiv_struct_proper: Proper (MMEquivStruct ==> MMEquivStruct ==> MMEquivStruct) (map2 prod).
   Proof.
     unfold Proper, respectful.
     induction x; intros; inversion H; subst; clear H. {
@@ -517,21 +501,21 @@ Section Compiler.
       repeat rewrite merge_nil_r.
       reflexivity.
     }
-    rewrite merge_cons_rw.
+    rewrite map2_cons_rw.
     destruct x0. {
-      repeat rewrite merge_nil_r.
+      repeat rewrite map2_nil_r.
       inversion H0.
     }
-    rewrite merge_cons_rw.
+    rewrite map2_cons_rw.
     inversion H0; subst; clear H0.
     Search (merge _ _).
   Qed.
-
+*)
 
   Lemma run_trans_inv_2 e  (t1_nin: ~ Conc.In T1 e) (t2_nin: ~ Conc.In T2 e) hs:
     SymHist.Run (translate e) hs ->
     exists m1 ms2,
-    hs == (List.concat ((merge m1 (map (@List.concat history) ms2))))
+    hs == (List.concat ((map2 prod m1 (map (fun x : list (list history) => prod (List.concat x) [[]] ++ [[]]) ms2))))
    /\
     DeclMap T1 (do_proj T1 e) 1 TID_COUNT m1 /\
     Map (DeclMap T2 (do_proj T2 e) 0) (range_list 1 TID_COUNT)
@@ -582,11 +566,7 @@ Section Compiler.
       inversion Hr; subst; clear Hr.
       exists hs.
       rewrite mequiv_app_nil_r.
-      split; auto.
-      Search (_ ++ [[]]).
-      rewrite map_simpl_1.
-      rewrite mequiv_app_nil_r.
-      admit.
+      split; auto using mmequiv_struct_to_mem_equiv.
     - unfold do_proj.
       intros N.
       apply in_subst_inv_in in N; auto using t1_neq_t2, t1_neq_tid.
@@ -797,7 +777,7 @@ Section Compiler.
     forall l x e i ms,
     BranchMap x (Acc e i) l ms ->
     exists ms1 ms2,
-    ms = merge ms1 ms2 /\
+    ms = map2 prod ms1 ms2 /\
     BranchMap x (Acc e Skip) l ms1 /\
     BranchMap x i l ms2.
   Proof.
@@ -824,7 +804,7 @@ Section Compiler.
     simpl in *.
     rewrite app_nil_r in *.
     repeat split; auto.
-    rewrite merge_cons_rw.
+    rewrite map2_cons_rw.
     rewrite prepend_rw.
     reflexivity.
   Qed.
@@ -833,7 +813,7 @@ Section Compiler.
     forall x e i n1 n2 ms,
     DeclMap x (Acc e i) n1 n2 ms ->
     exists ms1 ms2,
-    ms = merge ms1 ms2 /\
+    ms = map2 prod ms1 ms2 /\
     DeclMap x (Acc e Skip) n1 n2 ms1 /\
     DeclMap x i n1 n2 ms2.
   Proof.
@@ -846,25 +826,11 @@ Section Compiler.
     repeat split; auto.
   Qed.
 
-  Definition multi_merge {A:Type} ls1 ls2 :=
-    map (
-      fun (p:(list (list (list A)) * list (list (list A)))) =>
-      let (l1, l2) := p in
-      merge l1 l2
-    ) (combine ls1 ls2).
-
-  Lemma multi_merge_cons_rw:
-    forall A hs3 hs4 hss1 hss2,
-    @multi_merge A (hs3 :: hss1) (hs4 :: hss2) = merge hs3 hs4 :: multi_merge hss1 hss2.
-  Proof.
-    unfold multi_merge; auto.
-  Qed.
-
   Lemma map_branch_map_inv_acc:
     forall l x e i (f:nat -> list nat) hs,
     Map (fun n hss => BranchMap x (Acc e i) (f n) hss) l hs ->
     exists hs1 hs2,
-    hs = multi_merge hs1 hs2 /\
+    hs = map2 (map2 prod) hs1 hs2 /\
     Map (fun n hss => BranchMap x (Acc e Skip) (f n) hss) l hs1 /\
     Map (fun n hss => BranchMap x i (f n) hss) l hs2.
   Proof.
@@ -886,7 +852,7 @@ Section Compiler.
     eexists.
     eexists.
     repeat split; eauto.
-    rewrite multi_merge_cons_rw.
+    rewrite map2_cons_rw.
     auto.
   Qed.
 
@@ -894,7 +860,7 @@ Section Compiler.
     forall x a i n l hs,
     Map (DeclMap x (Acc a i) n) l hs ->
     exists hs1 hs2,
-    hs = multi_merge hs1 hs2 /\
+    hs = map2 (map2 prod) hs1 hs2 /\
     Map (DeclMap x (Acc a Skip) n) l hs1 /\
     Map (DeclMap x i n) l hs2.
   Proof.
@@ -915,9 +881,6 @@ Section Compiler.
   Proof.
     intros x y i n1 n2 m1 Hn1 Hd n Hn2.
     apply decl_map_to_map in Hd.
-    destruct Hd as (l, (Hm, Hd)).
-    apply prop_to_range_list in Hd.
-    subst.
     eapply map_in_range_list in Hn2; eauto.
     destruct Hn2 as (v, (Hi, Hl)).
     unfold Iter in Hi.
@@ -985,7 +948,7 @@ Section Compiler.
       simpl.
       remove_eq T1 T2.
       remove_eq T1 T1.
-      exists (prod (List.concat (merge (repeat h (n1 - 0)) v)) [[]] ++ [[]]).
+      exists (prod (List.concat (map2 prod (repeat h (n1 - 0)) v)) [[]] ++ [[]]).
       eapply run_decl_map; eauto using SymHist.run_skip.
       rewrite i_subst_seq.
       apply decl_map_seq.

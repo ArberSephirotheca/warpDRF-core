@@ -1010,4 +1010,18 @@ Section Member.
     auto using mmequiv_struct_cons.
   Qed.
 
+  Lemma mmequiv_struct_to_mem_equiv:
+    forall x y,
+    MMEquivStruct x y ->
+    MemEquiv (List.concat x) (List.concat y).
+  Proof.
+    induction x; intros; inversion H; subst; clear H. {
+      reflexivity.
+    }
+    simpl.
+    rewrite H2.
+    apply mem_equiv_app_r.
+    auto.
+  Qed.
+
 End Member.
