@@ -19,6 +19,7 @@ Require Conc.
 Require Import RangeList.
 Require Import SetTh.
 Require Import MultiHist.
+Require Import InUtil.
 
 Import ListNotations.
 
@@ -1864,12 +1865,86 @@ Section Defs.
     }
     assumption.
   Qed.
+(*
+  Fixpoint mem_to_nmem {A:Type} (l:list (list A)) : option (list (nlist A)) :=
+    match l with
+    | x :: l =>
+      match list_to_nlist x, mem_to_nmem l with
+      | Some x, Some l => Some (x :: l)
+      | _, _ => None
+      end
+    | [] => Some []
+    end.
 
+*)
+(*
+  Definition list_to_nlist2 {A:Type} l :=
+    match list_to_list 
+*)
   Definition merge {A:Type} l1 l2 :=
     List.map
       (fun (p:list (list A) * list (list A)) => let (v1,v2) := p in prod v1 v2)
       (List.combine l1 l2).
 
+  Lemma merge_cons_rw:
+    forall {A} hs1 hs2 hss1 hss2,
+    @merge A (hs1 :: hss1) (hs2 :: hss2) = 
+    prod hs1 hs2 :: merge hss1 hss2. 
+  Proof.
+    unfold merge.
+    auto.
+  Qed.
+
+  Lemma merge_nil_l:
+    forall A l,
+    @merge A [] l = [].
+  Proof.
+    intros.
+    destruct l; reflexivity.
+  Qed.
+
+  Lemma merge_nil_r:
+    forall A l,
+    @merge A l [] = [].
+  Proof.
+    intros.
+    destruct l; reflexivity.
+  Qed.
+(*
+  Lemma prod_nlist:
+    forall l1 l2 n1 n2,
+    list_to_nlist l1 = Some n1
+
+  Lemma merge_nlist:
+    forall A l1 n1 l2 n2 l3,
+    list_to_nlist l1 = Some n1 ->
+    list_to_nlist l2 = Some n2 ->
+    @merge A l1 l2 = l3 ->
+    exists n3, list_to_nlist l3 = Some n3.
+  Proof.
+    induction l1; intros. {
+      inversion H.
+    }
+    destruct l2. {
+      inversion H0.
+    }
+    rewrite merge_cons_rw in H1.
+    destruct l1. {
+      rewrite merge_nil_l in H1.
+      subst.
+      intros N; inversion N.
+    }
+    destruct l2. {
+      rewrite merge_nil_r in H1.
+      subst.
+      intros N; inversion N.
+    }
+    s
+    assert (IHl1 := IHl1 l4).
+    rewrite IHl1 in H1.
+    Search (merge (_ :: _)).
+  Qed.
+*)
   Lemma branch_map_inv_seq:
     forall l x i j ms1, 
     BranchMap x (seq i j) l ms1 ->
@@ -1894,15 +1969,6 @@ Section Defs.
     - eauto using branch_map_cons.
     - eauto using branch_map_cons.
     - reflexivity.
-  Qed.
-
-  Lemma merge_cons_rw:
-    forall {A} hs1 hs2 hss1 hss2,
-    @merge A (hs1 :: hss1) (hs2 :: hss2) = 
-    prod hs1 hs2 :: merge hss1 hss2. 
-  Proof.
-    unfold merge.
-    auto.
   Qed.
 
   Lemma branch_map_seq:

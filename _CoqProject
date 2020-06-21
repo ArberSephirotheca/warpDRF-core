@@ -7,6 +7,9 @@ src/Var.v
 src/Tasks.v
 src/Exp.v
 src/Util.v
+src/InUtil.v
+src/PairInUtil.v
+src/NList.v
 src/Access.v
 src/Conc.v
 src/ConcImpl.v

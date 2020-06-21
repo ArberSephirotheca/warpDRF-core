@@ -7,9 +7,6 @@ Require Import Coq.funind.Recdef.
 
 Require Coq.Sets.Ensembles.
 Require Coq.omega.Omega.
-(*
-Require Aniceto.Graphs.Graph.
-*)
 
 Require Conc.
 Require LoopFree.
@@ -25,7 +22,8 @@ Require Import RangeList.
 Require Import SHCompiler.
 Require Import Tasks.
 Require Import SetTh.
-
+Require Import InUtil.
+Require Import PairInUtil.
 Import ListNotations.
 
 

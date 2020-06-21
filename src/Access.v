@@ -12,6 +12,8 @@ Require Import Tid.
 Require Import Loc.
 Require Import Exp.
 Require Import Util.
+Require Import InUtil.
+Require Import PairInUtil.
 Import ListNotations.
 
 Class Access := {

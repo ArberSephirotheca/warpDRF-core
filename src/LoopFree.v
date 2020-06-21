@@ -12,6 +12,7 @@ Require Import Loc.
 Require Import Exp.
 Require Import Access.
 Require Import Util.
+Require Import InUtil.
 Require Import Tasks.
 
 Require Conc.
