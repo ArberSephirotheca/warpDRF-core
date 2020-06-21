@@ -803,10 +803,9 @@ Section Compiler.
     exists (hs0 :: ms2).
     simpl in *.
     rewrite app_nil_r in *.
-    repeat split; auto.
     rewrite map2_cons_rw.
     rewrite prepend_rw.
-    reflexivity.
+    auto.
   Qed.
 
   Lemma decl_map_inv_acc:
@@ -821,9 +820,7 @@ Section Compiler.
     unfold DeclMap in *.
     apply branch_map_inv_acc in H.
     destruct H as (ms1, (ms2, (?, (Hb1, Hb2)))).
-    exists ms1.
-    exists ms2.
-    repeat split; auto.
+    eauto.
   Qed.
 
   Lemma map_branch_map_inv_acc:
@@ -972,20 +969,41 @@ Section Compiler.
   Proof.
     intros Hr.
     apply run_trans_inv_2 in Hr; auto.
-    destruct Hr as (m1, (m2, (f, (?, (R1, (Hd, Hf)))))).
-    unfold do_proj in Hd, Hf.
-    simpl in Hd, Hf.
+    destruct Hr as (m1, (ms2, (R1, (Hd1, Hm1)))).
+    unfold do_proj in Hd1, Hm1.
+    simpl in Hd1, Hm1.
     remove_eq TID TID.
-    apply decl_map_inv_acc in Hd.
-    destruct Hd as (ms1, (ms2, (?, (Hd1, Hd2)))).
-    apply map_decl_map_inv_acc in Hf.
-    destruct Hf as (m3, (m4, (R2, (Hm1, Hm2)))).
+    apply decl_map_inv_acc in Hd1.
+    destruct Hd1 as (ms1, (ms3, (?, (Hd1, Hd2)))).
+    apply map_decl_map_inv_acc in Hm1.
+    destruct Hm1 as (m3, (m4, (R2, (Hm1, Hm2)))).
     subst.
     subst. {
+        destruct run_translate_def2 with (m1:=ms1) (i:=Conc.Acc e Conc.Skip) (m2:=m3) as (mr, Hr1) ; auto.
+        - admit.
+        - admit.
+        - simpl.
+          remove_eq TID TID.
+          assumption.
+        - simpl.
+          remove_eq TID TID.
+          assumption.
+        - destruct run_translate_def2 with (m1:=ms3) (i:=i) (m2:=m4) as (mr1, Hr).
+          + admit.
+          + admit.
+          + assumption.
+          + assumption.
+          + exists mr.
+            exists mr1.
+            split; auto.
+            split; auto.
+            rewrite R1.
+
+
+
       eexists.
       eexists.
       split. {
-        apply run_translate.
         3: {
           intros n1 Hn1.
           apply Hf in Hn1.
