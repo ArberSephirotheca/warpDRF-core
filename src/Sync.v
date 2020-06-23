@@ -147,4 +147,23 @@ induction i; intros.
     contradict H.
     apply in_seq_l.
     assumption.
-  * 
+  * apply IHi2.
+    intros N.
+    contradict H.
+    apply in_seq_r.
+    assumption.
+- apply unsync_access.
+- apply unsync_for.
+  apply IHi.
+  intros N.
+  contradict H.
+  apply in_for.
+  assumption.
+- apply unsync_loop.
+  apply IHi.
+  intros N.
+  contradict H.
+  apply in_loop.
+  assumption.
+Qed.
+
