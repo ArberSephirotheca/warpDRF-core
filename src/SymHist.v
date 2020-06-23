@@ -2062,7 +2062,7 @@ Section Defs.
     DeclMap x (Decl y (NNum n1, NVar x) i j) n2 n3 (map (fun x => (prod (@List.concat history x) m) ++ m) hs) .
   Proof.
     intros.
-    apply branch_map_decl; auto using .
+    apply branch_map_decl; auto using range_list_no_dup, range_list_not_nil.
   Qed.
 
 End Defs.
