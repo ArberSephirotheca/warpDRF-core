@@ -872,6 +872,32 @@ Section Compiler.
     forall x y i n1 n2 m1,
     ~ In x i ->
     DeclMap x (i_subst y (NVar x) i) n1 n2 m1 ->
+    DeclMap y i n1 n2 m1.
+  Proof.
+    intros x y i n1 n2 m1 Hn1 Hd.
+    apply decl_map_to_map in Hd.
+    apply decl_map_from_map.
+    apply map_impl with (P:=Iter x (i_subst y (NVar x) i)); auto.
+    intros.
+    unfold Iter in *.
+    rewrite i_subst_subst_trans in H; auto.
+  Qed.
+
+  Lemma map_decl_map_simpl_1:
+    forall x y i l m n,
+    ~ In x i ->
+    Map (DeclMap x (i_subst y (NVar x) i) n) l m ->
+    Map (DeclMap y i n) l m.
+  Proof.
+    intros.
+    apply map_impl with (P:=(DeclMap x (i_subst y (NVar x) i) n)); auto.
+    intros.
+    eapply decl_map_inv_i_subst_eq; eauto.
+  Qed.
+  Lemma decl_map_inv_i_subst_eq:
+    forall x y i n1 n2 m1,
+    ~ In x i ->
+    DeclMap x (i_subst y (NVar x) i) n1 n2 m1 ->
     forall n,
     n1 <= n < n2 ->
     exists h, List.In h m1 /\ Run (i_subst y (NNum n) i) h.
@@ -906,6 +932,94 @@ Section Compiler.
     apply decl_map_def.
     intros.
     rewrite i_subst_not_in; auto.
+  Qed.
+
+  Definition m_decl n1 n2 (m1 m2 : list history) :=
+    (prod (List.concat (repeat m1 (n2 - n1))) m2 ++ m2).
+
+  Lemma run_decl_map_not_in:
+    forall i j m1 m2 x n1 n2,
+    ~ In x i ->
+    Run i m1 ->
+    Run j m2 ->
+    Run (Decl x (NNum n1, NNum n2) i j) (m_decl n1 n2 m1 m2). 
+  Proof.
+    unfold m_decl.
+    eauto using run_decl_map, decl_map_not_in.
+  Qed.
+
+  Lemma run_decl_seq:
+    forall x n1 n2 i j k m1 m2 m3,
+    Run k m1 ->
+    DeclMap x i n1 n2 m2 ->
+    DeclMap x j n1 n2 m3 ->
+    Run (Decl x (NNum n1, NNum n2) (seq i j) k) (prod (List.concat (map2 prod m2 m3)) m1 ++ m1).
+  Proof.
+    intros.
+    eapply run_decl_map; eauto.
+    apply decl_map_seq; auto.
+  Qed.
+  Lemma branch_map_decl_not_in:
+    forall l i m1 m2 x y j,
+    ~ In y i ->
+    ~ In x j ->
+    x <> y ->
+    Run j m1 ->
+    BranchMap x i l m2 ->
+    BranchMap x (Decl y (NNum 0, NVar x) i j) l (map2 (fun n m => m_decl 0 n m m1) l m2).
+  Proof.
+    induction l; intros; inversion H3; subst; clear H3. {
+      apply branch_map_nil.
+    }
+    rewrite map2_cons_rw.
+    apply branch_map_cons.
+    - simpl.
+      destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
+      destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
+      apply run_decl_map_not_in.
+      + intros N.
+        contradict H.
+        eapply in_i_subst_neq; eauto.
+        intros M.
+        inversion M.
+      + assumption.
+      + rewrite i_subst_not_in; auto.
+    - apply IHl; auto.
+  Qed.
+
+
+  Lemma decl_map_decl_not_in:
+    forall n1 n2 i m1 m2 x y j,
+    ~ In y i ->
+    ~ In x j ->
+    x <> y ->
+    Run j m1 ->
+    DeclMap x i n1 n2 m2 ->
+    DeclMap x (Decl y (NNum 0, NVar x) i j) n1 n2 (map2 (fun n m => m_decl 0 n m m1) (range_list n1 n2) m2).
+  Proof.
+    intros.
+    apply branch_map_decl_not_in; auto.
+  Qed.
+
+  Lemma decl_map_translate_t1:
+    forall i m,
+     ~ In T1 (proj i) ->
+     ~ In T2 (proj i) ->
+     DeclMap T1 (do_proj T1 i) 1 TID_COUNT m ->
+     DeclMap T1 (Decl T2 (NNum 0, NVar T1) (do_proj T1 i) Skip) 1 TID_COUNT (map2 (fun n m => m_decl 0 n m [[]]) (range_list 1 TID_COUNT) m).
+  Proof.
+    intros.
+    apply decl_map_decl_not_in; auto using SymHist.run_skip, t1_neq_t2.
+    - unfold do_proj.
+      intros N.
+      contradict H0.
+      apply in_i_subst_neq in N; auto using t2_neq_tid.
+      intros M.
+      inversion M.
+      contradict H2.
+      auto using t1_neq_t2.
+    - intros N.
+      inversion N.
   Qed.
 
   Lemma run_translate_def2:
