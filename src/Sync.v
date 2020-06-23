@@ -30,6 +30,21 @@ Section C1.
   | Loop : var -> list nat -> inst -> inst.
 
 
+Fixpoint i_subst x v i :=
+  match i with
+  | Access a => Access (access_subst x v a)
+  | For y r i2 =>
+    let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
+    For y (r_subst x v r) i2'
+  | Loop y r i2 =>
+    let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
+    Loop y r i2'
+  | Skip => Skip
+  | Sync => Sync
+  | Seq i2 i3 => Seq (i_subst x v i2) (i_subst x v i3)
+  end.
+
+
 Inductive Unsync : inst -> Prop :=
 | unsync_skip:
   Unsync Skip
@@ -167,3 +182,109 @@ induction i; intros.
   assumption.
 Qed.
 
+
+
+Import Hist.
+
+Notation history := (list access_val).
+
+Context `{T:Tasks}.
+
+
+Inductive Run: inst -> history -> inst -> history -> Prop:=
+| run_sync:
+  forall h,
+  Run Sync h Skip []
+| run_access:
+  forall a h v,
+  GenAccess TID a TID_COUNT v ->
+  Run (Access a) h Skip (List.concat v ++ h)
+| run_seq:
+  forall h h' i j k,
+  Run i h j h' ->
+  Run (Seq i k) h (Seq j k) h'
+| run_seq_skip:
+  forall h i,
+  Run (Seq Skip i) h i h
+| run_for:
+  forall r l i x h,
+  RStep r l ->
+  Run (For x r i) h (Loop x l i) h
+| run_for_loop_nil:
+  forall x i h,
+  Run (Loop x [] i) h Skip h
+| run_for_loop_cons:
+  forall x n i h l,
+  Run (Loop x (n::l) i) h (Seq (i_subst x (NNum n) i) (Loop x l i)) h.
+
+
+Inductive Multi_Run: inst -> history -> inst -> history -> Prop :=
+| mrun_refl:
+  forall i h,
+  Multi_Run i h i h
+| mrun_step:
+  forall i1 i2 i3 h1 h2 h3,
+  Run i1 h1 i2 h2 ->
+  Multi_Run i2 h2 i3 h3 ->
+  Multi_Run i1 h1 i3 h3.
+
+
+Theorem uni_skip_one:
+forall i1 i2 h1 h2,
+Run i1 h1 i2 h2 ->
+Multi_Run (Seq Skip i1) h1 i2 h2.
+Proof.
+intros.
+apply mrun_step with (i2:=i1) (h2:=h1).
+- apply run_seq_skip.
+- apply mrun_step with (i2:=i2) (h2:=h2).
+  * assumption.
+  * apply mrun_refl.
+Qed.
+
+Theorem mrun_imp_run:
+forall i1 i2 h1 h2,
+Run i1 h1 i2 h2 ->
+Multi_Run i1 h1 i2 h2.
+Proof.
+intros.
+apply mrun_step with (i2:=i2) (h2:=h2).
+- assumption.
+- apply mrun_refl.
+Qed.
+
+Theorem mrun_transitivity: 
+forall i1 i2 i3 h1 h2 h3,
+Run i1 h1 i2 h2 ->
+Run i2 h2 i3 h3 ->
+Multi_Run i1 h1 i3 h3.
+Proof.
+intros.
+apply mrun_step with (i2:=i2) (h2:=h2).
+- assumption.
+- apply mrun_imp_run.
+  assumption.
+Qed.
+
+Theorem unit_skip:
+forall i1 i2 h1 h2,
+Multi_Run i1 h1 i2 h2 ->
+Multi_Run (Seq Skip i1) h1 i2 h2.
+Proof.
+intros.
+induction H.
+- apply mrun_step with (i2:=i) (h2:=h).
+  * apply run_seq_skip.
+  * apply mrun_refl.
+- destruct H0.
+  * apply uni_skip_one in H.
+    assumption.
+  * apply uni_skip_one in H.
+    apply uni_skip_one in H0.
+ destruct H.
+- apply mrun_step with (i2:=i) (h2:=h).
+  * apply run_seq_skip.
+  * apply mrun_refl.
+- induction H0.
+  * apply mrun_step with (i2:=i) (h2:=h).
+    + inversion H.
