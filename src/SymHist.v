@@ -2013,30 +2013,58 @@ Section Defs.
     intros.
     apply branch_map_inv_decl in H3; auto using range_list_no_dup, range_list_not_nil.
   Qed.
-(*
-  Lemma run_decl_inv_map_f:
-    forall n1 n2 i1 i2 x hs',
-    Run (Decl x (NNum n1, NNum n2) i1 i2) hs' ->
-    exists f hs,
-    hs' = prod (branch_iter n1 n2 f) hs ++ hs /\
-    Run i2 hs /\
-    (forall n, n1 <= n < n2 -> Run (i_subst x (NNum n) i1) (f n)).
+
+  Lemma branch_map_decl:
+    forall l n1 i j m hs x y,
+    ~ In x i ->
+    ~ In x j ->
+    x <> y ->
+    l <> [] ->
+    NoDup l ->
+    Run j m ->
+    Map (DeclMap y i n1) l hs ->
+    BranchMap x (Decl y (NNum n1, NVar x) i j) l (map (fun x => (prod (@List.concat history x) m) ++ m) hs).
+  Proof.
+    induction l; intros. {
+      contradiction.
+    }
+    inversion H3; subst; clear H3.
+    inversion H5; subst; clear H5.
+    destruct l. {
+      inversion H12; subst; clear H12.
+      apply branch_map_cons; auto using branch_map_nil.
+      simpl.
+      destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
+      destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
+      eapply run_decl_map; eauto.
+      + rewrite i_subst_not_in; auto.
+      + rewrite i_subst_not_in; auto.
+    }
+    apply branch_map_cons.
+    - simpl.
+      destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
+      destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
+      eapply run_decl_map; eauto.
+      + rewrite i_subst_not_in; auto.
+      + rewrite i_subst_not_in; auto.
+    - apply IHl; auto.
+      intros N; inversion N.
+  Qed.
+
+  Lemma decl_map_decl:
+    forall n1 n2 n3 i j hs m x y,
+    ~ In x i ->
+    ~ In x j ->
+    x <> y ->
+    n2 < n3 ->
+    Run j m ->
+    Map (DeclMap y i n1) (range_list n2 n3) hs ->
+    DeclMap x (Decl y (NNum n1, NVar x) i j) n2 n3 (map (fun x => (prod (@List.concat history x) m) ++ m) hs) .
   Proof.
     intros.
-    inversion H; subst; clear H.
-    apply r_step_to_range_list in H5.
-    apply run_branch_inv_map in H6.
-    - destruct H6 as (f, (m1, (?,(Hr,Hf)))).
-      subst.
-      unfold branch_iter.
-      subst.
-      exists f.
-      exists m1.
-      repeat split; auto using range_list_in.
-    - subst.
-      auto using range_list_no_dup.
+    apply branch_map_decl; auto using .
   Qed.
-*)
+
 End Defs.
 
 Module C2Notations.

@@ -632,6 +632,22 @@ Section Map.
     exists (v::vs).
     eauto using map_cons.
   Qed.
+
+  Lemma map_impl:
+    forall (P Q: A -> B -> Prop),
+    (forall k v, P k v -> Q k v) ->
+    forall ks vs,
+    Map P ks vs ->
+    Map Q ks vs.
+  Proof.
+    intros P Q Hincl.
+    induction ks; intros. {
+      inversion H; subst.
+      apply map_nil.
+    }
+    inversion H; subst; clear H.
+    auto using map_cons.
+  Qed.
 End Map.
 
 Section MapExtra.
