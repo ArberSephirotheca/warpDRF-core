@@ -228,6 +228,53 @@ Inductive Multi_Run: inst -> history -> inst -> history -> Prop :=
   Multi_Run i2 h2 i3 h3 ->
   Multi_Run i1 h1 i3 h3.
 
+(* If we define Multi_Run in terms of pairs, then we can use the
+   Setoid tactics (see example next). *)
+Inductive MRun : (inst * history) -> (inst * history) -> Prop :=
+| m_run_def:
+  forall i h1 j h2, 
+  Multi_Run i h1 j h2 ->
+  MRun  (i, h1) (j, h2).
+
+Lemma m_run_refl:
+  forall x,
+  MRun x x.
+Proof.
+  intros.
+  destruct x.
+  apply m_run_def.
+  apply mrun_refl.
+Qed.
+
+Lemma m_run_trans:
+  forall x y z,
+  MRun x y ->
+  MRun y z ->
+  MRun x z.
+Proof.
+  intros x y.
+  intros z H.
+  (* introduce the z back into the assumptions,
+     so that induction doesn't capture it *)
+  generalize dependent z.
+  inversion H; subst; clear H.
+  induction H0; intros.
+  - assumption.
+  - apply IHMulti_Run in H1.
+    inversion H1; subst; clear H1.
+    apply m_run_def.
+    eapply mrun_step; eauto.
+Qed.
+
+(** We register MRun's transitivity and reflexivity with Coq's tactics.
+    1. Instead of using m_run_refl we can use the tactics 'reflexivity'.
+    2. Instead of using m_run_trans we can use the tactics 'transitivity'.
+    *)
+Global Add Parametric Relation : _ MRun
+  reflexivity proved by m_run_refl
+  transitivity proved by m_run_trans
+  as m_run_setoid.
+
 
 Theorem uni_skip_one:
 forall i1 i2 h1 h2,
@@ -266,6 +313,19 @@ apply mrun_step with (i2:=i2) (h2:=h2).
   assumption.
 Qed.
 
+Theorem unit_skip2:
+  forall i1 h1 x,
+  MRun (i1, h1) x ->
+  MRun (Seq Skip i1, h1) x.
+Proof.
+  intros.
+  transitivity (i1,h1). (* apply m_run_trans with (y:=). *)
+  - apply m_run_def.
+    apply mrun_imp_run.
+    apply run_seq_skip.
+  - assumption.
+Qed.
+
 Theorem unit_skip:
 forall i1 i2 h1 h2,
 Multi_Run i1 h1 i2 h2 ->
@@ -276,7 +336,7 @@ induction H.
 - apply mrun_step with (i2:=i) (h2:=h).
   * apply run_seq_skip.
   * apply mrun_refl.
-- destruct H0.
+- inversion H0; subst; clear H0.
   * apply uni_skip_one in H.
     assumption.
   * apply uni_skip_one in H.
