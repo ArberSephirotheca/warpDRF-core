@@ -266,6 +266,23 @@ apply mrun_step with (i2:=i2) (h2:=h2).
   assumption.
 Qed.
 
+
+Theorem mmrun_transitivity: 
+forall i1 i2 i3 h1 h2 h3,
+Multi_Run i1 h1 i2 h2 ->
+Multi_Run i2 h2 i3 h3 ->
+Multi_Run i1 h1 i3 h3.
+Proof.
+intros i1 i2 i3 h1 h2 h3.
+intro H.
+induction H.
+- intro. assumption.
+- intro. apply IHMulti_Run in H1.
+  apply mrun_step with (i2:=i2) (h2:=h2).
+  * assumption.
+  * assumption.
+Qed.
+
 Theorem unit_skip:
 forall i1 i2 h1 h2,
 Multi_Run i1 h1 i2 h2 ->
@@ -276,12 +293,8 @@ induction H.
 - apply mrun_step with (i2:=i) (h2:=h).
   * apply run_seq_skip.
   * apply mrun_refl.
-- destruct H0.
-  * apply uni_skip_one in H.
-    assumption.
-  * apply uni_skip_one in H.
-    apply uni_skip_one in H0.
- destruct H.
+- 
+ 
 - apply mrun_step with (i2:=i) (h2:=h).
   * apply run_seq_skip.
   * apply mrun_refl.
