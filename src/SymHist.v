@@ -1101,28 +1101,7 @@ Section Defs.
 
   Definition ProgEquiv i j : Prop :=
     ProgImpl i j /\ ProgImpl j i.
-  (*
-    forall m1 m2,
-    Run i m1 ->
-    Run j m2 ->
-    MemEquiv m1 m2.
-*)
-(*
-  Lemma prog_equiv_def:
-    forall i j m1 m2,
-    Run i m1 ->
-    Run j m2 ->
-    MemEquiv m1 m2 ->
-    ProgEquiv i j.
-  Proof.
-    unfold ProgEquiv.
-    intros i j m1 m2 Hr1 Hr2 R m3 m4 Hr3 Hr4.
-    assert (m1 = m3) by eauto using run_fun.
-    assert (m2 = m4) by eauto using run_fun.
-    subst.
-    assumption.
-  Qed.
-*)
+
   Lemma run_prog_equiv_inv_l:
     forall i m1 j,
     Run i m1 ->
@@ -1278,95 +1257,7 @@ Section Defs.
     rewrite IHl.
     reflexivity.
   Qed.
-(*
-  Lemma run_subst_n:
-    forall i n x hs,
-    Run (i_subst x (NNum n) i) hs ->
-    exists f,
-    forall n, Run (i_subst x (NNum n) i) (f n).
-  Proof.
-    intros.
-    remember (i_subst _ _ _) as j.
-    generalize dependent x.
-    generalize dependent n.
-    induction H; intros.
-    - simpl in *.
-      destruct i; simpl in Heqj; inversion Heqj; subst; clear Heqj. {
-        exists (fun n => [[]]).
-        intros.
-        apply run_skip.
-      }
-      destruct p.
-      inversion H0.
-    - destruct i; simpl in Heqj; inversion Heqj; subst; clear Heqj.
-      destruct p as (a1, e1).
-      inversion H2; subst; clear H2.
-      clear IHRun.
-      exists (fun n =>
-        match access_eval1 (access_subst x (NNum n) a1, n_subst x (NNum n) e1) with
-        | Some v => prepend v hs
-        | None => hs
-        end
-      ).
-      intros n1.
-      destruct (access_eval1 _) eqn:Heq. {
-        apply access_eval1_to_step in Heq.
-        simpl.
-        apply run_access; auto.
-      }
-      
-      assert (Hx := access_step_next x n (access_subst x (NNum n) a)).
-      admit.
-    - simpl in H.
-      destruct (Set_VAR.MF.eq_dec x v). {
-        subst.
-        inversion H; subst; clear H.
-      }
-      
-      
-      
-      
-      
-    
-  Qed.
-*)
-(*
-  Lemma branch_map_inv:
-    forall x i l hss,
-    BranchMap x i l hss ->
-    NoDup l ->
-    l <> [] ->
-    exists f, hss = map f l /\
-    (forall n, List.In n l -> Run (i_subst x (NNum n) i) (f n)).
-  Proof.
-    intros.
-    induction H. { contradiction. }
-    inversion H0; subst; clear H0.
-    destruct l. {
-      inversion H2; subst; clear H2.
-    }
-    destruct IHBranchMap as (f, (?, Hf)); auto.
-    exists (add f n hs).
-    subst.
-    simpl.
-    split. {
-      subst.
-      rewrite add_eq_rw.
-      rewrite map_add_rw_not_in; auto.
-    }
-    intros.
-    destruct H0. {
-      subst.
-      rewrite add_eq_rw.
-      assumption.
-    }
-    assert (Hf := Hf _ H0).
-    rewrite add_neq_rw; auto.
-    intros N.
-    subst.
-    contradiction.
-  Qed.
-*)
+
   Lemma branch_map_inv:
     forall x i l hss,
     BranchMap x i l hss ->
@@ -1615,16 +1506,6 @@ Section Defs.
     exists f.
     auto using range_list_in.
   Qed.
-(*
-  Lemma prog_impl_i_subst:
-    forall i j x n,
-    ProgImpl i j ->
-    ProgImpl (i_subst x n i) (i_subst x n j).
-  Proof.
-    unfold ProgImpl.
-    intros.
-  Qed.
-*)
 
   Lemma run_not_nil:
     forall i m,
@@ -1926,6 +1807,34 @@ Section Defs.
     unfold DeclMap;auto using branch_map_seq.
   Qed.
 
+
+  Lemma decl_map_inv_i_subst_eq:
+    forall x y i n1 n2 m1,
+    ~ In x i ->
+    DeclMap x (i_subst y (NVar x) i) n1 n2 m1 ->
+    DeclMap y i n1 n2 m1.
+  Proof.
+    intros x y i n1 n2 m1 Hn1 Hd.
+    apply decl_map_to_map in Hd.
+    apply decl_map_from_map.
+    apply map_impl with (P:=Iter x (i_subst y (NVar x) i)); auto.
+    intros.
+    unfold Iter in *.
+    rewrite i_subst_subst_trans in H; auto.
+  Qed.
+
+  Lemma run_decl_seq:
+    forall x n1 n2 i j k m1 m2 m3,
+    Run k m1 ->
+    DeclMap x i n1 n2 m2 ->
+    DeclMap x j n1 n2 m3 ->
+    Run (Decl x (NNum n1, NNum n2) (seq i j) k) (prod (List.concat (map2 prod m2 m3)) m1 ++ m1).
+  Proof.
+    intros.
+    eapply run_decl_map; eauto.
+    apply decl_map_seq; auto.
+  Qed.
+
   Let i_subst_not_in_decl_rw:
     forall x n1 y n2 i j hs,
     ~ In x i ->
@@ -1946,7 +1855,7 @@ Section Defs.
     rewrite i_subst_not_in in Hr; auto.
   Qed.
 
-  Lemma branch_map_inv_decl:
+  Lemma branch_map_inv_decl_not_in:
     forall l n1 i j ms x y,
     ~ In x i ->
     ~ In x j ->
@@ -1997,7 +1906,7 @@ Section Defs.
     repeat split; auto using map_cons.
   Qed.
 
-  Lemma decl_map_inv_decl:
+  Lemma decl_map_inv_decl_not_in:
     forall n1 n2 n3 i j ms x y,
     ~ In x i ->
     ~ In x j ->
@@ -2011,7 +1920,7 @@ Section Defs.
     Map (DeclMap y i n1) (range_list n2 n3) hs.
   Proof.
     intros.
-    apply branch_map_inv_decl in H3; auto using range_list_no_dup, range_list_not_nil.
+    apply branch_map_inv_decl_not_in in H3; auto using range_list_no_dup, range_list_not_nil.
   Qed.
 
   Lemma branch_map_decl:
@@ -2062,9 +1971,59 @@ Section Defs.
     DeclMap x (Decl y (NNum n1, NVar x) i j) n2 n3 (map (fun x => (prod (@List.concat history x) m) ++ m) hs) .
   Proof.
     intros.
-    apply branch_map_decl; auto using .
+    apply branch_map_decl; auto using range_list_no_dup, range_list_not_nil.
   Qed.
 
+
+  Lemma branch_map_inv_acc:
+    forall l x e i ms,
+    BranchMap x (Acc e i) l ms ->
+    exists ms1 ms2,
+    ms = map2 prod ms1 ms2 /\
+    BranchMap x (Acc e Skip) l ms1 /\
+    BranchMap x i l ms2.
+  Proof.
+    induction l; intros. {
+      inversion H; subst; clear H.
+      exists [].
+      exists [].
+      repeat split; auto using branch_map_nil.
+    }
+    inversion H; subst; clear H.
+    apply IHl in H4; clear IHl.
+    destruct H4 as (ms1, (ms2, (?, (Hb1, Hb2)))).
+    subst.
+    simpl in H2.
+    destruct e as (ac, e).
+    inversion H2; subst; clear H2.
+    assert (Hra: Run (Acc (access_subst x (NNum a) ac, n_subst x (NNum a) e) Skip) (prepend v [[]])). {
+      auto using run_access, run_skip.
+    }
+    eapply branch_map_cons in Hb1; eauto; clear Hra.
+    exists (prepend v [[]] :: ms1).
+    eapply branch_map_cons in Hb2; eauto.
+    exists (hs0 :: ms2).
+    simpl in *.
+    rewrite app_nil_r in *.
+    rewrite map2_cons_rw.
+    rewrite prepend_rw.
+    auto.
+  Qed.
+
+  Lemma decl_map_inv_acc:
+    forall x e i n1 n2 ms,
+    DeclMap x (Acc e i) n1 n2 ms ->
+    exists ms1 ms2,
+    ms = map2 prod ms1 ms2 /\
+    DeclMap x (Acc e Skip) n1 n2 ms1 /\
+    DeclMap x i n1 n2 ms2.
+  Proof.
+    intros.
+    unfold DeclMap in *.
+    apply branch_map_inv_acc in H.
+    destruct H as (ms1, (ms2, (?, (Hb1, Hb2)))).
+    eauto.
+  Qed.
 End Defs.
 
 Module C2Notations.
