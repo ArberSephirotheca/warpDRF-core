@@ -276,14 +276,10 @@ Proof.
   - assumption.
   - apply IHMulti_Run in H1.
     inversion H1; subst; clear H1.
-    + apply run_imp_mrun in H.
-      assumption.
-    + apply mrun_step with (i2:=i2) (h2:=h2).
-      ++  assumption.
-      ++ apply mrun_step with (i2:=i4) (h2:=h4).
-        +++ assumption.
-        +++ assumption.
+    + auto using run_imp_mrun.
+    + eauto using mrun_step.
 Qed.
+
 
 (** We register MRun's transitivity and reflexivity with Coq's tactics.
     1. Instead of using m_run_refl we can use the tactics 'reflexivity'.
