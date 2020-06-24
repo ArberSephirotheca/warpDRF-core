@@ -2136,7 +2136,20 @@ Section Defs.
 
   Global Instance proper_prog_impl_2: Proper (ProgEquiv ==> ProgEquiv ==> Basics.flip Basics.impl) ProgImpl.
   Proof.
-  Admitted.
+    unfold Proper, respectful.
+    intros.
+    unfold Basics.flip.
+    unfold Basics.impl.
+    intros.
+    rename x into i1.
+    rename y into i2.
+    rename x0 into j1.
+    rename y0 into j2.
+    destruct H.
+    destruct H0.
+    transitivity i2; auto.
+    transitivity j2; auto.
+  Qed.
 
   Lemma impl_branch_branch_seq_1:
     forall x l i1 i2 j1 j2,
