@@ -249,7 +249,7 @@ Proof.
   apply mrun_refl.
 Qed.
 
-Theorem mrun_imp_run:
+Theorem run_imp_mrun:
 forall i1 i2 h1 h2,
 Run (i1, h1) (i2, h2) ->
 Multi_Run (i1, h1) (i2, h2).
@@ -276,14 +276,10 @@ Proof.
   - assumption.
   - apply IHMulti_Run in H1.
     inversion H1; subst; clear H1.
-    + apply mrun_imp_run in H.
-      assumption.
-    + apply mrun_step with (i2:=i2) (h2:=h2).
-      ++  assumption.
-      ++ apply mrun_step with (i2:=i4) (h2:=h4).
-        +++ assumption.
-        +++ assumption.
+    + auto using run_imp_mrun.
+    + eauto using mrun_step.
 Qed.
+
 
 (** We register MRun's transitivity and reflexivity with Coq's tactics.
     1. Instead of using m_run_refl we can use the tactics 'reflexivity'.
@@ -298,8 +294,8 @@ Global Add Parametric Relation : _ Multi_Run
 
 Theorem uni_skip_one:
 forall i1 i2 h1 h2,
-Run i1 h1 i2 h2 ->
-Multi_Run (Seq Skip i1) h1 i2 h2.
+Run (i1, h1) (i2, h2) ->
+Multi_Run ((Seq Skip i1), h1) (i2, h2).
 Proof.
 intros.
 apply mrun_step with (i2:=i1) (h2:=h1).
@@ -313,44 +309,27 @@ Qed.
 
 Theorem mrun_transitivity: 
 forall i1 i2 i3 h1 h2 h3,
-Run i1 h1 i2 h2 ->
-Run i2 h2 i3 h3 ->
-Multi_Run i1 h1 i3 h3.
+Run (i1, h1) (i2, h2) ->
+Run (i2, h2) (i3, h3) ->
+Multi_Run (i1, h1) (i3, h3).
 Proof.
 intros.
 apply mrun_step with (i2:=i2) (h2:=h2).
 - assumption.
-- apply mrun_imp_run.
+- apply run_imp_mrun.
   assumption.
 Qed.
 
 
-(*
-Theorem mmrun_transitivity: 
-forall i1 i2 i3 h1 h2 h3,
-Multi_Run i1 h1 i2 h2 ->
-Multi_Run i2 h2 i3 h3 ->
-Multi_Run i1 h1 i3 h3.
-Proof.
-intros i1 i2 i3 h1 h2 h3.
-intro H.
-induction H.
-- intro. assumption.
-- intro. apply IHMulti_Run in H1.
-  apply mrun_step with (i2:=i2) (h2:=h2).
-  * assumption.
-  * assumption.
-*)
 
 Theorem unit_skip_l:
   forall i1 h1 x,
-  MRun (i1, h1) x ->
-  MRun (Seq Skip i1, h1) x.
+  Multi_Run (i1, h1) x ->
+  Multi_Run (Seq Skip i1, h1) x.
 Proof.
   intros.
   transitivity (i1,h1). (* apply m_run_trans with (y:=). *)
-  - apply m_run_def.
-    apply mrun_imp_run.
+  - apply run_imp_mrun.
     apply run_seq_skip.
   - assumption.
 Qed.
@@ -360,7 +339,7 @@ Qed.
 
 Lemma sync_imp_emptyhist:
 forall h i h',
-Run Sync h i h' ->
+Run (Sync, h) (i, h') ->
 h' = [].
 Proof.
 intros.
@@ -397,11 +376,16 @@ induction H2.
 
 Theorem unit_skip_r:
   forall i1 h1 h2,
-  MRun (i1, h1) (Skip, h2) ->
-  MRun (Seq i1 Skip, h1) (Skip, h2).
+  Multi_Run (i1, h1) (Skip, h2) ->
+  Multi_Run (Seq i1 Skip, h1) (Skip, h2).
 Proof.
 intros.
 inversion H; subst; clear H.
+- apply mrun_step with (i2:=Skip) (h2:=h2).
+  * apply run_seq_skip.
+  * apply mrun_refl.
+- 
+
 induction i1.
 - inversion H1; subst.
   * apply m_run_def.
@@ -432,7 +416,7 @@ inversion H1; subst.
 apply m_run_def.
 induction i1.
 - inversion H3; subst.
-  * apply mrun_imp_run.
+  * apply run_imp_mrun.
     apply run_seq_skip.
   * inversion H.
 - 
