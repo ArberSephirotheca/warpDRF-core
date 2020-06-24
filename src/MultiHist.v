@@ -1027,51 +1027,31 @@ Section Member.
   (** Theory of memory expressions *)
 
   Inductive mexp :=
-  | One: list history -> mexp
+  | One: forall (m:list history), m <> [] -> mexp
   | Prod: mexp -> mexp -> mexp
-  | Plus: mexp -> mexp -> mexp. 
-
-  (* A well-formed memory is composed of non-empty memories. *)
-  Inductive MExp : mexp -> Prop :=
-  | m_exp_one:
-    forall m,
-    m <> [] ->
-    MExp (One m)
-  | m_exp_prod:
-    forall m1 m2,
-    MExp m1 ->
-    MExp m2 ->
-    MExp (Prod m1 m2)
-  | m_exp_plus:
-    forall m1 m2,
-    MExp m1 ->
-    MExp m2 ->
-    MExp (Plus m1 m2).
+  | Plus: mexp -> mexp -> mexp.
 
   (* We can flatten an expression down to a memory *)
   Fixpoint to_mem m :=
   match m with
-  | One m => m
+  | One m _ => m
   | Prod m1 m2 => prod (to_mem m1) (to_mem m2)
   | Plus m1 m2 => app (to_mem m1) (to_mem m2)
   end.
 
   Fixpoint flatten_exp e :=
   match e with
-  | One m => [m]
+  | One m _ => [m]
   | Prod e1 e2 => flatten_exp e1 ++ flatten_exp e2
   | Plus e1 e2 => flatten_exp e1 ++ flatten_exp e2
   end.
-  Print history.
 
   Fixpoint m_in_list v (l:list (list history)) :=
   match l with
   | [] => False
   | m::l => MIn v m \/ m_in_list v l
   end.
-(*
-  Definition m_in_of v e := m_in_list v (flatten_exp e).
-*)
+
   Lemma m_in_list_app_or:
     forall v l1 l2,
     m_in_list v (l1 ++ l2) ->
@@ -1140,7 +1120,7 @@ Section Member.
 
   Fixpoint e_pair_in p pe :=
   match pe with
-  | One m => MPairIn p m
+  | One m _ => MPairIn p m
   | Plus e1 e2 =>
     (* MPairIn p (ls1 ++ ls2) ->
        MPairIn p ls1 \/ MPairIn p ls2 *)
@@ -1159,28 +1139,22 @@ Section Member.
 
   Lemma mexp_not_nil:
     forall e,
-    MExp e ->
     to_mem e <> nil.
   Proof.
-    intros.
-    induction H.
+    induction e; simpl.
     - assumption.
-    - simpl.
-      auto using prod_neq_nil.
-    - simpl.
-      auto using app_neq_nil.
+    - auto using prod_neq_nil.
+    - auto using app_neq_nil.
   Qed.
 
   Lemma m_in_list_1:
     forall e x,
-    MExp e ->
     m_in_list x (flatten_exp e) ->
     MIn x (to_mem e).
   Proof.
-    induction e; simpl; intros x Hm Hi.
+    induction e; simpl; intros x Hi.
     - destruct Hi; try contradiction; auto.
     - apply m_in_list_app_or in Hi.
-      inversion Hm; subst; clear Hm.
       destruct Hi. {
         apply IHe1 in H; auto.
         apply m_in_prod_l; eauto using mexp_not_nil.
@@ -1188,7 +1162,6 @@ Section Member.
       apply IHe2 in H; auto.
       apply m_in_prod_r; eauto using mexp_not_nil.
     - apply m_in_list_app_or in Hi.
-      inversion Hm; subst; clear Hm.
       destruct Hi. {
         apply IHe1 in H; auto.
         apply m_in_app_l; eauto using mexp_not_nil.
@@ -1199,32 +1172,29 @@ Section Member.
 
   Lemma m_in_list_2:
     forall v e,
-    MExp e ->
     MIn v (to_mem e) ->
     m_in_list v (flatten_exp e).
   Proof.
-    induction e; simpl; intros; inversion H; subst; clear H.
+    induction e; simpl; intros.
     - auto.
-    - apply m_in_prod_inv in H0.
-      destruct H0 as [Hx|Hx].
+    - apply m_in_prod_inv in H.
+      destruct H as [Hx|Hx].
       + auto using m_in_list_app_l.
       + auto using m_in_list_app_r.
-    - apply m_in_inv_app in H0.
-      destruct H0; auto using m_in_list_app_l, m_in_list_app_r.
+    - apply m_in_inv_app in H.
+      destruct H; auto using m_in_list_app_l, m_in_list_app_r.
   Qed.
 
   Lemma on_of_1:
     forall e1 e2 x y,
-    MExp e1 ->
-    MExp e2 ->
     one_of (x,y) (flatten_exp e1) (flatten_exp e2) ->
     (MIn x (to_mem e1) /\ MIn y (to_mem e2))
     \/
     (MIn x (to_mem e2) /\ MIn y (to_mem e1)).
   Proof.
     intros.
-    simpl in H1.
-    destruct H1 as [(Ha,Hb)|(Ha,Hb)].
+    simpl in H.
+    destruct H as [(Ha,Hb)|(Ha,Hb)].
     - apply m_in_list_1 in Ha; auto.
       apply m_in_list_1 in Hb; auto.
     - apply m_in_list_1 in Ha; auto.
@@ -1233,13 +1203,12 @@ Section Member.
 
   Lemma e_pair_in_1:
     forall p e,
-    MExp e ->
     e_pair_in p e ->
     MPairIn p (to_mem e).
   Proof.
-    induction e; intros Hwf Hp; intros; simpl in *.
+    induction e; intros Hp; intros; simpl in *.
     - assumption.
-    - destruct Hp as [Hp|[Hp|Hp]]; inversion Hwf; subst; clear Hwf.
+    - destruct Hp as [Hp|[Hp|Hp]].
       + eauto using mexp_not_nil, m_pair_in_prod_l.
       + eauto using mexp_not_nil, m_pair_in_prod_r.
       + destruct p as (v1, v2).
@@ -1247,21 +1216,19 @@ Section Member.
         destruct Hp as [(Ha,Hb)|(Ha,Hb)].
         * auto using m_pair_in_prod_1.
         * auto using m_pair_in_prod_2.
-    - destruct Hp as [Hp|Hp]; inversion Hwf; subst; clear Hwf.
+    - destruct Hp as [Hp|Hp].
       + auto using m_pair_in_app_l.
       + auto using m_pair_in_app_r.
   Qed.
 
   Lemma e_pair_in_2:
     forall p e,
-    MExp e ->
     MPairIn p (to_mem e) ->
     e_pair_in p e.
   Proof.
-    induction e; simpl; intros Hm Hi.
+    induction e; simpl; intros Hi.
     - assumption.
-    - inversion Hm; subst; clear Hm.
-      destruct p as (v1, v2).
+    - destruct p as (v1, v2).
       apply m_pair_in_inv_prod in Hi.
       destruct Hi as [Hi|[Hi|[(Ha,Hb)|(Ha,Hb)]]]; eauto; simpl in *.
       + apply m_in_list_2 in Ha; auto.
@@ -1269,33 +1236,45 @@ Section Member.
       + apply m_in_list_2 in Ha; auto.
         apply m_in_list_2 in Hb; auto.
     - apply m_pair_in_app_or in Hi.
-      inversion Hm; subst; clear Hm.
       destruct Hi; auto.
   Qed.
 
   Definition EIncl e1 e2 :=
-    MExp e1 ->
-    MExp e2 ->
     forall p,
     e_pair_in p e1 ->
     e_pair_in p e2.
 
-  Lemma minc_to_m_impl:
+  Lemma e_incl_to_m_incl:
     forall x y,
-    MExp x ->
-    MExp y ->
     EIncl x y ->
     MIncl (to_mem x) (to_mem y).
   Proof.
     unfold EIncl.
     intros.
-    assert (H1 := H1 H H0).
     unfold MIncl.
     intros.
-    apply e_pair_in_2 in H2; auto using e_pair_in_1.
+    apply e_pair_in_2 in H0; auto using e_pair_in_1.
   Qed.
 
-  Lemma mincl_refl:
+  Lemma m_incl_to_e_incl:
+    forall x y,
+    MIncl (to_mem x) (to_mem y) ->
+    EIncl x y.
+  Proof.
+    unfold EIncl, MIncl.
+    intros.
+    eauto using e_pair_in_2, e_pair_in_1.
+  Qed.
+
+  Lemma e_incl_iff_m_incl:
+    forall x y,
+    MIncl (to_mem x) (to_mem y) <->
+    EIncl x y.
+  Proof.
+    split; intros; auto using m_incl_to_e_incl, e_incl_to_m_incl.
+  Qed.
+
+  Lemma e_incl_refl:
     forall e,
     EIncl e e.
   Proof.
@@ -1305,13 +1284,14 @@ Section Member.
     assumption.
   Qed.
 
-  Lemma minc_trans:
+  Lemma e_inc_trans:
     forall x y z,
-    MInc x y ->
-    MInc y z ->
-    MInc x z.
+    EIncl x y ->
+    EIncl y z ->
+    EIncl x z.
   Proof.
     intros.
-    
+    rewrite <- e_incl_iff_m_incl in *.
+    transitivity (to_mem y); auto.
   Qed.
 End Member.
