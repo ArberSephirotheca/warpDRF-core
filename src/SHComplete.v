@@ -184,37 +184,7 @@ Section Compiler.
       }
       rewrite add_neq_rw; auto.
   Qed.
-(*
-  Definition branch_iter {A:Type} n1 n2 f :=
-    List.concat (@List.map nat (list A) f (range_list n1 n2)).
-*)
 
-(*
-  Lemma c2_run_decl_inv:
-    forall n1 n2 i1 i2 x hs',
-    SymHist.Run (SymHist.Decl x (NNum n1, NNum n2) i1 i2) hs' ->
-    exists f hs,
-    hs' = branch_iter n1 n2 f ++ hs /\
-    SymHist.Run i2 hs /\
-    (forall n, n1 <= n < n2 -> SymHist.Run (SymHist.seq (SymHist.i_subst x (NNum n) i1) i2) (f n)).
-  Proof.
-    intros.
-    unfold branch_iter.
-    inversion H; subst; clear H.
-    apply r_step_to_range_list in H5.
-    subst.
-    apply c2_run_branch_inv in H6.
-    destruct H6 as (f, (hs1, (?, (Hr1, Hr2)))).
-    subst.
-    exists f.
-    exists hs1.
-    repeat split; auto.
-    intros.
-    apply Hr2.
-    - apply range_list_in_iff; assumption.
-    - auto using range_list_no_dup.
-  Qed.
-*)
   Lemma subst_t1_tid_eq:
     forall v e,
     ~ SymHist.In T1 e ->
@@ -487,30 +457,6 @@ Section Compiler.
   Qed.
 
   Import Morphisms.
-
-(*
-  Global Instance merge_mmequiv_struct_proper: Proper (MMEquivStruct ==> MMEquivStruct ==> MMEquivStruct) (map2 prod).
-  Proof.
-    unfold Proper, respectful.
-    induction x; intros; inversion H; subst; clear H. {
-      repeat rewrite merge_nil_l.
-      reflexivity.
-    }
-    destruct y0. {
-      inversion H0; subst; clear H0.
-      repeat rewrite merge_nil_r.
-      reflexivity.
-    }
-    rewrite map2_cons_rw.
-    destruct x0. {
-      repeat rewrite map2_nil_r.
-      inversion H0.
-    }
-    rewrite map2_cons_rw.
-    inversion H0; subst; clear H0.
-    Search (merge _ _).
-  Qed.
-*)
 
   Lemma run_trans_inv_2 e  (t1_nin: ~ Conc.In T1 e) (t2_nin: ~ Conc.In T2 e) hs:
     SymHist.Run (translate e) hs ->
