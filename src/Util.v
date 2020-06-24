@@ -342,6 +342,23 @@ Section Ops.
     inversion N.
   Qed.
 
+  Lemma app_neq_nil:
+    forall A l1 l2,
+    l1 <> [] ->
+    l2 <> [] ->
+    @app A l1 l2 <> [].
+  Proof.
+    intros.
+    destruct l1. {
+      contradiction.
+    }
+    destruct l2. {
+      contradiction.
+    }
+    intros N.
+    inversion N.
+  Qed.
+
   Lemma map2_nil_l:
     forall A B C f l,
     @map2 A B C f [] l = [].
@@ -367,6 +384,46 @@ Section Ops.
     reflexivity.
   Qed.
 
+
+  Lemma Exists_app_or:
+    forall A P l1 l2,
+    @Exists A P (l1 ++ l2) ->
+    Exists P l1 \/ Exists P l2.
+  Proof.
+    intros.
+    repeat rewrite Exists_exists in *.
+    destruct H as (a, (Hi, H2)).
+    apply in_app_or in Hi.
+    destruct Hi; eauto.
+  Qed.
+
+  Lemma Exists_app_l:
+    forall A P l1 l2, 
+    @Exists A P l1 ->
+    Exists P (l1 ++ l2).
+  Proof.
+    intros.
+    repeat rewrite Exists_exists in *.
+    destruct H as (x, (Hi, Hp)).
+    exists x.
+    split; auto.
+    rewrite in_app_iff.
+    auto.
+  Qed.
+
+  Lemma Exists_app_r:
+    forall A P l1 l2, 
+    @Exists A P l2 ->
+    Exists P (l1 ++ l2).
+  Proof.
+    intros.
+    repeat rewrite Exists_exists in *.
+    destruct H as (x, (Hi, Hp)).
+    exists x.
+    split; auto.
+    rewrite in_app_iff.
+    auto.
+  Qed.
 End Ops.
 
 Section filter.

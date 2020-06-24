@@ -1024,4 +1024,294 @@ Section Member.
     auto.
   Qed.
 
+  (** Theory of memory expressions *)
+
+  Inductive mexp :=
+  | One: list history -> mexp
+  | Prod: mexp -> mexp -> mexp
+  | Plus: mexp -> mexp -> mexp. 
+
+  (* A well-formed memory is composed of non-empty memories. *)
+  Inductive MExp : mexp -> Prop :=
+  | m_exp_one:
+    forall m,
+    m <> [] ->
+    MExp (One m)
+  | m_exp_prod:
+    forall m1 m2,
+    MExp m1 ->
+    MExp m2 ->
+    MExp (Prod m1 m2)
+  | m_exp_plus:
+    forall m1 m2,
+    MExp m1 ->
+    MExp m2 ->
+    MExp (Plus m1 m2).
+
+  (* We can flatten an expression down to a memory *)
+  Fixpoint to_mem m :=
+  match m with
+  | One m => m
+  | Prod m1 m2 => prod (to_mem m1) (to_mem m2)
+  | Plus m1 m2 => app (to_mem m1) (to_mem m2)
+  end.
+
+  Fixpoint flatten_exp e :=
+  match e with
+  | One m => [m]
+  | Prod e1 e2 => flatten_exp e1 ++ flatten_exp e2
+  | Plus e1 e2 => flatten_exp e1 ++ flatten_exp e2
+  end.
+  Print history.
+
+  Fixpoint m_in_list v (l:list (list history)) :=
+  match l with
+  | [] => False
+  | m::l => MIn v m \/ m_in_list v l
+  end.
+(*
+  Definition m_in_of v e := m_in_list v (flatten_exp e).
+*)
+  Lemma m_in_list_app_or:
+    forall v l1 l2,
+    m_in_list v (l1 ++ l2) ->
+    m_in_list v l1 \/ m_in_list v l2.
+  Proof.
+    induction l1; intros; auto.
+    simpl in *.
+    destruct H; auto.
+    apply IHl1 in H.
+    destruct H; auto.
+  Qed.
+
+  Lemma m_in_list_app_l:
+    forall v l1 l2,
+    m_in_list v l1 ->
+    m_in_list v (l1 ++ l2).
+  Proof.
+    induction l1; intros.
+    - contradiction.
+    - destruct H; simpl; auto.
+  Qed.
+
+  Lemma m_in_list_app_r:
+    forall v l1 l2,
+    m_in_list v l2 ->
+    m_in_list v (l1 ++ l2).
+  Proof.
+    induction l1; intros.
+    - assumption.
+    - simpl.
+      auto.
+  Qed.
+
+  Lemma m_in_list_to_Exists v l:
+    m_in_list v l -> Exists (MIn v) l.
+  Proof.
+    intros.
+    induction l; simpl in *. {
+      contradiction.
+    }
+    destruct H. {
+      auto using Exists_cons.
+    }
+    auto using Exists_cons.
+  Qed.
+
+  Lemma Exists_to_m_in_list v l:
+    Exists (MIn v) l -> m_in_list v l.
+  Proof.
+    induction l; simpl in *; intros.
+    - inversion H.
+    - inversion H; subst; clear H; auto.
+  Qed.
+
+  Lemma m_in_list_Exists v l:
+    m_in_list v l <-> Exists (MIn v) l.
+  Proof.
+    split; auto using m_in_list_to_Exists, Exists_to_m_in_list.
+  Qed.
+
+  Fixpoint one_of (p:access_val*access_val) l1 l2 :=
+    let (v1, v2) := p in
+    (m_in_list v1 l1 /\ m_in_list v2 l2)
+    \/
+    (m_in_list v2 l1 /\ m_in_list v1 l2).
+
+  Fixpoint e_pair_in p pe :=
+  match pe with
+  | One m => MPairIn p m
+  | Plus e1 e2 =>
+    (* MPairIn p (ls1 ++ ls2) ->
+       MPairIn p ls1 \/ MPairIn p ls2 *)
+    e_pair_in p e1 \/ e_pair_in p e2
+  | Prod e1 e2 =>
+    (*
+       MPairIn p (prod m1 m2) ->
+       MPairIn p m1 \/
+       MPairIn p m2 \/
+       (MIn (fst p) m1 /\ MIn (snd p) m2) \/
+       (MIn (fst p) m2 /\ MIn (snd p) m1)
+     *)
+    e_pair_in p e1 \/ e_pair_in p e2 \/
+    one_of p (flatten_exp e1) (flatten_exp e2)
+  end.
+
+  Lemma mexp_not_nil:
+    forall e,
+    MExp e ->
+    to_mem e <> nil.
+  Proof.
+    intros.
+    induction H.
+    - assumption.
+    - simpl.
+      auto using prod_neq_nil.
+    - simpl.
+      auto using app_neq_nil.
+  Qed.
+
+  Lemma m_in_list_1:
+    forall e x,
+    MExp e ->
+    m_in_list x (flatten_exp e) ->
+    MIn x (to_mem e).
+  Proof.
+    induction e; simpl; intros x Hm Hi.
+    - destruct Hi; try contradiction; auto.
+    - apply m_in_list_app_or in Hi.
+      inversion Hm; subst; clear Hm.
+      destruct Hi. {
+        apply IHe1 in H; auto.
+        apply m_in_prod_l; eauto using mexp_not_nil.
+      }
+      apply IHe2 in H; auto.
+      apply m_in_prod_r; eauto using mexp_not_nil.
+    - apply m_in_list_app_or in Hi.
+      inversion Hm; subst; clear Hm.
+      destruct Hi. {
+        apply IHe1 in H; auto.
+        apply m_in_app_l; eauto using mexp_not_nil.
+      }
+      apply IHe2 in H; auto.
+      apply m_in_app_r; eauto using mexp_not_nil.
+  Qed.
+
+  Lemma m_in_list_2:
+    forall v e,
+    MExp e ->
+    MIn v (to_mem e) ->
+    m_in_list v (flatten_exp e).
+  Proof.
+    induction e; simpl; intros; inversion H; subst; clear H.
+    - auto.
+    - apply m_in_prod_inv in H0.
+      destruct H0 as [Hx|Hx].
+      + auto using m_in_list_app_l.
+      + auto using m_in_list_app_r.
+    - apply m_in_inv_app in H0.
+      destruct H0; auto using m_in_list_app_l, m_in_list_app_r.
+  Qed.
+
+  Lemma on_of_1:
+    forall e1 e2 x y,
+    MExp e1 ->
+    MExp e2 ->
+    one_of (x,y) (flatten_exp e1) (flatten_exp e2) ->
+    (MIn x (to_mem e1) /\ MIn y (to_mem e2))
+    \/
+    (MIn x (to_mem e2) /\ MIn y (to_mem e1)).
+  Proof.
+    intros.
+    simpl in H1.
+    destruct H1 as [(Ha,Hb)|(Ha,Hb)].
+    - apply m_in_list_1 in Ha; auto.
+      apply m_in_list_1 in Hb; auto.
+    - apply m_in_list_1 in Ha; auto.
+      apply m_in_list_1 in Hb; auto.
+  Qed.
+
+  Lemma e_pair_in_1:
+    forall p e,
+    MExp e ->
+    e_pair_in p e ->
+    MPairIn p (to_mem e).
+  Proof.
+    induction e; intros Hwf Hp; intros; simpl in *.
+    - assumption.
+    - destruct Hp as [Hp|[Hp|Hp]]; inversion Hwf; subst; clear Hwf.
+      + eauto using mexp_not_nil, m_pair_in_prod_l.
+      + eauto using mexp_not_nil, m_pair_in_prod_r.
+      + destruct p as (v1, v2).
+        apply on_of_1 in Hp; auto.
+        destruct Hp as [(Ha,Hb)|(Ha,Hb)].
+        * auto using m_pair_in_prod_1.
+        * auto using m_pair_in_prod_2.
+    - destruct Hp as [Hp|Hp]; inversion Hwf; subst; clear Hwf.
+      + auto using m_pair_in_app_l.
+      + auto using m_pair_in_app_r.
+  Qed.
+
+  Lemma e_pair_in_2:
+    forall p e,
+    MExp e ->
+    MPairIn p (to_mem e) ->
+    e_pair_in p e.
+  Proof.
+    induction e; simpl; intros Hm Hi.
+    - assumption.
+    - inversion Hm; subst; clear Hm.
+      destruct p as (v1, v2).
+      apply m_pair_in_inv_prod in Hi.
+      destruct Hi as [Hi|[Hi|[(Ha,Hb)|(Ha,Hb)]]]; eauto; simpl in *.
+      + apply m_in_list_2 in Ha; auto.
+        apply m_in_list_2 in Hb; auto.
+      + apply m_in_list_2 in Ha; auto.
+        apply m_in_list_2 in Hb; auto.
+    - apply m_pair_in_app_or in Hi.
+      inversion Hm; subst; clear Hm.
+      destruct Hi; auto.
+  Qed.
+
+  Definition EIncl e1 e2 :=
+    MExp e1 ->
+    MExp e2 ->
+    forall p,
+    e_pair_in p e1 ->
+    e_pair_in p e2.
+
+  Lemma minc_to_m_impl:
+    forall x y,
+    MExp x ->
+    MExp y ->
+    EIncl x y ->
+    MIncl (to_mem x) (to_mem y).
+  Proof.
+    unfold EIncl.
+    intros.
+    assert (H1 := H1 H H0).
+    unfold MIncl.
+    intros.
+    apply e_pair_in_2 in H2; auto using e_pair_in_1.
+  Qed.
+
+  Lemma mincl_refl:
+    forall e,
+    EIncl e e.
+  Proof.
+    intros.
+    unfold EIncl.
+    intros.
+    assumption.
+  Qed.
+
+  Lemma minc_trans:
+    forall x y z,
+    MInc x y ->
+    MInc y z ->
+    MInc x z.
+  Proof.
+    intros.
+    
+  Qed.
 End Member.
