@@ -1807,6 +1807,34 @@ Section Defs.
     unfold DeclMap;auto using branch_map_seq.
   Qed.
 
+
+  Lemma decl_map_inv_i_subst_eq:
+    forall x y i n1 n2 m1,
+    ~ In x i ->
+    DeclMap x (i_subst y (NVar x) i) n1 n2 m1 ->
+    DeclMap y i n1 n2 m1.
+  Proof.
+    intros x y i n1 n2 m1 Hn1 Hd.
+    apply decl_map_to_map in Hd.
+    apply decl_map_from_map.
+    apply map_impl with (P:=Iter x (i_subst y (NVar x) i)); auto.
+    intros.
+    unfold Iter in *.
+    rewrite i_subst_subst_trans in H; auto.
+  Qed.
+
+  Lemma run_decl_seq:
+    forall x n1 n2 i j k m1 m2 m3,
+    Run k m1 ->
+    DeclMap x i n1 n2 m2 ->
+    DeclMap x j n1 n2 m3 ->
+    Run (Decl x (NNum n1, NNum n2) (seq i j) k) (prod (List.concat (map2 prod m2 m3)) m1 ++ m1).
+  Proof.
+    intros.
+    eapply run_decl_map; eauto.
+    apply decl_map_seq; auto.
+  Qed.
+
   Let i_subst_not_in_decl_rw:
     forall x n1 y n2 i j hs,
     ~ In x i ->
@@ -1827,7 +1855,7 @@ Section Defs.
     rewrite i_subst_not_in in Hr; auto.
   Qed.
 
-  Lemma branch_map_inv_decl:
+  Lemma branch_map_inv_decl_not_in:
     forall l n1 i j ms x y,
     ~ In x i ->
     ~ In x j ->
@@ -1878,7 +1906,7 @@ Section Defs.
     repeat split; auto using map_cons.
   Qed.
 
-  Lemma decl_map_inv_decl:
+  Lemma decl_map_inv_decl_not_in:
     forall n1 n2 n3 i j ms x y,
     ~ In x i ->
     ~ In x j ->
@@ -1892,7 +1920,7 @@ Section Defs.
     Map (DeclMap y i n1) (range_list n2 n3) hs.
   Proof.
     intros.
-    apply branch_map_inv_decl in H3; auto using range_list_no_dup, range_list_not_nil.
+    apply branch_map_inv_decl_not_in in H3; auto using range_list_no_dup, range_list_not_nil.
   Qed.
 
   Lemma branch_map_decl:
@@ -1946,6 +1974,56 @@ Section Defs.
     apply branch_map_decl; auto using range_list_no_dup, range_list_not_nil.
   Qed.
 
+
+  Lemma branch_map_inv_acc:
+    forall l x e i ms,
+    BranchMap x (Acc e i) l ms ->
+    exists ms1 ms2,
+    ms = map2 prod ms1 ms2 /\
+    BranchMap x (Acc e Skip) l ms1 /\
+    BranchMap x i l ms2.
+  Proof.
+    induction l; intros. {
+      inversion H; subst; clear H.
+      exists [].
+      exists [].
+      repeat split; auto using branch_map_nil.
+    }
+    inversion H; subst; clear H.
+    apply IHl in H4; clear IHl.
+    destruct H4 as (ms1, (ms2, (?, (Hb1, Hb2)))).
+    subst.
+    simpl in H2.
+    destruct e as (ac, e).
+    inversion H2; subst; clear H2.
+    assert (Hra: Run (Acc (access_subst x (NNum a) ac, n_subst x (NNum a) e) Skip) (prepend v [[]])). {
+      auto using run_access, run_skip.
+    }
+    eapply branch_map_cons in Hb1; eauto; clear Hra.
+    exists (prepend v [[]] :: ms1).
+    eapply branch_map_cons in Hb2; eauto.
+    exists (hs0 :: ms2).
+    simpl in *.
+    rewrite app_nil_r in *.
+    rewrite map2_cons_rw.
+    rewrite prepend_rw.
+    auto.
+  Qed.
+
+  Lemma decl_map_inv_acc:
+    forall x e i n1 n2 ms,
+    DeclMap x (Acc e i) n1 n2 ms ->
+    exists ms1 ms2,
+    ms = map2 prod ms1 ms2 /\
+    DeclMap x (Acc e Skip) n1 n2 ms1 /\
+    DeclMap x i n1 n2 ms2.
+  Proof.
+    intros.
+    unfold DeclMap in *.
+    apply branch_map_inv_acc in H.
+    destruct H as (ms1, (ms2, (?, (Hb1, Hb2)))).
+    eauto.
+  Qed.
 End Defs.
 
 Module C2Notations.
