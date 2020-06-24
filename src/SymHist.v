@@ -1065,6 +1065,16 @@ Section Defs.
     exists m2,
     Run j m2 /\ MemEquiv m1 m2.
 
+  Lemma prog_impl_def:
+    forall i j,
+    (forall m1, Run i m1 -> exists m2, Run j m2 /\ MemEquiv m1 m2) ->
+    ProgImpl i j.
+  Proof.
+    intros.
+    unfold ProgImpl.
+    apply H.
+  Qed.
+
   Lemma prog_impl_refl:
     forall i,
     ProgImpl i i.
@@ -1101,6 +1111,15 @@ Section Defs.
 
   Definition ProgEquiv i j : Prop :=
     ProgImpl i j /\ ProgImpl j i.
+
+  Lemma prog_equiv_def:
+    forall i j,
+    ProgImpl i j ->
+    ProgImpl j i ->
+    ProgEquiv i j.
+  Proof.
+    split; auto.
+  Qed.
 
   Lemma run_prog_equiv_inv_l:
     forall i m1 j,
@@ -2023,6 +2042,122 @@ Section Defs.
     apply branch_map_inv_acc in H.
     destruct H as (ms1, (ms2, (?, (Hb1, Hb2)))).
     eauto.
+  Qed.
+
+  Lemma impl_branch_nil_1:
+    forall x i j,
+    ProgImpl
+      (Branch x [] i j)
+      j.
+  Proof.
+    intros.
+    apply prog_impl_def.
+    intros.
+    inversion H; subst; clear H.
+    exists m1.
+    split; auto; reflexivity.
+  Qed.
+
+  Lemma impl_branch_nil_2:
+    forall x i j,
+    ProgImpl
+      j
+      (Branch x [] i j).
+  Proof.
+    intros.
+    apply prog_impl_def.
+    intros.
+    exists m1.
+    split; auto using run_branch_nil; reflexivity.
+  Qed.
+
+  Lemma p_eq_branch_nil:
+    forall x i j,
+    ProgEquiv (Branch x [] i j) j.
+  Proof.
+    intros.
+    auto using prog_equiv_def, impl_branch_nil_1, impl_branch_nil_2.
+  Qed.
+
+  Import Morphisms.
+
+  Lemma p_eq_seq_impl:
+    forall i1 i2 j1 j2,
+    ProgEquiv i1 i2 ->
+    ProgEquiv j1 j2 ->
+    ProgImpl (seq i1 j1) (seq i2 j2).
+  Proof.
+    intros.
+    apply prog_impl_def.
+    intros.
+    apply run_inv_seq in H1.
+    destruct H1 as (hs1, (hs2, (?, (Hr1, Hr2)))).
+    subst.
+    assert (hs1 <> []) by eauto using run_not_nil.
+    assert (hs2 <> []) by eauto using run_not_nil.
+    eapply run_prog_equiv_inv_l in Hr1; eauto.
+    destruct Hr1 as (m2, (Hr_i2, ?)).
+    eapply run_prog_equiv_inv_l in Hr2; eauto.
+    destruct Hr2 as (m3, (Hr_j2, ?)).
+    exists (prod m2 m3).
+    split; auto using run_seq.
+    rewrite mem_equiv_prod_l with (m4:=m2); eauto using run_not_nil.
+    rewrite mem_equiv_prod_r with (m4:=m3); eauto using run_not_nil.
+    reflexivity.
+  Qed.
+
+  Lemma p_eq_seq:
+    forall i1 i2 j1 j2,
+    ProgEquiv i1 i2 ->
+    ProgEquiv j1 j2 ->
+    ProgEquiv (seq i1 j1) (seq i2 j2).
+  Proof.
+    intros.
+    apply prog_equiv_def.
+    - auto using p_eq_seq_impl.
+    - symmetry in H.
+      symmetry in H0.
+      auto using p_eq_seq_impl.
+  Qed.
+
+  Global Instance seq_p_equiv_proper: Proper (ProgEquiv ==> ProgEquiv ==> ProgEquiv) seq.
+  Proof.
+    unfold Proper, respectful.
+    intros.
+    auto using p_eq_seq.
+  Qed.
+
+  Global Instance seq_p_impl_proper: Proper (ProgEquiv ==> ProgEquiv ==> ProgImpl) seq.
+  Proof.
+    unfold Proper, respectful.
+    intros.
+    auto using p_eq_seq_impl.
+  Qed.
+
+  Global Instance proper_prog_impl_2: Proper (ProgEquiv ==> ProgEquiv ==> Basics.flip Basics.impl) ProgImpl.
+  Proof.
+  Admitted.
+
+  Lemma impl_branch_branch_seq_1:
+    forall x l i1 i2 j1 j2,
+    ProgImpl
+      (Branch x l (seq i1 i2) (seq j1 j2))
+      (seq (Branch x l i1 j1) (Branch x l i2 j2)).
+  Proof.
+    induction l; intros. {
+      rewrite p_eq_branch_nil.
+      rewrite p_eq_branch_nil.
+      rewrite p_eq_branch_nil.
+      reflexivity.
+    }
+  Qed.
+
+  Lemma impl_branch_seq_2:
+    forall x l i j k,
+    ProgImpl
+      (seq (Branch x l i k) (Branch x l j k))
+      (Branch x l (seq i j) k).
+  Proof.
   Qed.
 End Defs.
 

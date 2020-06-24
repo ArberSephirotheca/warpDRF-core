@@ -816,35 +816,6 @@ Section Compiler.
   Definition m_decl_seq (m1 : list history) (m2 m3 : list (list history)) :=
     prod (List.concat (map2 prod m2 m3)) m1 ++ m1.
 
-  Lemma decl_map_decl_seq:
-    forall l x y r i j k m1 m2 m3,
-    BranchMap x (Decl y r i k) l m1 ->
-    BranchMap x (Decl y r j k) l m2 ->
-    x <> y ->
-    Run k m3 ->
-    BranchMap x (Decl y r (seq i j) k) l (map2 prod m1 m2).
-  Proof.
-    induction l; intros; inversion H; inversion H0; subst; clear H H0. {
-      apply branch_map_nil.
-    }
-    rewrite map2_cons_rw.
-    apply branch_map_cons; eauto.
-    simpl in *.
-    destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
-    rewrite i_subst_seq.
-    apply run_decl_map.
-    apply run_decl_seq in H7.
-  Qed.
-
-  Lemma decl_map_decl_seq:
-    forall x y r i j k n1 n2 m1 m2, 
-    DeclMap x (Decl y r i k) n1 n2 m1 ->
-    DeclMap x (Decl y r j k) n1 n2 m2 ->
-    DeclMap x (Decl y r (seq i j) k) n1 n2 (map2 prod m1 m2).
-  Proof.
-    
-  Qed.
-
   Lemma branch_map_decl_not_in:
     forall l i m1 m2 x y j,
     ~ In y i ->
@@ -945,7 +916,7 @@ Section Compiler.
     intros.
     apply branch_map_translate_t2; auto.
   Qed.
-
+(*
   Lemma run_translate_def2:
     forall m1 i m2,
     ~ In T1 (proj i) ->
@@ -1018,7 +989,7 @@ Section Compiler.
     unfold translate.
     eauto using run_decl_map, SymHist.run_skip.
   Qed.
-
+*)
 
   Lemma run_translate_def2:
     forall m1 i m2,
