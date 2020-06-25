@@ -518,7 +518,7 @@ destruct EX.
   exists i.
   auto using unsync_normalisable. 
 - left.
-  eauto using sync_normalisable. 
+  auto using sync_normalisable. 
 Qed.
 
 
