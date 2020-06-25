@@ -500,39 +500,30 @@ induction i.
     auto using norm_loop_step.
 Qed.
 
-    exists None.
-    exists (Access a).
-      +
-      destruct IHi2.
-      + admit.
-      + inversion H. inversion H2. inversion H1.
-        exists (Seq x1 (Seq x2 x)).
-        exists x0.
-        apply norm_seq_dual; assumption.
-        (* continue here *)
-      inversion H2; subst. inversion H0; subst.
-      
-      assert (Unsync i2 \/ In Sync i2). { 
-        
-      } 
-      destruct H0.
-      + admit.
-      + 
-    * apply IHi2 in H2. (*j |> j1 j2*)
-    
-  apply norm_unsync.
-assumption.
-Qed.
 
 
-Theorem normalisable:
+(* sync_normalisable and unsync_normalisable *)
+Theorem allnormalisable:
   forall i,
-  exists j j1 j2, 
-  (Normalised i (Some j1, j2)) 
+  (exists j1 j2, 
+  (Normalised i (Some j1, j2)))
   \/ 
+  exists j, 
   (Normalised i (None, j)).
 Proof.
 intros.
+assert (EX: Unsync i \/ In Sync i). { apply unsync_insync. }
+destruct EX.
+- right.
+  exists i.
+  auto using unsync_normalisable. 
+- left.
+  eauto using sync_normalisable. 
+Qed.
+
+
+
+- 
 induction i.
 - assert (Unsync Skip).
   * apply unsync_skip.
