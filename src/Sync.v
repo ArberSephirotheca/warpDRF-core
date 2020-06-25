@@ -398,6 +398,40 @@ assumption.
 Qed.
 
 
+Lemma unsync_insync:
+forall i,
+Unsync i \/ In Sync i.
+Proof.
+intro.
+induction i.
+- left.
+  apply unsync_skip.
+- right.
+  apply in_sync.
+- destruct IHi1; destruct IHi2.
+    + left.
+      apply unsync_seq; assumption.
+    + right.
+      apply in_seq_r; assumption.
+    + right.
+      apply in_seq_l; assumption.
+    + right. 
+      apply in_seq_l; assumption.
+- left.
+  apply unsync_access.
+- destruct IHi.
+  * left. 
+    apply unsync_for; assumption.
+  * right.
+    apply in_for; assumption.
+- destruct IHi.
+  * left. 
+    apply unsync_loop; assumption.
+  * right.
+    apply in_loop; assumption.
+Qed.
+
+
 Theorem sync_normalisable:
   forall i,
   In Sync i ->
@@ -420,6 +454,13 @@ induction i.
   - intro.
     inversion H; subst; clear H.
     * apply IHi1 in H2. (*i |> i1 i2*)
+       assert (EX: Unsync i2 \/ In Sync i2). { apply unsync_insync. }
+      destruct EX.
+      + (* unsync i2 *)
+        inversion H2. inversion H0.
+        exists x. exists (Seq x0 i2).
+        apply norm_seq_r.
+      + 
       destruct IHi2.
       + admit.
       + inversion H. inversion H2. inversion H1.
