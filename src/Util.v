@@ -424,6 +424,22 @@ Section Ops.
     rewrite in_app_iff.
     auto.
   Qed.
+
+  Lemma prod_inv_not_nil:
+    forall A m1 m2,
+    @prod A m1 m2 <> [] ->
+    m1 <> [] /\ m2 <> [].
+  Proof.
+    intros.
+    destruct m1. {
+      contradiction.
+    }
+    destruct m2. {
+      rewrite prod_nil_r in *.
+      contradiction.
+    }
+    split; intros N; inversion N.
+  Qed.
 End Ops.
 
 Section filter.
