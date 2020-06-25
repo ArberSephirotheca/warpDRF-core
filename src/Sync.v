@@ -522,29 +522,115 @@ destruct EX.
 Qed.
 
 
+Lemma mrun_sync:
+  forall h,
+  Multi_Run (Sync, h) (Skip, []).
+Proof.
+  intros.
+  apply run_imp_mrun.
+  apply run_sync.
+Qed.
+(*
+Lemma mrun_seq_sync_skip:
+  forall h,
+  Multi_Run (Seq Sync Skip, h) (Sync, h).
+Proof.
+  intros.
+  apply 
+Qed.
+*)
+
+Lemma mrun_seq_skip:
+  forall i h,
+  Multi_Run (Seq Skip i, h) (i, h).
+Proof.
+  intros.
+  apply run_imp_mrun.
+  apply run_seq_skip.
+Qed.
+
+Lemma run_fun:
+  forall x y,
+  Run x y ->
+  forall z,
+  Run x z ->
+  y = z.
+Proof.
+  intros x y H.
+  induction H; intros; auto.
+  - inversion H; subst; clear H.
+    reflexivity.
+  - inversion H0; subst; clear H0.
+    assert (v0 = v) by eauto using gen_access_fun.
+    subst.
+    reflexivity.
+  - inversion H0; subst; clear H0.
+    + apply IHRun in H5.
+      inversion H5; subst; clear H5.
+      reflexivity.
+    + inversion H; subst; clear H.
+  - inversion H; subst; clear H.
+    + inversion H4.
+    + reflexivity.
+  - inversion H0; subst; clear H0.
+    assert (l0 = l) by eauto using r_step_fun.
+    subst.
+    reflexivity.
+  - inversion H; subst; clear H.
+    reflexivity.
+  - inversion H; subst; clear H.
+    reflexivity.
+Qed.
+(* If multi-run is performing a step, then we can decompose it. *)
+Lemma multi_run_inv_step:
+  forall i h1 j h2 i' h1',
+  Multi_Run (i, h1) (j, h2) ->
+  i <> j ->
+  Run (i, h1) (i', h1') ->
+  Multi_Run (i', h1') (j, h2).
+Proof.
+  intros.
+  inversion H; subst; clear H.
+  + contradiction.
+  + assert (R: (i', h1') = (i2, h3)) by eauto using run_fun.
+    inversion R; subst; auto.
+Qed.
+
+Lemma mrun_seq:
+  forall i h j h' k,
+  Run (i, h) (j, h') ->
+  Multi_Run (Seq i k, h) (Seq j k, h').
+Proof.
+  intros.
+  auto using run_imp_mrun, run_seq.
+Qed.
 
 Theorem src_norm:
 forall i x hi,
 Run (i, hi) x ->
 exists i1 i2,
-Normalised i (Some i1, i2) ->
+Normalised i (Some i1, i2) /\
 Multi_Run (Seq i1 i2, hi) x.
 Proof.
-intros.
-induction i.
-- exists Skip. exists Skip.
-  intro.
-  inversion H.
-- exists Sync. exists Skip.
-  intro.
-  inversion H; subst.
-  apply mrun_step with (i2:= Seq Skip Skip) (h2:=[]).
-  * apply run_seq. apply run_sync.
-  * apply mrun_step with (i2:=Skip) (h2:=[]).
-    + apply run_seq_skip.
-    + apply mrun_refl.
-- inversion H; subst; clear H.
-  * 
+intros i hi x H.
+remember (i, x) as a.
+generalize dependent Heqa.
+induction H; subst; intros; inversion Heqa; subst; clear Heqa.
+- eexists.
+  eexists.
+  split. {
+    apply norm_sync.
+  }
+  transitivity (Seq Skip Skip, @nil access_val).
+  + auto using mrun_seq, run_sync.
+  + apply mrun_seq_skip.
+- (* The conclusion is not strong enough, we need to change it to
+   Normalized i (o, i2) /\ MultiRun (merge o i2, hi) x
+   where
+     merge None i = i
+     merge (Some i) j = Seq i j 
+   *)
+
   
 - assert (CA: forall z1 z2, ~Normalised Skip (Some z1, z2)). {
 
