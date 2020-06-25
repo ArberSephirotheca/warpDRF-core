@@ -1457,20 +1457,100 @@ Section Member.
     apply mem_equiv_prod; auto using to_mem_not_nil.
   Qed.
 
-  Lemma prod_inv_not_nil:
-    forall A m1 m2,
-    @prod A m1 m2 <> [] ->
-    m1 <> [] /\ m2 <> [].
+  Lemma e_prod_app:
+    forall e1 e2 e3,
+    EEq (Plus (Prod e1 e3) (Prod e2 e3)) (Prod (Plus e1 e2) e3).
   Proof.
     intros.
-    destruct m1. {
-      contradiction.
-    }
-    destruct m2. {
-      rewrite prod_nil_r in *.
-      contradiction.
-    }
-    split; intros N; inversion N.
+    apply e_eq_iff_m_equiv.
+    simpl.
+    rewrite prod_app.
+    reflexivity.
   Qed.
+
+  Lemma e_prod_nil_l:
+    forall m,
+    EEq (Prod (One []) m) m.
+  Proof.
+    intros.
+    apply e_eq_iff_m_equiv.
+    simpl.
+    rewrite app_nil_r.
+    rewrite prepend_nil_l.
+    reflexivity.
+  Qed.
+
+  Lemma e_prod_nil_r:
+    forall m,
+    EEq (Prod m (One [])) m.
+  Proof.
+    intros.
+    apply e_eq_iff_m_equiv.
+    simpl.
+    rewrite prod_nil_nil_r.
+    reflexivity.
+  Qed.
+
+  Lemma e_prod_assoc:
+    forall m1 m2 m3,
+    EEq (Prod (Prod m1 m2) m3) (Prod m1 (Prod m2 m3)).
+  Proof.
+    intros.
+    apply e_eq_iff_m_equiv.
+    simpl.
+    rewrite prod_assoc.
+    reflexivity.
+  Qed.
+
+  Inductive EEqList : list mexp -> list mexp -> Prop :=
+  | e_eq_list_nil:
+    EEqList [] []
+  | e_eq_list_cons:
+    forall m1 m2 mm1 mm2,
+    EEq m1 m2 ->
+    EEqList mm1 mm2 ->
+    EEqList (m1::mm1) (m2::mm2).
+
+  Lemma e_eq_list_refl:
+    forall m,
+    EEqList m m.
+  Proof.
+    induction m; auto using e_eq_list_nil.
+    apply e_eq_list_cons; auto.
+    reflexivity.
+  Qed.
+
+  Lemma e_eq_list_trans:
+    forall x y z,
+    EEqList x y ->
+    EEqList y z ->
+    EEqList x z.
+  Proof.
+    intros x y.
+    generalize dependent x.
+    induction y; intros; inversion H; inversion H0; subst; clear H H0.
+    - apply e_eq_list_nil.
+    - apply e_eq_list_cons; eauto.
+      etransitivity; eauto.
+  Qed.
+
+  Lemma e_eq_list_sym:
+    forall x y,
+    EEqList x y ->
+    EEqList y x.
+  Proof.
+    induction x; intros; inversion H; subst; clear H. {
+      apply e_eq_list_nil.
+    }
+    apply IHx in H4.
+    symmetry in H2.
+    auto using e_eq_list_cons.
+  Qed.
+
+  Global Add Parametric Relation : _ EEqList
+    reflexivity proved by e_eq_list_refl
+    symmetry proved by e_eq_list_sym
+    transitivity proved by e_eq_list_trans
+    as e_eq_list_setoid.
 
 End Member.
