@@ -523,6 +523,31 @@ Qed.
 
 
 
+Theorem src_norm:
+forall i x hi,
+Run (i, hi) x ->
+exists i1 i2,
+Normalised i (Some i1, i2) ->
+Multi_Run (Seq i1 i2, hi) x.
+Proof.
+intros.
+induction i.
+- exists Skip. exists Skip.
+  intro.
+  inversion H.
+- exists Sync. exists Skip.
+  intro.
+  inversion H; subst.
+  apply mrun_step with (i2:= Seq Skip Skip) (h2:=[]).
+  * apply run_seq. apply run_sync.
+  * apply mrun_step with (i2:=Skip) (h2:=[]).
+    + apply run_seq_skip.
+    + apply mrun_refl.
+- inversion H; subst; clear H.
+  * 
+  
+- assert (CA: forall z1 z2, ~Normalised Skip (Some z1, z2)). {
+
 - 
 induction i.
 - assert (Unsync Skip).
