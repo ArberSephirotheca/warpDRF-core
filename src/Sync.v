@@ -183,7 +183,6 @@ induction i; intros.
 Qed.
 
 
-
 Import Hist.
 
 Notation history := (list access_val).
@@ -191,7 +190,7 @@ Notation history := (list access_val).
 Context `{T:Tasks}.
 
 
-Inductive Run: (inst * history) -> (inst * history) -> Prop:=
+Inductive Run: (inst * history) -> (inst * history) -> Prop :=
 | run_sync:
   forall h,
   Run (Sync, h) (Skip, [])
@@ -348,6 +347,116 @@ reflexivity.
 Qed.
 
 
+Inductive Normalised: inst -> (option inst * inst) -> Prop :=
+| norm_unsync:
+  forall i,
+  Unsync i -> 
+  Normalised i (None, i)
+| norm_sync:
+  Normalised Sync (Some Sync, Skip)
+| norm_seq_dual:
+  forall i i1 i2 j j1 j2,
+  Normalised i (Some i1, i2) ->
+  Normalised j (Some j1, j2) ->
+  Normalised (Seq i j) (Some (Seq i1 (Seq i2 j1)), j2)
+| norm_seq_r:
+  forall i j j1 j2,
+  Unsync i -> 
+  Normalised j (Some j1, j2) ->
+  Normalised (Seq i j) (Some (Seq i j1), j2)
+| norm_seq_l:
+  forall i i1 i2 j,
+  Unsync j -> 
+  Normalised i (Some i1, i2) ->
+  Normalised (Seq i j) (Some i, Seq i2 j)
+| norm_for_step: 
+  forall v r i i1 i2,
+  Normalised i (Some i1, i2) ->
+  Normalised (For v r i) (Some (Seq i1 (For v r (Seq i2 i1))), i2) (* still needs to replace things here *)
+| norm_for_nop: 
+  forall v r i i1 i2,
+  Normalised i (Some i1, i2) ->
+  Normalised (For v r i) (None, Skip)
+| norm_loop_step: 
+  forall v r i i1 i2,
+  Normalised i (Some i1, i2) ->
+  Normalised (Loop v r i) (Some (Seq i1 (Loop v r (Seq i2 i1))), i2) (* still needs to replace things here *)
+| norm_loop_nop: 
+  forall v r i i1 i2,
+  Normalised i (Some i1, i2) ->
+  Normalised (Loop v r i) (None, Skip)
+.
+
+Theorem unsync_normalisable:
+  forall i,
+  Unsync i ->
+  Normalised i (None, i).
+Proof.
+intros.
+apply norm_unsync.
+assumption.
+Qed.
+
+
+Theorem sync_normalisable:
+  forall i,
+  In Sync i ->
+  exists i1 i2, 
+  Normalised i (Some i1, i2).
+Proof.
+intros i.
+induction i.
+  - assert (HA: ~In Sync Skip). 
+    { 
+      unfold not.
+      intro.
+      inversion H.
+    }
+    contradiction.
+  - intro. 
+    exists Sync.
+    exists Skip.
+    apply norm_sync.
+  - intro.
+    inversion H; subst; clear H.
+    * apply IHi1 in H2. (*i |> i1 i2*)
+      destruct IHi2.
+      + admit.
+      + inversion H. inversion H2. inversion H1.
+        exists (Seq x1 (Seq x2 x)).
+        exists x0.
+        apply norm_seq_dual; assumption.
+        (* continue here *)
+      inversion H2; subst. inversion H0; subst.
+      
+      assert (Unsync i2 \/ In Sync i2). { 
+        
+      } 
+      destruct H0.
+      + admit.
+      + 
+    * apply IHi2 in H2. (*j |> j1 j2*)
+    
+  apply norm_unsync.
+assumption.
+Qed.
+
+
+Theorem normalisable:
+  forall i,
+  exists j j1 j2, 
+  (Normalised i (Some j1, j2)) 
+  \/ 
+  (Normalised i (None, j)).
+Proof.
+intros.
+induction i.
+- assert (Unsync Skip).
+  * apply unsync_skip.
+  * apply norm_unsync.
+
+
+
 (*
 Theorem seq_mrun:
   forall i1 i2 i3 h1 h2 h3,
@@ -374,17 +483,37 @@ induction H2.
       * 
   - *)
 
+(*
+Theorem run_seq_kip_r:
+  forall i1 h1,
+  Multi_Run (Seq i1 Skip, h1) (i1, h1).
+Proof.
+intros.
+apply mrun_step with (i2:=i1) (h2:=h1).
+- 
+- apply mrun_refl.
+*)
+
+(*
+
 Theorem unit_skip_r:
   forall i1 h1 h2,
   Multi_Run (i1, h1) (Skip, h2) ->
   Multi_Run (Seq i1 Skip, h1) (Skip, h2).
 Proof.
 intros.
+induction i1; intros; apply mrun_step with (i2:=Skip) (h2:=h1).
+  * apply run_seq_skip.
+  * assumption.
+  * 
+- 
 inversion H; subst; clear H.
 - apply mrun_step with (i2:=Skip) (h2:=h2).
   * apply run_seq_skip.
   * apply mrun_refl.
-- 
+- apply mrun_step with (i2:=Skip) (h2:=h2).
+  * 
+  * apply mrun_refl.
 
 induction i1.
 - inversion H1; subst.
@@ -429,4 +558,6 @@ Multi_Run i1 h1 i2 h2 ->
 Multi_Run (Seq Skip i1) h1 i2 h2.
 Proof.
 intros.
+
+*)
 
