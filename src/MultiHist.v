@@ -1024,24 +1024,81 @@ Section Member.
     auto.
   Qed.
 
+  Lemma m_pair_in_nil_nil:
+    forall A p,
+    ~ @MPairIn A p [[]].
+  Proof.
+    intros.
+    intros N.
+    inversion N; subst; clear N.
+    - apply par_not_in_nil in H0.
+      assumption.
+    - inversion H0.
+  Qed.
+
+  Lemma mem_equiv_prod:
+    forall (m1 m2 m3 m4 : list history),
+    m1 <> [] ->
+    m2 <> [] ->
+    m3 <> [] ->
+    m4 <> [] ->
+    MemEquiv m1 m2 ->
+    MemEquiv m3 m4 ->
+    MemEquiv (prod m1 m3) (prod m2 m4).
+  Proof.
+    split; intros.
+    - apply m_pair_in_inv_prod in H5.
+      destruct H5 as [Hi|[Hi|[(Ha,Hb)|(Ha,Hb)]]].
+      + apply H3 in Hi.
+        apply m_pair_in_prod_l; auto.
+      + apply H4 in Hi. 
+        apply m_pair_in_prod_r; auto.
+      + destruct p.
+        simpl in *.
+        rewrite H3 in *.
+        rewrite H4 in *.
+        apply m_pair_in_prod_1; auto.
+      + destruct p.
+        simpl in *.
+        rewrite H3 in *.
+        rewrite H4 in *.
+        apply m_pair_in_prod_2; auto.
+    - apply m_pair_in_inv_prod in H5.
+      destruct H5 as [Hi|[Hi|[(Ha,Hb)|(Ha,Hb)]]].
+      + apply H3 in Hi.
+        apply m_pair_in_prod_l; auto.
+      + apply H4 in Hi. 
+        apply m_pair_in_prod_r; auto.
+      + destruct p.
+        simpl in *.
+        rewrite <- H3 in *.
+        rewrite <- H4 in *.
+        apply m_pair_in_prod_1; auto.
+      + destruct p.
+        simpl in *.
+        rewrite <- H3 in *.
+        rewrite <- H4 in *.
+        apply m_pair_in_prod_2; auto.
+  Qed.
+
   (** Theory of memory expressions *)
 
   Inductive mexp :=
-  | One: forall (m:list history), m <> [] -> mexp
+  | One: history -> mexp
   | Prod: mexp -> mexp -> mexp
   | Plus: mexp -> mexp -> mexp.
 
   (* We can flatten an expression down to a memory *)
   Fixpoint to_mem m :=
   match m with
-  | One m _ => m
+  | One h => [h]
   | Prod m1 m2 => prod (to_mem m1) (to_mem m2)
   | Plus m1 m2 => app (to_mem m1) (to_mem m2)
   end.
 
   Fixpoint flatten_exp e :=
   match e with
-  | One m _ => [m]
+  | One h => [[h]]
   | Prod e1 e2 => flatten_exp e1 ++ flatten_exp e2
   | Plus e1 e2 => flatten_exp e1 ++ flatten_exp e2
   end.
@@ -1120,7 +1177,7 @@ Section Member.
 
   Fixpoint e_pair_in p pe :=
   match pe with
-  | One m _ => MPairIn p m
+  | One h => PairIn p h
   | Plus e1 e2 =>
     (* MPairIn p (ls1 ++ ls2) ->
        MPairIn p ls1 \/ MPairIn p ls2 *)
@@ -1142,7 +1199,8 @@ Section Member.
     to_mem e <> nil.
   Proof.
     induction e; simpl.
-    - assumption.
+    - intros N.
+      inversion N.
     - auto using prod_neq_nil.
     - auto using app_neq_nil.
   Qed.
@@ -1207,7 +1265,7 @@ Section Member.
     MPairIn p (to_mem e).
   Proof.
     induction e; intros Hp; intros; simpl in *.
-    - assumption.
+    - auto using m_pair_in_eq.
     - destruct Hp as [Hp|[Hp|Hp]].
       + eauto using to_mem_not_nil, m_pair_in_prod_l.
       + eauto using to_mem_not_nil, m_pair_in_prod_r.
@@ -1227,7 +1285,8 @@ Section Member.
     e_pair_in p e.
   Proof.
     induction e; simpl; intros Hi.
-    - assumption.
+    - inversion Hi; subst; clear Hi; auto.
+      inversion H0.
     - destruct p as (v1, v2).
       apply m_pair_in_inv_prod in Hi.
       destruct Hi as [Hi|[Hi|[(Ha,Hb)|(Ha,Hb)]]]; eauto; simpl in *.
@@ -1386,51 +1445,6 @@ Section Member.
     auto using mem_equiv_app.
   Qed.
 
-  Lemma mem_equiv_prod:
-    forall (m1 m2 m3 m4 : list history),
-    m1 <> [] ->
-    m2 <> [] ->
-    m3 <> [] ->
-    m4 <> [] ->
-    MemEquiv m1 m2 ->
-    MemEquiv m3 m4 ->
-    MemEquiv (prod m1 m3) (prod m2 m4).
-  Proof.
-    split; intros.
-    - apply m_pair_in_inv_prod in H5.
-      destruct H5 as [Hi|[Hi|[(Ha,Hb)|(Ha,Hb)]]].
-      + apply H3 in Hi.
-        apply m_pair_in_prod_l; auto.
-      + apply H4 in Hi. 
-        apply m_pair_in_prod_r; auto.
-      + destruct p.
-        simpl in *.
-        rewrite H3 in *.
-        rewrite H4 in *.
-        apply m_pair_in_prod_1; auto.
-      + destruct p.
-        simpl in *.
-        rewrite H3 in *.
-        rewrite H4 in *.
-        apply m_pair_in_prod_2; auto.
-    - apply m_pair_in_inv_prod in H5.
-      destruct H5 as [Hi|[Hi|[(Ha,Hb)|(Ha,Hb)]]].
-      + apply H3 in Hi.
-        apply m_pair_in_prod_l; auto.
-      + apply H4 in Hi. 
-        apply m_pair_in_prod_r; auto.
-      + destruct p.
-        simpl in *.
-        rewrite <- H3 in *.
-        rewrite <- H4 in *.
-        apply m_pair_in_prod_1; auto.
-      + destruct p.
-        simpl in *.
-        rewrite <- H3 in *.
-        rewrite <- H4 in *.
-        apply m_pair_in_prod_2; auto.
-  Qed.
-
 
   Global Instance e_eq_proper_2: Proper (EEq ==> EEq ==> EEq) Prod.
   Proof.
@@ -1457,38 +1471,6 @@ Section Member.
       contradiction.
     }
     split; intros N; inversion N.
-  Qed.
-
-  Lemma one_prod_rw:
-    forall m1 m2 n1,
-    exists n2 n3,
-    EEq (One (prod m1 m2) n1) (Prod (One m1 n2) (One m2 n3)).
-  Proof.
-    intros.
-    assert (Hx := n1).
-    apply prod_inv_not_nil in Hx.
-    destruct Hx as (n2, n3).
-    exists n2.
-    exists n3.
-    split; intros.
-    - apply e_pair_in_1 in H.
-      apply e_pair_in_2.
-      simpl in *.
-      assumption.
-    - apply e_pair_in_1 in H.
-      apply e_pair_in_2.
-      simpl in *.
-      assumption.
-  Qed.
-
-  Lemma one_app_rw m1 m2 n1 (n2:m1 <> []) (n3:m2 <> []):
-    EEq (One (app m1 m2) n1) (Plus (One m1 n2) (One m2 n3)).
-  Proof.
-    split;
-        intros;
-        apply e_pair_in_1 in H;
-        apply e_pair_in_2;
-        simpl in *; auto.
   Qed.
 
 End Member.
