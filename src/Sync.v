@@ -368,7 +368,7 @@ Inductive Normalised: inst -> (option inst * inst) -> Prop :=
   forall i i1 i2 j,
   Unsync j -> 
   Normalised i (Some i1, i2) ->
-  Normalised (Seq i j) (Some i, Seq i2 j)
+  Normalised (Seq i j) (Some i1, Seq i2 j)
 | norm_for_step: 
   forall v r i i1 i2,
   Normalised i (Some i1, i2) ->
@@ -454,13 +454,55 @@ induction i.
   - intro.
     inversion H; subst; clear H.
     * apply IHi1 in H2. (*i |> i1 i2*)
-       assert (EX: Unsync i2 \/ In Sync i2). { apply unsync_insync. }
+      assert (EX: Unsync i2 \/ In Sync i2). { apply unsync_insync. }
       destruct EX.
       + (* unsync i2 *)
         inversion H2. inversion H0.
         exists x. exists (Seq x0 i2).
-        apply norm_seq_r.
-      + 
+        auto using norm_seq_l.
+      + apply IHi2 in H. (* sync i2 *)
+        inversion H; clear H. inversion H0; clear H0.
+        inversion H2; clear H2. inversion H0; clear H0.
+        exists (Seq x1 (Seq x2 x)).
+        exists x0.
+        auto using norm_seq_dual.
+   * apply IHi2 in H2. (*j |> j1 j2*)
+     assert (EX: Unsync i1 \/ In Sync i1). { apply unsync_insync. }
+     destruct EX; destruct H2 as (x, (y, APH)).
+     + exists (Seq i1 x).
+       exists y.
+       auto using norm_seq_r.
+     + apply IHi1 in H.
+       destruct H as (x2, (y2, BPH)).
+       exists (Seq x2 (Seq y2 x)).
+       exists y.
+       auto using norm_seq_dual.
+  - assert (HA: ~In Sync (Access a)). 
+    { 
+      unfold not.
+      intro.
+      inversion H.
+    }
+    contradiction.
+  - intro. 
+    inversion H; subst; clear H.
+    apply IHi in H2.
+    destruct H2 as (x, (y, AH)).
+    exists (Seq x (For v r (Seq y x))). (*will need to inst here *)
+    exists y.
+    auto using norm_for_step.
+ - intro. 
+    inversion H; subst; clear H.
+    apply IHi in H2.
+    destruct H2 as (x, (y, AH)).
+    exists (Seq x (Loop v l (Seq y x))). (*will need to inst here *)
+    exists y.
+    auto using norm_loop_step.
+Qed.
+
+    exists None.
+    exists (Access a).
+      +
       destruct IHi2.
       + admit.
       + inversion H. inversion H2. inversion H1.
