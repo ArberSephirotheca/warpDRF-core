@@ -1137,7 +1137,7 @@ Section Member.
     one_of p (flatten_exp e1) (flatten_exp e2)
   end.
 
-  Lemma mexp_not_nil:
+  Lemma to_mem_not_nil:
     forall e,
     to_mem e <> nil.
   Proof.
@@ -1157,17 +1157,17 @@ Section Member.
     - apply m_in_list_app_or in Hi.
       destruct Hi. {
         apply IHe1 in H; auto.
-        apply m_in_prod_l; eauto using mexp_not_nil.
+        apply m_in_prod_l; eauto using to_mem_not_nil.
       }
       apply IHe2 in H; auto.
-      apply m_in_prod_r; eauto using mexp_not_nil.
+      apply m_in_prod_r; eauto using to_mem_not_nil.
     - apply m_in_list_app_or in Hi.
       destruct Hi. {
         apply IHe1 in H; auto.
-        apply m_in_app_l; eauto using mexp_not_nil.
+        apply m_in_app_l; eauto using to_mem_not_nil.
       }
       apply IHe2 in H; auto.
-      apply m_in_app_r; eauto using mexp_not_nil.
+      apply m_in_app_r; eauto using to_mem_not_nil.
   Qed.
 
   Lemma m_in_list_2:
@@ -1209,8 +1209,8 @@ Section Member.
     induction e; intros Hp; intros; simpl in *.
     - assumption.
     - destruct Hp as [Hp|[Hp|Hp]].
-      + eauto using mexp_not_nil, m_pair_in_prod_l.
-      + eauto using mexp_not_nil, m_pair_in_prod_r.
+      + eauto using to_mem_not_nil, m_pair_in_prod_l.
+      + eauto using to_mem_not_nil, m_pair_in_prod_r.
       + destruct p as (v1, v2).
         apply on_of_1 in Hp; auto.
         destruct Hp as [(Ha,Hb)|(Ha,Hb)].
@@ -1294,4 +1294,201 @@ Section Member.
     rewrite <- e_incl_iff_m_incl in *.
     transitivity (to_mem y); auto.
   Qed.
+
+  Definition EEq e1 e2 :=
+    forall p,
+    e_pair_in p e1 <->
+    e_pair_in p e2.
+
+  Lemma m_equiv_to_e_eq:
+    forall e1 e2,
+    EEq e1 e2 ->
+    MemEquiv (to_mem e1) (to_mem e2).
+  Proof.
+    unfold EEq, MemEquiv.
+    split; intros;
+      apply e_pair_in_2 in H0;
+      apply H in H0;
+      eauto using e_pair_in_1.
+  Qed.
+
+  Lemma e_eq_to_m_equiv:
+    forall e1 e2,
+    MemEquiv (to_mem e1) (to_mem e2) ->
+    EEq e1 e2.
+  Proof.
+    unfold EEq, MemEquiv.
+    split; intros;
+      apply e_pair_in_1 in H0;
+      apply H in H0;
+      eauto using e_pair_in_2.
+  Qed.
+
+  Lemma e_eq_iff_m_equiv:
+    forall e1 e2,
+    MemEquiv (to_mem e1) (to_mem e2) <->
+    EEq e1 e2.
+  Proof.
+    split; intros; auto using e_eq_to_m_equiv, m_equiv_to_e_eq.
+  Qed.
+
+  Lemma e_eq_refl:
+    forall e,
+    EEq e e.
+  Proof.
+    intros.
+    apply e_eq_iff_m_equiv.
+    reflexivity.
+  Qed.
+
+  Lemma e_eq_sym:
+    forall x y,
+    EEq x y ->
+    EEq y x.
+  Proof.
+    intros.
+    apply e_eq_iff_m_equiv in H.
+    apply e_eq_iff_m_equiv.
+    symmetry; assumption. 
+  Qed.
+
+  Lemma e_eq_trans:
+    forall x y z,
+    EEq x y ->
+    EEq y z ->
+    EEq x z.
+  Proof.
+    intros.
+    apply e_eq_iff_m_equiv in H.
+    apply e_eq_iff_m_equiv in H0.
+    apply e_eq_iff_m_equiv.
+    etransitivity; eauto.
+  Qed.
+
+  (** Register [MemEquiv] in Coq's tactics. *)
+  Global Add Parametric Relation : _ EEq
+    reflexivity proved by e_eq_refl
+    symmetry proved by e_eq_sym
+    transitivity proved by e_eq_trans
+    as e_eq_setoid.
+
+
+  Import Morphisms.
+
+  Global Instance e_eq_proper_1: Proper (EEq ==> EEq ==> EEq) Plus.
+  Proof.
+    unfold Proper, respectful.
+    intros.
+    apply e_eq_iff_m_equiv in H.
+    apply e_eq_iff_m_equiv in H0.
+    apply e_eq_iff_m_equiv.
+    simpl.
+    auto using mem_equiv_app.
+  Qed.
+
+  Lemma mem_equiv_prod:
+    forall (m1 m2 m3 m4 : list history),
+    m1 <> [] ->
+    m2 <> [] ->
+    m3 <> [] ->
+    m4 <> [] ->
+    MemEquiv m1 m2 ->
+    MemEquiv m3 m4 ->
+    MemEquiv (prod m1 m3) (prod m2 m4).
+  Proof.
+    split; intros.
+    - apply m_pair_in_inv_prod in H5.
+      destruct H5 as [Hi|[Hi|[(Ha,Hb)|(Ha,Hb)]]].
+      + apply H3 in Hi.
+        apply m_pair_in_prod_l; auto.
+      + apply H4 in Hi. 
+        apply m_pair_in_prod_r; auto.
+      + destruct p.
+        simpl in *.
+        rewrite H3 in *.
+        rewrite H4 in *.
+        apply m_pair_in_prod_1; auto.
+      + destruct p.
+        simpl in *.
+        rewrite H3 in *.
+        rewrite H4 in *.
+        apply m_pair_in_prod_2; auto.
+    - apply m_pair_in_inv_prod in H5.
+      destruct H5 as [Hi|[Hi|[(Ha,Hb)|(Ha,Hb)]]].
+      + apply H3 in Hi.
+        apply m_pair_in_prod_l; auto.
+      + apply H4 in Hi. 
+        apply m_pair_in_prod_r; auto.
+      + destruct p.
+        simpl in *.
+        rewrite <- H3 in *.
+        rewrite <- H4 in *.
+        apply m_pair_in_prod_1; auto.
+      + destruct p.
+        simpl in *.
+        rewrite <- H3 in *.
+        rewrite <- H4 in *.
+        apply m_pair_in_prod_2; auto.
+  Qed.
+
+
+  Global Instance e_eq_proper_2: Proper (EEq ==> EEq ==> EEq) Prod.
+  Proof.
+    unfold Proper, respectful.
+    intros.
+    apply e_eq_iff_m_equiv in H.
+    apply e_eq_iff_m_equiv in H0.
+    apply e_eq_iff_m_equiv.
+    simpl.
+    apply mem_equiv_prod; auto using to_mem_not_nil.
+  Qed.
+
+  Lemma prod_inv_not_nil:
+    forall A m1 m2,
+    @prod A m1 m2 <> [] ->
+    m1 <> [] /\ m2 <> [].
+  Proof.
+    intros.
+    destruct m1. {
+      contradiction.
+    }
+    destruct m2. {
+      rewrite prod_nil_r in *.
+      contradiction.
+    }
+    split; intros N; inversion N.
+  Qed.
+
+  Lemma one_prod_rw:
+    forall m1 m2 n1,
+    exists n2 n3,
+    EEq (One (prod m1 m2) n1) (Prod (One m1 n2) (One m2 n3)).
+  Proof.
+    intros.
+    assert (Hx := n1).
+    apply prod_inv_not_nil in Hx.
+    destruct Hx as (n2, n3).
+    exists n2.
+    exists n3.
+    split; intros.
+    - apply e_pair_in_1 in H.
+      apply e_pair_in_2.
+      simpl in *.
+      assumption.
+    - apply e_pair_in_1 in H.
+      apply e_pair_in_2.
+      simpl in *.
+      assumption.
+  Qed.
+
+  Lemma one_app_rw m1 m2 n1 (n2:m1 <> []) (n3:m2 <> []):
+    EEq (One (app m1 m2) n1) (Plus (One m1 n2) (One m2 n3)).
+  Proof.
+    split;
+        intros;
+        apply e_pair_in_1 in H;
+        apply e_pair_in_2;
+        simpl in *; auto.
+  Qed.
+
 End Member.
