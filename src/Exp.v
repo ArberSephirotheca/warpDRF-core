@@ -387,6 +387,17 @@ Section SO.
     auto.
   Qed.
 
+  Lemma r_step_range_list:
+    forall n1 n2,
+    RStep (NNum n1, NNum n2) (range_list n1 n2).
+  Proof.
+    intros.
+    remember (range_list _ _).
+    apply r_step_def with (n1:=n1) (n2:=n2); auto using n_step_num.
+    apply range_list_to_prop.
+    auto.
+  Qed.
+
   Inductive NTypes (l: list var) : nexp -> Prop :=
   | n_types_num:
     forall n,
