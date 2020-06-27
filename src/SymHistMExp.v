@@ -1126,26 +1126,25 @@ Section Defs.
     forall l x i j ms1, 
     BranchMap x (seq i j) l ms1 ->
     exists ms2 ms3,
-    BranchMap x i l ms2 /\ BranchMap x j l ms3 /\ ms1 = map2 prod ms2 ms3.
+    BranchMap x i l ms2 /\ BranchMap x j l ms3 /\ EEqList ms1 (map2 Prod ms2 ms3).
   Proof.
     induction l; intros. {
       inversion H; subst; clear H.
-      eauto using branch_map_nil.
+      eauto using map_nil, e_eq_list_nil.
     }
     inversion H; subst; clear H.
     rewrite i_subst_seq in H2.
-    apply run_inv_seq in H2.
-    destruct H2 as (hs1, (hs2, (?, (Hra, Hrb)))).
-    subst.
-    apply IHl in H4.
-    destruct H4 as (ms2, (ms3, (Hb1, (Hb2, R2)))).
-    subst.
+    apply f_run_inv_seq in H2.
+    destruct H2 as (hs1, (hs2, (R, (Hra, Hrb)))).
+    apply IHl in H5.
+    destruct H5 as (ms2, (ms3, (Hb1, (Hb2, R2)))).
     eexists.
     eexists.
     repeat split.
-    - eauto using branch_map_cons.
-    - eauto using branch_map_cons.
-    - reflexivity.
+    - eauto using map_cons.
+    - eauto using map_cons.
+    - rewrite map2_cons_rw.
+      auto using e_eq_list_cons.
   Qed.
 
   Lemma branch_map_seq:
