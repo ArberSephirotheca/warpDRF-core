@@ -1617,6 +1617,7 @@ Section Defs.
   Import PairInUtil.
   Lemma impl_branch_branch_seq_1:
     forall x l i1 i2 j1 j2,
+    NoDup l ->
     ProgImpl
       (Branch x l (seq i1 i2) (seq j1 j2))
       (seq (Branch x l i1 j1) (Branch x l i2 j2)).
@@ -1629,110 +1630,100 @@ Section Defs.
     }
     apply prog_impl_def.
     intros.
-    apply f_run_inv_branch_cons in H.
-    destruct H as (m1, (m2, (R1, (Hr1, Hr2)))).
+    inversion H; subst; clear H.
+    apply f_run_inv_branch_cons in H0.
+    destruct H0 as (m_i1i2_j1j2, (m_b_i1i2_j1j2, (R1, (Hr1, Hr2)))).
     rewrite R1; clear R1 m.
-    apply IHl in Hr2; clear IHl.
+    apply IHl in Hr2; auto; clear IHl.
     apply f_run_inv_seq in Hr2.
-    destruct Hr2 as (m3, (m4, (R, (Hr2, Hr3)))).
-    rewrite R; clear R m2.
+    destruct Hr2 as (m_b_i1j1, (m_b_i2j2, (R, (Hr2, Hr3)))).
+    rewrite R; clear R m_b_i1i2_j1j2.
     apply f_run_inv_seq in Hr1.
-    destruct Hr1 as (m2, (m5, (R, (Hr4, Hr5)))).
-    rewrite R; clear R m1.
+    destruct Hr1 as (m_i1i2, (m_j1j2, (R, (Hr4, Hr5)))).
+    rewrite R; clear R m_i1i2_j1j2.
     apply f_run_inv_seq in Hr5.
-    destruct Hr5 as (m6, (m7, (R, (Hr6, Hr7)))).
-    rewrite R; clear R m5.
+    destruct Hr5 as (m_j1, (m_j2, (R, (Hr6, Hr7)))).
+    rewrite R; clear R m_j1j2.
+    assert (Hb := Hr2).
+    apply f_run_branch_inv_map in Hb; auto.
+    destruct Hb as (ml_i1, (m_j1', (R, (Hj1, Hb_i1)))).
+    assert (R1: m_j1' == m_j1) by eauto using f_run_fun.
+    rewrite R1 in *; clear R1 m_j1'.
+    rewrite R in *; clear R m_b_i1j1.
+    assert (Hb := Hr3).
+    apply f_run_branch_inv_map in Hb; auto.
+    destruct Hb as (ml_i2, (m_j2', (R, (Hj2, Hb_i2)))).
+    assert (R1: m_j2' == m_j2) by eauto using f_run_fun.
+    rewrite R1 in *; clear R1 m_j2'.
+    rewrite R in *; clear R m_b_i2j2.
+    clear Hr6 Hr7.
     rewrite i_subst_seq in Hr4.
     apply f_run_inv_seq in Hr4.
-    destruct Hr4 as (m8, (m9, (R, (Hr8, Hr9)))).
-    rewrite R; clear R m2.
-    assert (i_subst x (NNum a) i1 ;; j1 // (m8 * m6))
+    destruct Hr4 as (m_i1, (m_i2, (R, (Hr_i1, Hr_i2)))).
+    rewrite R; clear R m_i1i2.
+    assert (i_subst x (NNum a) i1 ;; j1 // (m_i1 * m_j1))
       by auto using f_run_seq_eq.
-    assert (i_subst x (NNum a) i2 ;; j2 // (m9 * m7))
+    assert (i_subst x (NNum a) i2 ;; j2 // (m_i2 * m_j2))
       by auto using f_run_seq_eq.
-    clear Hr8 Hr9 Hr6 Hr7.
+    clear Hj1 Hj2 Hr_i1 Hr_i2.
     eapply f_run_seq.
     + eapply f_run_branch_cons; eauto.
       reflexivity.
     + eapply f_run_branch_cons; eauto.
       reflexivity.
-    + rewrite <- e_prod_plus_r.
-      rewrite <- e_prod_plus_l.
-      rewrite <- e_prod_plus_l.
-      split; intros.
-      * simpl in *.
-        destruct H1; auto.
-        destruct H1 as [Ha|Ha]. {
-          destruct Ha as [Ha|Ha]; auto. {
-          
-          }
-          destruct H.
-        }
-      Search (_ * _).
-
-    + eapply f_run_branch_cons; eauto.
-    eexists.
-    split. {
-      apply run_seq.
-      - apply run_branch_cons.
-        + apply run_seq; eauto.
-        + eauto.
-      - apply run_branch_cons.
-        + apply run_seq; eauto.
-        + eauto.
-    }
-    rewrite R1; clear R1.
-    rename m8 into m_i1.
-    rename m9 into m_i2.
-    rename m6 into m_j1.
-    rename m7 into m_j2.
-    rename m4 into m_b_i1.
-    rename m5 into m_b_i2.
-    repeat rewrite prod_assoc.
-    split; intros.
-    - apply m_pair_in_app_or in H.
-      destruct H. {
-        apply m_pair_in_inv_prod in H.
-        destruct H as [H|[H|[H|H]]].
-        - (* MPairIn p m_i1 *)
-          apply m_pair_in_prod_l. {
-            apply m_pair_in_app_l.
-            apply m_pair_in_prod_l; eauto using run_not_nil.
-          }
-          admit.
-        - apply m_pair_in_inv_prod in H.
-          destruct H as [H|[H|[(Hl,Hr)|(Hl,Hr)]]].
-          + (* MPairIn p m_i2 *) admit.
-          + apply m_pair_in_inv_prod in H.
-            destruct H as [H|[H|[(Hl,Hr)|(Hl,Hr)]]].
-            * (* MPairIn p m_j1 *) admit.
-            * (* MPairIn p m_j2 *) admit.
-            * destruct p as (v1, v2).
-              (* MIn v1 m_j1 /\ MIn v2 m_j2 *)
-              simpl in *.
-              admit.
-            * destruct p as (v1, v2).
-              simpl in *.
-              (* MIn v1 m_j2 /\ MIn v2 m_j1 *)
-              admit.
-          + destruct p as (v1, v2).
-            simpl in *.
-            apply m_in_prod_inv in Hr.
-            destruct Hr as [Hr|Hr]. {
-              (*  MIn v1 m_i2 /\ MIn v2 m_j1 *)
-            }
-            Search (MIn _ (prod _ _)).
-            apply m_in_inv_prod in Hr.
+    + rewrite e_prod_plus_l.
+      rewrite e_prod_plus_l.
+      repeat rewrite e_prod_assoc.
+      assert (R: (m_j1 * m_j2) * (m_i1 * m_i2) == m_i1 * (m_i2 * (m_j1 * m_j2)) ). {
+        assert (R: m_i1 * (m_i2 * (m_j1 * m_j2)) == (m_i1 * m_i2) * (m_j1 * m_j2))
+          by (repeat rewrite e_prod_assoc; reflexivity).
+        rewrite R.
+        remember (m_j1 * m_j2) as m_j1j2.
+        remember (m_i1 * m_i2) as m_i1i2.
+        rewrite e_prod_sym.
+        reflexivity.
       }
-      Search (MPairIn _ (app _ _)).
-    rewrite <- prod_app.
-    rewrite prod_assoc.
-    Search (MemEquiv (prod _ _)). 
-    rewrite prod_assoc.
-    rewrite <- prod_assoc.
-    rewrite prod_app.
-    repeat (rewrite prod_assoc | rewrite prod_app).
-    rewrite prod_app.
+      rewrite <- R; clear R.
+      assert (R: Σ ml_i1 * (m_j1 * (Σ ml_i2 * m_j2)) == (m_j1 * m_j2) * (Σ ml_i1 * Σ ml_i2)). {
+        assert (R: (Σ ml_i1 * m_j1) * (Σ ml_i2 * m_j2) == Σ ml_i1 * (m_j1 * (Σ ml_i2 * m_j2)) )
+          by (repeat rewrite e_prod_assoc; reflexivity).
+        rewrite <- R; clear R.
+        assert (R: m_j1 * Σ ml_i1 == Σ ml_i1 * m_j1)
+          by (rewrite e_prod_sym; reflexivity).
+        rewrite <- R; clear R.
+        assert (R: m_j1 * Σ ml_i1 * (Σ ml_i2 * m_j2) == m_j1 * (Σ ml_i1 * Σ ml_i2) * m_j2)
+          by (repeat rewrite e_prod_assoc; reflexivity).
+        rewrite R; clear R.
+        remember (Σ ml_i1 * Σ ml_i2) as m.
+        assert (R: m_j1 * m * m_j2 == m_j1 * (m * m_j2)) by auto using e_prod_assoc.
+        rewrite R; clear R.
+        assert (R: m * m_j2 == m_j2 * m) by auto using e_prod_sym.
+        rewrite R; clear R.
+        rewrite e_prod_assoc.
+        reflexivity.
+      }
+      rewrite R; clear R.
+      rewrite e_prod_plus_r.
+      remember (m_i1 + Σ ml_i1) as m1.
+      remember (m_i2 + Σ ml_i2) as m2.
+      assert (R: m1 * (m_j1 * (m2 * m_j2)) == (m_j1 * m_j2) * (m1 * m2)). {
+        assert(R: m_j1 * m_j2 * (m1 * m2) == m_j1 * (m_j2 * m1) * m2)
+          by (repeat rewrite e_prod_assoc; reflexivity).
+        rewrite R; clear R.
+        assert (R: m_j2 * m1 == m1 * m_j2) by auto using e_prod_sym.
+        rewrite R; clear R.
+        assert (R: m_j1 * (m1 * m_j2) * m2 == (m_j1 * m1) * (m_j2 * m2))
+          by (repeat rewrite e_prod_assoc; reflexivity).
+        rewrite R; clear R.
+        assert (R: m_j1 * m1 == m1 * m_j1) by auto using e_prod_sym.
+        rewrite R; clear R.
+        assert (R: m_j2 * m2 == m2 * m_j2) by auto using e_prod_sym.
+        rewrite R.
+        repeat rewrite e_prod_assoc.
+        reflexivity.
+      }
+      rewrite R; clear R.
+
   Qed.
 
   Lemma impl_branch_seq_2:

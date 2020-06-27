@@ -546,6 +546,58 @@ Section Defs.
     apply mem_equiv_app_sym.
   Qed.
 
+  Lemma one_of_sym_nil_l:
+    forall p l,
+    ~ one_of p [] l.
+  Proof.
+    intros.
+    destruct p as (v1, v2).
+    simpl.
+    intros N.
+    destruct N as [([],_)|([],_)].
+  Qed.
+
+  Lemma one_of_sym_nil_r:
+    forall p l,
+    ~ one_of p l [].
+  Proof.
+    intros.
+    destruct p as (v1, v2).
+    simpl.
+    intros N.
+    destruct N as [(_,[])|(_,[])].
+  Qed.
+
+  Lemma one_of_sym:
+    forall p l1 l2,
+    one_of p l1 l2 ->
+    one_of p l2 l1.
+  Proof.
+    induction l1; intros. {
+      apply one_of_sym_nil_l in H.
+      contradiction.
+    }
+    destruct p as (v1, v2).
+    destruct l2. {
+      apply one_of_sym_nil_r in H.
+      contradiction.
+    }
+    simpl in *.
+    intuition.
+  Qed.
+
+  Lemma e_prod_sym:
+    forall m1 m2,
+    EEq (Prod m1 m2) (Prod m2 m1).
+  Proof.
+    split; simpl; intros; destruct H as [H|H]; auto;
+    destruct H as [H|H]; auto.
+    - apply one_of_sym in H.
+      auto.
+    - apply one_of_sym in H.
+      auto.
+  Qed.
+
   Lemma e_plus_absorb_rw:
     forall m,
     EEq (Plus m m) m.
