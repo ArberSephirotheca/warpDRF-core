@@ -16,7 +16,9 @@ src/ConcImpl.v
 src/SetTh.v
 src/LoopFree.v
 src/SymHist.v
+src/SymHistMExp.v
 src/MultiHist.v
+src/MExp.v
 src/SHCompiler.v
 src/SHSound.v
 src/SHComplete.v
