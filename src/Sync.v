@@ -249,11 +249,13 @@ Proof.
 Qed.
 
 Theorem run_imp_mrun:
-forall i1 i2 h1 h2,
-Run (i1, h1) (i2, h2) ->
-Multi_Run (i1, h1) (i2, h2).
+forall x y,
+Run x y ->
+Multi_Run x y.
 Proof.
 intros.
+destruct x as (i1,h1).
+destruct y as (i2,h2).
 apply mrun_step with (i2:=i2) (h2:=h2).
 - assumption.
 - apply mrun_refl.
@@ -632,7 +634,7 @@ match i with
 end.
 
 Theorem src_norm:
-forall i x hi,
+forall i hi x,
 Run (i, hi) x ->
 exists i1 i2,
 Normalised i (i1, i2) /\
@@ -651,7 +653,35 @@ induction NH; subst; intros.
   * exists None. exists (Seq i0 j).
     split; simpl.
     + auto using norm_unsync.
-    + 
+    + apply run_imp_mrun in H0.
+      assumption.
+  * exists None. exists (Access a).
+    split; simpl.
+    + auto using norm_unsync.
+    + apply run_imp_mrun in H0. assumption.
+  * exists None. exists (For v r i0).
+    split; simpl.
+    + auto using norm_unsync.
+    + apply run_imp_mrun in H0. assumption.
+  * exists None. exists (Loop v r i0).
+    split; simpl.
+    + auto using norm_unsync.
+    + apply run_imp_mrun in H0. assumption.
+
+- exists (Some Sync). exists Skip.
+  split; simpl.
+  * apply norm_sync.
+  * destruct x as (i3,h3).
+    assert (i3=Skip /\ h3=[]). { inversion H. auto. }
+    destruct H0 as (Hi, Hh). subst.
+    apply mrun_step with (i2:=Seq Skip Skip) (h2:=[]).
+    + apply run_seq. assumption.
+    + apply mrun_step with (i2:=Skip) (h2:=[]).
+      ++ apply run_seq_skip.
+      ++ apply mrun_refl.
+-  
+
+
 - exists (Some (Seq i1 (Seq i2 j0))).
   exists j3.
   split. 
