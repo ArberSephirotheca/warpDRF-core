@@ -1098,54 +1098,28 @@ Section Defs.
       (seq i (Decl x (NNum n1, NNum n2) j k)).
   Proof.
     intros.
-    unfold ProgEquiv.
-    split. {
-      unfold ProgImpl.
-      intros.
-      inversion H1.
-      subst.
-      assert (Hx : ProgEquiv
-        (Branch x l (seq i j) k)
-        (seq i (Branch x l j k))). {
-        apply equiv_i_subst_branch_seq; auto.
-        apply r_step_to_range_list in H7.
-        subst.
-        auto using range_list_not_nil.
-      }
-      eapply run_prog_equiv_inv_l in Hx; eauto.
-      destruct Hx as (m2, (Hr2,?)).
-      apply run_inv_seq in Hr2.
-      destruct Hr2 as (m3, (m4, (?, (Hra, Hrb)))).
-      subst.
-      eexists.
-      split. {
-        apply run_seq; eauto using run_decl.
-      }
-      assumption.
+    apply prog_equiv_def; apply prog_impl_def; intros. {
+      apply f_run_inv_decl in H1.
+      destruct H1 as (l, (Hr, Hb)).
+      assert (Hrs := Hr).
+      apply r_step_to_range_list in Hr; subst.
+      apply equiv_i_subst_branch_seq in Hb; auto using range_list_not_nil.
+      apply f_run_inv_seq in Hb.
+      destruct Hb as (m1, (m2, (R, (Hr1, Hr2)))).
+      rewrite R; clear R m.
+      eapply f_run_decl in Hr2; eauto.
+      apply f_run_seq_eq; eauto using f_run_decl.
     }
-    unfold ProgImpl.
-    intros.
-    apply run_inv_seq in H1.
-    destruct H1 as (m2, (m3, (?, (Hr1, Hr2)))).
-    inversion Hr2; subst; clear Hr2.
-    assert (Hx : ProgEquiv
-      (Branch x l (seq i j) k)
-      (seq i (Branch x l j k))). {
-      apply equiv_i_subst_branch_seq; auto.
-      apply r_step_to_range_list in H7.
-      subst.
-      auto using range_list_not_nil.
-    }
-    assert (Hr: Run (seq i (Branch x l j k)) (prod m2 m3)). {
-      apply run_seq; auto.
-    }
-    eapply run_prog_equiv_inv_r in Hx; eauto.
-    destruct Hx as (m4, (Hrb, Hm)).
-    eexists.
-    split. {
-      eapply run_decl; eauto.
-    }
-    assumption.
+    apply f_run_inv_seq in H1.
+    destruct H1 as (m1, (m2, (R, (Hr1, Hr2)))).
+    rewrite R; clear R m.
+    apply f_run_inv_decl in Hr2.
+    destruct Hr2 as (l, (Hrs, Hb)).
+    assert (Hr := Hrs).
+    apply r_step_to_range_list in Hr; subst.
+    apply f_run_seq_eq with (i1:=i) (m1:=m1) in Hb; auto.
+    apply equiv_i_subst_branch_seq in Hb; auto using range_list_not_nil.
+    eapply f_run_decl in Hb; eauto.
   Qed.
 
   Lemma branch_map_inv_seq:
