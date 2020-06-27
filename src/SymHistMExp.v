@@ -1294,8 +1294,8 @@ Section Defs.
     n2 < n3 ->
     DeclMap x (Decl y (NNum n1, NVar x) i j) n2 n3 ms ->
 
-    exists (m:list history) (hs:list (list (list history))),
-    ms = (map (fun x => (prod (@List.concat history x) m) ++ m) hs) /\
+    exists m hs,
+    EEqList ms (map (fun x => Prod (summation x) m) hs) /\
     FRun j m /\
     Map (DeclMap y i n1) (range_list n2 n3) hs.
   Proof.
@@ -1310,9 +1310,9 @@ Section Defs.
     x <> y ->
     l <> [] ->
     NoDup l ->
-    Run j m ->
+    FRun j m ->
     Map (DeclMap y i n1) l hs ->
-    BranchMap x (Decl y (NNum n1, NVar x) i j) l (map (fun x => (prod (@List.concat history x) m) ++ m) hs).
+    BranchMap x (Decl y (NNum n1, NVar x) i j) l (map (fun x => (Prod (summation x) m)) hs).
   Proof.
     induction l; intros. {
       contradiction.
@@ -1321,21 +1321,22 @@ Section Defs.
     inversion H5; subst; clear H5.
     destruct l. {
       inversion H12; subst; clear H12.
-      apply branch_map_cons; auto using branch_map_nil.
+      apply map_cons; auto using map_nil.
       simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
-      eapply run_decl_map; eauto.
+      eapply f_run_decl_map; eauto.
       + rewrite i_subst_not_in; auto.
       + rewrite i_subst_not_in; auto.
     }
-    apply branch_map_cons.
+    apply map_cons.
     - simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
-      eapply run_decl_map; eauto.
+      eapply f_run_decl_map; eauto.
       + rewrite i_subst_not_in; auto.
       + rewrite i_subst_not_in; auto.
+    - assumption.
     - apply IHl; auto.
       intros N; inversion N.
   Qed.
