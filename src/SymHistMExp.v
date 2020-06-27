@@ -1215,12 +1215,12 @@ Section Defs.
     ~ In x i ->
     ~ In x j ->
     x <> y ->
-    Run (i_subst x (NNum n2) (Decl y (NNum n1, NVar x) i j)) hs ->
-    Run (Decl y (NNum n1, NNum n2) i j) hs.
+    FRun (i_subst x (NNum n2) (Decl y (NNum n1, NVar x) i j)) hs ->
+    FRun (Decl y (NNum n1, NNum n2) i j) hs.
   Proof.
     intros.
     match goal with
-    | [ H: Run _ _ |- _ ] => rename H into Hr
+    | [ H: FRun _ _ |- _ ] => rename H into Hr
     end.
     simpl in Hr.
     destruct (Set_VAR.MF.eq_dec x x) as [_|?].
@@ -1238,9 +1238,9 @@ Section Defs.
     l <> [] ->
     BranchMap x (Decl y (NNum n1, NVar x) i j) l ms ->
     NoDup l ->
-    exists (m:list history) (hs:list (list (list history))),
-    ms = (map (fun x => (prod (@List.concat history x) m) ++ m) hs) /\
-    Run j m /\
+    exists m hs,
+    EEqList ms (map (fun x => (Prod (summation x) m)) hs) /\
+    FRun j m /\
     Map (DeclMap y i n1) l hs.
   Proof.
     induction l; intros n i j ms x y Hn1 Hn2 Hneq Hnil Hb Hd. {
@@ -1249,36 +1249,41 @@ Section Defs.
     clear Hnil.
     destruct l; inversion Hb; subst; clear Hb. {
       match goal with
-      | [ H: Run _ _ |- _ ] => rename H into Hr
+      | [ H: FRun _ _ |- _ ] => rename H into Hr
       end.
       apply i_subst_not_in_decl_rw in Hr; auto.
-      apply run_decl_inv_map in Hr.
-      destruct Hr as (ms1, (m2, (?, (Hr, Hm)))).
-      inversion H3; clear H3.
+      apply f_run_decl_inv_map in Hr.
+      destruct Hr as (ms1, (m2, (R, (Hr, Hm)))).
+      inversion H4; clear H4.
       subst.
       exists m2.
       simpl.
-      unfold plus.
       exists [ms1].
       simpl.
+      rewrite R.
       repeat split; auto using map_cons, map_nil.
+      reflexivity.
     }
     match goal with
-    | [ H: Run _ _ |- _ ] => rename H into Hr
+    | [ H: FRun _ _ |- _ ] => rename H into Hr
     end.
     apply i_subst_not_in_decl_rw in Hr; auto.
-    apply run_decl_inv_map in Hr.
-    destruct Hr as (ms1, (m2, (?, (Hr, Hm)))).
+    apply f_run_decl_inv_map in Hr.
+    destruct Hr as (ms1, (m2, (R, (Hr, Hm)))).
     subst.
     inversion Hd; subst; clear Hd.
-    apply IHl in H3; auto; clear IHl.
+    apply IHl in H4; auto; clear IHl.
     2: { intros N; inversion N. }
-    destruct H3 as (m, (hs, (?, (Hr2, Hmap)))).
-    subst.
-    assert (m2 = m) by eauto using run_fun; subst. 
+    destruct H4 as (m, (hs, (R1, (Hr2, Hmap)))).
+    assert (m2 == m) by eauto using f_run_fun; subst. 
     exists m.
     exists (ms1::hs).
     repeat split; auto using map_cons.
+    simpl.
+    rewrite <- R1.
+    rewrite R.
+    rewrite H.
+    reflexivity.
   Qed.
 
   Lemma decl_map_inv_decl_not_in:
@@ -1291,7 +1296,7 @@ Section Defs.
 
     exists (m:list history) (hs:list (list (list history))),
     ms = (map (fun x => (prod (@List.concat history x) m) ++ m) hs) /\
-    Run j m /\
+    FRun j m /\
     Map (DeclMap y i n1) (range_list n2 n3) hs.
   Proof.
     intros.

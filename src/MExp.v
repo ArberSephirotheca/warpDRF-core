@@ -634,10 +634,18 @@ Section Defs.
     | [] => One []
     | x :: l => Plus x (summation l)
     end.
+
+  Global Instance e_eq_list_proper_1: Proper (EEq ==> EEqList ==> EEqList) cons.
+  Proof.
+    unfold Proper, respectful.
+    intros.
+    apply e_eq_list_cons; auto.
+  Qed.
+
 End Defs.
 
 Module MHistNotations.
-  Infix "==" :=  EEq (at level 50, left associativity).
+  Infix "==" :=  EEq (at level 60, right associativity).
   Infix "+" := Plus (at level 50, left associativity).
   Infix "*" := Prod (at level 40, left associativity).
   Notation "'Σ'" := summation.
