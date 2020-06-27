@@ -1347,20 +1347,76 @@ Section Defs.
     ~ In x j ->
     x <> y ->
     n2 < n3 ->
-    Run j m ->
+    FRun j m ->
     Map (DeclMap y i n1) (range_list n2 n3) hs ->
-    DeclMap x (Decl y (NNum n1, NVar x) i j) n2 n3 (map (fun x => (prod (@List.concat history x) m) ++ m) hs) .
+    DeclMap x (Decl y (NNum n1, NVar x) i j) n2 n3 (map (fun x => (Prod (summation x) m)) hs).
   Proof.
     intros.
     apply branch_map_decl; auto using range_list_no_dup, range_list_not_nil.
   Qed.
 
+  Lemma f_run_inv_access: forall i e m,
+    FRun (Acc e i) m ->
+    exists v m', m == One v * m' /\
+    access_step e v /\
+    FRun i m'.
+  Proof.
+    intros.
+    destruct H as (m', (R, Hr)).
+    inversion Hr; subst; clear Hr.
+    exists v.
+    exists hs.
+    eauto using f_run_eq.
+  Qed.
+
+  Lemma f_run_access:
+    forall i e v m1 m2,
+    access_step e v ->
+    FRun i m1 ->
+    m2 == One v * m1 ->
+    FRun (Acc e i) m2.
+  Proof.
+    intros.
+    destruct H0 as (m, (R, Hr)).
+    rewrite H1.
+    rewrite R.
+    eauto using f_run_eq, e_run_access.
+  Qed.
+
+  Lemma f_run_access_eq:
+    forall i e v m,
+    access_step e v ->
+    FRun i m ->
+    FRun (Acc e i) (One v * m).
+  Proof.
+    intros.
+    eapply f_run_access; eauto.
+    reflexivity.
+  Qed.
+
+  Lemma f_run_skip:
+    forall m,
+    m == One [] ->
+    FRun Skip m.
+  Proof.
+    intros.
+    rewrite H.
+    eauto using e_run_skip, f_run_eq.
+  Qed.
+
+  Lemma f_run_skip_eq:
+    FRun Skip (One []).
+  Proof.
+    intros.
+    apply f_run_skip.
+    reflexivity.
+  Qed.
 
   Lemma branch_map_inv_acc:
     forall l x e i ms,
     BranchMap x (Acc e i) l ms ->
     exists ms1 ms2,
-    ms = map2 prod ms1 ms2 /\
+    EEqList ms (map2 Prod ms1 ms2) /\
     BranchMap x (Acc e Skip) l ms1 /\
     BranchMap x i l ms2.
   Proof.
@@ -1368,34 +1424,37 @@ Section Defs.
       inversion H; subst; clear H.
       exists [].
       exists [].
-      repeat split; auto using branch_map_nil.
+      split; auto using map_nil.
+      apply e_eq_list_nil.
     }
     inversion H; subst; clear H.
-    apply IHl in H4; clear IHl.
-    destruct H4 as (ms1, (ms2, (?, (Hb1, Hb2)))).
-    subst.
+    apply IHl in H5; clear IHl.
+    destruct H5 as (ms1, (ms2, (R, (Hb1, Hb2)))).
     simpl in H2.
     destruct e as (ac, e).
-    inversion H2; subst; clear H2.
-    assert (Hra: Run (Acc (access_subst x (NNum a) ac, n_subst x (NNum a) e) Skip) (prepend v [[]])). {
-      auto using run_access, run_skip.
+    apply f_run_inv_access in H2.
+    destruct H2 as (v2, (m1, (R2, (Hr1, Hr2)))).
+    assert (Hra: FRun (Acc (access_subst x (NNum a) ac, n_subst x (NNum a) e) Skip) (One v2)). {
+      eapply f_run_access with (m2:=One v2); eauto using f_run_skip_eq.
+      rewrite e_prod_nil_r.
+      reflexivity.
     }
-    eapply branch_map_cons in Hb1; eauto; clear Hra.
-    exists (prepend v [[]] :: ms1).
-    eapply branch_map_cons in Hb2; eauto.
-    exists (hs0 :: ms2).
-    simpl in *.
-    rewrite app_nil_r in *.
+    eapply map_cons in Hb1; eauto; clear Hra.
+    exists (One v2 :: ms1).
+    eapply map_cons in Hb2; eauto.
+    exists (m1 :: ms2).
     rewrite map2_cons_rw.
-    rewrite prepend_rw.
-    auto.
+    rewrite R.
+    rewrite <- R2.
+    split. { reflexivity. }
+    auto using map_cons.
   Qed.
 
   Lemma decl_map_inv_acc:
     forall x e i n1 n2 ms,
     DeclMap x (Acc e i) n1 n2 ms ->
     exists ms1 ms2,
-    ms = map2 prod ms1 ms2 /\
+    EEqList ms (map2 Prod ms1 ms2) /\
     DeclMap x (Acc e Skip) n1 n2 ms1 /\
     DeclMap x i n1 n2 ms2.
   Proof.
@@ -1415,9 +1474,8 @@ Section Defs.
     intros.
     apply prog_impl_def.
     intros.
-    inversion H; subst; clear H.
-    exists m1.
-    split; auto; reflexivity.
+    apply f_run_inv_branch_nil in H.
+    assumption.
   Qed.
 
   Lemma impl_branch_nil_2:
@@ -1429,8 +1487,7 @@ Section Defs.
     intros.
     apply prog_impl_def.
     intros.
-    exists m1.
-    split; auto using run_branch_nil; reflexivity.
+    auto using f_run_branch_nil.
   Qed.
 
   Lemma p_eq_branch_nil:
@@ -1452,20 +1509,12 @@ Section Defs.
     intros.
     apply prog_impl_def.
     intros.
-    apply run_inv_seq in H1.
-    destruct H1 as (hs1, (hs2, (?, (Hr1, Hr2)))).
-    subst.
-    assert (hs1 <> []) by eauto using run_not_nil.
-    assert (hs2 <> []) by eauto using run_not_nil.
-    eapply run_prog_equiv_inv_l in Hr1; eauto.
-    destruct Hr1 as (m2, (Hr_i2, ?)).
-    eapply run_prog_equiv_inv_l in Hr2; eauto.
-    destruct Hr2 as (m3, (Hr_j2, ?)).
-    exists (prod m2 m3).
-    split; auto using run_seq.
-    rewrite mem_equiv_prod_l with (m4:=m2); eauto using run_not_nil.
-    rewrite mem_equiv_prod_r with (m4:=m3); eauto using run_not_nil.
-    reflexivity.
+    apply f_run_inv_seq in H1.
+    destruct H1 as (hs1, (hs2, (R, (Hr1, Hr2)))).
+    rewrite R.
+    rewrite H in *.
+    rewrite H0 in *.
+    auto using f_run_seq_eq.
   Qed.
 
   Lemma p_eq_seq:
@@ -1496,6 +1545,20 @@ Section Defs.
     auto using p_eq_seq_impl.
   Qed.
 
+  Lemma prog_equiv_split:
+    forall i j,
+    i ~~ j ->
+    i ~> j /\ j ~> i.
+  Proof.
+    intros.
+    unfold ProgEquiv, ProgImpl in *.
+    intuition.
+    - apply H.
+      assumption.
+    - apply H.
+      assumption.
+  Qed.
+
   Global Instance proper_prog_impl_2: Proper (ProgEquiv ==> ProgEquiv ==> Basics.flip Basics.impl) ProgImpl.
   Proof.
     unfold Proper, respectful.
@@ -1507,7 +1570,9 @@ Section Defs.
     rename y into i2.
     rename x0 into j1.
     rename y0 into j2.
+    apply prog_equiv_split in H.
     destruct H.
+    apply prog_equiv_split in H0.
     destruct H0.
     transitivity i2; auto.
     transitivity j2; auto.
@@ -1564,19 +1629,48 @@ Section Defs.
     }
     apply prog_impl_def.
     intros.
-    inversion H; subst; clear H.
-    apply IHl in H7; clear IHl.
-    destruct H7 as (m2, (Hr, R1)).
-    apply run_inv_seq in H6.
-    destruct H6 as (m1, (m3, (?, (Hr2, Hr3)))).
-    apply run_inv_seq in Hr.
-    destruct Hr as (m4, (m5, (?, (Hr4, Hr5)))).
-    apply run_inv_seq in Hr3.
-    destruct Hr3 as (m6, (m7, (?, (Hr6, Hr7)))).
-    rewrite i_subst_seq in Hr2.
-    apply run_inv_seq in Hr2.
-    destruct Hr2 as (m8, (m9, (?, (Hr8, Hr9)))).
-    subst.
+    apply f_run_inv_branch_cons in H.
+    destruct H as (m1, (m2, (R1, (Hr1, Hr2)))).
+    rewrite R1; clear R1 m.
+    apply IHl in Hr2; clear IHl.
+    apply f_run_inv_seq in Hr2.
+    destruct Hr2 as (m3, (m4, (R, (Hr2, Hr3)))).
+    rewrite R; clear R m2.
+    apply f_run_inv_seq in Hr1.
+    destruct Hr1 as (m2, (m5, (R, (Hr4, Hr5)))).
+    rewrite R; clear R m1.
+    apply f_run_inv_seq in Hr5.
+    destruct Hr5 as (m6, (m7, (R, (Hr6, Hr7)))).
+    rewrite R; clear R m5.
+    rewrite i_subst_seq in Hr4.
+    apply f_run_inv_seq in Hr4.
+    destruct Hr4 as (m8, (m9, (R, (Hr8, Hr9)))).
+    rewrite R; clear R m2.
+    assert (i_subst x (NNum a) i1 ;; j1 // (m8 * m6))
+      by auto using f_run_seq_eq.
+    assert (i_subst x (NNum a) i2 ;; j2 // (m9 * m7))
+      by auto using f_run_seq_eq.
+    clear Hr8 Hr9 Hr6 Hr7.
+    eapply f_run_seq.
+    + eapply f_run_branch_cons; eauto.
+      reflexivity.
+    + eapply f_run_branch_cons; eauto.
+      reflexivity.
+    + rewrite <- e_prod_plus_r.
+      rewrite <- e_prod_plus_l.
+      rewrite <- e_prod_plus_l.
+      split; intros.
+      * simpl in *.
+        destruct H1; auto.
+        destruct H1 as [Ha|Ha]. {
+          destruct Ha as [Ha|Ha]; auto. {
+          
+          }
+          destruct H.
+        }
+      Search (_ * _).
+
+    + eapply f_run_branch_cons; eauto.
     eexists.
     split. {
       apply run_seq.
