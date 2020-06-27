@@ -1,5 +1,6 @@
 Require Import Coq.Lists.List.
 
+Require Import Var.
 Require Import Util.
 Require Import RangeList.
 Require Import Access.
@@ -379,7 +380,10 @@ Section Defs.
 *)
   Notation Iter x i := (fun n=> FRun (i_subst x (NNum n) i)).  
   Notation BranchMap x i l m := (Map (Iter x i) l m).
-  Notation DeclMap x i n1 n2 m := (BranchMap x i (range_list n1 n2) m).
+  Definition DeclMap x i n1 n2 m := BranchMap x i (range_list n1 n2) m.
+  (*Hint Unfold DeclMap core.*)
+
+  Transparent DeclMap.
 (*
   Lemma branch_map_to_map:
     forall x i l m,
@@ -1151,24 +1155,23 @@ Section Defs.
     forall l x i j ms1 ms2, 
     BranchMap x i l ms1 ->
     BranchMap x j l ms2 ->
-    BranchMap x (seq i j) l (map2 prod ms1 ms2).
+    BranchMap x (seq i j) l (map2 Prod ms1 ms2).
   Proof.
     induction l; intros; inversion H; inversion H0; subst; clear H H0. {
-      apply branch_map_nil.
+      apply map_nil.
     }
     rewrite map2_cons_rw.
-    apply branch_map_cons; auto.
+    apply map_cons; auto.
     rewrite i_subst_seq.
-    auto using run_seq.
+    auto using f_run_seq_eq.
   Qed.
 
   Lemma decl_map_inv_seq:
     forall n1 n2 x i j ms1, 
     DeclMap x (seq i j) n1 n2 ms1 ->
     exists ms2 ms3,
-    DeclMap x i n1 n2 ms2 /\ DeclMap x j n1 n2 ms3 /\ ms1 = map2 prod ms2 ms3.
+    DeclMap x i n1 n2 ms2 /\ DeclMap x j n1 n2 ms3 /\ EEqList ms1 (map2 Prod ms2 ms3).
   Proof.
-    unfold DeclMap.
     eauto using branch_map_inv_seq.
   Qed.
 
@@ -1176,11 +1179,11 @@ Section Defs.
     forall n1 n2 x i j ms1 ms2, 
     DeclMap x i n1 n2 ms1 ->
     DeclMap x j n1 n2 ms2 ->
-    DeclMap x (seq i j) n1 n2 (map2 prod ms1 ms2).
+    DeclMap x (seq i j) n1 n2 (map2 Prod ms1 ms2).
   Proof.
-    unfold DeclMap;auto using branch_map_seq.
+    unfold DeclMap.
+    eauto using branch_map_seq.
   Qed.
-
 
   Lemma decl_map_inv_i_subst_eq:
     forall x y i n1 n2 m1,
@@ -1188,24 +1191,22 @@ Section Defs.
     DeclMap x (i_subst y (NVar x) i) n1 n2 m1 ->
     DeclMap y i n1 n2 m1.
   Proof.
+    unfold DeclMap.
     intros x y i n1 n2 m1 Hn1 Hd.
-    apply decl_map_to_map in Hd.
-    apply decl_map_from_map.
     apply map_impl with (P:=Iter x (i_subst y (NVar x) i)); auto.
     intros.
-    unfold Iter in *.
     rewrite i_subst_subst_trans in H; auto.
   Qed.
 
   Lemma run_decl_seq:
     forall x n1 n2 i j k m1 m2 m3,
-    Run k m1 ->
+    FRun k m1 ->
     DeclMap x i n1 n2 m2 ->
     DeclMap x j n1 n2 m3 ->
-    Run (Decl x (NNum n1, NNum n2) (seq i j) k) (prod (List.concat (map2 prod m2 m3)) m1 ++ m1).
+    FRun (Decl x (NNum n1, NNum n2) (seq i j) k) (Prod (summation (map2 Prod m2 m3)) m1).
   Proof.
     intros.
-    eapply run_decl_map; eauto.
+    eapply f_run_decl_map; eauto.
     apply decl_map_seq; auto.
   Qed.
 
