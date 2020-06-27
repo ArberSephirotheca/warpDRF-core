@@ -679,15 +679,19 @@ induction NH; subst; intros.
     + apply mrun_step with (i2:=Skip) (h2:=[]).
       ++ apply run_seq_skip.
       ++ apply mrun_refl.
--  
-
-
 - exists (Some (Seq i1 (Seq i2 j0))).
   exists j3.
   split. 
     * apply norm_seq_dual; assumption.
-    * simpl. 
-     
+    * simpl.
+      destruct x as (xi, xh).
+      inversion H; subst.
+      + apply IHNH1 in H1.
+        destruct H1 as (x1, (x2, RIH)).
+        destruct RIH as (RIHN, RIHS).
+        
+      apply mrun_step with (i2:=(Seq (Seq xi (Seq i2 j0)) j3)) (h2:= xh).
+      + 
 induction H; subst; inversion NH; subst.
 - exists None. exists j2. split.
   * assumption.
