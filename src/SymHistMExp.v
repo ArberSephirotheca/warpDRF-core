@@ -831,6 +831,7 @@ Section Defs.
     apply range_list_inv_in_2 in H1.
     auto.
   Qed.
+
 (*
   Lemma e_run_decl_map_def:
      forall f n1 n2 i1 i2 x hs hs',
@@ -942,6 +943,29 @@ Section Defs.
     subst.
     eauto using f_run_branch_inv_map, range_list_no_dup.
   Qed.
+
+  Lemma f_run_decl_impl_rw:
+    forall n1 n2 i j k x,
+    (forall n, n1 <= n < n2 ->
+      ProgEquiv (i_subst x (NNum n) i)
+                (i_subst x (NNum n) j)) ->
+    ProgEquiv (Decl x (NNum n1, NNum n2) i k) (Decl x (NNum n1, NNum n2) j k).
+  Proof.
+    intros.
+    split; intros.
+    - apply f_run_decl_inv_map in H0.
+      destruct H0 as (lm, (m', (R, (Hr1, Hr2)))).
+      rewrite R; clear R m.
+      eauto using decl_map_rw, f_run_decl_map. 
+    - apply f_run_decl_inv_map in H0.
+      destruct H0 as (lm, (m', (R, (Hr1, Hr2)))).
+      rewrite R; clear R m.
+      apply decl_map_rw with (j:=i) in Hr2; auto using f_run_decl_map.
+      intros.
+      rewrite H; auto.
+      reflexivity.
+  Qed.
+
 (*
   Definition branch_iter n1 n2 f :=
     @List.map nat (list history) f (range_list n1 n2).
@@ -1613,7 +1637,252 @@ Section Defs.
   Qed.
 *)
 
+  Lemma impl_seq_skip_1:
+    forall i,
+    ProgImpl i (seq i Skip).
+  Proof.
+    intros.
+    apply prog_impl_def.
+    intros.
+    apply f_run_seq with (m1:=m) (m2:=One []); auto using f_run_skip_eq.
+    rewrite e_prod_nil_r.
+    reflexivity.
+  Qed.
 
+  Lemma f_run_inv_skip:
+    forall m,
+    FRun Skip m ->
+    EEq m (One []). 
+  Proof.
+    intros.
+    destruct H as (m', (R, Hr)).
+    rewrite R.
+    inversion Hr; subst; clear Hr.
+    reflexivity.
+  Qed.
+
+  Lemma impl_seq_skip_2:
+    forall i,
+    ProgImpl (seq i Skip) i.
+  Proof.
+    intros.
+    apply prog_impl_def.
+    intros.
+    apply f_run_inv_seq in H.
+    destruct H as (m1, (m2, (R, (Hr1, Hr2)))).
+    apply f_run_inv_skip in Hr2.
+    rewrite Hr2 in *; clear Hr2.
+    rewrite e_prod_nil_r in R.
+    rewrite R.
+    assumption.
+  Qed.
+
+  Lemma prog_equiv_seq_skip:
+    forall i,
+    ProgEquiv (seq i Skip) i.
+  Proof.
+    auto using prog_equiv_def, impl_seq_skip_1, impl_seq_skip_2.
+  Qed.
+
+  Lemma prog_equiv_branch_skip:
+    forall l,
+    NoDup l ->
+    forall x i,
+    ProgEquiv (Branch x l Skip i) i.
+  Proof.
+    intros.
+    apply prog_equiv_def; apply prog_impl_def; intros.
+    - induction l; intros. {
+        apply f_run_inv_branch_nil in H0.
+        assumption.
+      }
+      apply f_run_inv_branch_cons in H0.
+      destruct H0 as (m1, (m2, (R, (Hr1, Hr2)))).
+      inversion H; subst; clear H.
+      rewrite R in *; clear R.
+      apply f_run_inv_seq in Hr1.
+      destruct Hr1 as (m3, (m4, (R, (Hr3, Hr4)))).
+      simpl in *.
+      apply f_run_inv_skip in Hr3.
+      rewrite Hr3 in *; clear Hr3.
+      rewrite e_prod_nil_l in R.
+      rewrite R in *.
+      clear R m1.
+      assert (Hb := Hr2).
+      apply f_run_branch_inv_map in Hb; auto.
+      destruct Hb as (lm, (m', (Hr1, (Hri, Hrb)))).
+      rewrite Hr1 in *.
+      assert (R : m' == m4) by eauto using f_run_fun.
+      rewrite R in *; clear R m'.
+      rewrite e_plus_sym in *.
+      rewrite e_prod_plus_absorb_rw in *.
+      apply IHl in Hr2; clear IHl; auto.
+    - induction l; intros. {
+        apply f_run_branch_nil; auto.
+      }
+      inversion H; subst; clear H.
+      apply IHl in H4.
+      apply f_run_branch_cons with (m1:=m) (m2:=m); auto.
+      symmetry.
+      apply e_plus_absorb_rw.
+  Qed.
+
+  Lemma prog_equiv_decl_skip:
+    forall n1 n2 x i,
+    ProgEquiv (Decl x (NNum n1, NNum n2) Skip i) i.
+  Proof.  
+    intros.
+    apply prog_equiv_def; apply prog_impl_def; intros.
+    - apply f_run_inv_decl in H.
+      destruct H as (l, (Hr, Hb)).
+      rewrite prog_equiv_branch_skip in Hb; eauto using r_step_no_dup.
+    - apply f_run_decl with (l:=range_list n1 n2); auto using r_step_range_list.
+      rewrite prog_equiv_branch_skip; auto using range_list_no_dup.
+  Qed.
+(*
+  Lemma impl_branch_branch_seq_1:
+    forall x l i1 i2,
+    NoDup l ->
+    ProgImpl
+      (Branch x l (seq i1 i2) Skip)
+      (seq (Branch x l i1 Skip) (Branch x l i2 Skip)).
+  Proof.
+    induction l; intros. {
+      rewrite p_eq_branch_nil.
+      rewrite p_eq_branch_nil.
+      rewrite p_eq_branch_nil.
+      reflexivity.
+    }
+    apply prog_impl_def.
+    intros.
+    inversion H; subst; clear H.
+    apply f_run_inv_branch_cons in H0.
+    destruct H0 as (m_i1i2_j1j2, (m_b_i1i2_j1j2, (R1, (Hr1, Hr2)))).
+    rewrite R1; clear R1 m.
+    apply IHl in Hr2; auto; clear IHl.
+    apply f_run_inv_seq in Hr2.
+    destruct Hr2 as (m_b_i1j1, (m_b_i2j2, (R, (Hr2, Hr3)))).
+    rewrite R; clear R m_b_i1i2_j1j2.
+    apply f_run_inv_seq in Hr1.
+    destruct Hr1 as (m_i1i2, (m_j1j2, (R, (Hr4, Hr5)))).
+    rewrite R; clear R m_i1i2_j1j2.
+    apply f_run_inv_skip in Hr5.
+    rewrite Hr5 in *; clear Hr5.
+    rewrite e_prod_nil_r.
+    assert (Hb := Hr2).
+    apply f_run_branch_inv_map in Hb; auto.
+    destruct Hb as (ml_i1, (m_j1, (R, (Hj1, Hb_i1)))).
+    apply f_run_inv_skip in Hj1.
+    rewrite Hj1 in *; clear Hj1.
+    rewrite e_prod_nil_r in R.
+    rewrite R in *; clear R m_b_i1j1.
+    assert (Hb := Hr3).
+    apply f_run_branch_inv_map in Hb; auto.
+    destruct Hb as (ml_i2, (m_j2, (R, (Hj2, Hb_i2)))).
+    apply f_run_inv_skip in Hj2.
+    rewrite Hj2 in *; clear Hj2.
+    rewrite e_prod_nil_r in R.
+    rewrite R in *; clear R m_b_i2j2.
+    rewrite i_subst_seq in Hr4.
+    apply f_run_inv_seq in Hr4.
+    destruct Hr4 as (m_i1, (m_i2, (R, (Hr_i1, Hr_i2)))).
+    rewrite R; clear R m_i1i2.
+    eapply f_run_seq.
+    + eapply f_run_branch_cons.
+      * rewrite prog_equiv_seq_skip.
+        eauto.
+      * eauto.
+      * reflexivity.
+    + eapply f_run_branch_cons.
+      * rewrite prog_equiv_seq_skip.
+        eauto.
+      * eauto.
+      * reflexivity.
+    + assert (R: m_i1 + Σ ml_i1 = Σ (m_i1 :: ml_i1)). {
+        simpl.
+        reflexivity.
+      }
+      rewrite R; clear R.
+      assert (R: m_i2 + Σ ml_i2 = Σ (m_i2 :: ml_i2)). {
+        simpl.
+        reflexivity.
+      }
+      rewrite R; clear R.
+      
+       
+      rewrite <- e_prod_plus_r.
+      rewrite <- e_prod_plus_l.
+      rewrite <- e_prod_plus_l.
+      repeat rewrite e_plus_assoc.
+      assert (R: m_i1 * Σ ml_i2 == Σ ml_i2 * m_i1) by auto using e_prod_sym.
+      rewrite R; clear R.
+      Search (_ + _).
+      rename m_i1 into q.
+      rename m_i2 into r.
+      remember (Σ ml_i1) as w.
+      remember (Σ ml_i2) as e.
+      rename a into n.
+      rename e into J.
+      rename w into I.
+      rename q into i.
+      rename r into j.
+      
+      rewrite e_prod_plus_l.
+      repeat rewrite e_prod_assoc.
+      assert (R: (m_j1 * m_j2) * (m_i1 * m_i2) == m_i1 * (m_i2 * (m_j1 * m_j2)) ). {
+        assert (R: m_i1 * (m_i2 * (m_j1 * m_j2)) == (m_i1 * m_i2) * (m_j1 * m_j2))
+          by (repeat rewrite e_prod_assoc; reflexivity).
+        rewrite R.
+        remember (m_j1 * m_j2) as m_j1j2.
+        remember (m_i1 * m_i2) as m_i1i2.
+        rewrite e_prod_sym.
+        reflexivity.
+      }
+      rewrite <- R; clear R.
+      assert (R: Σ ml_i1 * (m_j1 * (Σ ml_i2 * m_j2)) == (m_j1 * m_j2) * (Σ ml_i1 * Σ ml_i2)). {
+        assert (R: (Σ ml_i1 * m_j1) * (Σ ml_i2 * m_j2) == Σ ml_i1 * (m_j1 * (Σ ml_i2 * m_j2)) )
+          by (repeat rewrite e_prod_assoc; reflexivity).
+        rewrite <- R; clear R.
+        assert (R: m_j1 * Σ ml_i1 == Σ ml_i1 * m_j1)
+          by (rewrite e_prod_sym; reflexivity).
+        rewrite <- R; clear R.
+        assert (R: m_j1 * Σ ml_i1 * (Σ ml_i2 * m_j2) == m_j1 * (Σ ml_i1 * Σ ml_i2) * m_j2)
+          by (repeat rewrite e_prod_assoc; reflexivity).
+        rewrite R; clear R.
+        remember (Σ ml_i1 * Σ ml_i2) as m.
+        assert (R: m_j1 * m * m_j2 == m_j1 * (m * m_j2)) by auto using e_prod_assoc.
+        rewrite R; clear R.
+        assert (R: m * m_j2 == m_j2 * m) by auto using e_prod_sym.
+        rewrite R; clear R.
+        rewrite e_prod_assoc.
+        reflexivity.
+      }
+      rewrite R; clear R.
+      rewrite e_prod_plus_r.
+      remember (m_i1 + Σ ml_i1) as m1.
+      remember (m_i2 + Σ ml_i2) as m2.
+      assert (R: m1 * (m_j1 * (m2 * m_j2)) == (m_j1 * m_j2) * (m1 * m2)). {
+        assert(R: m_j1 * m_j2 * (m1 * m2) == m_j1 * (m_j2 * m1) * m2)
+          by (repeat rewrite e_prod_assoc; reflexivity).
+        rewrite R; clear R.
+        assert (R: m_j2 * m1 == m1 * m_j2) by auto using e_prod_sym.
+        rewrite R; clear R.
+        assert (R: m_j1 * (m1 * m_j2) * m2 == (m_j1 * m1) * (m_j2 * m2))
+          by (repeat rewrite e_prod_assoc; reflexivity).
+        rewrite R; clear R.
+        assert (R: m_j1 * m1 == m1 * m_j1) by auto using e_prod_sym.
+        rewrite R; clear R.
+        assert (R: m_j2 * m2 == m2 * m_j2) by auto using e_prod_sym.
+        rewrite R.
+        repeat rewrite e_prod_assoc.
+        reflexivity.
+      }
+      rewrite R; clear R.
+      subst.
+      re
+  Qed.
+*)
+(*
   Import PairInUtil.
   Lemma impl_branch_branch_seq_1:
     forall x l i1 i2 j1 j2,
@@ -1723,7 +1992,8 @@ Section Defs.
         reflexivity.
       }
       rewrite R; clear R.
-
+      subst.
+      re
   Qed.
 
   Lemma impl_branch_seq_2:
@@ -1733,3 +2003,5 @@ Section Defs.
       (Branch x l (seq i j) k).
   Proof.
   Qed.
+  *)
+End Defs.

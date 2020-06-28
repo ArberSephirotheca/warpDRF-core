@@ -412,7 +412,31 @@ Section Defs.
     reflexivity.
   Qed.
 
-  Lemma one_of_app_l:
+  Lemma one_of_app_l_l:
+    forall p l1 l2 l3,
+    one_of p l1 l3 ->
+    one_of p (l1 ++ l2) l3.
+  Proof.
+    destruct p as (v1, v2).
+    induction l1; simpl; intros.
+    - destruct H as [([],_)|([],_)].
+    - destruct H as [([Ha|Ha],Hb)|(Ha,H)];
+      auto using m_in_list_app_l.
+      destruct Ha; auto using m_in_list_app_l.
+  Qed.
+
+  Lemma one_of_app_l_r:
+    forall p l1 l2 l3,
+    one_of p l2 l3 ->
+    one_of p (l1 ++ l2) l3.
+  Proof.
+    destruct p as (v1, v2).
+    induction l1; simpl; intros.
+    - destruct H; auto.
+    - destruct H as [(Ha,Hb)|(Ha,Hb)]; auto using m_in_list_app_r.
+  Qed.
+
+  Lemma one_of_app_r_l:
     forall p l1 l2 l3,
     one_of p l1 l2 ->
     one_of p l1 (l2 ++ l3).
@@ -424,7 +448,7 @@ Section Defs.
       auto using m_in_list_app_l.
   Qed.
 
-  Lemma one_of_app_r:
+  Lemma one_of_app_r_r:
     forall p l1 l2 l3,
     one_of p l1 l3 ->
     one_of p l1 (l2 ++ l3).
@@ -436,7 +460,7 @@ Section Defs.
       auto using m_in_list_app_r.
   Qed.
 
-  Lemma one_of_inv_app_l:
+  Lemma one_of_inv_app_r:
     forall p l1 l2 l3,
     one_of p l1 (l2 ++ l3) ->
     one_of p l1 l2 \/ one_of p l1 l3.
@@ -456,16 +480,32 @@ Section Defs.
       destruct Hc; auto.
   Qed.
 
+  Lemma one_of_inv_app_l:
+    forall p l1 l2 l3,
+    one_of p (l1 ++ l2) l3 ->
+    one_of p l1 l3 \/ one_of p l2 l3.
+  Proof.
+    intros (v1, v2).
+    induction l1; simpl; intros. {
+      destruct H as [(Ha,Hb)|(Ha,Hb)]; auto.
+    }
+    destruct H as [([Ha|Ha],Hb)|([Hb|Hb],Hc)]; auto.
+    + apply m_in_list_app_or in Ha.
+      destruct Ha; auto.
+    + apply m_in_list_app_or in Hb.
+      destruct Hb; auto.
+  Qed.
+
   Lemma e_prod_plus_r:
     forall e1 e2 e3,
     EEq (Plus (Prod e1 e2) (Prod e1 e3)) (Prod e1 (Plus e2 e3)).
   Proof.
     split; intros.
     - simpl in *.
-      destruct H as [[H|[H|H]]|[H|[H|H]]]; auto using one_of_app_l, one_of_app_r.
+      destruct H as [[H|[H|H]]|[H|[H|H]]]; auto using one_of_app_r_l, one_of_app_r_r.
     - simpl in *.
       destruct H as [H|[[H|H]|H]]; auto.
-      apply one_of_inv_app_l in H.
+      apply one_of_inv_app_r in H.
       destruct H; auto.
   Qed.
 
@@ -597,7 +637,47 @@ Section Defs.
     - apply one_of_sym in H.
       auto.
   Qed.
-
+(*
+  Lemma e_plus_prod_prod_rw:
+    forall m1 m2 m3 m4,
+    EEq (Plus (Prod m1 m2) (Prod m3 m4))
+        (Prod (Plus m1 m3) (Plus m2 m4)).
+  Proof.
+    intros.
+    split; simpl; intros; destruct H as [[H1|H2]|[H3|H4]]; auto.
+    - destruct H2; auto.
+      auto using one_of_app_r_l, one_of_app_l_l.
+    - destruct H4; auto.
+      auto using one_of_app_r_r, one_of_app_l_r.
+    - destruct H3; auto.
+    - apply one_of_inv_app_l in H4.
+      destruct H4 as [H|H].
+      + apply one_of_inv_app_r in H.
+        destruct H; auto.
+        (* 
+          one_of p (flatten_exp m1) (flatten_exp m4) ->
+          one_of p (flatten_exp m1) (flatten_exp m2) \/
+          one_of p (flatten_exp m3) (flatten_exp m4)
+        *)
+        (*
+        right; right; right.
+        left; right; right.
+        *)
+        admit.
+      + apply one_of_inv_app_r in H.
+        destruct H; auto.
+        (*
+          one_of p (flatten_exp m3) (flatten_exp m2) ->
+          one_of p (flatten_exp m1) (flatten_exp m2) \/
+          one_of p (flatten_exp m3) (flatten_exp m4)
+        *)
+        (*
+        right; right; right.
+        left; right; right.
+        *)
+        admit.
+  Qed.
+*)
   Lemma e_plus_absorb_rw:
     forall m,
     EEq (Plus m m) m.
@@ -694,6 +774,181 @@ Section Defs.
     apply e_eq_list_cons; auto.
   Qed.
 
+  Lemma eq_list_summation_rw:
+    forall x y,
+    EEqList x y ->
+    EEq (summation x) (summation y).
+  Proof.
+    induction x; intros. {
+      inversion H; subst; clear H.
+      reflexivity.
+    }
+    inversion H; subst; clear H.
+    simpl.
+    rewrite H2.
+    rewrite IHx; eauto.
+    reflexivity.
+  Qed.
+
+
+  Global Instance e_eq_list_proper_2: Proper (EEqList ==> EEq) summation.
+  Proof.
+    unfold Proper, respectful.
+    intros.
+    apply eq_list_summation_rw.
+    assumption.
+  Qed.
+
+  Global Instance e_eq_list_proper_3: Proper (EEqList ==> EEqList ==> EEqList) (map2 Prod).
+  Proof.
+    unfold Proper, respectful.
+    induction x; intros. {
+      inversion H; subst.
+      reflexivity.
+    }
+    inversion H; subst; clear H.
+    destruct x0. {
+      inversion H0; subst; clear H0.
+      repeat rewrite map2_nil_r.
+      apply e_eq_list_nil.
+    }
+    inversion H0; subst; clear H0.
+    repeat rewrite map2_cons_rw.
+    apply e_eq_list_cons.
+    - rewrite H3; rewrite H2; reflexivity.
+    - auto.
+  Qed.
+
+  Global Instance e_eq_list_proper_4: Proper (EEqList ==> EEqList ==> EEqList) (map2 Plus).
+  Proof.
+    unfold Proper, respectful.
+    induction x; intros. {
+      inversion H; subst.
+      reflexivity.
+    }
+    inversion H; subst; clear H.
+    destruct x0. {
+      inversion H0; subst; clear H0.
+      repeat rewrite map2_nil_r.
+      apply e_eq_list_nil.
+    }
+    inversion H0; subst; clear H0.
+    repeat rewrite map2_cons_rw.
+    apply e_eq_list_cons.
+    - rewrite H3; rewrite H2; reflexivity.
+    - auto.
+  Qed.
+
+  Lemma e_eq_list_map_rw:
+    forall (A:Type) (f g:A -> mexp),
+    (forall n, EEq (f n) (g n)) ->
+    forall l,
+    EEqList (map f l) (map g l).
+  Proof.
+    induction l; intros. {
+      apply e_eq_list_nil.
+    }
+    simpl.
+    apply e_eq_list_cons; auto.
+  Qed.
+
+  Lemma e_pair_in_summation_l:
+    forall p l1 l2,
+    length l1 = length l2 ->
+    e_pair_in p (summation l1) ->
+    e_pair_in p (summation (map2 Prod l1 l2)).
+  Proof.
+    induction l1; intros. {
+      simpl in *.
+      assumption.
+    }
+    destruct l2. {
+      inversion H.
+    }
+    rewrite map2_cons_rw.
+    simpl.
+    simpl in H0.
+    destruct H0; auto.
+  Qed.
+
+  Lemma e_pair_in_summation_r:
+    forall p l1 l2,
+    length l1 = length l2 ->
+    e_pair_in p (summation l2) ->
+    e_pair_in p (summation (map2 Prod l1 l2)).
+  Proof.
+    induction l1; intros. {
+      simpl in *.
+      destruct l2; auto.
+      inversion H.
+    }
+    destruct l2. {
+      inversion H.
+    }
+    rewrite map2_cons_rw.
+    simpl.
+    simpl in H0.
+    destruct H0; auto.
+  Qed.
+(*
+  Lemma prod_summation_cons_rw:
+    forall la a b lb,
+    EEq (Plus (Prod a b) (Prod (summation la) (summation lb)))
+        (Prod (summation (a :: la)) (summation (b :: lb))).
+  Proof.
+    induction la; simpl; intros. {
+      rewrite e_prod_nil_l.
+      rewrite e_plus_nil_r.
+      split; intros; simpl in *.
+      - destruct H; auto.
+        destruct H; auto.
+        destruct H; auto.
+        auto using one_of_app_r_l.
+      - destruct H; auto.
+        destruct H; auto. {
+          destruct H; auto.
+        }
+        apply one_of_inv_app_r in H.
+        destruct H; auto.
+        
+        Search (one_of _ _ (_ ++ _)).
+    } 
+  Qed.
+*)
+(*
+  Lemma prod_summation_rw:
+    forall l1 l2,
+    length l1 = length l2 ->
+    EEq (Prod (summation l1) (summation l2))
+        (summation (map2 Prod l1 l2)).
+  Proof.
+    induction l1; intros. {
+      destruct l2. {
+        simpl.
+        rewrite e_prod_nil_l.
+        reflexivity.
+      }
+      inversion H.
+    }
+    destruct l2. { inversion H. }
+    inversion H; subst; clear H.
+    assert (Hl := H1).
+    apply IHl1 in H1.
+    rewrite map2_cons_rw.
+    simpl.
+    rewrite <- IHl1.
+    - rewrite H1.
+      split; intros.
+      + simpl in *.
+        destruct H; auto. {
+          destruct H; auto.
+          auto using e_pair_in_summation_l.
+        }
+        destruct H as [[]|?]; auto using e_pair_in_summation_r.
+        apply one_of_inv_app_l in H.
+        destruct H as [H|H]; apply one_of_inv_app_r in H; destruct H as [H|H]; auto.
+        Search (one_of _ (_ ++ _)).
+  Qed.*)
 End Defs.
 
 Module MHistNotations.

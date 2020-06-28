@@ -1078,5 +1078,15 @@ Section SO.
     - apply in_n_subst_neq in H3; auto using r_in_r.
   Qed.
 
+  Lemma r_step_no_dup:
+    forall l r,
+    RStep r l ->
+    NoDup l.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eauto using range_list_to_no_dup.
+  Qed.
+
 End SO.
 
