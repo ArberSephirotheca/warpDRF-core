@@ -249,15 +249,19 @@ Proof.
 Qed.
 
 Theorem run_imp_mrun:
-forall i1 i2 h1 h2,
-Run (i1, h1) (i2, h2) ->
-Multi_Run (i1, h1) (i2, h2).
+forall x y,
+Run x y ->
+Multi_Run x y.
 Proof.
 intros.
+destruct x as (i1,h1).
+destruct y as (i2,h2).
 apply mrun_step with (i2:=i2) (h2:=h2).
 - assumption.
 - apply mrun_refl.
 Qed.
+
+
 
 Lemma m_run_trans:
   forall x y z,
@@ -503,7 +507,7 @@ Qed.
 
 
 (* sync_normalisable and unsync_normalisable *)
-Theorem allnormalisable:
+Theorem allnormalisable_or:
   forall i,
   (exists j1 j2, 
   (Normalised i (Some j1, j2)))
@@ -519,6 +523,24 @@ destruct EX.
   auto using unsync_normalisable. 
 - left.
   auto using sync_normalisable. 
+Qed.
+
+Theorem allnormalisable:
+  forall i,
+  (exists j1 j2, 
+  (Normalised i (j1, j2))).
+Proof.
+intro.
+assert (EX: Unsync i \/ In Sync i). { apply unsync_insync. }
+destruct EX.
+- exists None. exists i.
+  auto using unsync_normalisable. 
+- apply sync_normalisable in H.
+  eauto.
+  destruct H as (i1, (i2, H1)).
+  exists (Some i1).
+  exists i2.
+  assumption.
 Qed.
 
 
@@ -605,6 +627,130 @@ Proof.
   auto using run_imp_mrun, run_seq.
 Qed.
 
+Fixpoint Merge  (i: option inst) (j: inst) :=
+match i with
+| None => j
+| (Some n) => Seq n j
+end.
+
+Theorem src_norm:
+forall i hi x,
+Run (i, hi) x ->
+exists i1 i2,
+Normalised i (i1, i2) /\
+Multi_Run (Merge i1 i2, hi) x.
+Proof.
+intro i.
+assert (EX: exists j1 j2, Normalised i (j1, j2)). 
+    {auto using allnormalisable. }
+  destruct EX as (j1, (j2, NH)).
+induction NH; subst; intros.
+- inversion H; subst.
+  * exists None. exists Skip.
+    split; simpl.
+    + auto using norm_unsync. 
+    + inversion H0.
+  * exists None. exists (Seq i0 j).
+    split; simpl.
+    + auto using norm_unsync.
+    + apply run_imp_mrun in H0.
+      assumption.
+  * exists None. exists (Access a).
+    split; simpl.
+    + auto using norm_unsync.
+    + apply run_imp_mrun in H0. assumption.
+  * exists None. exists (For v r i0).
+    split; simpl.
+    + auto using norm_unsync.
+    + apply run_imp_mrun in H0. assumption.
+  * exists None. exists (Loop v r i0).
+    split; simpl.
+    + auto using norm_unsync.
+    + apply run_imp_mrun in H0. assumption.
+
+- exists (Some Sync). exists Skip.
+  split; simpl.
+  * apply norm_sync.
+  * destruct x as (i3,h3).
+    assert (i3=Skip /\ h3=[]). { inversion H. auto. }
+    destruct H0 as (Hi, Hh). subst.
+    apply mrun_step with (i2:=Seq Skip Skip) (h2:=[]).
+    + apply run_seq. assumption.
+    + apply mrun_step with (i2:=Skip) (h2:=[]).
+      ++ apply run_seq_skip.
+      ++ apply mrun_refl.
+- exists (Some (Seq i1 (Seq i2 j0))).
+  exists j3.
+  split. 
+    * apply norm_seq_dual; assumption.
+    * simpl.
+      destruct x as (xi, xh).
+      inversion H; subst.
+      + apply IHNH1 in H1.
+        destruct H1 as (x1, (x2, RIH)).
+        destruct RIH as (RIHN, RIHS).
+        
+      apply mrun_step with (i2:=(Seq (Seq xi (Seq i2 j0)) j3)) (h2:= xh).
+      + 
+induction H; subst; inversion NH; subst.
+- exists None. exists j2. split.
+  * assumption.
+  * admit.
+- exists (Some Sync). exists Skip. split.
+  * assumption.
+  * 
+  
+      
+
+  
+  
+- admit. 
+- 
+generalize dependent x.
+intros.
+
+intros.
+assert (EX: exists j1 j2, Normalised i (j1, j2)). 
+    {auto using allnormalisable. }
+destruct EX as (j1, (j2, NH)).
+eexists.
+eexists.
+split.
+- eassumption.
+- inversion H; subst; clear H; inversion NH; subst; simpl.
+  * inversion H1.
+  * transitivity (Seq Skip Skip, @nil access_val). 
+    + apply mrun_seq.
+      apply run_sync.
+    + apply mrun_step with (i2:= Skip) (h2:=[]).
+      ++ apply run_seq_skip.
+      ++ apply mrun_refl.
+  * transitivity (Skip, List.concat  v++ hi).
+    + apply mrun_step with (i2:=Skip) (h2:=List.concat  v++ hi).
+       ++ apply run_access. 
+          assumption.
+       ++ apply mrun_refl.
+    + apply mrun_refl.
+  * apply mrun_step with (i2:=Seq j k) (h2:=h').
+    + auto using run_seq.
+    + apply mrun_refl.
+  * apply mrun_step with (i2:= Seq j j2) (h2:=h').
+    + apply run_seq.
+      
+  * inversion H2.
+(* JL TO CONTINUE HERE *)
+        apply run_access.
+apply mrun_step with (i2:=Seq Skip Skip) (h2:=[]).
+    + eapply run_seq.
+      apply run_sync.
+    + apply mrun_seq.
+    + 
+    + 
+- assert (EX: exists j1 j2, Normalised i (j1, j2)). 
+    {auto using allnormalisable. }
+  destruct EX as (j1, (j2, NH)).
+ 
+
 Theorem src_norm:
 forall i x hi,
 Run (i, hi) x ->
@@ -624,7 +770,8 @@ induction H; subst; intros; inversion Heqa; subst; clear Heqa.
   transitivity (Seq Skip Skip, @nil access_val).
   + auto using mrun_seq, run_sync.
   + apply mrun_seq_skip.
-- (* The conclusion is not strong enough, we need to change it to
+- 
+(* The conclusion is not strong enough, we need to change it to
    Normalized i (o, i2) /\ MultiRun (merge o i2, hi) x
    where
      merge None i = i
