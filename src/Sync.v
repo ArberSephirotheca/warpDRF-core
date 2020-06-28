@@ -633,6 +633,109 @@ match i with
 | (Some n) => Seq n j
 end.
 
+Lemma unsync_src_norm:
+  forall i h x,
+  Unsync i ->
+  Run (i, h) x ->
+  exists (i1 : option inst) (i2 : inst),
+    Normalised i (i1, i2) /\ Multi_Run (Merge i1 i2, h) x.
+Proof.
+  intros.
+  inversion H; subst.
+  * exists None. exists Skip.
+    inversion H0; auto using norm_unsync.
+    (*
+    split; simpl.
+    + auto using norm_unsync. 
+    + inversion H0.*)
+  * exists None. exists (Seq i0 j).
+    auto using norm_unsync, run_imp_mrun.
+    (*
+    split; simpl.
+    + auto using norm_unsync.
+    + apply run_imp_mrun in H0.
+      assumption.*)
+  * exists None. exists (Access a).
+    auto using norm_unsync, run_imp_mrun.
+    (*
+    split; simpl.
+    + auto using norm_unsync.
+    + apply run_imp_mrun in H0. assumption.*)
+  * exists None. exists (For v r i0).
+    auto using norm_unsync, run_imp_mrun.
+    (*
+    split; simpl.
+    + auto using norm_unsync.
+    + apply run_imp_mrun in H0. assumption.
+    *)
+  * exists None. exists (Loop v r i0).
+    split; simpl.
+    + auto using norm_unsync.
+    + apply run_imp_mrun in H0. assumption.
+Qed.
+
+Lemma in_sync_to_not_unsync:
+  forall i,
+  In Sync i ->
+  ~ Unsync i.
+Proof.
+  induction i; intros; intros N; inversion H; subst; clear H;
+    inversion N; subst; clear N.
+  - apply IHi1 in H2; contradiction.
+  - apply IHi2 in H2; contradiction.
+  - apply IHi in H2; contradiction.
+  - apply IHi in H2; contradiction.
+Qed.
+Lemma sync_src_norm:
+forall i hi x,
+Run (i, hi) x ->
+In Sync i ->
+exists i1 i2,
+Normalised i (i1, i2) /\
+Multi_Run (Merge i1 i2, hi) x.
+Proof.
+intro i.
+assert (EX: exists j1 j2, Normalised i (j1, j2)). 
+    {auto using allnormalisable. }
+  destruct EX as (j1, (j2, NH)).
+induction NH; subst; intros.
+- apply in_sync_to_not_unsync in H1.
+  contradiction.
+- exists (Some Sync). exists Skip.
+  split; simpl.
+  * apply norm_sync.
+  * destruct x as (i3,h3).
+    assert (Hx: i3=Skip /\ h3=[]). { inversion H. auto. }
+    destruct Hx as (Hi, Hh). subst.
+    apply mrun_step with (i2:=Seq Skip Skip) (h2:=[]).
+    + apply run_seq. assumption.
+    + apply mrun_step with (i2:=Skip) (h2:=[]).
+      ++ apply run_seq_skip.
+      ++ apply mrun_refl.
+- exists (Some (Seq i1 (Seq i2 j0))).
+  exists j3.
+  inversion H0; subst; clear H0. {
+    inversion H; subst; clear H.
+    * assert (Hx := H5).
+      apply IHNH1 in H5; auto.
+      destruct H5 as (i3, (i4, (Hn, Hm))).
+      split. {
+        
+      }
+  assert (~ Unsync i). {
+    intros N.
+    Search (~ Unsync _ ).
+    contradict H0.
+  }
+  split. 
+    * apply norm_seq_dual; assumption.
+    * simpl.
+      destruct x as (xi, xh).
+      inversion H; subst.
+      + apply IHNH1 in H1.
+        destruct H1 as (x1, (x2, RIH)).
+        destruct RIH as (RIHN, RIHS).
+Qed.
 Theorem src_norm:
 forall i hi x,
 Run (i, hi) x ->
@@ -645,29 +748,7 @@ assert (EX: exists j1 j2, Normalised i (j1, j2)).
     {auto using allnormalisable. }
   destruct EX as (j1, (j2, NH)).
 induction NH; subst; intros.
-- inversion H; subst.
-  * exists None. exists Skip.
-    split; simpl.
-    + auto using norm_unsync. 
-    + inversion H0.
-  * exists None. exists (Seq i0 j).
-    split; simpl.
-    + auto using norm_unsync.
-    + apply run_imp_mrun in H0.
-      assumption.
-  * exists None. exists (Access a).
-    split; simpl.
-    + auto using norm_unsync.
-    + apply run_imp_mrun in H0. assumption.
-  * exists None. exists (For v r i0).
-    split; simpl.
-    + auto using norm_unsync.
-    + apply run_imp_mrun in H0. assumption.
-  * exists None. exists (Loop v r i0).
-    split; simpl.
-    + auto using norm_unsync.
-    + apply run_imp_mrun in H0. assumption.
-
+- auto using unsync_src_norm.
 - exists (Some Sync). exists Skip.
   split; simpl.
   * apply norm_sync.
