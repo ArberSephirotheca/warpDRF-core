@@ -796,7 +796,6 @@ Inductive Equiv : inst -> inst -> Prop :=
   Equiv z z1 -> 
   Equiv (Seq (Seq x y) z) (Seq x1 (Seq y1 z1)).
 
-
 Lemma equiv_refliv:
 forall x,
 Equiv x x.
@@ -804,6 +803,7 @@ Proof.
 intros.
 induction x; auto using equiv_refl.
 Qed.
+
 
 
 Lemma equiv_simm:
@@ -822,6 +822,34 @@ induction H.
 - apply equiv_assoc_l; auto.
 Qed.
 
+Lemma equiv_skip_refl:
+forall x y,
+Equiv (Seq x Skip) y ->
+Equiv x y.
+Proof.
+intros.
+generalize dependent x.
+induction y; intros.
+- inversion H; subst; clear H; auto using equiv_refl.
+- inversion H; subst; clear H; auto using equiv_refl.
+- 
+- admit.
+- admit.
+- admit.
+ apply equiv_unit_rii. auto using equiv_refl.
+induction y; intros; inversion H; subst; auto using equiv_refl.
+- apply equiv_unit_rii. auto using equiv_refl.
+- apply equiv_unit_ris. apply IHy2. assumption.
+- apply equiv_unit_rii. apply IHy1. assumption.
+- assert (IHy1:= ).
+apply equiv_unit_rii.
+inversion H; subst.
+  + 
+
+
+
+
+
 Lemma equiv_transi:
 forall x z y,
 Equiv x y ->
@@ -835,14 +863,39 @@ induction H; intros.
 - assumption.
 - apply IHEquiv in H0. auto using equiv_unit_lii.
 - apply IHEquiv in H0. auto using equiv_unit_lii, equiv_unit_lsi, equiv_unit_ris, equiv_unit_rii.
-- apply IHEquiv.
-  inversion H0; subst; clear H0.
+- inversion H0; subst; clear H0.
+  + apply IHEquiv. admit.
+  + apply IHEquiv. assumption.
+  + apply IHEquiv. assumption.
+  + apply IHEquiv. admit.
+  + apply IHEquiv. admit.
+  + 
+  
   * apply equiv_unit_ris. apply equiv_refliv.
   * assumption.
   * assumption.
-  * apply equiv_unit_ris.
-    apply IHEquiv.
+  * assert (EQ: forall x,  Equiv (Seq Skip j) x -> Equiv j x). {
+    intros x y HSE. 
+    inversion HSE; subst.
+    + apply equiv_unit_ris. apply equiv_refliv.
+    + assumption.
+    + assumption.
+    + 
+   }
+    apply equiv_unit_ris in H1.
+    rewrite -> EQ.
+    apply equiv_unit_ris.  
+    inversion H1; subst.
+    + apply equiv_refliv.
+    + apply  equiv_unit_lsi in H2.
+    + apply equiv_unit_ris.  apply equiv_refliv.
+    + assumption.
+    + assumption.
+    + apply equiv_unit_ris.
+     
+      assert (EQ: Equiv (Seq Skip j) j). { 
     assert (IHEquiv:= IHEquiv j0). 
+    apply IHEquiv.
 
  auto using equiv_unit_lii, equiv_unit_lsi, equiv_unit_ris, equiv_unit_rii, equiv_refliv.
   
