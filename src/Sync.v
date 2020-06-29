@@ -767,10 +767,16 @@ assert (Sij: In Sync i /\ In Sync j).  {
   apply some_normalisable_in_sync in H. auto. }
 destruct Sij as (Si, Sj).
 induction i; inversion Si; 
-  inversion H; subst.
-  inversion H1; subst. inversion H3; subst.
-- apply mrun_step with (i2:=Seq Skip j) (h2:=[]). 
-  + apply run_seq.
+inversion H; subst;
+inversion H1; subst. inversion H3; subst.
+- apply mrun_step with (i2:=Seq (Seq Skip (Seq Skip j0)) j3) (h2:=[]). 
+  + eapply run_seq.
+    eapply run_seq.
+    eapply run_sync.
+  + apply mrun_step with (i2:=Seq (Seq Skip j0) j3) (h2:=[]). 
+    * apply run_seq. apply run_seq_skip.
+    * 
+    
 
  
 Lemma sync_src_norm:
