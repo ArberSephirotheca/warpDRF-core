@@ -764,6 +764,11 @@ Seq (Seq Skip j0) j3 -->* Seq Skip j ==> Seq j0 j3 =~= j
 
 
 Inductive Equiv : inst -> inst -> Prop :=
+| equiv_trans:
+  forall i j k,
+  Equiv i j ->
+  Equiv j k ->
+  Equiv i k
 | equiv_refl:
   forall i,
   Equiv i i
@@ -822,43 +827,32 @@ induction H.
 - apply equiv_assoc_l; auto.
 Qed.
 
-Lemma equiv_skip_refl:
-forall x y,
-Equiv (Seq x Skip) y ->
-Equiv x y.
-Proof.
-intros.
-generalize dependent x.
-induction y; intros.
-- inversion H; subst; clear H; auto using equiv_refl.
-- inversion H; subst; clear H; auto using equiv_refl.
-- 
-- admit.
-- admit.
-- admit.
- apply equiv_unit_rii. auto using equiv_refl.
-induction y; intros; inversion H; subst; auto using equiv_refl.
-- apply equiv_unit_rii. auto using equiv_refl.
-- apply equiv_unit_ris. apply IHy2. assumption.
-- apply equiv_unit_rii. apply IHy1. assumption.
-- assert (IHy1:= ).
-apply equiv_unit_rii.
-inversion H; subst.
-  + 
+
 
 
 
 
 
 Lemma equiv_transi:
-forall x z y,
+forall x y z,
 Equiv x y ->
 Equiv y z ->
 Equiv x z.
 Proof.
-intros x y.
-intros z H.
-generalize dependent y.
+intros.
+generalize dependent z. 
+induction H; intros.
+- apply IHEquiv2 in H1.
+  apply IHEquiv1.
+  assumption.
+- assumption.
+- apply IHEquiv in H0.
+  apply equiv_unit_lii. 
+  assumption.
+- apply IHEquiv in H0.
+  apply equiv_unit_lsi. 
+  assumption.
+- 
 induction H; intros.
 - assumption.
 - apply IHEquiv in H0. auto using equiv_unit_lii.
