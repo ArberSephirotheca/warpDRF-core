@@ -402,6 +402,35 @@ assumption.
 Qed.
 
 
+Theorem none_normalisable_unsync:
+  forall i,
+  Normalised i (None, i) ->
+  Unsync i.
+Proof.
+intros.
+induction i; inversion H; assumption.
+Qed.
+
+Theorem some_normalisable_in_sync:
+  forall i i1 i2,
+  Normalised i (Some i1, i2) ->
+  In Sync i.
+Proof.
+intros i.
+induction i; intros; inversion H; subst; auto using in_sync. 
+- apply IHi2 in H5. apply IHi1 in H3. 
+  auto using in_seq_l.
+- apply IHi2 in H5.
+  auto using in_seq_r.
+- apply IHi1 in H5. 
+  auto using in_seq_l.
+- apply IHi in H1.
+  auto using in_for.
+- apply IHi in H1.
+  auto using in_loop.
+Qed.
+
+
 Lemma unsync_insync:
 forall i,
 Unsync i \/ In Sync i.
@@ -603,6 +632,10 @@ Proof.
   - inversion H; subst; clear H.
     reflexivity.
 Qed.
+
+
+
+
 (* If multi-run is performing a step, then we can decompose it. *)
 Lemma multi_run_inv_step:
   forall i h1 j h2 i' h1',
@@ -686,6 +719,69 @@ Proof.
   - apply IHi in H2; contradiction.
   - apply IHi in H2; contradiction.
 Qed.
+
+
+
+
+(* Normalisation is NOT a function in general! *)
+Lemma norm_fun_unsync:
+  forall i i2,
+  Unsync i ->
+  Normalised i (None, i2) ->
+  forall j2,
+  Normalised i (None, j2)  ->
+  (i2 = j2).
+Proof.
+intros i i2 HUS HN. 
+intros j2 HM.
+induction i; inversion HN; subst; inversion HM; auto; subst.
+- inversion HUS. 
+  apply some_normalisable_in_sync in H0.
+  apply in_sync_to_not_unsync in H0.
+  subst. contradict H0. assumption.
+- inversion HUS; subst.
+  apply some_normalisable_in_sync in H0.
+  apply in_sync_to_not_unsync in H0.
+  subst. contradict H0. assumption.
+- inversion HUS; subst.
+  apply some_normalisable_in_sync in H0.
+  apply in_sync_to_not_unsync in H0.
+  subst. contradict H0. assumption.
+- inversion HUS; subst.
+  apply some_normalisable_in_sync in H0.
+  apply in_sync_to_not_unsync in H0.
+  subst. contradict H0. assumption.
+Qed.
+
+
+Lemma sync_src_norm_seq:
+forall i j i1 i2 j0 j3 j4 h' hi,
+Normalised i (Some i1, i2) -> 
+Normalised j (Some j0, j3) -> 
+Run (Seq i j, hi) (Seq j4 j, h') -> 
+Multi_Run (Seq (Seq i1 (Seq i2 j0)) j3, hi) (Seq j4 j, h').
+Proof.
+intros.
+assert (Sij: In Sync i /\ In Sync j).  {
+  apply some_normalisable_in_sync in H0.
+  apply some_normalisable_in_sync in H. auto. }
+destruct Sij as (Si, Sj).
+induction i; inversion Si; 
+inversion H; subst;
+inversion H1; subst. inversion H3; subst.
+- apply mrun_step with (i2:=Seq (Seq Skip (Seq Skip j0)) j3) (h2:=[]). 
+  + eapply run_seq.
+    eapply run_seq.
+    eapply run_sync.
+  + apply mrun_step with (i2:=Seq (Seq Skip j0) j3) (h2:=[]). 
+    * apply run_seq. apply run_seq_skip.
+    * apply mrun_step with (i2:=Seq j0 j3) (h2:=[]). 
+      -- apply run_seq. apply run_seq_skip.
+      -- apply mrun_step.
+         ++ (* CONTINUE HERE *)
+    
+
+ 
 Lemma sync_src_norm:
 forall i hi x,
 Run (i, hi) x ->
@@ -714,12 +810,35 @@ induction NH; subst; intros.
       ++ apply mrun_refl.
 - exists (Some (Seq i1 (Seq i2 j0))).
   exists j3.
-  inversion H0; subst; clear H0. {
-    inversion H; subst; clear H.
+  inversion H0; subst; clear H0. 
+  * inversion H; subst.
+    + apply IHNH1 in H5.
+      -- destruct H5 as (i3, (i4, (Hn, Hm))).
+          split.
+         ++ admit.
+         ++ apply mrun_step with (i2:=Seq (Seq ?Goal10 (Seq i2 j0)) j3) (h2:=h2) ; simpl. (* (Seq (Seq ?Goal10 (Seq i2 j0)) j3, ?h2)*)
+            ** eapply run_seq. apply run_seq. admit.            ** 
+                  
+      -- assert (EQS:
+      -- assumption.
+    + 
+    inversion H; subst.
     * assert (Hx := H5).
       apply IHNH1 in H5; auto.
       destruct H5 as (i3, (i4, (Hn, Hm))).
-      split. {
+      split. 
+      + apply norm_seq_dual; assumption.
+      + apply IHNH1 in Hx; simpl.
+        ++ inversion H; subst; clear H. 
+           ** apply IHNH1 in H1.
+              -- 
+apply mrun_step with (i2:=Seq j4 j3) (h2:=h').
+           ** destruct Hx as (i1', (i2', Hx')).
+           assert (EQS: i1'=i3). { }
+        ++ assumption.
+        
+
+{
         
       }
   assert (~ Unsync i). {
