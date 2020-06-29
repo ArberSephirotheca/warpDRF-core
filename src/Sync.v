@@ -783,6 +783,17 @@ induction NH; subst; intros.
 - exists (Some (Seq i1 (Seq i2 j0))).
   exists j3.
   inversion H0; subst; clear H0. 
+  * inversion H; subst.
+    + apply IHNH1 in H5.
+      -- destruct H5 as (i3, (i4, (Hn, Hm))).
+          split.
+         ++ admit.
+         ++ apply mrun_step with (i2:=Seq j4 j3) (h2:=h').
+            ** simpl. apply run_seq.
+                  
+      -- assert (EQS:
+      -- assumption.
+    + 
     inversion H; subst.
     * assert (Hx := H5).
       apply IHNH1 in H5; auto.
