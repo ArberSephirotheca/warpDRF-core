@@ -754,6 +754,25 @@ induction i; inversion HN; subst; inversion HM; auto; subst.
 Qed.
 
 
+Lemma sync_src_norm_seq:
+forall i j i1 i2 j0 j3 j4 h' hi,
+Normalised i (Some i1, i2) -> 
+Normalised j (Some j0, j3) -> 
+Run (Seq i j, hi) (Seq j4 j, h') -> 
+Multi_Run (Seq (Seq i1 (Seq i2 j0)) j3, hi) (Seq j4 j, h').
+Proof.
+intros.
+assert (Sij: In Sync i /\ In Sync j).  {
+  apply some_normalisable_in_sync in H0.
+  apply some_normalisable_in_sync in H. auto. }
+destruct Sij as (Si, Sj).
+induction i; inversion Si; 
+  inversion H; subst.
+  inversion H1; subst. inversion H3; subst.
+- apply mrun_step with (i2:=Seq Skip j) (h2:=[]). 
+  + apply run_seq.
+
+ 
 Lemma sync_src_norm:
 forall i hi x,
 Run (i, hi) x ->
@@ -788,8 +807,8 @@ induction NH; subst; intros.
       -- destruct H5 as (i3, (i4, (Hn, Hm))).
           split.
          ++ admit.
-         ++ apply mrun_step with (i2:=Seq j4 j3) (h2:=h').
-            ** simpl. apply run_seq.
+         ++ apply mrun_step with (i2:=Seq (Seq ?Goal10 (Seq i2 j0)) j3) (h2:=h2) ; simpl. (* (Seq (Seq ?Goal10 (Seq i2 j0)) j3, ?h2)*)
+            ** eapply run_seq. apply run_seq. admit.            ** 
                   
       -- assert (EQS:
       -- assumption.
