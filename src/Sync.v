@@ -775,7 +775,10 @@ inversion H1; subst. inversion H3; subst.
     eapply run_sync.
   + apply mrun_step with (i2:=Seq (Seq Skip j0) j3) (h2:=[]). 
     * apply run_seq. apply run_seq_skip.
-    * 
+    * apply mrun_step with (i2:=Seq j0 j3) (h2:=[]). 
+      -- apply run_seq. apply run_seq_skip.
+      -- apply mrun_step.
+         ++ (* CONTINUE HERE *)
     
 
  
