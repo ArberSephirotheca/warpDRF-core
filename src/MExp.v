@@ -890,6 +890,22 @@ Section Defs.
     simpl in H0.
     destruct H0; auto.
   Qed.
+
+  Lemma e_summation_app:
+    forall l1 l2,
+    EEq (summation (l1 ++ l2)) (Plus (summation l1) (summation l2)).
+  Proof.
+    induction l1; intros. {
+      simpl.
+      rewrite e_plus_nil_l.
+      reflexivity.
+    }
+    simpl.
+    rewrite IHl1.
+    rewrite e_plus_assoc.
+    reflexivity.
+  Qed.
+
 (*
   Lemma prod_summation_cons_rw:
     forall la a b lb,
