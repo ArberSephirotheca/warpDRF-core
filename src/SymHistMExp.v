@@ -1739,6 +1739,122 @@ Section Defs.
     - apply f_run_decl with (l:=range_list n1 n2); auto using r_step_range_list.
       rewrite prog_equiv_branch_skip; auto using range_list_no_dup.
   Qed.
+
+
+  Definition range_list_2d_inner n : list (nat*nat) :=
+    List.map (pair n) (range_list 0 n).
+
+  Definition range_list_2d n1 n2 :=
+    List.flat_map range_list_2d_inner (range_list n1 n2).
+
+  Definition Iter2d x y i (p:nat*nat) :=
+    let (nx,ny) := p in
+    FRun
+      (i_subst y (NNum ny)
+        (i_subst x (NNum nx) i))
+  .
+
+  Lemma map_iter2d_inv_app:
+    forall x y i l1 l2 l,
+    Map (Iter2d x y i) (l1 ++ l2) l ->
+    exists l1' l2',
+    l = l1' ++ l2' /\
+    Map (Iter2d x y i) l1 l1' /\
+    Map (Iter2d x y i) l2 l2'.
+  Proof.
+    induction l1; intros. {
+      simpl in *.
+      exists [].
+      exists l.
+      split; auto using map_nil.
+    }
+    simpl in *.
+    inversion H; subst; clear H.
+    apply IHl1 in H5.
+    destruct H5 as (l1', (l2', (R, (Hm1, Hm2)))).
+    subst.
+    exists (v :: l1').
+    exists l2'.
+    repeat split; auto.
+    apply map_cons; auto.
+    intros N.
+    contradict H3.
+    apply in_or_app.
+    auto.
+  Qed.
+
+  Lemma f_run_branch_map_2d_inner:
+    forall ks vs x y i n,
+    Map (Iter2d x y i) (map (pair n) ks) vs ->
+    FRun
+      (Branch y ks (i_subst x (NNum n) i) Skip)
+      (summation vs).
+  Proof.
+    induction ks; intros. {
+      inversion H; subst; clear H.
+      apply f_run_branch_nil.
+      apply f_run_skip_eq.
+    }
+    inversion H; subst; clear H.
+    simpl in *.
+    apply IHks in H5.
+    apply f_run_branch_cons_eq; auto.
+    rewrite prog_equiv_seq_skip.
+    assumption.
+  Qed.
+
+  Lemma f_run_decl_map_2d_inner:
+    forall x y i n l,
+    Map (Iter2d x y i) (range_list_2d_inner n) l ->
+    FRun (Decl y (NNum 0, NNum n) (i_subst x (NNum n) i) Skip) (summation l).
+  Proof.
+    intros.
+    apply f_run_decl with (l:=range_list 0 n); auto using r_step_range_list.
+    unfold range_list_2d_inner in H.
+    auto using f_run_branch_map_2d_inner.
+  Qed.
+
+  Lemma f_run_branch_map_2d:
+    forall ks x y i l,
+    Map (Iter2d x y i) (flat_map range_list_2d_inner ks) l ->
+    x <> y ->
+    FRun (Branch x ks (Decl y (NNum 0, NVar x) i Skip) Skip) (summation l).
+  Proof.
+    induction ks; intros. {
+      simpl in *.
+      inversion H; subst; clear H.
+      apply f_run_branch_nil.
+      apply f_run_skip_eq.
+    }
+    simpl in *.
+    apply map_iter2d_inv_app in H.
+    destruct H as (l1', (l2', (?, (Hm1, Hm2)))).
+    subst.
+    apply IHks in Hm2.
+    eapply f_run_branch_cons; eauto.
+    - simpl.
+      destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
+      destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
+      apply f_run_decl_map_2d_inner; eauto.
+    - rewrite e_summation_app.
+      reflexivity.
+    - assumption.
+  Qed.
+
+  Lemma f_run_decl_map_2d:
+    forall x y i n1 n2 l,
+    x <> y ->
+    Map (Iter2d x y i) (range_list_2d n1 n2) l ->
+    FRun (Decl x (NNum n1, NNum n2) (Decl y (NNum 0, NVar x) i Skip) Skip)
+      (summation l).
+  Proof.
+    intros.
+    apply f_run_decl with (l:=range_list n1 n2).
+    - auto using r_step_range_list.
+    - unfold range_list_2d in H.
+      auto using f_run_branch_map_2d.
+  Qed.
+
 (*
   Lemma impl_branch_branch_seq_1:
     forall x l i1 i2,
