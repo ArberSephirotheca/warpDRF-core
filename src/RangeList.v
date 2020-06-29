@@ -648,6 +648,53 @@ Section Map.
     inversion H; subst; clear H.
     auto using map_cons.
   Qed.
+
+  Lemma map_inv_app:
+    forall P l1 l2 l,
+    Map P (l1 ++ l2) l ->
+    exists l1' l2',
+    l = l1' ++ l2' /\
+    Map P l1 l1' /\
+    Map P l2 l2'.
+  Proof.
+    induction l1; intros. {
+      simpl in *.
+      exists [].
+      exists l.
+      split; auto using map_nil.
+    }
+    simpl in *.
+    inversion H; subst; clear H.
+    apply IHl1 in H5.
+    destruct H5 as (l1', (l2', (R, (Hm1, Hm2)))).
+    subst.
+    exists (v :: l1').
+    exists l2'.
+    repeat split; auto.
+    apply map_cons; auto.
+    intros N.
+    contradict H3.
+    apply in_or_app.
+    auto.
+  Qed.
+
+  Lemma map_app:
+    forall P l1 l2 l1' l2',
+    Map P l1 l1' ->
+    Map P l2 l2' ->
+    NoDup (l1 ++ l2) ->
+    Map P (l1 ++ l2) (l1' ++ l2').
+  Proof.
+    induction l1; intros. {
+      inversion H; subst; clear H.
+      assumption.
+    }
+    inversion H; subst; clear H.
+    simpl in *.
+    inversion H1; subst; clear H1.
+    eauto using map_cons.
+  Qed.
+
 End Map.
 
 Section MapExtra.
