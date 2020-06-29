@@ -723,7 +723,7 @@ Qed.
 
 
 
-(* Normalisation is NOT a function! - some_normalisable_unsync: *)
+(* Normalisation is NOT a function in general! *)
 Lemma norm_fun_unsync:
   forall i i2,
   Unsync i ->
@@ -782,16 +782,19 @@ induction NH; subst; intros.
       ++ apply mrun_refl.
 - exists (Some (Seq i1 (Seq i2 j0))).
   exists j3.
-  inversion H0; subst; clear H0. {
-    inversion H; subst; clear H.
+  inversion H0; subst; clear H0. 
+    inversion H; subst.
     * assert (Hx := H5).
       apply IHNH1 in H5; auto.
       destruct H5 as (i3, (i4, (Hn, Hm))).
       split. 
       + apply norm_seq_dual; assumption.
-      + apply IHNH1 in Hx.
-        ++ simpl.
-           destruct Hx as (i1', (i2', Hx')).
+      + apply IHNH1 in Hx; simpl.
+        ++ inversion H; subst; clear H. 
+           ** apply IHNH1 in H1.
+              -- 
+apply mrun_step with (i2:=Seq j4 j3) (h2:=h').
+           ** destruct Hx as (i1', (i2', Hx')).
            assert (EQS: i1'=i3). { }
         ++ assumption.
         
