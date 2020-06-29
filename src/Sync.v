@@ -811,25 +811,17 @@ Qed.
 
 
 
+
+
+
+
 Lemma equiv_simm:
 forall x y,
 Equiv x y ->
 Equiv y x.
 Proof.
 intros.
-induction H.
-- auto using equiv_refl.
-- auto using equiv_unit_ris.
-- auto using equiv_unit_rii.
-- auto using equiv_unit_lii.
-- auto using equiv_unit_lsi.
-- apply equiv_assoc_r; auto.
-- apply equiv_assoc_l; auto.
-Qed.
-
-
-
-
+Admitted.
 
 
 
@@ -842,17 +834,23 @@ Proof.
 intros.
 generalize dependent z. 
 induction H; intros.
-- apply IHEquiv2 in H1.
-  apply IHEquiv1.
-  assumption.
+- apply IHEquiv2 in H1. apply IHEquiv1. assumption. 
 - assumption.
-- apply IHEquiv in H0.
-  apply equiv_unit_lii. 
-  assumption.
-- apply IHEquiv in H0.
-  apply equiv_unit_lsi. 
-  assumption.
-- 
+- apply IHEquiv in H0. apply equiv_unit_lii. assumption.
+- apply IHEquiv in H0. apply equiv_unit_lsi. assumption.
+- apply IHEquiv. apply equiv_trans with (j:=Seq Skip j).
+  + apply equiv_unit_ris. apply equiv_refl.
+  + assumption.
+- apply IHEquiv. apply equiv_trans with (j:=Seq j Skip).
+  + apply equiv_unit_rii. apply equiv_refl.
+  + assumption.
+- apply equiv_trans with (j:=Seq x1 (Seq y1 z1)).
+  + inversion H2; subst.
+    * 
+  + apply equiv_assoc_l; auto using equiv_refl.
+  + 
+  
+
 induction H; intros.
 - assumption.
 - apply IHEquiv in H0. auto using equiv_unit_lii.
