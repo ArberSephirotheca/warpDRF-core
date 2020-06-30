@@ -29,25 +29,6 @@ Section Compiler.
   Section Defs.
   Context {A:Access}.
   Context {T:Tasks}.
- 
-  Lemma access_step_subst_1:
-    forall t1 t2 e v,
-    ~ access_in T1 e ->
-    ~ access_in T2 e ->
-    access_step
-       (access_subst T2 (NNum t2)
-          (access_subst T1 (NNum t1) (access_subst TID (NVar T1) e)), 
-       NNum t1) v ->
-    access_step
-       (access_subst TID (NNum t1) e, NNum t1) v.
-  Proof.
-    intros.
-    rename H1 into Hx.
-    rewrite access_subst_subst_trans in Hx; auto.
-    rewrite access_subst_subst_neq in Hx; auto using t2_neq_tid.
-    rewrite access_subst_not_in with (x:=T2) in Hx; auto.
-  Qed.
-
   Notation history := (list access_val).
   Definition mk_empty_1 n1 n2 : list history :=
     List.concat (map (fun _ => [[]]) (range_list n1 n2)) ++ [[]].
@@ -74,6 +55,456 @@ Section Compiler.
     rewrite prog_equiv_decl_skip.
     reflexivity.
   Qed.
+
+  Lemma iter_2d_inv_seq:
+    forall x y i j p m,
+    Iter2d x y (seq i j) p m ->
+    exists m1 m2,
+    m == m1 * m2 /\
+    Iter2d x y i p m1 /\
+    Iter2d x y j p m2.
+  Proof.
+    unfold Iter2d.
+    intros.
+    destruct p as (nx, ny).
+    rewrite i_subst_seq in H.
+    rewrite i_subst_seq in H.
+    apply f_run_inv_seq in H.
+    destruct H as (m1, (m2, (r1, (r2, r3)))).
+    exists m1, m2.
+    split; auto.
+  Qed.
+
+  Lemma iter_2d_seq:
+    forall x y i j p m1 m2 m3,
+    Iter2d x y i p m1 ->
+    Iter2d x y j p m2 ->
+    m3 == m1 * m2 ->
+    Iter2d x y (seq i j) p m3.
+  Proof.
+    intros.
+    unfold Iter2d in *.
+    destruct p as (nx, ny).
+    rewrite i_subst_seq.
+    rewrite i_subst_seq.
+    eapply f_run_seq; eauto.
+  Qed.
+
+  Lemma iter_2d_seq_eq:
+    forall x y i j p m1 m2,
+    Iter2d x y i p m1 ->
+    Iter2d x y j p m2 ->
+    Iter2d x y (seq i j) p (m1 * m2).
+  Proof.
+    intros.
+    eapply iter_2d_seq; eauto.
+    reflexivity.
+  Qed.
+
+  Definition Access2d x y (e:access_exp * nexp) (p:nat*nat) m :=
+    let (nx, ny) := p in
+    let (a, e) := e in
+      exists v,
+      access_step
+        (access_subst y (NNum ny)
+          (access_subst x (NNum nx) a),
+           n_subst y (NNum ny) (n_subst x (NNum nx) e)) v /\
+      m = One v.
+
+
+  Lemma access_2d_to_iter_2d:
+    forall x y e a m,
+    Access2d x y e a m ->
+    Iter2d x y (Acc e Skip) a m.
+  Proof.
+    unfold Access2d, Iter2d.
+    intros.
+    destruct a as (nx, ny).
+    destruct e as (a, e).
+    destruct H as (v, (H,R)).
+    subst.
+    simpl.
+    eapply f_run_access; eauto using f_run_skip_eq.
+    rewrite e_prod_nil_r.
+    reflexivity. 
+  Qed.
+
+  Lemma iter_2d_inv_access:
+    forall x y e i p m,
+    Iter2d x y (Acc e i) p m ->
+    exists m1 m2,
+    m == m1 * m2 /\
+    Access2d x y e p m1 /\
+    Iter2d x y i p m2.
+  Proof.
+    intros.
+    unfold Iter2d in H.
+    destruct p as (nx, ny).
+    destruct e as (a, e).
+    simpl in H.
+    apply f_run_inv_access in H.
+    destruct H as (v', (m', (Rv, (Ha, Hc)))).
+    exists (One v'), m'.
+    unfold Iter2d, Access2d.
+    eauto.
+  Qed.
+
+  Lemma map_iter_2d_inv_seq:
+    forall ks vs i j x y,
+    Map (Iter2d x y (seq i j)) ks vs ->
+    exists vs1 vs2,
+    EEqList vs (map2 Prod vs1 vs2) /\
+    Map (Iter2d x y i) ks vs1 /\
+    Map (Iter2d x y j) ks vs2.
+  Proof.
+    induction ks; intros. {
+      inversion H; subst; clear H.
+      exists [], [].
+      rewrite map2_nil_l.
+      split. { reflexivity. }
+      auto using map_nil.
+    }
+    inversion H; subst; clear H.
+    apply IHks in H5.
+    destruct H5 as (vs1, (vs2, (R1, (Hm1, Hm2)))).
+    apply iter_2d_inv_seq in H2.
+    destruct H2 as (m1, (m2, (R2, (Hr1, Hr2)))).
+    exists (m1 :: vs1), (m2::vs2).
+    split; auto using map_cons.
+    rewrite R2.
+    rewrite R1.
+    rewrite map2_cons_rw.
+    reflexivity.
+  Qed.
+
+  Lemma f_run_inv_access:
+    forall i e m,
+    FRun (Acc e i) m ->
+    exists v m',
+    m == One v * m' /\
+    access_step e v /\
+    FRun i m'.
+  Proof.
+    intros.
+    destruct H as (m', (R, Hr)).
+    inversion Hr; subst; clear Hr.
+    exists v, hs.
+    auto using f_run_eq.
+  Qed.
+
+
+  Lemma map_iter_2d_inv_acc:
+    forall x y e i ks vs,
+    Map (Iter2d x y (Acc e i)) ks vs ->
+    exists vs1 vs2,
+    EEqList vs (map2 Prod vs1 vs2) /\
+    Map (Access2d x y e) ks vs1 /\
+    Map (Iter2d x y i) ks vs2.
+  Proof.
+    induction ks; intros. {
+      inversion H; subst; clear H.
+      exists [], [].
+      rewrite map2_nil_l.
+      split. { reflexivity. }
+      auto using map_nil.
+    }
+    inversion H; subst; clear H.
+    apply IHks in H5.
+    destruct H5 as (vs1, (vs2, (R1, (Hm1, Hm2)))).
+    apply iter_2d_inv_access in H2.
+    destruct H2 as (m1, (m2, (R2, (Hacc, Hi)))).
+    exists (m1::vs1), (m2::vs2).
+    split; auto using map_cons.
+    rewrite R2.
+    rewrite R1.
+    rewrite map2_cons_rw.
+    reflexivity.
+  Qed.
+
+  Lemma map_iter2d_map2_prod:
+    forall ks vs1 vs2 x y i j,
+    Map (Iter2d x y i) ks vs1 ->
+    Map (Iter2d x y j) ks vs2 ->
+    Map (Iter2d x y (seq i j)) ks (map2 Prod vs1 vs2).
+  Proof.
+    induction ks; intros. {
+      inversion H; subst.
+      rewrite map2_nil_l.
+      apply map_nil.
+    }
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0.
+    apply IHks with (vs1:=vs) (i:=i) in H8; eauto.
+    apply map_cons; auto using iter_2d_seq_eq.
+  Qed.
+
+  Lemma translate_def:
+    forall i vs1 vs2,
+    Map (Iter2d T1 T2 (i_subst TID (NVar T1) (proj i)))
+        (range_list_2d 1 TID_COUNT) vs1 ->
+    Map (Iter2d T1 T2 (i_subst TID (NVar T2) (proj i)))
+        (range_list_2d 1 TID_COUNT) vs2 ->
+    FRun (translate i) (summation (map2 Prod vs1 vs2)).
+  Proof.
+    intros.
+    unfold translate.
+    apply f_run_decl_map_2d; auto using t1_neq_t2.
+    apply map_iter2d_map2_prod; auto.
+  Qed.
+
+  Lemma map_iter_2d_access_skip:
+    forall x y e ks vs,
+    Map (Access2d x y e) ks vs ->
+    Map (Iter2d x y (Acc e Skip)) ks vs.
+  Proof.
+    eauto using map_impl, access_2d_to_iter_2d.
+  Qed.
+  
+  Lemma translate_access_skip:
+    forall e vs1 vs2,
+    Map (Access2d T1 T2 (access_subst TID (NVar T1) e, NVar T1))
+          (range_list_2d 1 TID_COUNT) vs1 ->
+    Map (Access2d T1 T2 (access_subst TID (NVar T2) e, NVar T2))
+          (range_list_2d 1 TID_COUNT) vs2 ->
+    FRun (translate (Conc.Acc e Conc.Skip)) (Σ (map2 Prod vs1 vs2)).
+  Proof.
+    intros.
+    unfold translate.
+    unfold do_proj.
+    apply f_run_decl_map_2d; auto using t1_neq_t2.
+    apply map_iter2d_map2_prod.
+    + simpl.
+      remove_eq TID TID.
+      auto using map_iter_2d_access_skip.
+    + simpl.
+      remove_eq TID TID.
+      auto using map_iter_2d_access_skip.
+  Qed.
+
+  Lemma translate_inv_access e m i (t1_nin: ~ Conc.In T1 (Conc.Acc e i)) (t2_nin: ~ Conc.In T2 (Conc.Acc e i)):
+    FRun (translate (Conc.Acc e i)) m ->
+    exists vs1 vs2 vs3 vs4,
+    FRun (translate (Conc.Acc e Conc.Skip)) (summation (map2 Prod vs1 vs2)) /\
+    FRun (translate i) (summation (map2 Prod vs3 vs4)) /\
+    m == summation (map2 Prod (map2 Prod vs1 vs3) (map2 Prod vs2 vs4)).
+  Proof.
+    intros Hr.
+    unfold translate in Hr.
+    apply f_run_inv_decl_map_2d in Hr; auto using t1_neq_t2.
+    destruct Hr as (r, (R1, Hm)).
+    unfold do_proj in Hm.
+    apply map_iter_2d_inv_seq in Hm.
+    destruct Hm as (vs1, (vs2, (R2, (Hm1, Hm2)))).
+    simpl in Hm1, Hm2.
+    remove_eq TID TID.
+    apply map_iter_2d_inv_acc in Hm1.
+    destruct Hm1 as (vs3, (vs4, (R3, (Hm3, Hm4)))).
+    apply map_iter_2d_inv_acc in Hm2.
+    destruct Hm2 as (vs5, (vs6, (R4, (Hm5, Hm6)))).
+    exists vs3, vs5, vs4, vs6.
+    split. { auto using translate_access_skip. }
+    split. { auto using translate_def. }
+    rewrite R1.
+    rewrite R2.
+    rewrite R3.
+    rewrite R4.
+    reflexivity.
+  Qed.
+
+
+  Lemma i_subst_inv_nil:
+    forall x v i,
+    SymHist.i_subst x v i = SymHist.Skip ->
+    i = SymHist.Skip.
+  Proof.
+    intros.
+    destruct i; simpl in *.
+    - reflexivity.
+    - destruct p.
+      inversion H.
+    - inversion H.
+    - inversion H.
+  Qed.
+(*
+  Lemma completeness_1
+      (i:Conc.inst)
+      (T1_nin_i: ~ Conc.In T1 i)
+      (T2_nin_i: ~ Conc.In T2 i)
+    :
+    forall hs1,
+    LoopFree.Run i hs1 ->
+    forall hs2,
+    (forall x, MIn x hs1 -> access_tid x < TID_COUNT) ->
+    SymHist.Run (translate i) hs2 ->
+    Incl (MMember hs2) (MMember hs1).
+  Proof.
+    intros hs1 H.
+    induction H; intros.
+    - assert (hs2 = mk_empty_2 1 TID_COUNT). {
+        assert (Hx := run_skip).
+        eauto using SymHist.run_fun.
+      }
+      subst.
+      rewrite mk_empty_2_rw.
+      rewrite mem_equiv_cons_nil_rw.
+      reflexivity.
+    - apply c2_run_acc_inv_1 in H2; auto.
+      destruct H2 as (f1, (Heq, Hf)).
+      subst.
+      rewrite mequiv_app_nil_r.
+      destruct (list_eq_nil hs) as [N|hs_not_nil]. {
+        subst.
+        simpl.
+        apply incl_mmember_nil.
+        admit.
+      }
+      rewrite mmember_prepend_rw; auto.
+      rewrite member_concat_rw.
+      rewrite mequiv_app_nil_r.
+      (*
+      rewrite incl_l_either_iff.
+      split. {
+        apply c2_run_acc_inv_1 in H2; auto.
+        destruct H2 as (f1, (?, Hf1)).
+        subst.
+        clear IHRun. (* We don't need IHRun *)
+        (* Show that all members of v are in hss *)
+        (* 1. simplify defs *)
+        apply incl_def; intros.
+        rewrite mmember_rw in *.
+        apply m_in_app_l.
+        (* At this point we know that the access is in the output of 
+             Hist.GenAccess TID e TID_COUNT v
+           So, we need to find out which task has created it. *)
+        apply Hist.m_in_gen_access_inv with (v0:=x) in H; auto.
+        destruct H as (t, (vs, (Ht, (Ha, (Hi, Hj))))).
+        (* Knowing that some task performed the access, we need to
+           figure out whether it was T1 or T2.
+           If t = 0, then t = T2, otherwise t = T1. *)
+        assert (Hd: t = 0 \/ 1 <= t) by omega.
+        destruct Hd. {
+          (* t = T2 *)
+          (* In this case, we can pick any other task, say T1 = 1 *)
+          assert (Hx1: 1 <= 1 < TID_COUNT) by auto using tid_count_1_lt with *.
+          assert (Hx2: 0 <= 0 < 1 ) by omega.
+          assert (Hf1 := Hf1 1 0 Hx1 Hx2); subst.
+          destruct Hf1 as (f2, (hs1, (hs2, (?, (?, (Hr1, Hr2)))))).
+          inversion Hr2; subst; clear Hr2.
+          assert (v0 = vs) by eauto using access_step_fun.
+          subst.
+          apply m_in_branch_iter with (n:=1); auto.
+          rewrite H.
+          apply m_in_app_l.
+          apply m_in_branch_iter with (n:=0); auto.
+          rewrite H3.
+          destruct (list_eq_nil hs1). {
+            subst.
+            apply SymHist.run_inv_nil in Hr1.
+            contradiction.
+          }
+          apply m_in_prod_r; auto.
+          assert (hs0 <> []). {
+            intros N; subst.
+            apply SymHist.run_inv_nil in H8.
+            contradiction.
+          }
+          apply m_in_prepend_l; auto.
+        }
+        (* t = T1 *)
+        (* In this case, we can pick any other task for T1 = 0 *)
+        give_up.
+      }
+      (* Show that all members of hs are in hss *)
+      (* We have that the access is in hs, so we must use the IH *)
+      apply incl_def; intros.
+      rewrite mmember_rw in *.
+      assert (R: (Conc.Acc e i) = Conc.seq (Conc.Acc e Conc.Skip) i) by auto.
+      rewrite R in H2; clear R.
+      apply translate_seq in H2; auto.
+      + destruct H2 as (m, (Hm, Hr)).
+        apply SymHist.run_inv_seq in Hr.
+        destruct Hr as (ma, (mb, (?, (Hr1, Hr2)))).
+        assert (Hx := Hr2).
+        apply IHRun in Hx.
+        * subst.
+          rewrite Hm.
+          assert (ma <> nil). {
+            intros N; subst.
+            apply SymHist.run_inv_nil in Hr1.
+            assumption.
+          }
+          apply m_in_prod_r; auto.
+          give_up.
+        * give_up.
+        * give_up.
+        * give_up.
+      + give_up.
+      + give_up.
+      + give_up.
+      + give_up.
+    - give_up.
+    - give_up.
+    - give_up.
+    *)
+  Admitted.
+*)
+  Notation "'<[' x ']>'" := (translate x).
+  Coercion NNum: nat >-> nexp.  
+  Infix "⇓" := LoopFree.Run (at level 80).
+  Notation "⊢" := Hist.Safe.
+  Notation "⊨" := Hist.MSafe.
+  (*
+  Infix "*⊆" := AllIncl (at level 80).
+  Infix "⊆*" := InclAll (at level 80).
+  Infix "*⊆*" := AllInclAll (at level 70).
+  *)
+  Infix "×" := prod (at level 50).
+  Infix "⤋" := SymHist.Run (at level 80).
+  Notation "x *⊆* y" := (Incl (MMember x) (MMember y)) (at level 80).
+  Notation "i '[' x ':=' n ']'" := (Conc.i_subst x n i) (at level 40).
+
+
+  Theorem completeness:
+    forall i hs1,
+    LoopFree.Run i hs1 ->
+    forall hs2,
+    SymHist.Run (translate i) hs2 ->
+    Hist.MSafe hs1 ->
+    ~ Conc.In T1 i ->
+    ~ Conc.In T2 i ->
+    ~ Conc.Var TID i -> 
+    Hist.MSafeStrong hs2.
+  Proof.
+    intros.
+    eapply Hist.m_safe_to_m_safe_strong; eauto.
+    unfold InUtil.AllInclAll, Ensembles.Included, Ensembles.In.
+    intros.
+
+  Admitted.
+
+(*
+
+
+ (*
+  Lemma access_step_subst_1:
+    forall t1 t2 e v,
+    ~ access_in T1 e ->
+    ~ access_in T2 e ->
+    access_step
+       (access_subst T2 (NNum t2)
+          (access_subst T1 (NNum t1) (access_subst TID (NVar T1) e)), 
+       NNum t1) v ->
+    access_step
+       (access_subst TID (NNum t1) e, NNum t1) v.
+  Proof.
+    intros.
+    rename H1 into Hx.
+    rewrite access_subst_subst_trans in Hx; auto.
+    rewrite access_subst_subst_neq in Hx; auto using t2_neq_tid.
+    rewrite access_subst_not_in with (x:=T2) in Hx; auto.
+  Qed.
+*)
+
 (*
   Definition add {A:Type} f (a:nat) (v:A) :=
     (fun n => if PeanoNat.Nat.eq_dec n a then v else f n).
@@ -173,6 +604,7 @@ Section Compiler.
       rewrite add_neq_rw; auto.
   Qed.
 *)
+
   Lemma subst_t1_tid_eq:
     forall v e,
     ~ SymHist.In T1 e ->
@@ -1059,82 +1491,7 @@ Section Compiler.
     eauto using run_decl_map, SymHist.run_skip.
   Qed.
 *)
-  Lemma translate_acc_inv_2 e hs i (t1_nin: ~ Conc.In T1 (Conc.Acc e i)) (t2_nin: ~ Conc.In T2 (Conc.Acc e i)):
-    FRun (translate (Conc.Acc e i)) hs ->
-    exists hs1 hs2,
-    FRun (translate (Conc.Acc e Conc.Skip)) hs1 /\
-    FRun (translate i) hs2 /\
-    hs == Prod hs1 hs2.
-  Proof.
-    intros Hr.
-    apply run_trans_inv_2 in Hr; auto.
-    destruct Hr as (m1, (ms2, (R1, (Hd1, Hm1)))).
-    unfold do_proj in Hd1, Hm1.
-    simpl in Hd1, Hm1.
-    remove_eq TID TID.
-    apply decl_map_inv_acc in Hd1.
-    destruct Hd1 as (ms1, (ms3, (R2, (Hd1, Hd2)))).
-    rewrite R2 in R1; clear R2.
-    apply map_decl_map_inv_acc in Hm1.
-    destruct Hm1 as (m3, (m4, (R2, (Hm1, Hm2)))).
-    subst.
-    subst. {
-        destruct run_translate_def2 with (m1:=ms1) (i:=Conc.Acc e Conc.Skip) (m2:=m3) as (mr, Hr1) ; auto.
-        - admit.
-        - admit.
-        - simpl.
-          remove_eq TID TID.
-          assumption.
-        - simpl.
-          remove_eq TID TID.
-          assumption.
-        - destruct run_translate_def2 with (m1:=ms3) (i:=i) (m2:=m4) as (mr1, Hr).
-          + admit.
-          + admit.
-          + assumption.
-          + assumption.
-          + exists mr.
-            exists mr1.
-            split; auto.
-            split; auto.
-            rewrite R1.
 
-
-
-      eexists.
-      eexists.
-      split. {
-        3: {
-          intros n1 Hn1.
-          apply Hf in Hn1.
-          eexists.
-          split.
-          2: {
-            intros n2 Hn2.
-            unfold do_proj in Hn1.
-            simpl in Hn1.
-            remove_eq TID TID.
-            remove_eq TID TID.
-            apply decl_map_inv in Hd.
-            destruct Hd as (f1, (?, Hf1)).
-            subst.
-            eexists.
-            eexists.
-            repeat split.
-            2: {
-              assert (Hf1 := Hf1 n1).
-            }
-          }
-        }
-        Search (Run (translate _) _).
-      }
-    } 
-    apply translate_acc_inv in Hr; auto.
-    destruct Hr as (f1, (R1, Hf1)).
-    subst.
-    assert (Hx := run_translate i).
-  Qed.
-*)
 
   Lemma translate_seq e1 (t1_nin1: ~ Conc.In T1 e1) (t2_nin1: ~ Conc.In T2 e1):
     forall e2,
@@ -1179,251 +1536,9 @@ Section Compiler.
     auto.
   Qed.
 *)
-  Lemma i_subst_inv_nil:
-    forall x v i,
-    SymHist.i_subst x v i = SymHist.Skip ->
-    i = SymHist.Skip.
-  Proof.
-    intros.
-    destruct i; simpl in *.
-    - reflexivity.
-    - destruct p.
-      inversion H.
-    - inversion H.
-    - inversion H.
-  Qed.
 
-  Notation "'<[' x ']>'" := (translate x).
-  Coercion NNum: nat >-> nexp.  
-  Infix "⇓" := LoopFree.Run (at level 80).
-  Notation "⊢" := Hist.Safe.
-  Notation "⊨" := Hist.MSafe.
-  (*
-  Infix "*⊆" := AllIncl (at level 80).
-  Infix "⊆*" := InclAll (at level 80).
-  Infix "*⊆*" := AllInclAll (at level 70).
-  *)
-  Infix "×" := prod (at level 50).
-  Infix "⤋" := SymHist.Run (at level 80).
-  Notation "x *⊆* y" := (Incl (MMember x) (MMember y)) (at level 80).
-  Notation "i '[' x ':=' n ']'" := (Conc.i_subst x n i) (at level 40).
 
-  Lemma completeness_1
-      (i:Conc.inst)
-      (T1_nin_i: ~ Conc.In T1 i)
-      (T2_nin_i: ~ Conc.In T2 i)
-    :
-    forall hs1,
-    LoopFree.Run i hs1 ->
-    forall hs2,
-    (forall x, MIn x hs1 -> access_tid x < TID_COUNT) ->
-    SymHist.Run (translate i) hs2 ->
-    Incl (MMember hs2) (MMember hs1).
-  Proof.
-    intros hs1 H.
-    induction H; intros.
-    - assert (hs2 = mk_empty_2 1 TID_COUNT). {
-        assert (Hx := run_skip).
-        eauto using SymHist.run_fun.
-      }
-      subst.
-      rewrite mk_empty_2_rw.
-      rewrite mem_equiv_cons_nil_rw.
-      reflexivity.
-    - apply c2_run_acc_inv_1 in H2; auto.
-      destruct H2 as (f1, (Heq, Hf)).
-      subst.
-      rewrite mequiv_app_nil_r.
-      destruct (list_eq_nil hs) as [N|hs_not_nil]. {
-        subst.
-        simpl.
-        apply incl_mmember_nil.
-        admit.
-      }
-      rewrite mmember_prepend_rw; auto.
-      rewrite member_concat_rw.
-      rewrite mequiv_app_nil_r.
-      (*
-      rewrite incl_l_either_iff.
-      split. {
-        apply c2_run_acc_inv_1 in H2; auto.
-        destruct H2 as (f1, (?, Hf1)).
-        subst.
-        clear IHRun. (* We don't need IHRun *)
-        (* Show that all members of v are in hss *)
-        (* 1. simplify defs *)
-        apply incl_def; intros.
-        rewrite mmember_rw in *.
-        apply m_in_app_l.
-        (* At this point we know that the access is in the output of 
-             Hist.GenAccess TID e TID_COUNT v
-           So, we need to find out which task has created it. *)
-        apply Hist.m_in_gen_access_inv with (v0:=x) in H; auto.
-        destruct H as (t, (vs, (Ht, (Ha, (Hi, Hj))))).
-        (* Knowing that some task performed the access, we need to
-           figure out whether it was T1 or T2.
-           If t = 0, then t = T2, otherwise t = T1. *)
-        assert (Hd: t = 0 \/ 1 <= t) by omega.
-        destruct Hd. {
-          (* t = T2 *)
-          (* In this case, we can pick any other task, say T1 = 1 *)
-          assert (Hx1: 1 <= 1 < TID_COUNT) by auto using tid_count_1_lt with *.
-          assert (Hx2: 0 <= 0 < 1 ) by omega.
-          assert (Hf1 := Hf1 1 0 Hx1 Hx2); subst.
-          destruct Hf1 as (f2, (hs1, (hs2, (?, (?, (Hr1, Hr2)))))).
-          inversion Hr2; subst; clear Hr2.
-          assert (v0 = vs) by eauto using access_step_fun.
-          subst.
-          apply m_in_branch_iter with (n:=1); auto.
-          rewrite H.
-          apply m_in_app_l.
-          apply m_in_branch_iter with (n:=0); auto.
-          rewrite H3.
-          destruct (list_eq_nil hs1). {
-            subst.
-            apply SymHist.run_inv_nil in Hr1.
-            contradiction.
-          }
-          apply m_in_prod_r; auto.
-          assert (hs0 <> []). {
-            intros N; subst.
-            apply SymHist.run_inv_nil in H8.
-            contradiction.
-          }
-          apply m_in_prepend_l; auto.
-        }
-        (* t = T1 *)
-        (* In this case, we can pick any other task for T1 = 0 *)
-        give_up.
-      }
-      (* Show that all members of hs are in hss *)
-      (* We have that the access is in hs, so we must use the IH *)
-      apply incl_def; intros.
-      rewrite mmember_rw in *.
-      assert (R: (Conc.Acc e i) = Conc.seq (Conc.Acc e Conc.Skip) i) by auto.
-      rewrite R in H2; clear R.
-      apply translate_seq in H2; auto.
-      + destruct H2 as (m, (Hm, Hr)).
-        apply SymHist.run_inv_seq in Hr.
-        destruct Hr as (ma, (mb, (?, (Hr1, Hr2)))).
-        assert (Hx := Hr2).
-        apply IHRun in Hx.
-        * subst.
-          rewrite Hm.
-          assert (ma <> nil). {
-            intros N; subst.
-            apply SymHist.run_inv_nil in Hr1.
-            assumption.
-          }
-          apply m_in_prod_r; auto.
-          give_up.
-        * give_up.
-        * give_up.
-        * give_up.
-      + give_up.
-      + give_up.
-      + give_up.
-      + give_up.
-    - give_up.
-    - give_up.
-    - give_up.
-    *)
-  Admitted.
 
-(*
-  Variable tid_ge_2: TID_COUNT > 2.
-  Variable in_heap: forall x i hs, SymHist.Run i hs -> MIn x hs -> access_tid x < TID_COUNT.
-*)
-(*
-  Theorem completeness:
-    forall i hs1,
-    C1SX.Run TID_COUNT TID i hs1 ->
-    forall hs2,
-    SymHist.Run (translate i) hs2 ->
-    Hist.MSafe hs1 ->
-    ~ Conc.In T1 i ->
-    ~ Conc.In T2 i ->
-    ~ Conc.Var TID i -> 
-    Hist.MSafeStrong hs2.
-  Proof.
-    intros.
-    eapply Hist.m_safe_to_m_safe_strong; eauto.
-    apply completeness_1.
-    Import Omega.
-    intros.
-    rename H2 into T1_nin_i.
-    rename H3 into T2_nin_i.
-    rename H4 into TID_nvar_i.
-    unfold Hist.MSafeStrong.
-    intros.
-    unfold translate, do_proj in *.
-    apply Exists_exists in H2.
-    destruct H2 as (l, (Hi, Hj)).
-    (* Check the tids of both accesses. *)
-    assert (Ht: access_tid x = access_tid y \/ access_tid x < access_tid y \/ access_tid x > access_tid y)
-      by omega.
-    destruct Ht as [Ht | Ht]. {
-      auto using access_safe_eq_tid.
-    }
-    assert (Horig := H0).
-    (* Get the smallest task *)
-    assert (Hx := in_decl_inv _ _ _ _ _ _ H0); clear H0.
-    destruct Hx as (n1, (n2, (Hn1, (Hn2, [(Ha,Hb)|Ha])))). {
-      inversion Hn1; subst; clear Hn1.
-      assert (n2 = TID_COUNT). {
-        inversion Hn2; subst; clear Hn2.
-        reflexivity.
-      }
-      subst.
-      omega.
-    }
-    assert (n2 = TID_COUNT). {
-      inversion Hn2; subst; clear Hn2.
-      reflexivity.
-    }
-    clear Hn2.
-    inversion Hn1; subst; clear Hn1.
-    subst.
-    (* Simplify the expression under Ha *)
-    simpl in Ha.
-    destruct (Set_VAR.MF.eq_dec T1 T1) as [e|e]; try contradiction; clear e.
-    destruct (Set_VAR.MF.eq_dec T1 T2) as [e|e]; try contradiction; clear e.
-    destruct Ht. {
-      assert (Hlt:  1 <= access_tid y < TID_COUNT). {
-        assert (access_tid y < TID_COUNT). {
-          eapply in_heap; eauto.
-          eapply m_in_def; eauto using pair_in_to_in_r.
-        }
-        omega.
-      }
-      assert (Ha := Ha (access_tid y) Hlt).
-      destruct Ha as (hs3, (Hinc, Ha)).
-      (* We have a run-object, now use in_decl_inv *)
-      assert (Hx := in_decl_inv _ _ _ _ _ _ Ha); clear Ha.
-      destruct Hx as (n1, (n2, (Hn1, (Hn2, [(Ha,Hb)|Ha])))). {
-        inversion Hn1; subst; clear Hn1.
-        inversion Hn2; subst; clear Hn2.
-        (* tid y <= 0 /\ tid y >= 1 -> False *)
-        omega.
-      }
-      inversion Hn1; subst; clear Hn1.
-      inversion Hn2; subst; clear Hn2.
-      assert (Hlt2: 0 <= access_tid x < access_tid y) by omega.
-      assert (Ha := Ha (access_tid x) Hlt2).
-      destruct Ha as (hs4, (Hinc2, Ha)).
-      apply SymHist.run_inv_seq in Ha.
-      destruct Ha as (Ha_hs1, (Ha_hs2, (?, (Ha,Hb)))).
-      subst.
-      eapply run_proj_proj in Ha; eauto with *.
-      subst.
-      inversion Hb; subst; clear Hb.
-      
-    (*
-    var tid, [tid] -> var tid, ([tid], tid) 
-     *)
-
-  Qed.
-*)
   End Defs.
 
 End Compiler.
