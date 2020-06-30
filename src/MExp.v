@@ -41,6 +41,8 @@ Section Defs.
   | m::l => MIn v m \/ m_in_list v l
   end.
 
+  Definition EIn v m := m_in_list v (flatten_exp m).
+
   Lemma m_in_list_app_or:
     forall v l1 l2,
     m_in_list v (l1 ++ l2) ->
@@ -173,6 +175,29 @@ Section Defs.
       + auto using m_in_list_app_r.
     - apply m_in_inv_app in H.
       destruct H; auto using m_in_list_app_l, m_in_list_app_r.
+  Qed.
+
+  Lemma e_in_1:
+    forall e x,
+    EIn x e ->
+    MIn x (to_mem e).
+  Proof.
+    apply m_in_list_1.
+  Qed.
+
+  Lemma e_in_2:
+    forall x e,
+    MIn x (to_mem e) ->
+    EIn x e.
+  Proof.
+    apply m_in_list_2.
+  Qed.
+
+  Lemma e_in_iff:
+    forall x e,
+    MIn x (to_mem e) <-> EIn x e.
+  Proof.
+    split; auto using e_in_1, e_in_2.
   Qed.
 
   Lemma on_of_1:
@@ -365,6 +390,115 @@ Section Defs.
 
 
   Import Morphisms.
+
+  Lemma m_in_list_to_e_pair_in:
+    forall x m,
+    m_in_list x (flatten_exp m) ->
+    e_pair_in (x, x) m.
+  Proof.
+    induction m; simpl; intros.
+    - destruct H; try contradiction.
+      inversion H; subst; clear H.
+      inversion H0; subst; clear H0; try contradiction.
+      auto using pair_in_refl.
+    - apply m_in_list_app_or in H.
+      destruct H; auto.
+    - apply m_in_list_app_or in H; destruct H; auto.
+  Qed.
+
+  Lemma e_in_to_e_pair_in:
+    forall x m,
+    EIn x m ->
+    e_pair_in (x, x) m.
+  Proof.
+    apply m_in_list_to_e_pair_in.
+  Qed.
+
+  Lemma m_in_list_app_or_rev:
+    forall v l1 l2,
+    m_in_list v l1 \/ m_in_list v l2 ->
+    m_in_list v (l1 ++ l2).
+  Proof.
+    intros.
+    destruct H; auto using m_in_list_app_l, m_in_list_app_r.
+  Qed.
+
+  Lemma e_pair_in_to_m_in_list_l:
+    forall x y m,
+    e_pair_in (x, y) m ->
+    m_in_list x (flatten_exp m).
+  Proof.
+    induction m; simpl; intros.
+    - apply pair_in_to_in_l in H.
+      auto using m_in_eq.
+    - apply m_in_list_app_or_rev.
+      destruct H; auto.
+      destruct H; auto.
+      destruct H as [(?,?)|(?,?)]; auto.
+    - apply m_in_list_app_or_rev.
+      destruct H; auto.
+  Qed.
+
+  Lemma e_pair_in_to_m_in_list_r:
+    forall x y m,
+    e_pair_in (x, y) m ->
+    m_in_list y (flatten_exp m).
+  Proof.
+    induction m; simpl; intros.
+    - apply pair_in_to_in_r in H.
+      auto using m_in_eq.
+    - apply m_in_list_app_or_rev.
+      destruct H; auto.
+      destruct H; auto.
+      destruct H as [(?,?)|(?,?)]; auto.
+    - apply m_in_list_app_or_rev.
+      destruct H; auto.
+  Qed.
+
+  Lemma e_pair_in_to_m_in_list:
+    forall x y m,
+    e_pair_in (x, y) m ->
+    m_in_list x (flatten_exp m) /\
+    m_in_list y (flatten_exp m).
+  Proof.
+    intros.
+    assert (Hx := H).
+    apply e_pair_in_to_m_in_list_r in H.
+    apply e_pair_in_to_m_in_list_l in Hx.
+    auto.
+  Qed.
+
+  Lemma e_pair_in_to_e_in_l:
+    forall x y m,
+    e_pair_in (x, y) m ->
+    EIn x m.
+  Proof.
+    apply e_pair_in_to_m_in_list_l.
+  Qed.
+
+  Lemma e_in_rw_eq:
+    forall m1 m2,
+    EEq m1 m2 ->
+    forall x,
+    EIn x m1 ->
+    EIn x m2.
+  Proof.
+    intros.
+    apply e_in_to_e_pair_in in H0.
+    apply H in H0.
+    eauto using e_pair_in_to_e_in_l.
+  Qed.
+
+  Global Instance m_in_proper_1: Proper (eq ==> EEq ==> iff) EIn.
+  Proof.
+    unfold Proper, respectful.
+    intros.
+    subst.
+    split; intros.
+    - eauto using e_in_rw_eq.
+    - symmetry in H0.
+      eauto using e_in_rw_eq.
+  Qed.
 
   Global Instance e_eq_proper_1: Proper (EEq ==> EEq ==> EEq) Plus.
   Proof.
