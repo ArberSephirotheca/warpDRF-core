@@ -16,6 +16,7 @@ src/ConcImpl.v
 src/SetTh.v
 src/LoopFree.v
 src/SymHist.v
+src/LoopFreeMExp.v
 src/SymHistMExp.v
 src/MultiHist.v
 src/MExp.v
