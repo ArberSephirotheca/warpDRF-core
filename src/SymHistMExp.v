@@ -368,115 +368,13 @@ Section Defs.
     inversion H; subst; clear H.
     eauto using e_run_branch_seq_skip, f_run_decl.
   Qed.
-(*
-  Inductive BranchMap x i: list nat -> list mexp -> Prop :=
-  | branch_map_nil:
-    BranchMap x i [] []
-  | branch_map_cons:
-    forall n l hss hs,
-    ERun (i_subst x (NNum n) i) hs ->
-    BranchMap x i l hss ->
-    BranchMap x i (n::l) (hs::hss).
-*)
+
   Notation Iter x i := (fun n=> FRun (i_subst x (NNum n) i)).  
   Notation BranchMap x i l m := (Map (Iter x i) l m).
   Definition DeclMap x i n1 n2 m := BranchMap x i (range_list n1 n2) m.
-  (*Hint Unfold DeclMap core.*)
 
   Transparent DeclMap.
-(*
-  Lemma branch_map_to_map:
-    forall x i l m,
-    BranchMap x i l m ->
-    NoDup l ->
-    Map (Iter x i) l m.
-  Proof.
-    intros x i l m Hb.
-    induction Hb; intros. {
-      apply map_nil.
-    }
-    inversion H0; subst; clear H0.
-    apply map_cons; auto.
-  Qed.
 
-  Lemma map_to_branch_map:
-    forall x i l m,
-    Map (Iter x i) l m ->
-    BranchMap x i l m.
-  Proof.
-    induction l; intros. {
-      inversion H; subst; clear H.
-      apply branch_map_nil.
-    }
-    inversion H; subst; clear H.
-    eauto using branch_map_cons.
-  Qed.
-
-  Lemma branch_map_in:
-    forall x i l hss,
-    BranchMap x i l hss ->
-    forall n,
-    List.In n l ->
-    exists h, List.In (n, h) (List.combine l hss).
-  Proof.
-    induction l; intros. {
-      contradiction.
-    }
-    destruct H0 as [Ha|Hi]; inversion H; subst; clear H. {
-      simpl.
-      eauto.
-    }
-    eapply IHl in H4; eauto.
-    destruct H4 as (h, Hj).
-    eauto using in_cons.
-  Qed.
-
-  Lemma branch_map_pair_in_to_run:
-    forall x i l hss,
-    BranchMap x i l hss ->
-    forall n h,
-    List.In (n, h) (List.combine l hss) ->
-    Run (i_subst x (NNum n) i) h.
-  Proof.
-    induction l; intros. {
-      contradiction.
-    }
-    inversion H; subst; clear H.
-    destruct H0 as [Hx|Hx]. {
-      inversion Hx; subst; clear Hx.
-      assumption.
-    }
-    eauto.
-  Qed.
-
-  Lemma branch_map_to_run:
-    forall x i l hss,
-    BranchMap x i l hss ->
-    forall n,
-    List.In n l ->
-    exists hs, Run (i_subst x (NNum n) i) hs.
-  Proof.
-    intros.
-    eapply branch_map_in in H0; eauto.
-    destruct H0 as (h, Hi).
-    eauto using branch_map_pair_in_to_run.
-  Qed.
-*)
-(*
-  Lemma branch_map_def:
-    forall x i l f,
-    (forall n, List.In n l -> ERun (i_subst x (NNum n) i) (f n)) ->
-    BranchMap x i l (map f l).
-  Proof.
-    induction l; intros.
-    - apply map_nil.
-    - simpl.
-      apply map_cons.
-      + auto using in_eq.
-      + intros.
-      + apply IHl; auto using in_cons.
-  Qed.
-*)
   Definition ProgImpl i j : Prop :=
     forall m,
     FRun i m ->
@@ -630,98 +528,6 @@ Section Defs.
     eapply prog_equiv_inv_l in H3; eauto.
   Qed.
 
-(*
-  Definition add {A:Type} f (a:nat) (v:A) :=
-    (fun n => if PeanoNat.Nat.eq_dec n a then v else f n).
-
-  Lemma add_eq_rw:
-    forall A f a (hs1:A),
-    add f a hs1 a = hs1.
-  Proof.
-    unfold add; intros.
-    destruct (PeanoNat.Nat.eq_dec a a). {
-      reflexivity.
-    }
-    contradiction.
-  Qed.
-
-  Lemma add_neq_rw:
-    forall A f a b (x:A),
-    a <> b ->
-    add f a x b = f b.
-  Proof.
-    unfold add.
-    intros.
-    destruct (PeanoNat.Nat.eq_dec b a). {
-      subst.
-      contradiction.
-    }
-    reflexivity.
-  Qed.
-
-  Lemma map_add_rw_not_in:
-    forall A a f l (x:A),
-    ~ List.In a l ->
-    map (add f a x) l = map f l.
-  Proof.
-    intros B n f.
-    induction l; intros. {
-      reflexivity.
-    }
-    simpl.
-    assert (n <> a). {
-      intros N.
-      subst.
-      contradict H.
-      auto using in_eq.
-    }
-    rewrite add_neq_rw; auto.
-    assert (Hi : ~ List.In n l). {
-      intros N.
-      contradict H.
-      auto using in_cons.
-    }
-    assert (IHl := IHl x Hi).
-    rewrite IHl.
-    reflexivity.
-  Qed.
-
-  Lemma branch_map_inv:
-    forall x i l hss,
-    BranchMap x i l hss ->
-    NoDup l ->
-    exists f, hss = map f l /\
-    (forall n, List.In n l -> Run (i_subst x (NNum n) i) (f n)).
-  Proof.
-    intros.
-    induction H.
-    + exists (fun n => []).
-      split; auto.
-      intros.
-      contradiction.
-    + inversion H0; subst; clear H0.
-      destruct IHBranchMap as (f, (?, Hf)); auto.
-      exists (add f n hs).
-      subst.
-      simpl.
-      split. {
-        subst.
-        rewrite add_eq_rw.
-        rewrite map_add_rw_not_in; auto.
-      }
-      intros.
-      destruct H0. {
-        subst.
-        rewrite add_eq_rw.
-        assumption.
-      }
-      assert (Hf := Hf _ H0).
-      rewrite add_neq_rw; auto.
-      intros N.
-      subst.
-      contradiction.
-  Qed.
-*)
   Lemma f_run_branch_map:
     forall l i1 i2 x m ml,
     BranchMap x i1 l ml ->
@@ -738,66 +544,7 @@ Section Defs.
       rewrite <- e_prod_plus_l.
       apply f_run_branch_cons_eq; auto.
   Qed.
-(*
-  Lemma run_branch_map_def:
-    forall f l i1 i2 x hs hs',
-    hs' = prod (List.concat (List.map f l)) hs ++ hs  ->
-    (forall n, List.In n l -> Run (i_subst x (NNum n) i1) (f n)) ->
-    Run i2 hs ->
-    Run (Branch x l i1 i2) hs'.
-  Proof.
-    intros.
-    eapply run_branch_map; eauto using branch_map_def.
-  Qed.
-*)
-(*
-  Definition DeclMap x i n1 n2 hss := BranchMap x i (range_list n1 n2) hss.
-*)
-(*
-  Lemma decl_map_to_map:
-    forall x i n1 n2 hss,
-    DeclMap x i n1 n2 hss ->
-    Map (Iter x i) (range_list n1 n2) hss.
-  Proof.
-    unfold DeclMap.
-    intros.
-    apply branch_map_to_map in H; auto using range_list_no_dup.
-  Qed.
 
-  Lemma decl_map_from_map:
-    forall x i n1 n2 hss, 
-    Map (Iter x i) (range_list n1 n2) hss ->
-    DeclMap x i n1 n2 hss.
-  Proof.
-    intros.
-    unfold DeclMap.
-    auto using map_to_branch_map.
-  Qed.
-
-  Lemma decl_map_iff_map:
-    forall x i n1 n2 hss,
-    DeclMap x i n1 n2 hss <-> Map (Iter x i) (range_list n1 n2) hss.
-  Proof.
-    split; auto using decl_map_from_map, decl_map_to_map.
-  Qed.
-*)
-(*
-  Lemma decl_map_iter_def:
-    forall x i n1 n2,
-    (forall n, n1 <= n < n2 -> exists hs, Run (i_subst x (NNum n) i) hs) ->
-    exists hss, DeclMap x i n1 n2 hss.
-  Proof.
-    intros.
-    assert (Hm: exists hss, Map (Iter x i) (range_list n1 n2) hss). {
-      apply map_def; auto using range_list_no_dup.
-      intros.
-      unfold Iter.
-      auto using range_list_inv_in_2.
-    }
-    destruct Hm as (m, Hm).
-    eauto using decl_map_from_map.
-  Qed.
-*)
   Lemma f_run_decl_map:
      forall n1 n2 i1 i2 x lm m,
      DeclMap x i1 n1 n2 lm ->
@@ -806,17 +553,7 @@ Section Defs.
   Proof.
     eauto using f_run_branch_map, f_run_decl, r_step_range_list.
   Qed.
-(*
-  Lemma decl_map_def:
-    forall x i n1 n2 f,
-    (forall n, n1 <= n < n2 -> Run (i_subst x (NNum n) i) (f n)) ->
-    DeclMap x i n1 n2 (map f (range_list n1 n2)).
-  Proof.
-    intros.
-    unfold DeclMap.
-    auto using branch_map_def, range_list_inv_in_2.
-  Qed.
-*)
+
   Lemma decl_map_rw:
     forall n1 n2 i j x l,
     (forall n, n1 <= n < n2 ->
@@ -832,21 +569,6 @@ Section Defs.
     auto.
   Qed.
 
-(*
-  Lemma e_run_decl_map_def:
-     forall f n1 n2 i1 i2 x hs hs',
-     (forall n,
-       n1 <= n < n2 ->
-       ERun (i_subst x (NNum n) i1) (f n)) ->
-     ERun i2 hs ->
-     exists m,
-     EEq m (Plus (Prod (List.concat (map f (range_list n1 n2))) hs) hs)
-     ERun (Decl x (NNum n1, NNum n2) i1 i2) hs'.
-  Proof.
-    intros.
-    eapply run_decl_map; eauto using decl_map_def.
-  Qed.
-*)
   Lemma f_run_inv_branch_nil:
     forall x i1 i2 m,
     FRun (Branch x [] i1 i2) m ->
@@ -965,26 +687,6 @@ Section Defs.
       rewrite H; auto.
       reflexivity.
   Qed.
-
-(*
-  Definition branch_iter n1 n2 f :=
-    @List.map nat (list history) f (range_list n1 n2).
-
-  Lemma decl_map_inv:
-    forall n1 n2 i x hs',
-    DeclMap x i n1 n2 hs' ->
-    exists f,
-    hs' = branch_iter n1 n2 f /\
-    (forall n, n1 <= n < n2 -> Run (i_subst x (NNum n) i) (f n)).
-  Proof.
-    intros.
-    unfold DeclMap in H.
-    apply branch_map_inv in H; auto using range_list_no_dup.
-    destruct H as (f, (?, Hf)).
-    subst.
-    exists f.
-    auto using range_list_in.
-  Qed.*)
 
   Lemma impl_branch_seq_1:
     forall x l i j k,
@@ -1601,41 +1303,6 @@ Section Defs.
     transitivity i2; auto.
     transitivity j2; auto.
   Qed.
-(*
-  Lemma prog_impl_branch_cons:
-    forall x a l i,
-    ProgImpl (Branch x (a :: l) i Skip)
-        (seq (i_subst x (NNum a) i) (Branch x l i Skip)).
-  Proof.
-    intros.
-    apply prog_impl_def.
-    intros.
-    inversion H; subst; clear H.
-    subst.
-    eexists.
-    split. {
-      rewrite seq_nil_rw in *.
-      apply run_seq; eauto.
-    }
-  Qed.
-  *)
-(*
-  Lemma prog_impl_branch_cons:
-    forall x a l i k,
-    ProgImpl (Branch x (a :: l) i k)
-        (Or (seq (i_subst x (NNum a) i) k) (Branch x l i k)).
-  Proof.
-    intros.
-    apply prog_impl_def.
-    intros.
-    inversion H; subst; clear H.
-    subst.
-    eexists.
-    split. {
-      apply run_seq; eauto.
-    }
-  Qed.
-*)
 
   Lemma impl_seq_skip_1:
     forall i,
