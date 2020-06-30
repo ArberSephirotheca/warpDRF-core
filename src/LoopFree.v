@@ -14,7 +14,8 @@ Require Import Access.
 Require Import Util.
 Require Import InUtil.
 Require Import Tasks.
-
+Require Import MExp.
+Require Import MultiHist.
 Require Conc.
 
 Import ListNotations.
@@ -427,7 +428,119 @@ Section Defs.
     split; eauto using completeness, soundness.
   Qed.
 
+
+  Inductive ERun: Conc.inst -> mexp -> Prop :=
+  | e_run_skip:
+    ERun Conc.Skip (One [])
+  | e_run_access:
+    forall i e v m,
+    Hist.GenAccess TID e TID_COUNT v ->
+    ERun i m ->
+    ERun (Conc.Acc e i) (Prod (One (List.concat v)) m)
+  | e_run_for:
+    forall r l i1 i2 x m,
+    RStep r l ->
+    ERun (Conc.Loop x l i1 i2) m ->
+    ERun (Conc.For x r i1 i2) m
+  | e_run_loop_cons:
+    forall x n l i1 i2 m1 m2,
+    ERun (Conc.seq (Conc.i_subst x (NNum n) i1) i2) m1 ->
+    ERun (Conc.Loop x l i1 i2) m2 ->
+    ERun (Conc.Loop x (n::l) i1 i2) (Plus m1 m2)
+  | e_run_loop_nil:
+    forall x i1 i2 m,
+    ERun i2 m ->
+    ERun (Conc.Loop x [] i1 i2) m.
+
+
+  Lemma e_run_1:
+    forall i e,
+    ERun i e ->
+    Run i (to_mem e).
+  Proof.
+    intros i e H.
+    induction H; simpl.
+    - auto using run_skip.
+    - rewrite app_nil_r.
+      auto using run_access.
+    - eauto using run_for.
+    - eauto using run_loop_cons.
+    - eauto using run_loop_nil.
+  Qed.
+
+  Lemma run_inv_nil:
+    forall i,
+    ~ Run i [].
+  Proof.
+    intros i H.
+    remember ([]).
+    generalize dependent Heql.
+    induction H; intros.
+    - inversion Heql.
+    - apply prepend_inv_nil in Heql.
+      auto.
+    - apply IHRun in Heql.
+      assumption.
+    - apply IHRun2.
+      destruct hs2. {
+        reflexivity.
+      }
+      destruct hs1;
+        inversion Heql.
+    - auto.
+  Qed.
+
+  Lemma run_not_nil:
+    forall i m,
+    Run i m ->
+    m <> [].
+  Proof.
+    intros.
+    intros N.
+    subst.
+    apply run_inv_nil in H.
+    assumption.
+  Qed.
+
+  Lemma e_run_2:
+    forall i h,
+    Run i h ->
+    exists e, ERun i e /\ MemEquiv h (to_mem e).
+  Proof.
+    intros i h H.
+    induction H.
+    - exists (One []).
+      split.
+      + apply e_run_skip.
+      + simpl.
+        reflexivity.
+    - destruct IHRun as (e1, (Hr, R)).
+      exists (Prod (One (List.concat v)) e1).
+      split; auto using e_run_access.
+      simpl.
+      rewrite app_nil_r.
+      repeat rewrite prepend_rw.
+      apply mem_equiv_prod_r; eauto using run_not_nil, to_mem_not_nil.
+      intros N.
+      inversion N.
+    - destruct IHRun as (e1, (Hr, R)).
+      eauto using e_run_for.
+    - destruct IHRun1 as (e1, (Hr1, R1)).
+      destruct IHRun2 as (e2, (Hr2, R2)).
+      eexists.
+      split.
+      + apply e_run_loop_cons; eauto.
+      + rewrite R1.
+        rewrite R2.
+        reflexivity.
+    - destruct IHRun as (e1, (Hr1, R1)).
+      eauto using e_run_loop_nil.
+  Qed.
+
 End Defs.
+
+
+
 
 (*
 Module Examples.

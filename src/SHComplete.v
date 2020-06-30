@@ -281,14 +281,15 @@ Section Compiler.
       auto using map_iter_2d_access_skip.
   Qed.
 
-  Lemma translate_inv_access e m i (t1_nin: ~ Conc.In T1 (Conc.Acc e i)) (t2_nin: ~ Conc.In T2 (Conc.Acc e i)):
+  Lemma translate_inv_access:
+    forall e m i,
     FRun (translate (Conc.Acc e i)) m ->
     exists vs1 vs2 vs3 vs4,
     FRun (translate (Conc.Acc e Conc.Skip)) (summation (map2 Prod vs1 vs2)) /\
     FRun (translate i) (summation (map2 Prod vs3 vs4)) /\
     m == summation (map2 Prod (map2 Prod vs1 vs3) (map2 Prod vs2 vs4)).
   Proof.
-    intros Hr.
+    intros e m i Hr.
     unfold translate in Hr.
     apply f_run_inv_decl_map_2d in Hr; auto using t1_neq_t2.
     destruct Hr as (r, (R1, Hm)).
