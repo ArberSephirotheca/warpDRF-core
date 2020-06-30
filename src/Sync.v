@@ -754,6 +754,155 @@ induction i; inversion HN; subst; inversion HM; auto; subst.
 Qed.
 
 
+
+(*
+Multi_Run (Seq (Seq Sync (Seq Skip j0)) j3, hi) (Seq Skip j, [])
+
+Seq (Seq Skip j0) j3 -->* Seq Skip j ==> Seq j0 j3 =~= j
+*)
+
+
+
+Inductive Equiv : inst -> inst -> Prop :=
+| equiv_trans:
+  forall i j k,
+  Equiv i j ->
+  Equiv j k ->
+  Equiv i k
+| equiv_refl:
+  forall i,
+  Equiv i i
+| equiv_unit_lii:
+  forall i j,
+  Equiv i j -> 
+  Equiv (Seq Skip i) j
+| equiv_unit_lsi:
+  forall i j, 
+  Equiv i j -> 
+  Equiv (Seq i Skip) j
+| equiv_unit_ris:
+  forall i j, 
+  Equiv i j -> 
+  Equiv i (Seq Skip j)
+| equiv_unit_rii:
+  forall i j, 
+  Equiv i j -> 
+  Equiv i (Seq j Skip)
+| equiv_assoc_l:
+  forall x y z x1 y1 z1,
+  Equiv x x1 -> 
+  Equiv y y1 -> 
+  Equiv z z1 -> 
+  Equiv (Seq x (Seq y z)) (Seq (Seq x1 y1) z1)
+| equiv_assoc_r:
+  forall x y z x1 y1 z1,
+  Equiv x x1 -> 
+  Equiv y y1 -> 
+  Equiv z z1 -> 
+  Equiv (Seq (Seq x y) z) (Seq x1 (Seq y1 z1)).
+
+Lemma equiv_refliv:
+forall x,
+Equiv x x.
+Proof.
+intros.
+induction x; auto using equiv_refl.
+Qed.
+
+
+
+
+
+
+
+Lemma equiv_simm:
+forall x y,
+Equiv x y ->
+Equiv y x.
+Proof.
+intros.
+Admitted.
+
+
+
+Lemma equiv_transi:
+forall x y z,
+Equiv x y ->
+Equiv y z ->
+Equiv x z.
+Proof.
+intros.
+generalize dependent z. 
+induction H; intros.
+- apply IHEquiv2 in H1. apply IHEquiv1. assumption. 
+- assumption.
+- apply IHEquiv in H0. apply equiv_unit_lii. assumption.
+- apply IHEquiv in H0. apply equiv_unit_lsi. assumption.
+- apply IHEquiv. apply equiv_trans with (j:=Seq Skip j).
+  + apply equiv_unit_ris. apply equiv_refl.
+  + assumption.
+- apply IHEquiv. apply equiv_trans with (j:=Seq j Skip).
+  + apply equiv_unit_rii. apply equiv_refl.
+  + assumption.
+- apply equiv_trans with (j:=Seq x1 (Seq y1 z1)).
+  + inversion H2; subst.
+    * 
+  + apply equiv_assoc_l; auto using equiv_refl.
+  + 
+  
+
+induction H; intros.
+- assumption.
+- apply IHEquiv in H0. auto using equiv_unit_lii.
+- apply IHEquiv in H0. auto using equiv_unit_lii, equiv_unit_lsi, equiv_unit_ris, equiv_unit_rii.
+- inversion H0; subst; clear H0.
+  + apply IHEquiv. admit.
+  + apply IHEquiv. assumption.
+  + apply IHEquiv. assumption.
+  + apply IHEquiv. admit.
+  + apply IHEquiv. admit.
+  + 
+  
+  * apply equiv_unit_ris. apply equiv_refliv.
+  * assumption.
+  * assumption.
+  * assert (EQ: forall x,  Equiv (Seq Skip j) x -> Equiv j x). {
+    intros x y HSE. 
+    inversion HSE; subst.
+    + apply equiv_unit_ris. apply equiv_refliv.
+    + assumption.
+    + assumption.
+    + 
+   }
+    apply equiv_unit_ris in H1.
+    rewrite -> EQ.
+    apply equiv_unit_ris.  
+    inversion H1; subst.
+    + apply equiv_refliv.
+    + apply  equiv_unit_lsi in H2.
+    + apply equiv_unit_ris.  apply equiv_refliv.
+    + assumption.
+    + assumption.
+    + apply equiv_unit_ris.
+     
+      assert (EQ: Equiv (Seq Skip j) j). { 
+    assert (IHEquiv:= IHEquiv j0). 
+    apply IHEquiv.
+
+ auto using equiv_unit_lii, equiv_unit_lsi, equiv_unit_ris, equiv_unit_rii, equiv_refliv.
+  
+ * apply equiv_unit_ris. apply equiv_refliv.
+  * 
+
+auto using equiv_unit_lii, equiv_unit_lsi, equiv_unit_ris, equiv_unit_rii.
+
+
+destruct x; auto using equiv_refl.
+- destruct y.
+  * 
+  inversion H0; subst; auto using equiv_refl.
+- 
+
 Lemma sync_src_norm_seq:
 forall i j i1 i2 j0 j3 j4 h' hi,
 Normalised i (Some i1, i2) -> 
