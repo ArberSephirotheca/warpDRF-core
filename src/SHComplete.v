@@ -238,7 +238,7 @@ Section Compiler.
     apply map_cons; auto using iter_2d_seq_eq.
   Qed.
 
-  Lemma f_run_translate_def:
+  Lemma translate_def:
     forall i vs1 vs2,
     Map (Iter2d T1 T2 (i_subst TID (NVar T1) (proj i)))
         (range_list_2d 1 TID_COUNT) vs1 ->
@@ -260,7 +260,7 @@ Section Compiler.
     eauto using map_impl, access_2d_to_iter_2d.
   Qed.
   
-  Lemma f_run_translate_access_skip:
+  Lemma translate_access_skip:
     forall e vs1 vs2,
     Map (Access2d T1 T2 (access_subst TID (NVar T1) e, NVar T1))
           (range_list_2d 1 TID_COUNT) vs1 ->
@@ -281,7 +281,7 @@ Section Compiler.
       auto using map_iter_2d_access_skip.
   Qed.
 
-  Lemma translate_acc_inv_2 e m i (t1_nin: ~ Conc.In T1 (Conc.Acc e i)) (t2_nin: ~ Conc.In T2 (Conc.Acc e i)):
+  Lemma translate_inv_access e m i (t1_nin: ~ Conc.In T1 (Conc.Acc e i)) (t2_nin: ~ Conc.In T2 (Conc.Acc e i)):
     FRun (translate (Conc.Acc e i)) m ->
     exists vs1 vs2 vs3 vs4,
     FRun (translate (Conc.Acc e Conc.Skip)) (summation (map2 Prod vs1 vs2)) /\
@@ -302,8 +302,8 @@ Section Compiler.
     apply map_iter_2d_inv_acc in Hm2.
     destruct Hm2 as (vs5, (vs6, (R4, (Hm5, Hm6)))).
     exists vs3, vs5, vs4, vs6.
-    split. { auto using f_run_translate_access_skip. }
-    split. { auto using f_run_translate_def. }
+    split. { auto using translate_access_skip. }
+    split. { auto using translate_def. }
     rewrite R1.
     rewrite R2.
     rewrite R3.
