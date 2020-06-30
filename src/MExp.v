@@ -28,86 +28,18 @@ Section Defs.
   | Plus m1 m2 => app (to_mem m1) (to_mem m2)
   end.
 
-  Fixpoint flatten_exp e :=
-  match e with
-  | One h => [[h]]
-  | Prod e1 e2 => flatten_exp e1 ++ flatten_exp e2
-  | Plus e1 e2 => flatten_exp e1 ++ flatten_exp e2
-  end.
+  Fixpoint EIn x (e:mexp) :=
+    match e with
+    | One h => List.In x h
+    | Prod e1 e2
+    | Plus e1 e2 => EIn x e1 \/ EIn x e2
+    end.
 
-  Fixpoint m_in_list v (l:list (list history)) :=
-  match l with
-  | [] => False
-  | m::l => MIn v m \/ m_in_list v l
-  end.
-
-  Definition EIn v m := m_in_list v (flatten_exp m).
-
-  Lemma m_in_list_app_or:
-    forall v l1 l2,
-    m_in_list v (l1 ++ l2) ->
-    m_in_list v l1 \/ m_in_list v l2.
-  Proof.
-    induction l1; intros; auto.
-    simpl in *.
-    destruct H; auto.
-    apply IHl1 in H.
-    destruct H; auto.
-  Qed.
-
-  Lemma m_in_list_app_l:
-    forall v l1 l2,
-    m_in_list v l1 ->
-    m_in_list v (l1 ++ l2).
-  Proof.
-    induction l1; intros.
-    - contradiction.
-    - destruct H; simpl; auto.
-  Qed.
-
-  Lemma m_in_list_app_r:
-    forall v l1 l2,
-    m_in_list v l2 ->
-    m_in_list v (l1 ++ l2).
-  Proof.
-    induction l1; intros.
-    - assumption.
-    - simpl.
-      auto.
-  Qed.
-
-  Lemma m_in_list_to_Exists v l:
-    m_in_list v l -> Exists (MIn v) l.
-  Proof.
-    intros.
-    induction l; simpl in *. {
-      contradiction.
-    }
-    destruct H. {
-      auto using Exists_cons.
-    }
-    auto using Exists_cons.
-  Qed.
-
-  Lemma Exists_to_m_in_list v l:
-    Exists (MIn v) l -> m_in_list v l.
-  Proof.
-    induction l; simpl in *; intros.
-    - inversion H.
-    - inversion H; subst; clear H; auto.
-  Qed.
-
-  Lemma m_in_list_Exists v l:
-    m_in_list v l <-> Exists (MIn v) l.
-  Proof.
-    split; auto using m_in_list_to_Exists, Exists_to_m_in_list.
-  Qed.
-
-  Fixpoint one_of (p:access_val*access_val) l1 l2 :=
+  Fixpoint one_of (p:access_val*access_val) e1 e2 :=
     let (v1, v2) := p in
-    (m_in_list v1 l1 /\ m_in_list v2 l2)
+    (EIn v1 e1 /\ EIn v2 e2)
     \/
-    (m_in_list v2 l1 /\ m_in_list v1 l2).
+    (EIn v2 e1 /\ EIn v1 e2).
 
   Fixpoint e_pair_in p pe :=
   match pe with
@@ -125,7 +57,7 @@ Section Defs.
        (MIn (fst p) m2 /\ MIn (snd p) m1)
      *)
     e_pair_in p e1 \/ e_pair_in p e2 \/
-    one_of p (flatten_exp e1) (flatten_exp e2)
+    one_of p e1 e2
   end.
 
   Lemma to_mem_not_nil:
@@ -139,22 +71,20 @@ Section Defs.
     - auto using app_neq_nil.
   Qed.
 
-  Lemma m_in_list_1:
+  Lemma e_in_1:
     forall e x,
-    m_in_list x (flatten_exp e) ->
+    EIn x e ->
     MIn x (to_mem e).
   Proof.
     induction e; simpl; intros x Hi.
-    - destruct Hi; try contradiction; auto.
-    - apply m_in_list_app_or in Hi.
-      destruct Hi. {
+    - auto using m_in_eq.
+    - destruct Hi. {
         apply IHe1 in H; auto.
         apply m_in_prod_l; eauto using to_mem_not_nil.
       }
       apply IHe2 in H; auto.
       apply m_in_prod_r; eauto using to_mem_not_nil.
-    - apply m_in_list_app_or in Hi.
-      destruct Hi. {
+    - destruct Hi. {
         apply IHe1 in H; auto.
         apply m_in_app_l; eauto using to_mem_not_nil.
       }
@@ -162,35 +92,19 @@ Section Defs.
       apply m_in_app_r; eauto using to_mem_not_nil.
   Qed.
 
-  Lemma m_in_list_2:
+  Lemma e_in_2:
     forall v e,
     MIn v (to_mem e) ->
-    m_in_list v (flatten_exp e).
+    EIn v e.
   Proof.
     induction e; simpl; intros.
-    - auto.
+    - inversion H; subst; clear H.
+      inversion H0; subst; clear H0; try contradiction.
+      assumption.
     - apply m_in_prod_inv in H.
-      destruct H as [Hx|Hx].
-      + auto using m_in_list_app_l.
-      + auto using m_in_list_app_r.
+      destruct H as [Hx|Hx]; auto.
     - apply m_in_inv_app in H.
-      destruct H; auto using m_in_list_app_l, m_in_list_app_r.
-  Qed.
-
-  Lemma e_in_1:
-    forall e x,
-    EIn x e ->
-    MIn x (to_mem e).
-  Proof.
-    apply m_in_list_1.
-  Qed.
-
-  Lemma e_in_2:
-    forall x e,
-    MIn x (to_mem e) ->
-    EIn x e.
-  Proof.
-    apply m_in_list_2.
+      destruct H; auto.
   Qed.
 
   Lemma e_in_iff:
@@ -202,18 +116,14 @@ Section Defs.
 
   Lemma on_of_1:
     forall e1 e2 x y,
-    one_of (x,y) (flatten_exp e1) (flatten_exp e2) ->
+    one_of (x,y) e1 e2 ->
     (MIn x (to_mem e1) /\ MIn y (to_mem e2))
     \/
     (MIn x (to_mem e2) /\ MIn y (to_mem e1)).
   Proof.
     intros.
     simpl in H.
-    destruct H as [(Ha,Hb)|(Ha,Hb)].
-    - apply m_in_list_1 in Ha; auto.
-      apply m_in_list_1 in Hb; auto.
-    - apply m_in_list_1 in Ha; auto.
-      apply m_in_list_1 in Hb; auto.
+    destruct H as [(Ha,Hb)|(Ha,Hb)]; auto using e_in_1.
   Qed.
 
   Lemma e_pair_in_1:
@@ -247,10 +157,10 @@ Section Defs.
     - destruct p as (v1, v2).
       apply m_pair_in_inv_prod in Hi.
       destruct Hi as [Hi|[Hi|[(Ha,Hb)|(Ha,Hb)]]]; eauto; simpl in *.
-      + apply m_in_list_2 in Ha; auto.
-        apply m_in_list_2 in Hb; auto.
-      + apply m_in_list_2 in Ha; auto.
-        apply m_in_list_2 in Hb; auto.
+      + apply e_in_2 in Ha; auto.
+        apply e_in_2 in Hb; auto.
+      + apply e_in_2 in Ha; auto.
+        apply e_in_2 in Hb; auto.
     - apply m_pair_in_app_or in Hi.
       destruct Hi; auto.
   Qed.
@@ -391,81 +301,15 @@ Section Defs.
 
   Import Morphisms.
 
-  Lemma m_in_list_to_e_pair_in:
-    forall x m,
-    m_in_list x (flatten_exp m) ->
-    e_pair_in (x, x) m.
-  Proof.
-    induction m; simpl; intros.
-    - destruct H; try contradiction.
-      inversion H; subst; clear H.
-      inversion H0; subst; clear H0; try contradiction.
-      auto using pair_in_refl.
-    - apply m_in_list_app_or in H.
-      destruct H; auto.
-    - apply m_in_list_app_or in H; destruct H; auto.
-  Qed.
-
   Lemma e_in_to_e_pair_in:
     forall x m,
     EIn x m ->
     e_pair_in (x, x) m.
   Proof.
-    apply m_in_list_to_e_pair_in.
-  Qed.
-
-  Lemma m_in_list_app_or_rev:
-    forall v l1 l2,
-    m_in_list v l1 \/ m_in_list v l2 ->
-    m_in_list v (l1 ++ l2).
-  Proof.
-    intros.
-    destruct H; auto using m_in_list_app_l, m_in_list_app_r.
-  Qed.
-
-  Lemma e_pair_in_to_m_in_list_l:
-    forall x y m,
-    e_pair_in (x, y) m ->
-    m_in_list x (flatten_exp m).
-  Proof.
     induction m; simpl; intros.
-    - apply pair_in_to_in_l in H.
-      auto using m_in_eq.
-    - apply m_in_list_app_or_rev.
-      destruct H; auto.
-      destruct H; auto.
-      destruct H as [(?,?)|(?,?)]; auto.
-    - apply m_in_list_app_or_rev.
-      destruct H; auto.
-  Qed.
-
-  Lemma e_pair_in_to_m_in_list_r:
-    forall x y m,
-    e_pair_in (x, y) m ->
-    m_in_list y (flatten_exp m).
-  Proof.
-    induction m; simpl; intros.
-    - apply pair_in_to_in_r in H.
-      auto using m_in_eq.
-    - apply m_in_list_app_or_rev.
-      destruct H; auto.
-      destruct H; auto.
-      destruct H as [(?,?)|(?,?)]; auto.
-    - apply m_in_list_app_or_rev.
-      destruct H; auto.
-  Qed.
-
-  Lemma e_pair_in_to_m_in_list:
-    forall x y m,
-    e_pair_in (x, y) m ->
-    m_in_list x (flatten_exp m) /\
-    m_in_list y (flatten_exp m).
-  Proof.
-    intros.
-    assert (Hx := H).
-    apply e_pair_in_to_m_in_list_r in H.
-    apply e_pair_in_to_m_in_list_l in Hx.
-    auto.
+    - auto using pair_in_refl.
+    - destruct H; auto.
+    - destruct H; auto.
   Qed.
 
   Lemma e_pair_in_to_e_in_l:
@@ -473,7 +317,39 @@ Section Defs.
     e_pair_in (x, y) m ->
     EIn x m.
   Proof.
-    apply e_pair_in_to_m_in_list_l.
+    induction m; simpl; intros.
+    - apply pair_in_to_in_l in H.
+      auto using m_in_eq.
+    - destruct H; auto.
+      destruct H; auto.
+      destruct H as [(?,?)|(?,?)]; auto.
+    - destruct H; auto.
+  Qed.
+
+  Lemma e_pair_in_to_e_in_r:
+    forall x y m,
+    e_pair_in (x, y) m ->
+    EIn y m.
+  Proof.
+    induction m; simpl; intros.
+    - eauto using pair_in_to_in_r.
+    - destruct H; auto.
+      destruct H; auto.
+      destruct H as [(?,?)|(?,?)]; auto.
+    - destruct H; auto.
+  Qed.
+
+  Lemma e_pair_in_to_m_in_list:
+    forall x y m,
+    e_pair_in (x, y) m ->
+    EIn x m /\
+    EIn y m.
+  Proof.
+    intros.
+    assert (Hx := H).
+    apply e_pair_in_to_e_in_r in H.
+    apply e_pair_in_to_e_in_l in Hx.
+    auto.
   Qed.
 
   Lemma e_in_rw_eq:
@@ -545,7 +421,7 @@ Section Defs.
     rewrite prepend_app.
     reflexivity.
   Qed.
-
+(*
   Lemma one_of_app_l_l:
     forall p l1 l2 l3,
     one_of p l1 l3 ->
@@ -629,18 +505,19 @@ Section Defs.
     + apply m_in_list_app_or in Hb.
       destruct Hb; auto.
   Qed.
-
+*)
   Lemma e_prod_plus_r:
     forall e1 e2 e3,
     EEq (Plus (Prod e1 e2) (Prod e1 e3)) (Prod e1 (Plus e2 e3)).
   Proof.
     split; intros.
-    - simpl in *.
-      destruct H as [[H|[H|H]]|[H|[H|H]]]; auto using one_of_app_r_l, one_of_app_r_r.
-    - simpl in *.
-      destruct H as [H|[[H|H]|H]]; auto.
-      apply one_of_inv_app_r in H.
-      destruct H; auto.
+    - (* Because this is computational, p is the only thing that
+         is making evaluation stuck. Destruct it and evaluate it. *)
+      destruct p as (x, y); simpl in *.
+      (* If this is provable, then intuition can handle it. *)
+      intuition.
+    - destruct p as (x, y); simpl in *.
+      intuition.
   Qed.
 
   Lemma e_prod_nil_l:
@@ -719,7 +596,7 @@ Section Defs.
     simpl.
     apply mem_equiv_app_sym.
   Qed.
-
+(*
   Lemma one_of_sym_nil_l:
     forall p l,
     ~ one_of p [] l.
@@ -741,23 +618,14 @@ Section Defs.
     intros N.
     destruct N as [(_,[])|(_,[])].
   Qed.
-
+*)
   Lemma one_of_sym:
-    forall p l1 l2,
-    one_of p l1 l2 ->
-    one_of p l2 l1.
+    forall p m1 m2,
+    one_of p m1 m2 ->
+    one_of p m2 m1.
   Proof.
-    induction l1; intros. {
-      apply one_of_sym_nil_l in H.
-      contradiction.
-    }
-    destruct p as (v1, v2).
-    destruct l2. {
-      apply one_of_sym_nil_r in H.
-      contradiction.
-    }
-    simpl in *.
-    intuition.
+    destruct p as (x, y).
+    induction m1; intros; simpl in *; intuition.
   Qed.
 
   Lemma e_prod_sym:
@@ -844,6 +712,57 @@ Section Defs.
     auto using to_mem_not_nil.
   Qed.
 
+  Fixpoint summation (l:list mexp) :=
+    match l with
+    | [] => One []
+    | x :: l => Plus x (summation l)
+    end.
+
+  Lemma e_in_nil:
+    forall x,
+    ~ EIn x (One []).
+  Proof.
+    unfold EIn.
+    intros.
+    simpl.
+    intros N.
+    assumption.
+  Qed.
+
+  Lemma e_in_summation_map2_prod_or:
+    forall x l1 l2,
+    EIn x (summation (map2 Prod l1 l2)) ->
+    EIn x (summation l1) \/ EIn x (summation l2).
+  Proof.
+    induction l1; intros. {
+      rewrite map2_nil_l in *.
+      auto.
+    }
+    destruct l2. {
+      rewrite map2_nil_r in *.
+      simpl in *.
+      auto.
+    }
+    rewrite map2_cons_rw in *.
+    simpl in *.
+    (* Let intuition clear out the easy bits. *)
+    intuition.
+    apply IHl1 in H0.
+    intuition.
+  Qed.
+
+  Lemma e_in_summation_map2_prod_or_rev:
+    forall x l1 l2,
+    EIn x (summation l1) \/ EIn x (summation l2) ->
+    EIn x (summation (map2 Prod l1 l2)).
+  Proof.
+    induction l1; intros. {
+      intuition.
+    }
+  Qed.
+  
+  (* ------------------- EEqList ----------------------------- *)
+
   Inductive EEqList : list mexp -> list mexp -> Prop :=
   | e_eq_list_nil:
     EEqList [] []
@@ -894,12 +813,6 @@ Section Defs.
     symmetry proved by e_eq_list_sym
     transitivity proved by e_eq_list_trans
     as e_eq_list_setoid.
-
-  Fixpoint summation (l:list mexp) :=
-    match l with
-    | [] => One []
-    | x :: l => Plus x (summation l)
-    end.
 
   Global Instance e_eq_list_proper_1: Proper (EEq ==> EEqList ==> EEqList) cons.
   Proof.
