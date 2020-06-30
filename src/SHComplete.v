@@ -20,6 +20,7 @@ Require Import Tasks.
 Require Import SymHist.
 Require Import MExp.
 Require Import SymHistMExp.
+Require LoopFreeMExp.
 Require Import RangeList.
 Require Import SHCompiler.
 Require Import MultiHist.
@@ -42,7 +43,7 @@ Section Compiler.
     apply f_run_skip_eq.
   Qed.
 
-  Lemma trans_run_skip:
+  Lemma translate_skip:
     FRun (translate Conc.Skip) (One []).
   Proof.
     unfold translate.
@@ -281,6 +282,55 @@ Section Compiler.
       auto using map_iter_2d_access_skip.
   Qed.
 
+  Lemma iter_2d_inv_skip:
+    forall x y p m,
+    Iter2d x y Skip p m ->
+    m == One [].
+  Proof.
+    unfold Iter2d.
+    intros x y (nx, ny) m (m', (R, H)).
+    rewrite R.
+    simpl in *.
+    inversion H; subst; clear H.
+    reflexivity.
+  Qed.
+
+  Lemma map_iter_2d_inv_skip:
+    forall x y ks vs,
+    Map (Iter2d x y Skip) ks vs ->
+    summation vs == One [].
+  Proof.
+    induction ks; intros. {
+      inversion H; subst; clear H.
+      reflexivity.
+    }
+    inversion H; subst; clear H.
+    apply IHks in H5.
+    simpl.
+    rewrite H5.
+    apply iter_2d_inv_skip in H2.
+    rewrite H2.
+    rewrite e_plus_nil_l.
+    reflexivity.
+  Qed.
+
+  Lemma translate_inv_skip:
+     forall m,
+     FRun (translate Conc.Skip) m ->
+     m == One [].
+  Proof.
+    intros.
+    unfold translate in H.
+    apply f_run_inv_decl_map_2d in H; auto using t1_neq_t2.
+    destruct H as (l, (R, Hm)).
+    simpl in *.
+    unfold do_proj in *.
+    simpl in *.
+    rewrite R; clear R.
+    apply map_iter_2d_inv_skip in Hm.
+    assumption.
+  Qed.
+
   Lemma translate_inv_access:
     forall e m i,
     FRun (translate (Conc.Acc e i)) m ->
@@ -326,30 +376,30 @@ Section Compiler.
     - inversion H.
     - inversion H.
   Qed.
-(*
+
   Lemma completeness_1
       (i:Conc.inst)
       (T1_nin_i: ~ Conc.In T1 i)
       (T2_nin_i: ~ Conc.In T2 i)
     :
-    forall hs1,
-    LoopFree.Run i hs1 ->
-    forall hs2,
-    (forall x, MIn x hs1 -> access_tid x < TID_COUNT) ->
-    SymHist.Run (translate i) hs2 ->
-    Incl (MMember hs2) (MMember hs1).
+    forall m_l,
+    LoopFreeMExp.FRun i m_l ->
+    forall m_h,
+    (*(forall x, MIn x hs1 -> access_tid x < TID_COUNT) -> *)
+    SymHistMExp.FRun (translate i) m_h ->
+    forall x,
+    EIn x m_h ->
+    EIn x m_l.
   Proof.
-    intros hs1 H.
-    induction H; intros.
-    - assert (hs2 = mk_empty_2 1 TID_COUNT). {
-        assert (Hx := run_skip).
-        eauto using SymHist.run_fun.
-      }
-      subst.
-      rewrite mk_empty_2_rw.
-      rewrite mem_equiv_cons_nil_rw.
-      reflexivity.
-    - apply c2_run_acc_inv_1 in H2; auto.
+    intros m_l (m_l', (R_h_l, H)).
+    generalize dependent m_l.
+    induction H; intros; rewrite R_h_l; clear R_h_l.
+    - apply translate_inv_skip in H.
+      rewrite H in H0.
+      assumption.
+    - apply translate_inv_access in H1.
+      destruct H1 as (vs1, (vs2, (vs3, (vs4, (Hr1, (Hr2, R)))))).
+      rewrite R in H2; clear R.
       destruct H2 as (f1, (Heq, Hf)).
       subst.
       rewrite mequiv_app_nil_r.
@@ -466,15 +516,15 @@ Section Compiler.
 
 
   Theorem completeness:
-    forall i hs1,
-    LoopFree.Run i hs1 ->
-    forall hs2,
-    SymHist.Run (translate i) hs2 ->
-    Hist.MSafe hs1 ->
+    forall i m_l,
+    LoopFree.Run i m_l ->
+    forall m_h,
+    SymHist.Run (translate i) m_h ->
+    Hist.MSafe m_l ->
     ~ Conc.In T1 i ->
     ~ Conc.In T2 i ->
     ~ Conc.Var TID i -> 
-    Hist.MSafeStrong hs2.
+    Hist.MSafeStrong m_h.
   Proof.
     intros.
     eapply Hist.m_safe_to_m_safe_strong; eauto.
