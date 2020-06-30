@@ -793,6 +793,8 @@ Inductive Equiv : inst -> inst -> Prop :=
   Equiv z z1 -> 
   Equiv (Seq (Seq x y) z) (Seq x1 (Seq y1 z1)).
 
+Definition EquivStar := clos_refl_trans _ Equiv.
+
 Lemma equiv_refliv:
 forall x,
 Equiv x x.
