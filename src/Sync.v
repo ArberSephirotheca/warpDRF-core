@@ -764,14 +764,6 @@ Seq (Seq Skip j0) j3 -->* Seq Skip j ==> Seq j0 j3 =~= j
 
 
 Inductive Equiv : inst -> inst -> Prop :=
-| equiv_trans:
-  forall i j k,
-  Equiv i j ->
-  Equiv j k ->
-  Equiv i k
-| equiv_refl:
-  forall i,
-  Equiv i i
 | equiv_unit_lii:
   forall i j,
   Equiv i j -> 
