@@ -1059,82 +1059,260 @@ Section Compiler.
     eauto using run_decl_map, SymHist.run_skip.
   Qed.
 *)
-  Lemma translate_acc_inv_2 e hs i (t1_nin: ~ Conc.In T1 (Conc.Acc e i)) (t2_nin: ~ Conc.In T2 (Conc.Acc e i)):
-    FRun (translate (Conc.Acc e i)) hs ->
-    exists hs1 hs2,
-    FRun (translate (Conc.Acc e Conc.Skip)) hs1 /\
-    FRun (translate i) hs2 /\
-    hs == Prod hs1 hs2.
+  Lemma iter_2d_inv_seq:
+    forall x y i j p m,
+    Iter2d x y (seq i j) p m ->
+    exists m1 m2,
+    m == m1 * m2 /\
+    Iter2d x y i p m1 /\
+    Iter2d x y j p m2.
+  Proof.
+    unfold Iter2d.
+    intros.
+    destruct p as (nx, ny).
+    rewrite i_subst_seq in H.
+    rewrite i_subst_seq in H.
+    apply f_run_inv_seq in H.
+    destruct H as (m1, (m2, (r1, (r2, r3)))).
+    exists m1, m2.
+    split; auto.
+  Qed.
+
+  Lemma iter_2d_seq:
+    forall x y i j p m1 m2 m3,
+    Iter2d x y i p m1 ->
+    Iter2d x y j p m2 ->
+    m3 == m1 * m2 ->
+    Iter2d x y (seq i j) p m3.
+  Proof.
+    intros.
+    unfold Iter2d in *.
+    destruct p as (nx, ny).
+    rewrite i_subst_seq.
+    rewrite i_subst_seq.
+    eapply f_run_seq; eauto.
+  Qed.
+
+  Lemma iter_2d_seq_eq:
+    forall x y i j p m1 m2,
+    Iter2d x y i p m1 ->
+    Iter2d x y j p m2 ->
+    Iter2d x y (seq i j) p (m1 * m2).
+  Proof.
+    intros.
+    eapply iter_2d_seq; eauto.
+    reflexivity.
+  Qed.
+
+  Definition Access2d x y (e:access_exp * nexp) (p:nat*nat) m :=
+    let (nx, ny) := p in
+    let (a, e) := e in
+      exists v,
+      access_step
+        (access_subst y (NNum ny)
+          (access_subst x (NNum nx) a),
+           n_subst y (NNum ny) (n_subst x (NNum nx) e)) v /\
+      m = One v.
+
+
+  Lemma access_2d_to_iter_2d:
+    forall x y e a m,
+    Access2d x y e a m ->
+    Iter2d x y (Acc e Skip) a m.
+  Proof.
+    unfold Access2d, Iter2d.
+    intros.
+    destruct a as (nx, ny).
+    destruct e as (a, e).
+    destruct H as (v, (H,R)).
+    subst.
+    simpl.
+    eapply f_run_access; eauto using f_run_skip_eq.
+    rewrite e_prod_nil_r.
+    reflexivity. 
+  Qed.
+
+  Lemma iter_2d_inv_access:
+    forall x y e i p m,
+    Iter2d x y (Acc e i) p m ->
+    exists m1 m2,
+    m == m1 * m2 /\
+    Access2d x y e p m1 /\
+    Iter2d x y i p m2.
+  Proof.
+    intros.
+    unfold Iter2d in H.
+    destruct p as (nx, ny).
+    destruct e as (a, e).
+    simpl in H.
+    apply f_run_inv_access in H.
+    destruct H as (v', (m', (Rv, (Ha, Hc)))).
+    exists (One v'), m'.
+    unfold Iter2d, Access2d.
+    eauto.
+  Qed.
+
+  Lemma map_iter_2d_inv_seq:
+    forall ks vs i j x y,
+    Map (Iter2d x y (seq i j)) ks vs ->
+    exists vs1 vs2,
+    EEqList vs (map2 Prod vs1 vs2) /\
+    Map (Iter2d x y i) ks vs1 /\
+    Map (Iter2d x y j) ks vs2.
+  Proof.
+    induction ks; intros. {
+      inversion H; subst; clear H.
+      exists [], [].
+      rewrite map2_nil_l.
+      split. { reflexivity. }
+      auto using map_nil.
+    }
+    inversion H; subst; clear H.
+    apply IHks in H5.
+    destruct H5 as (vs1, (vs2, (R1, (Hm1, Hm2)))).
+    apply iter_2d_inv_seq in H2.
+    destruct H2 as (m1, (m2, (R2, (Hr1, Hr2)))).
+    exists (m1 :: vs1), (m2::vs2).
+    split; auto using map_cons.
+    rewrite R2.
+    rewrite R1.
+    rewrite map2_cons_rw.
+    reflexivity.
+  Qed.
+
+  Lemma f_run_inv_access:
+    forall i e m,
+    FRun (Acc e i) m ->
+    exists v m',
+    m == One v * m' /\
+    access_step e v /\
+    FRun i m'.
+  Proof.
+    intros.
+    destruct H as (m', (R, Hr)).
+    inversion Hr; subst; clear Hr.
+    exists v, hs.
+    auto using f_run_eq.
+  Qed.
+
+
+  Lemma map_iter_2d_inv_acc:
+    forall x y e i ks vs,
+    Map (Iter2d x y (Acc e i)) ks vs ->
+    exists vs1 vs2,
+    EEqList vs (map2 Prod vs1 vs2) /\
+    Map (Access2d x y e) ks vs1 /\
+    Map (Iter2d x y i) ks vs2.
+  Proof.
+    induction ks; intros. {
+      inversion H; subst; clear H.
+      exists [], [].
+      rewrite map2_nil_l.
+      split. { reflexivity. }
+      auto using map_nil.
+    }
+    inversion H; subst; clear H.
+    apply IHks in H5.
+    destruct H5 as (vs1, (vs2, (R1, (Hm1, Hm2)))).
+    apply iter_2d_inv_access in H2.
+    destruct H2 as (m1, (m2, (R2, (Hacc, Hi)))).
+    exists (m1::vs1), (m2::vs2).
+    split; auto using map_cons.
+    rewrite R2.
+    rewrite R1.
+    rewrite map2_cons_rw.
+    reflexivity.
+  Qed.
+
+  Lemma map_iter2d_map2_prod:
+    forall ks vs1 vs2 x y i j,
+    Map (Iter2d x y i) ks vs1 ->
+    Map (Iter2d x y j) ks vs2 ->
+    Map (Iter2d x y (seq i j)) ks (map2 Prod vs1 vs2).
+  Proof.
+    induction ks; intros. {
+      inversion H; subst.
+      rewrite map2_nil_l.
+      apply map_nil.
+    }
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0.
+    apply IHks with (vs1:=vs) (i:=i) in H8; eauto.
+    apply map_cons; auto using iter_2d_seq_eq.
+  Qed.
+
+  Lemma f_run_translate_def:
+    forall i vs1 vs2,
+    Map (Iter2d T1 T2 (i_subst TID (NVar T1) (proj i)))
+        (range_list_2d 1 TID_COUNT) vs1 ->
+    Map (Iter2d T1 T2 (i_subst TID (NVar T2) (proj i)))
+        (range_list_2d 1 TID_COUNT) vs2 ->
+    FRun (translate i) (summation (map2 Prod vs1 vs2)).
+  Proof.
+    intros.
+    unfold translate.
+    apply f_run_decl_map_2d; auto using t1_neq_t2.
+    apply map_iter2d_map2_prod; auto.
+  Qed.
+
+  Lemma map_iter_2d_access_skip:
+    forall x y e ks vs,
+    Map (Access2d x y e) ks vs ->
+    Map (Iter2d x y (Acc e Skip)) ks vs.
+  Proof.
+    eauto using map_impl, access_2d_to_iter_2d.
+  Qed.
+  
+  Lemma f_run_translate_access_skip:
+    forall e vs1 vs2,
+    Map (Access2d T1 T2 (access_subst TID (NVar T1) e, NVar T1))
+          (range_list_2d 1 TID_COUNT) vs1 ->
+    Map (Access2d T1 T2 (access_subst TID (NVar T2) e, NVar T2))
+          (range_list_2d 1 TID_COUNT) vs2 ->
+    FRun (translate (Conc.Acc e Conc.Skip)) (Σ (map2 Prod vs1 vs2)).
+  Proof.
+    intros.
+    unfold translate.
+    unfold do_proj.
+    apply f_run_decl_map_2d; auto using t1_neq_t2.
+    apply map_iter2d_map2_prod.
+    + simpl.
+      remove_eq TID TID.
+      auto using map_iter_2d_access_skip.
+    + simpl.
+      remove_eq TID TID.
+      auto using map_iter_2d_access_skip.
+  Qed.
+
+  Lemma translate_acc_inv_2 e m i (t1_nin: ~ Conc.In T1 (Conc.Acc e i)) (t2_nin: ~ Conc.In T2 (Conc.Acc e i)):
+    FRun (translate (Conc.Acc e i)) m ->
+    exists vs1 vs2 vs3 vs4,
+    FRun (translate (Conc.Acc e Conc.Skip)) (summation (map2 Prod vs1 vs2)) /\
+    FRun (translate i) (summation (map2 Prod vs3 vs4)) /\
+    m == summation (map2 Prod (map2 Prod vs1 vs3) (map2 Prod vs2 vs4)).
   Proof.
     intros Hr.
-    apply run_trans_inv_2 in Hr; auto.
-    destruct Hr as (m1, (ms2, (R1, (Hd1, Hm1)))).
-    unfold do_proj in Hd1, Hm1.
-    simpl in Hd1, Hm1.
+    unfold translate in Hr.
+    apply f_run_inv_decl_map_2d in Hr; auto using t1_neq_t2.
+    destruct Hr as (r, (R1, Hm)).
+    unfold do_proj in Hm.
+    apply map_iter_2d_inv_seq in Hm.
+    destruct Hm as (vs1, (vs2, (R2, (Hm1, Hm2)))).
+    simpl in Hm1, Hm2.
     remove_eq TID TID.
-    apply decl_map_inv_acc in Hd1.
-    destruct Hd1 as (ms1, (ms3, (R2, (Hd1, Hd2)))).
-    rewrite R2 in R1; clear R2.
-    apply map_decl_map_inv_acc in Hm1.
-    destruct Hm1 as (m3, (m4, (R2, (Hm1, Hm2)))).
-    subst.
-    subst. {
-        destruct run_translate_def2 with (m1:=ms1) (i:=Conc.Acc e Conc.Skip) (m2:=m3) as (mr, Hr1) ; auto.
-        - admit.
-        - admit.
-        - simpl.
-          remove_eq TID TID.
-          assumption.
-        - simpl.
-          remove_eq TID TID.
-          assumption.
-        - destruct run_translate_def2 with (m1:=ms3) (i:=i) (m2:=m4) as (mr1, Hr).
-          + admit.
-          + admit.
-          + assumption.
-          + assumption.
-          + exists mr.
-            exists mr1.
-            split; auto.
-            split; auto.
-            rewrite R1.
-
-
-
-      eexists.
-      eexists.
-      split. {
-        3: {
-          intros n1 Hn1.
-          apply Hf in Hn1.
-          eexists.
-          split.
-          2: {
-            intros n2 Hn2.
-            unfold do_proj in Hn1.
-            simpl in Hn1.
-            remove_eq TID TID.
-            remove_eq TID TID.
-            apply decl_map_inv in Hd.
-            destruct Hd as (f1, (?, Hf1)).
-            subst.
-            eexists.
-            eexists.
-            repeat split.
-            2: {
-              assert (Hf1 := Hf1 n1).
-            }
-          }
-        }
-        Search (Run (translate _) _).
-      }
-    } 
-    apply translate_acc_inv in Hr; auto.
-    destruct Hr as (f1, (R1, Hf1)).
-    subst.
-    assert (Hx := run_translate i).
+    apply map_iter_2d_inv_acc in Hm1.
+    destruct Hm1 as (vs3, (vs4, (R3, (Hm3, Hm4)))).
+    apply map_iter_2d_inv_acc in Hm2.
+    destruct Hm2 as (vs5, (vs6, (R4, (Hm5, Hm6)))).
+    exists vs3, vs5, vs4, vs6.
+    split. { auto using f_run_translate_access_skip. }
+    split. { auto using f_run_translate_def. }
+    rewrite R1.
+    rewrite R2.
+    rewrite R3.
+    rewrite R4.
+    reflexivity.
   Qed.
-*)
 
   Lemma translate_seq e1 (t1_nin1: ~ Conc.In T1 e1) (t2_nin1: ~ Conc.In T2 e1):
     forall e2,

@@ -906,6 +906,27 @@ Section Defs.
     reflexivity.
   Qed.
 
+  Lemma e_eq_list_map2_prod_sym:
+    forall l1 l2,
+    EEqList (map2 Prod l1 l2) (map2 Prod l2 l1).
+  Proof.
+    induction l1; intros. {
+      rewrite map2_nil_l.
+      rewrite map2_nil_r.
+      apply e_eq_list_nil.
+    }
+    destruct l2. {
+      rewrite map2_nil_l.
+      rewrite map2_nil_r.
+      apply e_eq_list_nil.
+    }
+    rewrite map2_cons_rw.
+    rewrite map2_cons_rw.
+    rewrite IHl1.
+    rewrite e_prod_sym.
+    reflexivity.
+  Qed.
+
 (*
   Lemma prod_summation_cons_rw:
     forall la a b lb,
