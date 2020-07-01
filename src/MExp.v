@@ -997,69 +997,56 @@ Section Defs.
     reflexivity.
   Qed.
 
-(*
-  Lemma prod_summation_cons_rw:
-    forall la a b lb,
-    EEq (Plus (Prod a b) (Prod (summation la) (summation lb)))
-        (Prod (summation (a :: la)) (summation (b :: lb))).
-  Proof.
-    induction la; simpl; intros. {
-      rewrite e_prod_nil_l.
-      rewrite e_plus_nil_r.
-      split; intros; simpl in *.
-      - destruct H; auto.
-        destruct H; auto.
-        destruct H; auto.
-        auto using one_of_app_r_l.
-      - destruct H; auto.
-        destruct H; auto. {
-          destruct H; auto.
-        }
-        apply one_of_inv_app_r in H.
-        destruct H; auto.
-        
-        Search (one_of _ _ (_ ++ _)).
-    } 
-  Qed.
-*)
-(*
-  Lemma prod_summation_rw:
-    forall l1 l2,
+  Lemma e_eq_list_inv_length_l:
+    forall A B f l1 l2 l, 
     length l1 = length l2 ->
-    EEq (Prod (summation l1) (summation l2))
-        (summation (map2 Prod l1 l2)).
+    EEqList l (@map2 A B _ f l1 l2) ->
+    length l = length l1.
   Proof.
     induction l1; intros. {
       destruct l2. {
-        simpl.
-        rewrite e_prod_nil_l.
-        reflexivity.
+        rewrite map2_nil_l in *.
+        inversion H0; subst; reflexivity.
       }
       inversion H.
     }
     destruct l2. { inversion H. }
+    rewrite map2_cons_rw in *.
+    inversion H0; subst; clear H0.
     inversion H; subst; clear H.
-    assert (Hl := H1).
-    apply IHl1 in H1.
-    rewrite map2_cons_rw.
+    apply IHl1 in H5; auto.
     simpl.
-    rewrite <- IHl1.
-    - rewrite H1.
-      split; intros.
-      + simpl in *.
-        destruct H; auto. {
-          destruct H; auto.
-          auto using e_pair_in_summation_l.
-        }
-        destruct H as [[]|?]; auto using e_pair_in_summation_r.
-        apply one_of_inv_app_l in H.
-        destruct H as [H|H]; apply one_of_inv_app_r in H; destruct H as [H|H]; auto.
-        Search (one_of _ (_ ++ _)).
-  Qed.*)
+    rewrite H5.
+    reflexivity.
+  Qed.
+
+  Lemma e_eq_list_inv_length_r:
+    forall A B f l1 l2 l, 
+    length l1 = length l2 ->
+    EEqList l (@map2 A B _ f l1 l2) ->
+    length l = length l2.
+  Proof.
+    induction l1; intros. {
+      destruct l2. {
+        rewrite map2_nil_l in *.
+        inversion H0; subst; reflexivity.
+      }
+      inversion H.
+    }
+    destruct l2. { inversion H. }
+    rewrite map2_cons_rw in *.
+    inversion H0; subst; clear H0.
+    inversion H; subst; clear H.
+    apply IHl1 in H5; auto.
+    simpl.
+    rewrite H5.
+    reflexivity.
+  Qed.
+
 End Defs.
 
 Module MHistNotations.
-  Infix "==" :=  EEq (at level 60, right associativity).
+  Infix "==" :=  EEq (at level 70, right associativity).
   Infix "+" := Plus (at level 50, left associativity).
   Infix "*" := Prod (at level 40, left associativity).
   Notation "'Σ'" := summation.
