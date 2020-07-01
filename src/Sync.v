@@ -763,41 +763,87 @@ Seq (Seq Skip j0) j3 -->* Seq Skip j ==> Seq j0 j3 =~= j
 
 
 
-Inductive Equiv : inst -> inst -> Prop :=
+Inductive IEquivOne : inst -> inst -> Prop :=
 | equiv_unit_lii:
   forall i j,
-  Equiv i j -> 
-  Equiv (Seq Skip i) j
+  IEquivOne i j -> 
+  IEquivOne (Seq Skip i) j
 | equiv_unit_lsi:
   forall i j, 
-  Equiv i j -> 
-  Equiv (Seq i Skip) j
+  IEquivOne i j -> 
+  IEquivOne (Seq i Skip) j
 | equiv_unit_ris:
   forall i j, 
-  Equiv i j -> 
-  Equiv i (Seq Skip j)
+  IEquivOne i j -> 
+  IEquivOne i (Seq Skip j)
 | equiv_unit_rii:
   forall i j, 
-  Equiv i j -> 
-  Equiv i (Seq j Skip)
+  IEquivOne i j -> 
+  IEquivOne i (Seq j Skip)
 | equiv_assoc_l:
   forall x y z x1 y1 z1,
-  Equiv x x1 -> 
-  Equiv y y1 -> 
-  Equiv z z1 -> 
-  Equiv (Seq x (Seq y z)) (Seq (Seq x1 y1) z1)
+  IEquivOne x x1 -> 
+  IEquivOne y y1 -> 
+  IEquivOne z z1 -> 
+  IEquivOne (Seq x (Seq y z)) (Seq (Seq x1 y1) z1)
 | equiv_assoc_r:
   forall x y z x1 y1 z1,
-  Equiv x x1 -> 
-  Equiv y y1 -> 
-  Equiv z z1 -> 
-  Equiv (Seq (Seq x y) z) (Seq x1 (Seq y1 z1)).
+  IEquivOne x x1 -> 
+  IEquivOne y y1 -> 
+  IEquivOne z z1 -> 
+  IEquivOne (Seq (Seq x y) z) (Seq x1 (Seq y1 z1)).
 
-Definition EquivStar := clos_refl_trans _ Equiv.
+
+(* Definition IEquivStar := clos_refl_sym_trans _ IEquivOne. *)
+
+Notation iequivstar := (clos_refl_sym_trans _ IEquivOne).
+
+Global Add Parametric Relation : _ iequivstar
+    reflexivity proved by (rst_refl inst IEquivOne)
+    transitivity proved by (rst_trans inst IEquivOne)
+  as equivstar_setoid.
+
+
+Goal
+  forall x,
+    iequivstar x x.
+Proof.
+  intros.
+  reflexivity.
+Qed.
+
+
+Goal
+  forall x y z,
+    iequivstar x y ->
+    iequivstar y z ->
+    iequivstar x z.
+Proof.
+  intros.
+  transitivity y; assumption.
+Qed.
+
+
+Theorem equiv_mrun:
+  forall x x' y h h',
+    iequivstar x y ->
+    Run (x, h) (x', h') ->
+    exists y', 
+    (Multi_Run (y, h) (y', h') /\ iequivstar y y').
+Proof.
+  intros. 
+  inversion H0; subst; clear H0.           
+  - inversion H; subst; clear H.
+    + inversion H0; subst; clear H0.
+      * exists j. split.
+        -- transitivity (j, @nil access_val).
+           ++ 
+
+
 
 Lemma equiv_refliv:
 forall x,
-Equiv x x.
+equivstar x x.
 Proof.
 intros.
 induction x; auto using equiv_refl.
@@ -811,8 +857,8 @@ Qed.
 
 Lemma equiv_simm:
 forall x y,
-Equiv x y ->
-Equiv y x.
+IEquivOne x y ->
+IEquivOne y x.
 Proof.
 intros.
 Admitted.
@@ -821,21 +867,21 @@ Admitted.
 
 Lemma equiv_transi:
 forall x y z,
-Equiv x y ->
-Equiv y z ->
-Equiv x z.
+IEquivOne x y ->
+IEquivOne y z ->
+IEquivOne x z.
 Proof.
 intros.
 generalize dependent z. 
 induction H; intros.
-- apply IHEquiv2 in H1. apply IHEquiv1. assumption. 
+- apply IHIEquivOne2 in H1. apply IHIEquivOne1. assumption. 
 - assumption.
-- apply IHEquiv in H0. apply equiv_unit_lii. assumption.
-- apply IHEquiv in H0. apply equiv_unit_lsi. assumption.
-- apply IHEquiv. apply equiv_trans with (j:=Seq Skip j).
+- apply IHIEquivOne in H0. apply equiv_unit_lii. assumption.
+- apply IHIEquivOne in H0. apply equiv_unit_lsi. assumption.
+- apply IHIEquivOne. apply equiv_trans with (j:=Seq Skip j).
   + apply equiv_unit_ris. apply equiv_refl.
   + assumption.
-- apply IHEquiv. apply equiv_trans with (j:=Seq j Skip).
+- apply IHIEquivOne. apply equiv_trans with (j:=Seq j Skip).
   + apply equiv_unit_rii. apply equiv_refl.
   + assumption.
 - apply equiv_trans with (j:=Seq x1 (Seq y1 z1)).
@@ -847,20 +893,20 @@ induction H; intros.
 
 induction H; intros.
 - assumption.
-- apply IHEquiv in H0. auto using equiv_unit_lii.
-- apply IHEquiv in H0. auto using equiv_unit_lii, equiv_unit_lsi, equiv_unit_ris, equiv_unit_rii.
+- apply IHIEquivOne in H0. auto using equiv_unit_lii.
+- apply IHIEquivOne in H0. auto using equiv_unit_lii, equiv_unit_lsi, equiv_unit_ris, equiv_unit_rii.
 - inversion H0; subst; clear H0.
-  + apply IHEquiv. admit.
-  + apply IHEquiv. assumption.
-  + apply IHEquiv. assumption.
-  + apply IHEquiv. admit.
-  + apply IHEquiv. admit.
+  + apply IHIEquivOne. admit.
+  + apply IHIEquivOne. assumption.
+  + apply IHIEquivOne. assumption.
+  + apply IHIEquivOne. admit.
+  + apply IHIEquivOne. admit.
   + 
   
   * apply equiv_unit_ris. apply equiv_refliv.
   * assumption.
   * assumption.
-  * assert (EQ: forall x,  Equiv (Seq Skip j) x -> Equiv j x). {
+  * assert (EQ: forall x,  IEquivOne (Seq Skip j) x -> IEquivOne j x). {
     intros x y HSE. 
     inversion HSE; subst.
     + apply equiv_unit_ris. apply equiv_refliv.
@@ -879,9 +925,9 @@ induction H; intros.
     + assumption.
     + apply equiv_unit_ris.
      
-      assert (EQ: Equiv (Seq Skip j) j). { 
-    assert (IHEquiv:= IHEquiv j0). 
-    apply IHEquiv.
+      assert (EQ: IEquivOne (Seq Skip j) j). { 
+    assert (IHIEquivOne:= IHIEquivOne j0). 
+    apply IHIEquivOne.
 
  auto using equiv_unit_lii, equiv_unit_lsi, equiv_unit_ris, equiv_unit_rii, equiv_refliv.
   
