@@ -109,6 +109,32 @@ Section C1.
     Var x i2 ->
     Var x (Loop y l i1 i2).
 
+  Inductive InRange x : inst -> Prop := 
+  | in_range_access:
+    forall e i,
+    InRange x i ->
+    InRange x (Acc e i)
+  | in_range_for_eq:
+    forall y r i1 i2,
+    RIn x r ->
+    InRange x (For y r i1 i2)
+  | in_range_for_l:
+    forall r y i1 i2,
+    InRange x i1 ->
+    InRange x (For y r i1 i2)
+  | in_range_for_r:
+    forall r i1 i2 y,
+    InRange x i2 ->
+    InRange x (For y r i1 i2)
+  | in_range_loop_l:
+    forall y l i1 i2,
+    InRange x i1 ->
+    InRange x (Loop y l i1 i2)
+  | in_range_loop_r:
+    forall y i1 i2 l,
+    InRange x i2 ->
+    InRange x (Loop y l i1 i2).
+
   Lemma var_not_in_acc:
     forall x e i,
     ~ Var x (Acc e i) ->
