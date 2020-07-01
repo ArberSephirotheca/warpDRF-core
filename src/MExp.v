@@ -1043,6 +1043,17 @@ Section Defs.
     reflexivity.
   Qed.
 
+  Lemma e_in_inv_summation:
+    forall x l,
+    EIn x (summation l) ->
+    exists m, List.In m l /\ EIn x m.
+  Proof.
+    induction l; intros. { simpl in *. contradiction. }
+    destruct H. { eauto using in_eq. }
+    apply IHl in H.
+    destruct H as (m, (Hi, He)).
+    eauto using in_cons.
+  Qed.
 End Defs.
 
 Module MHistNotations.
