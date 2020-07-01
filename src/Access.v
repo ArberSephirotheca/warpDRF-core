@@ -183,6 +183,27 @@ Section Defs.
     inversion H0; subst; clear H0; eauto.
   Qed.
 
+  Lemma gen_access_to_in:
+    forall x e vs n2,
+    GenAccess x e n2 vs ->
+    forall n1 v,
+    n1 < n2 ->
+    access_step (access_subst x (NNum n1) e, NNum n1) v ->
+    List.In v vs.
+  Proof.
+    induction vs; intros. {
+      inversion H; subst.
+      inversion H0.
+    }
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0. {
+      assert (a = v) by eauto using access_step_fun.
+      subst.
+      auto using in_eq.
+    }
+    eauto using in_cons.
+  Qed.
+
   Lemma safe_in:
     forall h,
     Safe h ->
