@@ -695,6 +695,25 @@ Section Map.
     eauto using map_cons.
   Qed.
 
+  Lemma map_inv_value:
+    forall P ks vs,
+    Map P ks vs ->
+    forall v,
+    List.In v vs ->
+    exists k, List.In k ks /\ P k v.
+  Proof.
+    induction ks; intros; inversion H; subst; clear H. {
+      contradiction.
+    }
+    destruct H0 as [Hi|Hi]. {
+      subst.
+      eauto using in_eq.
+    }
+    eapply IHks in H6; eauto.
+    destruct H6 as (k, (Hj, Hp)).
+    eauto using in_cons.
+  Qed.
+
 End Map.
 
 Section MapExtra.
