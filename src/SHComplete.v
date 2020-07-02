@@ -412,7 +412,6 @@ Section Compiler.
       auto using Conc.in_acc_1.
     }
     split. {
-      Search (access_subst).
       rewrite (access_subst_not_in T1) in Hy. {
         rewrite access_subst_subst_trans in Hy; auto.
         intros N.
@@ -1085,7 +1084,7 @@ Section Compiler.
   Proof.
     intros.
     eapply Hist.m_safe_to_m_safe_strong; eauto.
-    unfold InUtil.AllInclAll, Ensembles.Included, Ensembles.In.
+    apply InUtil.all_incl_all_def.
     intros.
     apply SymHistMExp.e_run_2 in H0.
     apply LoopFreeMExp.e_run_2 in H.

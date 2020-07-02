@@ -21,7 +21,16 @@ Section Defs.
     MIn a ls.
 
   Definition AllInclAll {A:Type} (ls1 ls2:list (list A)) :=
-    Included A (fun a => MIn a ls1) (fun a => MIn a ls2).
+    forall x,
+      MIn x ls1 -> MIn x ls2.
+
+  Lemma all_incl_all_def:
+    forall A ls1 ls2,
+    (forall (x:A), MIn x ls1 -> MIn x ls2) ->
+    AllInclAll ls1 ls2.
+  Proof.
+    auto.
+  Qed.
 
   (** Every element of l is in some list of ls *)
   Definition InclAll {A:Type} (l:list A) (ls:list (list A)) :=
