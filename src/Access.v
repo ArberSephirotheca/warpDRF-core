@@ -72,6 +72,14 @@ Class Access := {
     access_subst x (NNum n1) (access_subst y (NNum n2) a) =
     access_subst y (NNum n2) (access_subst x (NNum n1) a);
 
+  access_subst_subst_neq_2:
+    forall x y z n i,
+    x <> z ->
+    y <> z ->
+    access_subst x (NVar y) (access_subst z (NNum n) i)
+    =
+    access_subst z (NNum n) (access_subst x (NVar y) i);
+
   access_subst_subst_trans:
     forall e x v y,
     ~ access_in x e ->
@@ -86,7 +94,6 @@ Class Access := {
     forall e x y v,
     access_in x (access_subst y v e) ->
     ~ NIn x v ->
-    x <> y ->
     access_in x e;
 
 }.
@@ -1615,6 +1622,21 @@ Module OneDim.
     rewrite b_subst_subst_neq; auto.
   Qed.
 
+  Lemma subst_subst_neq_2:
+    forall x y z n a,
+    x <> z ->
+    y <> z ->
+    subst x (NVar y) (subst z (NNum n) a)
+    =
+    subst z (NNum n) (subst x (NVar y) a).
+  Proof.
+    intros.
+    destruct a.
+    simpl.
+    rewrite n_subst_subst_neq_2; auto.
+    rewrite b_subst_subst_neq_2; auto.
+  Qed.
+
   Lemma not_e_in_inv:
     forall x n b,
     ~ EIn x (n, b) ->
@@ -1664,15 +1686,14 @@ Module OneDim.
     forall e x y v,
     In x (subst y v e) ->
     ~ NIn x v ->
-    x <> y ->
     In x e.
   Proof.
     intros.
     destruct e; simpl in *.
     inversion H; subst; clear H.
-    - apply in_n_subst_neq in H3; auto.
+    - apply in_n_subst_neq in H2; auto.
       apply e_in_l; auto.
-    - apply in_b_subst_neq in H3; auto.
+    - apply in_b_subst_neq in H2; auto.
       apply e_in_r; auto.
   Qed.
 
@@ -1694,6 +1715,7 @@ Instance ONE_DIM : Access := {|
   access_safe_sym := OneDim.safe_sym;
   access_subst_subst_eq := OneDim.subst_subst_eq;
   access_subst_subst_neq := OneDim.subst_subst_neq;
+  access_subst_subst_neq_2 := OneDim.subst_subst_neq_2;
   access_subst_subst_trans := OneDim.subst_subst_trans;
   access_subst_not_in := OneDim.subst_not_in;
   access_in_subst_neq := OneDim.in_subst_neq;

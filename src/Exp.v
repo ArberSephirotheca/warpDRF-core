@@ -730,6 +730,90 @@ Section SO.
         apply IHn1_2 in H0; auto.
   Qed.
 
+  Lemma n_subst_subst_neq_2:
+    forall x y z n e,
+    y <> z ->
+    x <> z ->
+    n_subst x (NVar y) (n_subst z (NNum n) e)
+    =
+    n_subst z (NNum n) (n_subst x (NVar y) e).
+  Proof.
+    induction e; intros.
+    - reflexivity.
+    - (* variable v *)
+      simpl.
+      destruct (Set_VAR.MF.eq_dec z v). {
+        (* z = v *)
+        destruct (Set_VAR.MF.eq_dec x v). {
+          (* x = v *)
+          subst.
+          contradiction.
+        }
+        subst.
+        simpl.
+        destruct (Set_VAR.MF.eq_dec v v) as [_|?]. {
+          reflexivity.
+        }
+        contradiction.
+      }
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        simpl.
+        destruct (Set_VAR.MF.eq_dec v v). {
+          destruct (Set_VAR.MF.eq_dec z y). {
+            subst.
+            contradiction.
+          }
+          reflexivity.
+        }
+        contradiction.
+      }
+      simpl.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        contradiction.
+      }
+      destruct (Set_VAR.MF.eq_dec z v). {
+        subst.
+        contradiction.
+      }
+      reflexivity.
+    - simpl.
+      rewrite IHe1; auto.
+      rewrite IHe2; auto.
+  Qed.
+
+  Lemma b_subst_subst_neq_2:
+    forall x y z n e,
+    y <> z ->
+    x <> z ->
+    b_subst x (NVar y) (b_subst z (NNum n) e)
+    =
+    b_subst z (NNum n) (b_subst x (NVar y) e).
+  Proof.
+    induction e; intros; simpl.
+    - reflexivity.
+    - rewrite n_subst_subst_neq_2; auto.
+      rewrite n_subst_subst_neq_2; auto.
+    - rewrite IHe1; auto.
+      rewrite IHe2; auto.
+    - rewrite IHe; auto.
+  Qed.
+
+  Lemma r_subst_subst_neq_2:
+    forall x y z n e,
+    y <> z ->
+    x <> z ->
+    r_subst x (NVar y) (r_subst z (NNum n) e)
+    =
+    r_subst z (NNum n) (r_subst x (NVar y) e).
+  Proof.
+    intros.
+    destruct e.
+    simpl.
+    repeat rewrite n_subst_subst_neq_2; auto.
+  Qed.
+
   Lemma n_subst_subst_eq:
     forall x n n1 n2,
     n_subst x (NNum n1) (n_subst x (NNum n2) n) = n_subst x (NNum n2) n.
@@ -825,7 +909,6 @@ Section SO.
     forall e x y v,
     NIn x (n_subst y v e) ->
     ~ NIn x v ->
-    x <> y ->
     NIn x e.
   Proof.
     induction e; simpl; intros; inversion H; subst; rename H into N.
@@ -839,16 +922,16 @@ Section SO.
         contradiction.
       }
       (* contradiction *)
-      inversion H2.
+      inversion H1.
     - destruct (Set_VAR.MF.eq_dec y v). {
         subst.
         contradiction.
       }
       (* contradiction *)
-      inversion H2.
+      inversion H1.
     - subst.
-      apply IHe1 in H3; auto using n_in_bin_l.
-    - apply IHe2 in H3; auto using n_in_bin_r.
+      apply IHe1 in H2; auto using n_in_bin_l.
+    - apply IHe2 in H2; auto using n_in_bin_r.
   Qed.
 
   Lemma n_in_inv_subst:
@@ -869,15 +952,14 @@ Section SO.
     forall e x y v,
     BIn x (b_subst y v e) ->
     ~ NIn x v ->
-    x <> y ->
     BIn x e.
   Proof.
     induction e; simpl; intros; inversion H; subst; rename H into N.
-    - apply in_n_subst_neq in H3; auto using b_in_n_rel_l.
-    - apply in_n_subst_neq in H3; auto using b_in_n_rel_r.
-    - apply IHe1 in H3; auto using b_in_b_rel_l.
-    - apply IHe2 in H3; auto using b_in_b_rel_r.
-    - apply IHe in H3; auto using b_in_not.
+    - apply in_n_subst_neq in H2; auto using b_in_n_rel_l.
+    - apply in_n_subst_neq in H2; auto using b_in_n_rel_r.
+    - apply IHe1 in H2; auto using b_in_b_rel_l.
+    - apply IHe2 in H2; auto using b_in_b_rel_r.
+    - apply IHe in H2; auto using b_in_not.
   Qed.
 
   Lemma not_in_n_bin_n_rel:
@@ -1068,14 +1150,13 @@ Section SO.
     forall e x y v,
     RIn x (r_subst y v e) ->
     ~ NIn x v ->
-    x <> y ->
     RIn x e.
   Proof.
     intros.
     destruct e.
     inversion H; subst; clear H.
-    - apply in_n_subst_neq in H3; auto using r_in_l.
-    - apply in_n_subst_neq in H3; auto using r_in_r.
+    - apply in_n_subst_neq in H2; auto using r_in_l.
+    - apply in_n_subst_neq in H2; auto using r_in_r.
   Qed.
 
   Lemma r_step_no_dup:

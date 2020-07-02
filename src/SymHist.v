@@ -762,6 +762,43 @@ Section Defs.
       rewrite IHi2; auto.
       rewrite IHi1; auto.
   Qed.
+  Lemma i_subst_subst_neq_2:
+    forall x y z n i,
+    y <> z ->
+    x <> z ->
+    i_subst x (NVar y) (i_subst z (NNum n) i)
+    =
+    i_subst z (NNum n) (i_subst x (NVar y) i).
+  Proof.
+    induction i; intros; simpl.
+    - reflexivity.
+    - destruct p as (a, e).
+      simpl.
+      rewrite access_subst_subst_neq_2; auto.
+      rewrite n_subst_subst_neq_2; auto.
+      rewrite IHi; auto.
+    - rewrite IHi2; auto.
+      destruct (Set_VAR.MF.eq_dec z v). {
+        subst.
+        rewrite r_subst_subst_neq_2; auto.
+      }
+      rewrite r_subst_subst_neq_2; auto.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        reflexivity.
+      }
+      rewrite IHi1; auto.
+    - rewrite IHi2; auto.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        auto.
+      }
+      destruct (Set_VAR.MF.eq_dec z v). {
+        subst.
+        auto.
+      }
+      rewrite IHi1; auto.
+  Qed.
 
   Inductive In (x:var) : inst -> Prop :=
   | in_acc_1:

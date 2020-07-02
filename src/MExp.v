@@ -783,7 +783,62 @@ Section Defs.
     intros.
     split; auto using e_in_summation_map2_prod_or, e_in_summation_map2_prod_or_rev.
   Qed.
-  
+
+  Lemma e_in_summation_map2_plus_or:
+    forall x l1 l2,
+    EIn x (summation (map2 Plus l1 l2)) ->
+    EIn x (summation l1) \/ EIn x (summation l2).
+  Proof.
+    induction l1; intros. {
+      rewrite map2_nil_l in *.
+      auto.
+    }
+    destruct l2. {
+      rewrite map2_nil_r in *.
+      simpl in *.
+      auto.
+    }
+    rewrite map2_cons_rw in *.
+    simpl in *.
+    (* Let intuition clear out the easy bits. *)
+    intuition.
+    apply IHl1 in H0.
+    intuition.
+  Qed.
+
+  Lemma e_in_summation_map2_plus_or_rev:
+    forall x l1 l2,
+    length l1 = length l2 ->
+    EIn x (summation l1) \/ EIn x (summation l2) ->
+    EIn x (summation (map2 Plus l1 l2)).
+  Proof.
+    induction l1; intros. {
+      destruct l2. {
+        intuition.
+      }
+      inversion H.
+    }
+    destruct l2. { inversion H. }
+    inversion H; subst; clear H.
+    simpl in *.
+    assert (Hx: (EIn x (summation l1) \/ EIn x (summation l2)) \/ (EIn x a \/ EIn x m)). {
+      intuition.
+    }
+    clear H0.
+    destruct Hx as [Hx|Hx]. { eauto. }
+    auto.
+  Qed.
+
+  Lemma e_in_rw_summation_map2_plus:
+    forall x l1 l2,
+    length l1 = length l2 ->
+    EIn x (summation l1) \/ EIn x (summation l2) <->
+    EIn x (summation (map2 Plus l1 l2)).
+  Proof.
+    intros.
+    split; auto using e_in_summation_map2_plus_or, e_in_summation_map2_plus_or_rev.
+  Qed.
+
   (* ------------------- EEqList ----------------------------- *)
 
   Inductive EEqList : list mexp -> list mexp -> Prop :=

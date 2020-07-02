@@ -291,6 +291,26 @@ Section C1.
       destruct H1; auto using var_loop_3.
   Qed.
 
+  Lemma in_seq_inv:
+    forall x i j,
+    In x (seq i j) ->
+    In x i \/ In x j.
+  Proof.
+    induction i; simpl; intros.
+    - auto.
+    - inversion H; subst; clear H.
+      + auto using in_acc_1.
+      + apply IHi in H1.
+        destruct H1; auto.
+        auto using in_acc_2.
+    - inversion H; subst; clear H; auto using in_for_1, in_for_2, in_for_3.
+      apply IHi2 in H1.
+      destruct H1; auto using in_for_4.
+    - inversion H; subst; clear H; auto using in_loop_1, in_loop_2.
+      apply IHi2 in H1.
+      destruct H1; auto using in_loop_3.
+  Qed.
+
   Lemma var_subst_inv_1:
     forall y x n i,
     Var y (i_subst x (NNum n) i) ->
@@ -305,6 +325,30 @@ Section C1.
         inversion H; subst; clear H; auto using var_for_1, var_for_2, var_for_3.
     - destruct (Set_VAR.MF.eq_dec x v);
         inversion H; subst; clear H; auto using var_loop_1, var_loop_2, var_loop_3.
+  Qed.
+
+  Lemma in_subst_inv_1:
+    forall y x n i,
+    In y (i_subst x (NNum n) i) ->
+    In y i.
+  Proof.
+    induction i; simpl; intros.
+    - inversion H.
+    - inversion H; subst; clear H.
+      + apply access_in_subst_neq in H1; auto using in_acc_1.
+        intros N.
+        inversion N.
+      + auto using in_acc_2.
+    - destruct (Set_VAR.MF.eq_dec x v);
+        inversion H; subst; clear H; auto using in_for_1, in_for_2, in_for_3, in_for_4.
+      + apply in_r_subst_neq in H1; auto using in_for_1.
+        intros N.
+        inversion N.
+      + apply in_r_subst_neq in H1; auto using in_for_1.
+        intros N.
+        inversion N.
+    - destruct (Set_VAR.MF.eq_dec x v);
+        inversion H; subst; clear H; auto using in_loop_1, in_loop_2, in_loop_3.
   Qed.
 
   Lemma var_iter_loop:
@@ -398,4 +442,17 @@ Section C1.
     constructor.
     constructor.
   Qed.
+
+  Lemma in_loop_cons:
+    forall x y l i j n,
+    In x (Loop y l i j) ->
+    In x (Loop y (n::l) i j).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    - auto using in_loop_1.
+    - auto using in_loop_2.
+    - auto using in_loop_3.
+  Qed.
+  
 End C1.

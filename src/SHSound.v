@@ -44,41 +44,6 @@ Section Compiler.
           SymHist.in_decl_4, SymHist.in_branch_1, SymHist.in_branch_2, SymHist.in_branch_3.
   Qed.
 
-  Lemma i_subst_proj_rw:
-    forall x i n,
-    x <> TID ->
-    proj (Conc.i_subst x (NNum n) i) = SymHist.i_subst x (NNum n) (proj i).
-  Proof.
-    induction i; simpl; intros; destruct (Set_VAR.MF.eq_dec x TID); try contradiction.
-    - reflexivity.
-    - rewrite IHi; auto.
-    - rewrite IHi2; auto.
-      destruct (Set_VAR.MF.eq_dec x v). {
-        auto.
-      }
-      rewrite IHi1; auto.
-    - rewrite IHi2; auto.
-      destruct (Set_VAR.MF.eq_dec x v). {
-        auto.
-      }
-      rewrite IHi1; auto.
-  Qed.
-
-
-  Lemma proj_seq:
-    forall i1 i2,
-    proj (Conc.seq i1 i2) = SymHist.seq (proj i1) (proj i2).
-  Proof.
-    induction i1; intros; simpl.
-    - reflexivity.
-    - rewrite IHi1.
-      reflexivity.
-    - rewrite IHi1_2.
-      reflexivity.
-    - rewrite IHi1_2.
-      reflexivity.
-  Qed.
-
   Lemma var_eq_dec_rw_eq:
     forall x,
     exists e, Set_VAR.MF.eq_dec x x = @left _ _ e.

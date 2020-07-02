@@ -43,17 +43,6 @@ Section Compiler.
         SymHist.Skip)
       SymHist.Skip).
 
-  (*
-  Definition translate (c:Conc.inst) : SymHist.inst :=
-      (SymHist.Decl T1 (NNum 1, NNum TID_COUNT)
-        (SymHist.seq (do_proj T1 c)
-           (SymHist.Decl T2 (NNum 0, NVar T1)
-             (do_proj T2 c)
-             SymHist.Skip
-           )
-        )
-        SymHist.Skip).
-  *)
   Lemma in_proj_to_in:
     forall x i,
     x <> TID ->
@@ -65,6 +54,40 @@ Section Compiler.
           Conc.in_for_4, Conc.in_loop_1, Conc.in_loop_2, Conc.in_loop_3.
     inversion H2; subst; clear H2.
     contradiction.
+  Qed.
+
+  Lemma proj_seq:
+    forall i1 i2,
+    proj (Conc.seq i1 i2) = SymHist.seq (proj i1) (proj i2).
+  Proof.
+    induction i1; intros; simpl.
+    - reflexivity.
+    - rewrite IHi1.
+      reflexivity.
+    - rewrite IHi1_2.
+      reflexivity.
+    - rewrite IHi1_2.
+      reflexivity.
+  Qed.
+
+  Lemma i_subst_proj_rw:
+    forall x i n,
+    x <> TID ->
+    proj (Conc.i_subst x (NNum n) i) = SymHist.i_subst x (NNum n) (proj i).
+  Proof.
+    induction i; simpl; intros; destruct (Set_VAR.MF.eq_dec x TID); try contradiction.
+    - reflexivity.
+    - rewrite IHi; auto.
+    - rewrite IHi2; auto.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        auto.
+      }
+      rewrite IHi1; auto.
+    - rewrite IHi2; auto.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        auto.
+      }
+      rewrite IHi1; auto.
   Qed.
 
   End Defs.
