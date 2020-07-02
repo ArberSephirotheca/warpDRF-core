@@ -796,11 +796,11 @@ Inductive IEquivOne : inst -> inst -> Prop :=
 
 (* Definition IEquivStar := clos_refl_sym_trans _ IEquivOne. *)
 
-Notation iequivstar := (clos_refl_sym_trans _ IEquivOne).
+Notation iequivstar := (clos_refl_sym_trans_n1 _ IEquivOne).
 
 Global Add Parametric Relation : _ iequivstar
-    reflexivity proved by (rst_refl inst IEquivOne)
-    transitivity proved by (rst_trans inst IEquivOne)
+    reflexivity proved by (rstn1_refl inst IEquivOne)
+    transitivity proved by (clos_rstn1_trans inst IEquivOne)
   as equivstar_setoid.
 
 
@@ -824,14 +824,90 @@ Proof.
 Qed.
 
 
+(* Inductive INF : inst -> Prop := *)
+(* | inf_seq: *)
+
+(* define a "cleanup function" ? 0;P -> P etc *)
+(* define a normalise sequencing function? (P;Q);R -> P;(Q;R) *) 
+
+
+
+Lemma sync_neq_skip:
+  ~iequivstar Sync Skip.
+Proof.
+  unfold not in *.
+  intros.
+  apply rstn1_trans with (z:=Sync) in H. 
+  
+    
+  induction H.
+  - 
+  - contradict IHclos_refl_sym_trans_1n.
+  
+Lemma equiv_inv_sync:
+  forall y,
+    iequivstar y Sync ->
+    (y = Sync)
+    \/
+    (
+      forall x1 x2,
+      y=(Seq x1 x2) /\
+      (
+        ((iequivstar Sync x1) -> (iequivstar Skip x2))
+        \/
+        ((iequivstar Sync x2) -> (iequivstar Skip x1))   
+      )
+    ).
+Proof.
+  intros.
+  induction y.
+  - 
+  -
+  induction y.
+  - inversion H.
+    + inversion H0.
+    + inversion H.
+      * inversion H3.
+      * inversion H3.
+    
+    
+Lemma equiv_sync_rev:
+  forall x h,
+    iequivstar Sync x ->
+    exists y,
+      (Multi_Run (x, h) (y, [])
+       /\ iequivstar Skip y).
+Proof.
+  intros.
+  induction x.
+  - inversion H; subst; clear H. 
+    + inversion H0.
+    + inversion H0.
+      * inversion H.
+      * 
+     
+                 
+
 Theorem equiv_mrun:
   forall x x' y h h',
     iequivstar x y ->
     Run (x, h) (x', h') ->
     exists y', 
-    (Multi_Run (y, h) (y', h') /\ iequivstar y y').
+      (Multi_Run (y, h) (y', h') /\ iequivstar y y').
 Proof.
-  intros. 
+  intros.
+  induction x.
+  - inversion H; subst; clear H.
+    * inversion H1; subst; clear H1.
+    + inversion H; subst; clear H.
+      ++ 
+      
+  - inversion H0; subst; clear H0.
+    inversion H; subst; clear H.
+    * inversion H0; subst; clear H0.
+      + 
+
+    
   inversion H0; subst; clear H0.           
   - inversion H; subst; clear H.
     + inversion H0; subst; clear H0.
