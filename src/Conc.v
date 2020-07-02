@@ -435,23 +435,7 @@ Section C1.
   (** Parallelize an access for [n] tasks. *)
 
   Context `{T:Tasks}.
-(*
-  Inductive Step: state -> state -> Prop :=
-  | step_access:
-    forall h e v i,
-    GenAccess TID e TID_COUNT v ->
-    Step (h, Acc e i) (List.concat v ++ h, i)
-  | step_for:
-    forall x r h l i1 i2,
-    RStep r l ->
-    Step (h, For x r i1 i2) (h, Loop x l i1 i2)
-  | step_loop_step:
-    forall h x n l i1 i2,
-    Step (h, Loop x (n::l) i1 i2) (h, seq (i_subst x (NNum n) i1) (Loop x l i1 i2))
-  | step_loop_skip:
-    forall h x i1 i2,
-    Step (h, Loop x [] i1 i2) (h, i2).
-*)
+
   Inductive Run: inst -> history -> Prop :=
   | run_skip:
     Run Skip []

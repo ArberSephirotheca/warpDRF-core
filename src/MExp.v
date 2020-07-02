@@ -421,91 +421,7 @@ Section Defs.
     rewrite prepend_app.
     reflexivity.
   Qed.
-(*
-  Lemma one_of_app_l_l:
-    forall p l1 l2 l3,
-    one_of p l1 l3 ->
-    one_of p (l1 ++ l2) l3.
-  Proof.
-    destruct p as (v1, v2).
-    induction l1; simpl; intros.
-    - destruct H as [([],_)|([],_)].
-    - destruct H as [([Ha|Ha],Hb)|(Ha,H)];
-      auto using m_in_list_app_l.
-      destruct Ha; auto using m_in_list_app_l.
-  Qed.
 
-  Lemma one_of_app_l_r:
-    forall p l1 l2 l3,
-    one_of p l2 l3 ->
-    one_of p (l1 ++ l2) l3.
-  Proof.
-    destruct p as (v1, v2).
-    induction l1; simpl; intros.
-    - destruct H; auto.
-    - destruct H as [(Ha,Hb)|(Ha,Hb)]; auto using m_in_list_app_r.
-  Qed.
-
-  Lemma one_of_app_r_l:
-    forall p l1 l2 l3,
-    one_of p l1 l2 ->
-    one_of p l1 (l2 ++ l3).
-  Proof.
-    destruct p as (v1, v2).
-    induction l1; simpl; intros.
-    - destruct H as [([],_)|([],_)].
-    - destruct H as [([Ha|Ha],Hb)|(Ha,H)];
-      auto using m_in_list_app_l.
-  Qed.
-
-  Lemma one_of_app_r_r:
-    forall p l1 l2 l3,
-    one_of p l1 l3 ->
-    one_of p l1 (l2 ++ l3).
-  Proof.
-    destruct p as (v1, v2).
-    induction l1; simpl; intros.
-    - destruct H as [([],_)|([],_)].
-    - destruct H as [([Ha|Ha],Hb)|(Ha,H)];
-      auto using m_in_list_app_r.
-  Qed.
-
-  Lemma one_of_inv_app_r:
-    forall p l1 l2 l3,
-    one_of p l1 (l2 ++ l3) ->
-    one_of p l1 l2 \/ one_of p l1 l3.
-  Proof.
-    intros (v1, v2).
-    induction l1; simpl; intros. {
-      destruct H as [([],_)|([],_)].
-    }
-    destruct H as [([Ha|Ha],Hb)|([Hb|Hb],Hc)].
-    + apply m_in_list_app_or in Hb.
-      destruct Hb; auto.
-    + apply m_in_list_app_or in Hb.
-      destruct Hb; auto.
-    + apply m_in_list_app_or in Hc.
-      destruct Hc; auto.
-    + apply m_in_list_app_or in Hc.
-      destruct Hc; auto.
-  Qed.
-
-  Lemma one_of_inv_app_l:
-    forall p l1 l2 l3,
-    one_of p (l1 ++ l2) l3 ->
-    one_of p l1 l3 \/ one_of p l2 l3.
-  Proof.
-    intros (v1, v2).
-    induction l1; simpl; intros. {
-      destruct H as [(Ha,Hb)|(Ha,Hb)]; auto.
-    }
-    destruct H as [([Ha|Ha],Hb)|([Hb|Hb],Hc)]; auto.
-    + apply m_in_list_app_or in Ha.
-      destruct Ha; auto.
-    + apply m_in_list_app_or in Hb.
-      destruct Hb; auto.
-  Qed.
-*)
   Lemma e_prod_plus_r:
     forall e1 e2 e3,
     EEq (Plus (Prod e1 e2) (Prod e1 e3)) (Prod e1 (Plus e2 e3)).
@@ -596,29 +512,7 @@ Section Defs.
     simpl.
     apply mem_equiv_app_sym.
   Qed.
-(*
-  Lemma one_of_sym_nil_l:
-    forall p l,
-    ~ one_of p [] l.
-  Proof.
-    intros.
-    destruct p as (v1, v2).
-    simpl.
-    intros N.
-    destruct N as [([],_)|([],_)].
-  Qed.
 
-  Lemma one_of_sym_nil_r:
-    forall p l,
-    ~ one_of p l [].
-  Proof.
-    intros.
-    destruct p as (v1, v2).
-    simpl.
-    intros N.
-    destruct N as [(_,[])|(_,[])].
-  Qed.
-*)
   Lemma one_of_sym:
     forall p m1 m2,
     one_of p m1 m2 ->
@@ -639,47 +533,7 @@ Section Defs.
     - apply one_of_sym in H.
       auto.
   Qed.
-(*
-  Lemma e_plus_prod_prod_rw:
-    forall m1 m2 m3 m4,
-    EEq (Plus (Prod m1 m2) (Prod m3 m4))
-        (Prod (Plus m1 m3) (Plus m2 m4)).
-  Proof.
-    intros.
-    split; simpl; intros; destruct H as [[H1|H2]|[H3|H4]]; auto.
-    - destruct H2; auto.
-      auto using one_of_app_r_l, one_of_app_l_l.
-    - destruct H4; auto.
-      auto using one_of_app_r_r, one_of_app_l_r.
-    - destruct H3; auto.
-    - apply one_of_inv_app_l in H4.
-      destruct H4 as [H|H].
-      + apply one_of_inv_app_r in H.
-        destruct H; auto.
-        (* 
-          one_of p (flatten_exp m1) (flatten_exp m4) ->
-          one_of p (flatten_exp m1) (flatten_exp m2) \/
-          one_of p (flatten_exp m3) (flatten_exp m4)
-        *)
-        (*
-        right; right; right.
-        left; right; right.
-        *)
-        admit.
-      + apply one_of_inv_app_r in H.
-        destruct H; auto.
-        (*
-          one_of p (flatten_exp m3) (flatten_exp m2) ->
-          one_of p (flatten_exp m1) (flatten_exp m2) \/
-          one_of p (flatten_exp m3) (flatten_exp m4)
-        *)
-        (*
-        right; right; right.
-        left; right; right.
-        *)
-        admit.
-  Qed.
-*)
+
   Lemma e_plus_absorb_rw:
     forall m,
     EEq (Plus m m) m.
