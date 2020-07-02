@@ -948,6 +948,24 @@ Section SO.
     contradiction.
   Qed.
 
+  Lemma n_in_subst_eq:
+    forall x y e,
+    ~ NIn x e ->
+    NIn x (n_subst y (NVar x) e) ->
+    NIn y e.
+  Proof.
+    induction e; simpl; intros.
+    - inversion H0.
+    - destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        auto using n_in_eq.
+      }
+      contradiction.
+    - inversion H0; subst; clear H0.
+      + apply IHe1 in H2; auto using n_in_bin_l.
+      + apply IHe2 in H2; auto using n_in_bin_r.
+  Qed.
+
   Lemma in_b_subst_neq:
     forall e x y v,
     BIn x (b_subst y v e) ->
@@ -1167,6 +1185,18 @@ Section SO.
     intros.
     inversion H; subst; clear H.
     eauto using range_list_to_no_dup.
+  Qed.
+
+  Lemma r_in_subst_eq:
+    forall x y e,
+    ~ RIn x e ->
+    RIn x (r_subst y (NVar x) e) ->
+    RIn y e.
+  Proof.
+    intros x y (nx, ny); simpl; intros.
+    inversion H0; subst; clear H0.
+    - apply n_in_subst_eq in H2; auto using r_in_l.
+    - apply n_in_subst_eq in H2; auto using r_in_r.
   Qed.
 
 End SO.

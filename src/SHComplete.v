@@ -743,64 +743,150 @@ Section Compiler.
     apply translate_def; simpl; remove_eq TID z; auto.
   Qed.
 
+  (* ----------------------------- FOR ------------------------------- *)
 
-(*
-  Lemma map_iter_2d_inv_loop:
-    forall x y z ks i j n l vs,
-    Map (Iter2d x y (Branch z (n::l) i j)) ks vs ->
-    x <> z ->
-    y <> z ->
-    exists vs1 vs2,
-    EEqList vs (map2 Prod vs1 vs2) /\
-    length vs1 = length vs2 /\
-    Map (Iter2d x y (seq (i_subst z (NNum n) i) j)) ks vs1 /\
-    Map (Iter2d x y (Branch z l i j)) ks vs2.
+  Lemma iter_2d_inv_decl:
+    forall x y z i j m p r,
+    ~ RIn x r ->
+    ~ RIn y r ->
+    Iter2d x y (Decl z r i j) p m ->
+    exists l,
+    RStep r l /\ Iter2d x y (Branch z l i j) p m.
   Proof.
-    induction ks; intros. {
-      inversion H; subst; clear H.
-      exists [], [].
-      split. { apply e_eq_list_nil. }
-      split; auto using map_nil.
-    }
-    inversion H; subst; clear H.
-    apply IHks in H7; auto.
-    destruct H7 as (vs1, (vs2, (Hrl, (Hl1, (Hm1, Hm2))))).
-    unfold Iter2d in H4.
-    destruct a as (nx, ny).
-    simpl in H4.
-    remove_eq x z.
-    remove_eq y z.
-    apply f_run_inv_branch_cons in H4.
-    destruct H4 as (mv1, (mv2, (R, (Hr1, Hr2)))).
+    unfold Iter2d.
+    intros.
+    destruct p as (nx, ny).
+    simpl in *.
+    apply f_run_inv_decl in H1.
+    destruct H1 as (l, (Hr, Hf)).
+    exists l.
+    split; auto.
+    rewrite r_subst_not_in in Hr.
+    - rewrite r_subst_not_in in Hr; auto.
+    - rewrite r_subst_not_in; auto.
   Qed.
 
-  Lemma translate_inv_loop x n l i1 i2
-    (Hv: ~ Conc.Var TID (Conc.Loop x l i1 i2))
+  Lemma map_iter_2d_inv_decl:
+    forall x y ks vs i j z r,
+    ks <> [] ->
+    ~ RIn x r ->
+    ~ RIn y r ->
+    Map (Iter2d x y (Decl z r i j)) ks vs ->
+    exists l, RStep r l /\ Map (Iter2d x y (Branch z l i j)) ks vs.
+  Proof.
+    intros.
+    assert (Hr: exists l, RStep r l). {
+      inversion H2; subst; clear H2. { contradiction. }
+      apply iter_2d_inv_decl in H3; auto.
+      destruct H3 as (l, (Hr, Hk)).
+      eauto.
+    }
+    destruct Hr as (l, Hr).
+    exists l.
+    split; auto.
+    apply map_impl with (P:=Iter2d x y (Decl z r i j)); auto.
+    intros k v Hi.
+    apply iter_2d_inv_decl in Hi; auto.
+    destruct Hi as (l', (Hr', Hi)).
+    assert (l' = l) by eauto using r_step_fun.
+    subst.
+    assumption.
+  Qed.
+
+  Lemma translate_inv_for x r i j
+    (Hv: ~ Conc.InRange TID (Conc.For x r i j))
+    (t1_nin: ~ Conc.In T1 (Conc.For x r i j))
+    (t2_nin: ~ Conc.In T2 (Conc.For x r i j))
     :
     forall m,
-    FRun (translate (Conc.Loop x (n :: l) i1 i2)) m ->
-    exists vs1 vs2 vs3 vs4,
-    m == summation (map2 Prod (map2 Prod vs1 vs3) (map2 Prod vs2 vs4)) /\
-    FRun (translate (Conc.seq (Conc.i_subst x (NNum n) i1) i2)) (summation (map2 Prod vs1 vs2)) /\
-    FRun (translate (Conc.Loop x l i1 i2)) (summation (map2 Prod vs3 vs4)).
+    FRun (translate (Conc.For x r i j)) m ->
+    exists l, RStep r l /\ FRun (translate (Conc.Loop x l i j)) m.
   Proof.
     intros.
     apply translate_inv in H.
     destruct H as (ml, (R, (vs1, (vs2, (Rl, (Hl, (Hm1, Hm2))))))).
-    simpl in Hm1, Hm2.
-    destruct (Set_VAR.MF.eq_dec TID x). {
-      subst.
-      contradict Hv.
-      auto using Conc.var_loop_1.
+    simpl in Hm1.
+    assert (~ RIn T1 (r_subst TID (NVar T1) r)). {
+      intros N.
+      apply r_in_subst_eq in N.
+      - contradict Hv.
+        auto using Conc.in_range_for_eq.
+      - intros M.
+        contradict t1_nin.
+        auto using Conc.in_for_1.
     }
-    
+    assert (~ RIn T2 (r_subst TID (NVar T1) r)). {
+      intros N.
+      rewrite r_subst_not_in in N.
+      - contradict t2_nin.
+        auto using Conc.in_for_1.
+      - intros M.
+        contradict Hv.
+        auto using Conc.in_range_for_eq.
+    }
+    assert (range_list_2d 1 TID_COUNT <> []). {
+      intros N.
+      unfold range_list_2d in *.
+      unfold range_list in N.
+      destruct TID_COUNT eqn:Hn. {
+        assert (Hx := tid_count_1_lt).
+        rewrite Hn in Hx.
+        inversion Hx.
+      }
+      simpl in N.
+      destruct n. {
+        simpl in N.
+        assert (Hx := tid_count_1_lt).
+        rewrite Hn in Hx.
+        auto with *.
+      }
+      simpl in N.
+      inversion N.
+    }
+    apply map_iter_2d_inv_decl in Hm1; auto.
+    destruct Hm1 as (l, (Hr1, Hm1)).
+    simpl in Hm2.
+    assert (~ RIn T1 (r_subst TID (NVar T2) r)). {
+      intros N.
+      rewrite r_subst_not_in in N.
+      - contradict t1_nin.
+        auto using Conc.in_for_1.
+      - intros M.
+        contradict Hv.
+        auto using Conc.in_range_for_eq.
+    }
+    assert (~ RIn T2 (r_subst TID (NVar T2) r)). {
+      intros N.
+      apply r_in_subst_eq in N.
+      - contradict Hv.
+        auto using Conc.in_range_for_eq.
+      - intros M.
+        contradict t2_nin.
+        auto using Conc.in_for_1.
+    }
+    apply map_iter_2d_inv_decl in Hm2; auto.
+    destruct Hm2 as (l', (Hr2, Hm2)).
+    assert (~ RIn TID r). {
+      intros N.
+      contradict Hv.
+      auto using Conc.in_range_for_eq.
+    }
+    rewrite r_subst_not_in in Hr1; auto.
+    rewrite r_subst_not_in in Hr2; auto.
+    assert (l' = l) by eauto using r_step_fun; subst.
+    exists l.
+    split; auto.
+    rewrite R.
+    rewrite Rl.
+    apply translate_def; auto.
   Qed.
-  *)
+
   Lemma completeness_1
       (i:Conc.inst)
       (T1_nin_i: ~ Conc.In T1 i)
       (T2_nin_i: ~ Conc.In T2 i)
       (tid_nin: ~ Conc.Var TID i)
+      (tid_rin: ~ Conc.InRange TID i)
     :
     forall m_l,
     LoopFreeMExp.FRun i m_l ->
@@ -870,7 +956,27 @@ Section Compiler.
       + intros N.
         contradict tid_nin.
         auto using Conc.var_acc.
-  - admit.
+      + intros N.
+        contradict tid_rin.
+        auto using Conc.in_range_access.
+  - rename H1 into Hf.
+    apply translate_inv_for in Hf; auto.
+    destruct Hf as (l', (Hr, Hf)).
+    assert (l' = l) by eauto using r_step_fun; subst.
+    assert (R: m == m) by reflexivity.
+    eapply IHERun in R; eauto.
+    + intros N.
+      contradict T1_nin_i.
+      eauto using Conc.in_loop_to_for.
+    + intros N.
+      contradict T2_nin_i.
+      eauto using Conc.in_loop_to_for.
+    + intros N.
+      contradict tid_nin.
+      eauto using Conc.var_loop_to_for.
+    + intros N.
+      contradict tid_rin.
+      eauto using Conc.in_range_loop_to_for.
   - apply translate_inv_loop_cons in H1; auto.
     destruct H1 as (vs1, (vs2, (vs3, (vs4, (R1, (Hl1, (Hl2, (Hl3, (Hf1, Hf2))))))))).
     simpl.
@@ -924,6 +1030,14 @@ Section Compiler.
         }
         contradict tid_nin.
         auto using Conc.var_loop_3.
+      + intros N.
+        apply Conc.in_range_inv_seq in N.
+        destruct N as [N|N].
+        * apply Conc.in_range_subst_inv_1 in N.
+          contradict tid_rin.
+          auto using Conc.in_range_loop_l.
+        * contradict tid_rin.
+          auto using Conc.in_range_loop_r.
     }
     eapply IHERun2 in Hf2; eauto.
     + intros N.
@@ -935,6 +1049,9 @@ Section Compiler.
     + intros N.
       contradict tid_nin.
       auto using Conc.var_loop_cons.
+    + intros N.
+      contradict tid_rin.
+      auto using Conc.in_range_loop_cons.
     + reflexivity.
 
   - apply translate_inv_loop_nil in H0.
@@ -948,8 +1065,11 @@ Section Compiler.
     + intros N.
       contradict tid_nin.
       auto using Conc.var_loop_3.
+    + intros N.
+      contradict tid_rin.
+      eauto using Conc.in_range_loop_r.
     + reflexivity.
-  Admitted.
+  Qed.
 
   Notation "'<[' x ']>'" := (translate x).
   Coercion NNum: nat >-> nexp.  

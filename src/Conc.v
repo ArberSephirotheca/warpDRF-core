@@ -165,6 +165,24 @@ Section C1.
     inversion H; subst; clear H; auto using var_for_1, var_for_2, var_for_3.
   Qed.
 
+  Lemma in_loop_to_for:
+    forall x y i j l r,
+    In x (Loop y l i j) ->
+    In x (For y r i j).
+  Proof.
+    intros.
+    inversion H; subst; clear H; auto using in_for_1, in_for_2, in_for_3, in_for_4.
+  Qed.
+
+  Lemma in_range_loop_to_for:
+    forall x y i j l r,
+    InRange x (Loop y l i j) ->
+    InRange x (For y r i j).
+  Proof.
+    intros.
+    inversion H; subst; clear H; auto using in_range_for_eq, in_range_for_l, in_range_for_r.
+  Qed.
+
   Lemma var_loop_cons:
     forall x y l i1 i2 n,
     Var x (Loop y l i1 i2) ->
@@ -184,6 +202,23 @@ Section C1.
   | For x r i3 i4 => For x r i3 (seq i4 i2)
   | Loop x r i3 i4 => Loop x r i3 (seq i4 i2)
   end.
+
+  Lemma in_range_inv_seq:
+    forall x i j,
+    InRange x (seq i j) ->
+    InRange x i \/ InRange x j.
+  Proof.
+    induction i; simpl; intros; auto.
+    - inversion H; subst; clear H.
+      apply IHi in H1.
+      destruct H1; auto using in_range_access.
+    - inversion H; subst; clear H; eauto using in_range_for_eq, in_range_for_l.
+      apply IHi2 in H1.
+      destruct H1; auto using in_range_for_r.
+    - inversion H; subst; clear H; auto using in_range_loop_l.
+      apply IHi2 in H1.
+      destruct H1; auto using in_range_loop_r.
+  Qed.
 
   Infix ";;" := seq (at level 50).
 
@@ -325,6 +360,38 @@ Section C1.
         inversion H; subst; clear H; auto using var_for_1, var_for_2, var_for_3.
     - destruct (Set_VAR.MF.eq_dec x v);
         inversion H; subst; clear H; auto using var_loop_1, var_loop_2, var_loop_3.
+  Qed.
+
+
+  Lemma in_range_subst_inv_1:
+    forall y x n i,
+    InRange y (i_subst x (NNum n) i) ->
+    InRange y i.
+  Proof.
+    induction i; simpl; intros.
+    - inversion H.
+    - inversion H; subst; clear H.
+      apply IHi in H1.
+      auto using in_range_access.
+    - destruct (Set_VAR.MF.eq_dec x v);
+        inversion H; subst; clear H; auto using in_range_for_l, in_range_for_r.
+        + apply in_r_subst_neq in H1; auto using in_range_for_eq.
+          intros N.
+          inversion N.
+        + apply in_r_subst_neq in H1; auto using in_range_for_eq.
+          intros N.
+          inversion N.
+    - destruct (Set_VAR.MF.eq_dec x v);
+        inversion H; subst; clear H; auto using in_range_loop_l, in_range_loop_r.
+  Qed.
+
+  Lemma in_range_loop_cons:
+    forall x y l i j n,
+    InRange x (Loop y l i j) ->
+    InRange x (Loop y (n :: l) i j).
+  Proof.
+    intros.
+    inversion H; subst; clear H; auto using in_range_loop_l, in_range_loop_r.
   Qed.
 
   Lemma in_subst_inv_1:
