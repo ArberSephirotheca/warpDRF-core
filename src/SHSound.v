@@ -130,15 +130,15 @@ Section Compiler.
   Qed.
 
   Lemma run_do_proj (t:var):
-    forall i hs2,
-    LoopFree.Run i hs2 ->
-    forall n hs1,
+    forall i m_l,
+    LoopFree.Run i m_l ->
+    forall n m_h,
     n < TID_COUNT -> 
-    SymHist.Run (SymHist.i_subst t (NNum n) (do_proj t i)) hs1 ->
+    SymHist.Run (SymHist.i_subst t (NNum n) (do_proj t i)) m_h ->
     ~ Conc.Var TID i ->
     ~ Conc.In t i ->
     t <> TID ->
-    Hist.m_proj n hs2 = hs1.
+    Hist.m_proj n m_l = m_h.
   Proof.
     unfold do_proj.
     intros.
@@ -280,12 +280,12 @@ Section Compiler.
       (T2_nin_i: ~ Conc.In T2 i)
       (TID_nvar_i: ~ Conc.Var TID i)
     :
-    forall hs1,
-    LoopFree.Run i hs1 ->
-    forall hs2,
-    (forall x, MIn x hs1 -> access_tid x < TID_COUNT) ->
-    SymHist.Run (translate i) hs2 ->
-    Hist.APairIncl hs1 hs2.
+    forall m_l,
+    LoopFree.Run i m_l ->
+    forall m_h,
+    (forall x, MIn x m_l -> access_tid x < TID_COUNT) ->
+    SymHist.Run (translate i) m_h ->
+    Hist.APairIncl m_l m_h.
   Proof.
     unfold translate.
     intros.
@@ -306,6 +306,8 @@ Section Compiler.
       omega.
     }
     subst.
+    (* We simplified our assumption [SymHist.Run (translate i) m_h]
+       as [Hx]. *)  
     assert (x_lt_tc: access_tid x < TID_COUNT) by eauto.
     assert (y_lt_tc: access_tid y < TID_COUNT) by eauto.
     (* Check the tids of both accesses. *)
@@ -396,15 +398,15 @@ Section Compiler.
     *)
 
   Corollary soundness:
-    forall hs1 hs2 i,
-    (forall x, MIn x hs1 -> access_tid x < TID_COUNT) ->
+    forall m_l m_h i,
+    (forall x, MIn x m_l -> access_tid x < TID_COUNT) ->
     ~ Conc.In T1 i ->
     ~ Conc.In T2 i ->
     ~ Conc.Var TID i ->
-    Hist.MSafeStrong hs2 ->
-    LoopFree.Run i hs1 ->
-    SymHist.Run (translate i) hs2 ->
-    Hist.MSafe hs1.
+    Hist.MSafeStrong m_h ->
+    LoopFree.Run i m_l ->
+    SymHist.Run (translate i) m_h ->
+    Hist.MSafe m_l.
   Proof.
     intros.
     eapply Hist.m_safe_strong_to_m_safe; eauto.

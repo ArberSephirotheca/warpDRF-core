@@ -1317,31 +1317,7 @@ Section Defs.
     unfold m_proj.
     erewrite map_proj_prepend; eauto.
   Qed.
-(*
-  Lemma in_m_proj_to_m_pair_prod_m_proj:
-    forall x y n1 n2 hs,
-    MIn x (m_proj n1 hs) ->
-    MIn y (m_proj n2 hs) ->
-    MPairIn (x,y) (prod (m_proj n1 hs) (m_proj n2 hs)).
-  Proof.
-    intros.
-    apply m_pair_in_prod; auto.
-  Qed.
-*)
-(*
-  Lemma m_safe_strong_to_m_safe:
-    forall hs1 hs2,
-    MSafeStrong hs2 ->
-    AllInclAll hs1 hs2 ->
-    MSafe hs1.
-  Proof.
-    unfold MSafe, MSafeStrong, Safe2.
-    intros.
-    intros.
-    assert (H := H x y).
-    apply H; clear H. 
-  Qed.
-*)
+
   Lemma m_safe_eq:
     forall hs x y,
     MSafe hs ->
@@ -1373,10 +1349,10 @@ Section Defs.
   Qed.
 
   Lemma m_safe_strong_to_m_safe:
-    forall hs1 hs2,
-    MSafeStrong hs2 ->
-    APairIncl hs1 hs2 ->
-    MSafe hs1.
+    forall m_l m_h,
+    MSafeStrong m_l ->
+    APairIncl m_h m_l ->
+    MSafe m_h.
   Proof.
     intros.
     unfold MSafeStrong, AllInclAll,Ensembles.Included,Ensembles.In, MPairIncl, MSafe, Safe2; intros.
@@ -1385,6 +1361,7 @@ Section Defs.
     }
     eauto using m_in_def.
   Qed.
+
   Lemma access_in_inv_neq:
     forall x y z a,
     x <> y ->

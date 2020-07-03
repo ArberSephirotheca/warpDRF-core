@@ -31,8 +31,6 @@ Section Compiler.
   Context {A:Access}.
   Context {T:Tasks}.
   Notation history := (list access_val).
-  Definition mk_empty_1 n1 n2 : list history :=
-    List.concat (map (fun _ => [[]]) (range_list n1 n2)) ++ [[]].
 
   Lemma range_list_2d_inv_in:
     forall nx ny n1 n2,
@@ -51,7 +49,6 @@ Section Compiler.
     apply range_list_in_iff in Hc.
     auto.
   Qed.
-
 
   Lemma iter_2d_inv_seq:
     forall x y i j p m,
@@ -879,6 +876,8 @@ Section Compiler.
     rewrite Rl.
     apply translate_def; auto.
   Qed.
+
+  (* -------------------------- MAIN THEOREM ------------------------- *)
 
   Lemma completeness_1
       (i:Conc.inst)

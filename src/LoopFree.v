@@ -426,6 +426,53 @@ Section Defs.
     split; eauto using completeness, soundness.
   Qed.
 
+  Lemma run_inv_loop_1:
+    forall x l i j m,
+    Run (Conc.Loop x l i j) m ->
+    exists m', Run j m'.
+  Proof.
+    induction l; intros.
+    - inversion H; subst; clear H.
+      eauto.
+    - inversion H; subst; clear H.
+      eauto.
+  Qed.
+
+  Lemma run_conc_to_loopfree:
+    forall i h,
+    Conc.Run i h ->
+    exists m, Run i m.
+  Proof.
+    intros.
+    induction H; intros.
+    - exists [[]].
+      apply run_skip.
+    - destruct IHRun as (m, Hr).
+      eauto using run_access.
+    - destruct IHRun as (m, Hl).
+      eauto using run_for.
+    - destruct IHRun1 as (m, Hr1).
+      destruct IHRun2 as (m2, Hr2).
+      assert (Hx: exists m', Run i2 m') by eauto using run_inv_loop_1.
+      destruct Hx as (m_i2, Hr_i2).
+      assert (Run (Conc.seq (Conc.i_subst x n i1) i2) (prod m m_i2)) by eauto using run_seq. 
+      eauto using run_loop_cons.
+    - destruct IHRun as (m, Hr).
+      eauto using run_loop_nil.
+  Qed.
+
+  Corollary correctness_ext:
+    forall i h,
+    Conc.Run i h ->
+    exists m, Run i m /\
+    (Hist.MSafe m <-> Hist.Safe h).
+  Proof.
+    intros.
+    destruct (run_conc_to_loopfree i h) as (m, Hr); auto.
+    exists m.
+    split; auto.
+    eauto using correctness.
+  Qed.
 
 End Defs.
 
