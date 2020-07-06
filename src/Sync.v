@@ -901,7 +901,25 @@ Qed.
 
 
        
-Lemma Sync_in_eq:
+Lemma Sync_in_eq_one_l:
+  forall x y,
+    IEquivOne y x ->
+    In Sync x ->
+    In Sync y.
+Proof.
+  intros x y H H0.
+  induction H.
+  - inversion H0; subst; apply in_seq_r; assumption.
+  - apply in_seq_l. assumption.
+  - inversion H0; subst.
+    + inversion H2; subst.
+      * apply in_seq_l. assumption.
+      * apply in_seq_r. apply in_seq_l. assumption.
+    + apply in_seq_r. apply in_seq_r. assumption.
+Qed.
+    
+   
+Lemma Sync_in_eq_one:
   forall x y,
     IEquivOne x y ->
     In Sync x ->
@@ -927,8 +945,7 @@ Proof.
         assumption.
 Qed.
 
-
-Lemma Access_in_eq:
+Lemma Access_in_eq_one:
   forall x y a,
     IEquivOne x y ->
     In (Access a) x ->
@@ -955,8 +972,72 @@ Proof.
 Qed.
 
 
+       
+Lemma Access_in_eq_one_l:
+  forall x y a,
+    IEquivOne y x ->
+    In (Access a) x ->
+    In (Access a) y.
+Proof.
+  intros x y a H H0.
+  induction H.
+  - inversion H0; subst; apply in_seq_r; assumption.
+  - apply in_seq_l. assumption.
+  - inversion H0; subst.
+    + inversion H2; subst.
+      * apply in_seq_l. assumption.
+      * apply in_seq_r. apply in_seq_l. assumption.
+    + apply in_seq_r. apply in_seq_r. assumption.
+Qed.
 
 
+Lemma Sync_in_iequivstar:
+  forall x y,
+    iequivstar x y ->
+    In Sync x ->
+    In Sync y.
+Proof.
+  intros x y H Hx. 
+  induction H; intros.
+  - inversion Hx; subst; assumption.
+  - destruct H.
+    * apply Sync_in_eq_one in H; assumption.
+    * 
+
+
+      
+  
+
+
+
+
+
+      
+    * apply in_sync.
+    * assumption.
+    * assumption.
+    * 
+  - admit 
+  - admit.
+  - 
+  - inversion Hx.
+  - transitivity H.
+
+    inversion H; subst; clear H.
+    * apply in_sync.
+    * destruct H0.
+      + 
+  - assumption.
+  - destruct H.
+    + apply Sync_in_eq_one in H; assumption.
+    + apply Sync_in_eq_one with (x:=z).
+      * 
+      Sync_in_eq_one in H.
+      * 
+      * assumption.
+      * assumpt
+
+  
 Lemma equiv_inv_sync:
   forall y,
     iequivstar y Sync ->
@@ -971,7 +1052,7 @@ Lemma equiv_inv_sync:
         ((iequivstar Sync x2) -> (iequivstar Skip x1))   
       )
     ).
-Proof.
+. Proof.
   intros.
   induction y.
   - 
