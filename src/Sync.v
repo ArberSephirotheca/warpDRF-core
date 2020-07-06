@@ -762,7 +762,7 @@ Seq (Seq Skip j0) j3 -->* Seq Skip j ==> Seq j0 j3 =~= j
 *)
 
 
-
+(*
 Inductive IEquivOne : inst -> inst -> Prop :=
 | equiv_unit_lii:
   forall i j,
@@ -792,6 +792,18 @@ Inductive IEquivOne : inst -> inst -> Prop :=
   IEquivOne y y1 -> 
   IEquivOne z z1 -> 
   IEquivOne (Seq (Seq x y) z) (Seq x1 (Seq y1 z1)).
+*)
+
+Inductive IEquivOne : inst -> inst -> Prop :=
+| equiv_unit_r:
+  forall i,
+  IEquivOne (Seq Skip i) i
+| equiv_unit_l:
+  forall i, 
+  IEquivOne (Seq i Skip) i
+| equiv_assoc:
+  forall x y z,
+  IEquivOne (Seq x (Seq y z)) (Seq (Seq x y) z).
 
 
 (* Definition IEquivStar := clos_refl_sym_trans _ IEquivOne. *)
@@ -799,7 +811,8 @@ Inductive IEquivOne : inst -> inst -> Prop :=
 Notation iequivstar := (clos_refl_sym_trans_n1 _ IEquivOne).
 
 Global Add Parametric Relation : _ iequivstar
-    reflexivity proved by (rstn1_refl inst IEquivOne)
+    reflexivity proved by (rstn1_refl inst IEquivOne)                                   
+    symmetry proved by (clos_rstn1_sym inst IEquivOne)
     transitivity proved by (clos_rstn1_trans inst IEquivOne)
   as equivstar_setoid.
 
@@ -823,26 +836,207 @@ Proof.
   transitivity y; assumption.
 Qed.
 
+Goal
+  forall x y,
+    iequivstar x y ->
+    iequivstar y x.
+Proof.
+  intros.
+  symmetry in H.
+  assumption.
+Qed.
+
 
 (* Inductive INF : inst -> Prop := *)
 (* | inf_seq: *)
 
 (* define a "cleanup function" ? 0;P -> P etc *)
 (* define a normalise sequencing function? (P;Q);R -> P;(Q;R) *) 
+(*
+Fixpoint igc (i :inst) : inst :=
+  match i with
+  | Seq Skip y => igc y
+  | Access a => Access a
+  | For e r y =>  For e r (igc y)
+  | Loop e r y => Loop e r (igc y)
+  | Skip => Skip
+  | Sync => Sync
+  | Seq x y => (Seq (igc x) (igc y))
+  end.
+
+Fixpoint ihnf (i :inst) : inst :=
+  match i with
+  | Seq (Seq x y) z => Seq (ihnf x) (Seq (ihnf y) (ihnf z))
+  | Seq x y => Seq (ihnf x) (ihnf y)
+  | Skip => Skip
+  | Sync => Sync
+  | Access a => Access a
+  | For e r y => For e r (ihnf y)
+  | Loop e r y => Loop e r (ihnf y)
+  end.
 
 
+Definition eqhead (i :inst) : inst := ihnf (igc i).
+  
+Lemma eqhead_bard:
+  forall i i' j h h',
+    eqhead i = eqhead j ->
+    Run (i, h) (i',h') ->
+    exists j',
+      Run (j, h) (j',h').
+Proof.
+  intros.
+  induction i.
+  - inversion H.
 
-Lemma sync_neq_skip:
-  ~iequivstar Sync Skip.
+    *)
+
+Lemma sync_neq_skip_one:
+  ~IEquivOne Sync Skip.
 Proof.
   unfold not in *.
   intros.
-  apply rstn1_trans with (z:=Sync) in H. 
-  
-    
+  inversion H.
+Qed.
+
+
+       
+Lemma Sync_in_eq_one_l:
+  forall x y,
+    IEquivOne y x ->
+    In Sync x ->
+    In Sync y.
+Proof.
+  intros x y H H0.
   induction H.
+  - inversion H0; subst; apply in_seq_r; assumption.
+  - apply in_seq_l. assumption.
+  - inversion H0; subst.
+    + inversion H2; subst.
+      * apply in_seq_l. assumption.
+      * apply in_seq_r. apply in_seq_l. assumption.
+    + apply in_seq_r. apply in_seq_r. assumption.
+Qed.
+    
+   
+Lemma Sync_in_eq_one:
+  forall x y,
+    IEquivOne x y ->
+    In Sync x ->
+    In Sync y.
+Proof.
+  intros x y H H0.
+  induction H.
+  - inversion H0; subst.
+    + inversion H2.
+    + assumption.
+  - inversion H0; subst.
+    + assumption.
+    + inversion H2.
+  - inversion H0; subst.
+    + apply in_seq_l.
+      apply in_seq_l.
+      assumption.
+    + inversion H2; subst.
+      * apply in_seq_l.
+        apply in_seq_r.
+        assumption.
+      * apply in_seq_r.
+        assumption.
+Qed.
+
+Lemma Access_in_eq_one:
+  forall x y a,
+    IEquivOne x y ->
+    In (Access a) x ->
+    In (Access a) y.
+Proof.
+  intros x y a H H0.
+  induction H.
+  - inversion H0; subst.
+    + inversion H2.
+    + assumption.
+  - inversion H0; subst.
+    + assumption.
+    + inversion H2.
+  - inversion H0; subst.
+    + apply in_seq_l.
+      apply in_seq_l.
+      assumption.
+    + inversion H2; subst.
+      * apply in_seq_l.
+        apply in_seq_r.
+        assumption.
+      * apply in_seq_r.
+        assumption.
+Qed.
+
+
+       
+Lemma Access_in_eq_one_l:
+  forall x y a,
+    IEquivOne y x ->
+    In (Access a) x ->
+    In (Access a) y.
+Proof.
+  intros x y a H H0.
+  induction H.
+  - inversion H0; subst; apply in_seq_r; assumption.
+  - apply in_seq_l. assumption.
+  - inversion H0; subst.
+    + inversion H2; subst.
+      * apply in_seq_l. assumption.
+      * apply in_seq_r. apply in_seq_l. assumption.
+    + apply in_seq_r. apply in_seq_r. assumption.
+Qed.
+
+
+Lemma Sync_in_iequivstar:
+  forall x y,
+    iequivstar x y ->
+    In Sync x ->
+    In Sync y.
+Proof.
+  intros x y H Hx. 
+  induction H; intros.
+  - inversion Hx; subst; assumption.
+  - destruct H.
+    * apply Sync_in_eq_one in H; assumption.
+    * 
+
+
+      
+  
+
+
+
+
+
+      
+    * apply in_sync.
+    * assumption.
+    * assumption.
+    * 
+  - admit 
+  - admit.
   - 
-  - contradict IHclos_refl_sym_trans_1n.
+  - inversion Hx.
+  - transitivity H.
+
+    inversion H; subst; clear H.
+    * apply in_sync.
+    * destruct H0.
+      + 
+  - assumption.
+  - destruct H.
+    + apply Sync_in_eq_one in H; assumption.
+    + apply Sync_in_eq_one with (x:=z).
+      * 
+      Sync_in_eq_one in H.
+      * 
+      * assumption.
+      * assumpt
+
   
 Lemma equiv_inv_sync:
   forall y,
@@ -858,7 +1052,7 @@ Lemma equiv_inv_sync:
         ((iequivstar Sync x2) -> (iequivstar Skip x1))   
       )
     ).
-Proof.
+. Proof.
   intros.
   induction y.
   - 
