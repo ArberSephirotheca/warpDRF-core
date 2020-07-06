@@ -78,34 +78,6 @@ Section Defs.
   | Decl : var -> range -> inst -> inst -> inst
   | Branch : var -> list nat -> inst -> inst -> inst.
 
-  Inductive Var (x:var) : inst -> Prop :=
-  | var_acc:
-    forall p i,
-    Var x i ->
-    Var x (MemAcc p i)
-  | var_decl_eq:
-    forall r i1 i2,
-    Var x (Decl x r i1 i2)
-  | var_decl_r:
-    forall r y i1 i2,
-    Var x i2 ->
-    Var x (Decl y r i1 i2)
-  | var_decl_l:
-    forall r i1 i2 y,
-    Var x i1 ->
-    Var x (Decl y r i1 i2)
-  | var_branch_eq:
-    forall l i1 i2,
-    Var x (Branch x l i1 i2)
-  | var_branch_l:
-    forall y i1 i2 l,
-    Var x i1 ->
-    Var x (Branch y l i1 i2)
-  | var_branch_r:
-    forall y i1 i2 l,
-    Var x i2 ->
-    Var x (Branch y l i1 i2).
-
   Fixpoint i_subst x v i :=
   match i with
   | Skip => Skip
@@ -817,6 +789,8 @@ Section Defs.
       rewrite IHi1; auto.
   Qed.
 
+  (* ------------------------------- In ----------------------------- *)
+
   Inductive In (x:var) : inst -> Prop :=
   | in_acc_1:
     forall e i,
@@ -882,6 +856,58 @@ Section Defs.
     repeat split; intros N; contradict H; subst;
       auto using in_branch_1, in_branch_2, in_branch_3.
   Qed.
+
+
+  Lemma in_branch_to_decl:
+    forall x y i j l r,
+    In x (Branch y l i j) ->
+    In x (Decl y r i j).
+  Proof.
+    intros.
+    inversion H; subst; clear H;
+      auto using
+        in_decl_1,
+        in_decl_2,
+        in_decl_3,
+        in_decl_4.
+  Qed.
+
+  Lemma in_inv_seq:
+    forall x i j,
+    In x (seq i j) ->
+    In x i \/ In x j.
+  Proof.
+    induction i; simpl; intros.
+    - auto.
+    - inversion H; subst; clear H.
+      + auto using in_acc_1.
+      + apply IHi in H1.
+        destruct H1; auto.
+        auto using in_acc_2.
+    - inversion H; subst; clear H;
+        auto using in_decl_1, in_decl_2, in_decl_3.
+      apply IHi2 in H1.
+      destruct H1; auto using in_decl_4.
+    - inversion H; subst; clear H;
+        auto using in_branch_1, in_branch_2.
+      apply IHi2 in H1.
+      destruct H1; auto using in_branch_3.
+  Qed.
+
+  Lemma in_branch_cons:
+    forall x y l i j n,
+    In x (Branch y l i j) ->
+    In x (Branch y (n::l) i j).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    - auto using in_branch_1.
+    - auto using in_branch_2.
+    - auto using in_branch_3.
+  Qed.
+
+
+  (* ------------------ i_subst + In ------------------------------ *)
 
   Lemma i_subst_not_in:
     forall i x v,
@@ -977,7 +1003,7 @@ Section Defs.
       + apply IHi2 in H3; auto using in_branch_3.
   Qed.
 
-  Lemma in_subst_inv_in:
+  Lemma in_inv_subst_in:
     forall e x y z,
     x <> y ->
     x <> z ->
@@ -990,6 +1016,63 @@ Section Defs.
     inversion N; subst; clear N.
     contradiction.
   Qed.
+
+  Lemma in_inv_subst_1:
+    forall y x n i,
+    In y (i_subst x (NNum n) i) ->
+    In y i.
+  Proof.
+    induction i; simpl; intros.
+    - inversion H.
+    - inversion H; subst; clear H.
+      + apply access_inst_in_subst_neq in H1; auto using in_acc_1.
+        intros N.
+        inversion N.
+      + auto using in_acc_2.
+    - destruct (Set_VAR.MF.eq_dec x v);
+        inversion H; subst; clear H;
+          auto using
+            in_decl_1, in_decl_2, in_decl_3, in_decl_4.
+      + apply in_r_subst_neq in H1; auto using in_decl_1.
+        intros N.
+        inversion N.
+      + apply in_r_subst_neq in H1; auto using in_decl_1.
+        intros N.
+        inversion N.
+    - destruct (Set_VAR.MF.eq_dec x v);
+        inversion H; subst; clear H;
+          auto using in_branch_1, in_branch_2, in_branch_3.
+  Qed.
+
+  (* --------------------------------- VAR ------------------------- *)
+
+  Inductive Var (x:var) : inst -> Prop :=
+  | var_acc:
+    forall p i,
+    Var x i ->
+    Var x (MemAcc p i)
+  | var_decl_eq:
+    forall r i1 i2,
+    Var x (Decl x r i1 i2)
+  | var_decl_r:
+    forall r y i1 i2,
+    Var x i2 ->
+    Var x (Decl y r i1 i2)
+  | var_decl_l:
+    forall r i1 i2 y,
+    Var x i1 ->
+    Var x (Decl y r i1 i2)
+  | var_branch_eq:
+    forall l i1 i2,
+    Var x (Branch x l i1 i2)
+  | var_branch_l:
+    forall y i1 i2 l,
+    Var x i1 ->
+    Var x (Branch y l i1 i2)
+  | var_branch_r:
+    forall y i1 i2 l,
+    Var x i2 ->
+    Var x (Branch y l i1 i2).
 
   Lemma var_not_in_acc:
     forall x e i,
@@ -1081,6 +1164,100 @@ Section Defs.
       auto using var_branch_l.
     }
     auto using var_branch_r.
+  Qed.
+
+  (* -------------------------------- InRange -------------------------- *)
+
+
+  Inductive InRange x : inst -> Prop := 
+  | in_range_access:
+    forall e i,
+    InRange x i ->
+    InRange x (MemAcc e i)
+  | in_range_decl_eq:
+    forall y r i1 i2,
+    RIn x r ->
+    InRange x (Decl y r i1 i2)
+  | in_range_decl_l:
+    forall r y i1 i2,
+    InRange x i1 ->
+    InRange x (Decl y r i1 i2)
+  | in_range_decl_r:
+    forall r i1 i2 y,
+    InRange x i2 ->
+    InRange x (Decl y r i1 i2)
+  | in_range_branch_l:
+    forall y l i1 i2,
+    InRange x i1 ->
+    InRange x (Branch y l i1 i2)
+  | in_range_branch_r:
+    forall y i1 i2 l,
+    InRange x i2 ->
+    InRange x (Branch y l i1 i2).
+
+  Lemma in_range_branch_to_decl:
+    forall x y i j l r,
+    InRange x (Branch y l i j) ->
+    InRange x (Decl y r i j).
+  Proof.
+    intros.
+    inversion H; subst; clear H;
+      auto using
+        in_range_decl_eq,
+        in_range_decl_l,
+        in_range_decl_r.
+  Qed.
+
+  Lemma in_range_inv_seq:
+    forall x i j,
+    InRange x (seq i j) ->
+    InRange x i \/ InRange x j.
+  Proof.
+    induction i; simpl; intros; auto.
+    - inversion H; subst; clear H.
+      apply IHi in H1.
+      destruct H1; auto using in_range_access.
+    - inversion H; subst; clear H;
+        eauto using in_range_decl_eq, in_range_decl_l.
+      apply IHi2 in H1.
+      destruct H1; auto using in_range_decl_r.
+    - inversion H; subst; clear H; auto using in_range_branch_l.
+      apply IHi2 in H1.
+      destruct H1; auto using in_range_branch_r.
+  Qed.
+
+  Lemma in_range_inv_subst_1:
+    forall y x n i,
+    InRange y (i_subst x (NNum n) i) ->
+    InRange y i.
+  Proof.
+    induction i; simpl; intros.
+    - inversion H.
+    - inversion H; subst; clear H.
+      apply IHi in H1.
+      auto using in_range_access.
+    - destruct (Set_VAR.MF.eq_dec x v);
+        inversion H; subst; clear H;
+          auto using in_range_decl_l, in_range_decl_r.
+        + apply in_r_subst_neq in H1; auto using in_range_decl_eq.
+          intros N.
+          inversion N.
+        + apply in_r_subst_neq in H1; auto using in_range_decl_eq.
+          intros N.
+          inversion N.
+    - destruct (Set_VAR.MF.eq_dec x v);
+        inversion H; subst; clear H;
+          auto using in_range_branch_l, in_range_branch_r.
+  Qed.
+
+  Lemma in_range_branch_cons:
+    forall x y l i j n,
+    InRange x (Branch y l i j) ->
+    InRange x (Branch y (n :: l) i j).
+  Proof.
+    intros.
+    inversion H; subst; clear H;
+      auto using in_range_branch_l, in_range_branch_r.
   Qed.
 
 End Defs.
