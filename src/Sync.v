@@ -1083,7 +1083,16 @@ Theorem equiv_star_mrun:
     exists y', 
       Multi_Run (y, h) (y', h').
 Proof.
-  intros x x' y h h' HE HR.
+  intros x x' y h h' HE.
+  induction HE; intros.
+  - exists x'. auto using run_imp_mrun.
+  - destruct H.
+    * apply IHHE in H0.
+      apply equiv_one_mrun_l with (x:=z) (x':=y').
+      + 
+
+  - 
+  HR.
   intros.
   induction HE.
   - exists x'. auto using run_imp_mrun.
