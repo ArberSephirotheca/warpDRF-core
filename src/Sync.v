@@ -1002,84 +1002,8 @@ Proof.
   - inversion Hx; subst; assumption.
   - destruct H.
     * apply Sync_in_eq_one in H; assumption.
-    * 
-
-
-      
-  
-
-
-
-
-
-      
-    * apply in_sync.
-    * assumption.
-    * assumption.
-    * 
-  - admit 
-  - admit.
-  - 
-  - inversion Hx.
-  - transitivity H.
-
-    inversion H; subst; clear H.
-    * apply in_sync.
-    * destruct H0.
-      + 
-  - assumption.
-  - destruct H.
-    + apply Sync_in_eq_one in H; assumption.
-    + apply Sync_in_eq_one with (x:=z).
-      * 
-      Sync_in_eq_one in H.
-      * 
-      * assumption.
-      * assumpt
-
-  
-Lemma equiv_inv_sync:
-  forall y,
-    iequivstar y Sync ->
-    (y = Sync)
-    \/
-    (
-      forall x1 x2,
-      y=(Seq x1 x2) /\
-      (
-        ((iequivstar Sync x1) -> (iequivstar Skip x2))
-        \/
-        ((iequivstar Sync x2) -> (iequivstar Skip x1))   
-      )
-    ).
-. Proof.
-  intros.
-  induction y.
-  - 
-  -
-  induction y.
-  - inversion H.
-    + inversion H0.
-    + inversion H.
-      * inversion H3.
-      * inversion H3.
-    
-    
-Lemma equiv_sync_rev:
-  forall x h,
-    iequivstar Sync x ->
-    exists y,
-      (Multi_Run (x, h) (y, [])
-       /\ iequivstar Skip y).
-Proof.
-  intros.
-  induction x.
-  - inversion H; subst; clear H. 
-    + inversion H0.
-    + inversion H0.
-      * inversion H.
-      * 
-     
+    * apply Sync_in_eq_one_l in H; assumption.
+Qed.
                  
 
 Theorem equiv_mrun:
@@ -1089,26 +1013,9 @@ Theorem equiv_mrun:
     exists y', 
       (Multi_Run (y, h) (y', h') /\ iequivstar y y').
 Proof.
-  intros.
-  induction x.
-  - inversion H; subst; clear H.
-    * inversion H1; subst; clear H1.
-    + inversion H; subst; clear H.
-      ++ 
-      
-  - inversion H0; subst; clear H0.
-    inversion H; subst; clear H.
-    * inversion H0; subst; clear H0.
-      + 
-
-    
-  inversion H0; subst; clear H0.           
-  - inversion H; subst; clear H.
-    + inversion H0; subst; clear H0.
-      * exists j. split.
-        -- transitivity (j, @nil access_val).
-           ++ 
-
+  intros x x' y h h' HE HR.
+  cofix H.
+  
 
 
 Lemma equiv_refliv:
