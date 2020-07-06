@@ -56,7 +56,6 @@ Section Defs.
     access_inst_in_subst_neq := access_in_subst_neq;
   }.
   
-
   Inductive Run: Conc.inst -> list history -> Prop :=
   | run_skip:
     Run Conc.Skip [[]]

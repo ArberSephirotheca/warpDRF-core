@@ -17,8 +17,6 @@ src/SetTh.v
 src/SymExec.v
 src/LoopFree.v
 src/SymHist.v
-src/LoopFreeMExp.v
-src/SymHistMExp.v
 src/SymExecMExp.v
 src/MultiHist.v
 src/MExp.v
