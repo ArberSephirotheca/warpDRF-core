@@ -1004,18 +1004,122 @@ Proof.
     * apply Sync_in_eq_one in H; assumption.
     * apply Sync_in_eq_one_l in H; assumption.
 Qed.
-                 
 
-Theorem equiv_mrun:
+
+
+Lemma run_seq_eq:
+  forall y h x' h',
+    Run (Seq Skip y, h) (x', h') ->
+    (y=x' /\ h=h').
+Proof.
+  intros.
+  inversion H; subst.
+  - inversion H1.
+  - auto.
+Qed.
+
+
+Theorem equiv_one_mrun_l:
+  forall x x' y h h',
+    IEquivOne x y ->
+    Run (x, h) (x', h') ->
+    exists y', 
+      Multi_Run (y, h) (y', h').
+Proof.
+  intros x x' y h h' HE HR.
+  inversion HE; subst; clear HE.
+  - apply run_seq_eq in HR.
+    destruct HR as (IEQ, HEQ). subst.
+    exists x'. reflexivity.
+  - inversion HR; subst.
+    * exists j. apply run_imp_mrun in H0. assumption.
+    * apply run_seq_eq in HR.
+      destruct HR as (IEQ, HEQ). subst.
+      exists Skip. reflexivity.
+  - inversion HR; subst.
+    * exists (Seq (Seq j y0) z).
+      apply mrun_seq.
+      apply run_seq.
+      assumption.
+    * exists (Seq y0 z).
+      apply mrun_seq.
+      apply run_seq_skip.
+Qed.
+
+
+Theorem equiv_one_mrun_r:
+  forall x x' y h h',
+    IEquivOne y x ->
+    Run (x, h) (x', h') ->
+    exists y', 
+      Multi_Run (y, h) (y', h').
+Proof.
+  intros x x' y h h' HE HR.
+  inversion HE; subst; clear HE.
+  - exists x'.
+    transitivity (x,h).
+    * apply mrun_seq_skip.
+    * auto using run_imp_mrun.
+  - exists (Seq x' Skip).
+    transitivity (Seq x' Skip,h').
+    *  apply run_imp_mrun.
+       apply run_seq. assumption.
+    * reflexivity.
+  - inversion HR; subst; clear HR.
+    * inversion H0; subst; clear H0.
+    + exists (Seq j0 (Seq y0 z)).
+      apply run_imp_mrun.
+      auto using run_seq.
+    + exists (Seq j z).
+      apply run_imp_mrun.
+      auto using run_seq_skip.
+Qed.
+      
+
+Theorem equiv_star_mrun:
   forall x x' y h h',
     iequivstar x y ->
     Run (x, h) (x', h') ->
     exists y', 
-      (Multi_Run (y, h) (y', h') /\ iequivstar y y').
+      Multi_Run (y, h) (y', h').
 Proof.
-  intros x x' y h h' HE HR.
-  cofix H.
-  
+  intros x x' y h h' HE.
+  induction HE; intros.
+  - exists x'. auto using run_imp_mrun.
+  - destruct H.
+    * apply IHHE in H0.
+      apply equiv_one_mrun_l with (x:=z) (x':=y').
+      + 
+
+  - 
+  HR.
+  intros.
+  induction HE.
+  - exists x'. auto using run_imp_mrun.
+  - destruct H.
+    + eapply equiv_one_mrun_l with (x:=y).
+      
+      
+      admit.
+    +  eapply equiv_one_mrun_l.
+Qed.
+
+  (* Run (?x, h) (?x', h') *)
+      
+  - apply equiv_one_mrun with (x:=y) (x':=x').
+    + destruct H.
+      * assumption.
+      * admit.
+    + 
+    + 
+    
+    + destruct H.
+      * assumption.
+      * 
+       
+    
+  inversion HR; subst.
+  - exists Skip. 
 
 
 Lemma equiv_refliv:
