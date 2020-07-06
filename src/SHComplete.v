@@ -166,14 +166,14 @@ Section Defs.
 
   Lemma translate_def:
     forall i vs1 vs2,
-    Map (Iter2d T1 T2 (i_subst TID (NVar T1) (proj2 i)))
+    Map (Iter2d T1 T2 (i_subst TID (NVar T1) (proj i)))
         (range_list_2d 1 TID_COUNT) vs1 ->
-    Map (Iter2d T1 T2 (i_subst TID (NVar T2) (proj2 i)))
+    Map (Iter2d T1 T2 (i_subst TID (NVar T2) (proj i)))
         (range_list_2d 1 TID_COUNT) vs2 ->
-    FRun (translate2 i) (summation (map2 Prod vs1 vs2)).
+    FRun (translate i) (summation (map2 Prod vs1 vs2)).
   Proof.
     intros.
-    unfold translate2.
+    unfold translate.
     apply f_run_decl_map_2d; auto using t1_neq_t2.
     apply map_iter2d_map2_prod; auto.
   Qed.
@@ -290,7 +290,7 @@ Section Defs.
           (range_list_2d 1 TID_COUNT) vs1 ->
     Map (Access2d T1 T2 (access_subst TID (NVar T2) e, NVar T2))
           (range_list_2d 1 TID_COUNT) vs2 ->
-    FRun (translate2 (MemAcc (I:=LoopFree.LoopAcc) e Skip)) (Σ (map2 Prod vs1 vs2)).
+    FRun (translate (MemAcc (I:=LoopFree.LoopAcc) e Skip)) (Σ (map2 Prod vs1 vs2)).
   Proof.
     intros.
     unfold translate.
@@ -310,20 +310,20 @@ Section Defs.
 
   Lemma translate_inv_access:
     forall e m i,
-    FRun (translate2 (MemAcc e i)) m ->
+    FRun (translate (MemAcc e i)) m ->
     exists vs1 vs2 vs3 vs4,
     m == summation (map2 Prod (map2 Prod vs1 vs3) (map2 Prod vs2 vs4)) /\
     length vs1 = length vs2 /\
     length vs2 = length vs3 /\
     length vs3 = length vs4 /\
-    FRun (translate2 (MemAcc e Skip)) (summation (map2 Prod vs1 vs2)) /\
-    FRun (translate2 i) (summation (map2 Prod vs3 vs4)).
+    FRun (translate (MemAcc e Skip)) (summation (map2 Prod vs1 vs2)) /\
+    FRun (translate i) (summation (map2 Prod vs3 vs4)).
   Proof.
     intros e m i Hr.
     unfold translate in Hr.
     apply f_run_inv_decl_map_2d in Hr; auto using t1_neq_t2.
     destruct Hr as (r, (R1, Hm)).
-    unfold do_proj2 in Hm.
+    unfold do_proj in Hm.
     apply map_iter_2d_inv_seq in Hm.
     destruct Hm as (vs1, (vs2, (R2, (Hl1, (Hm1, Hm2))))).
     simpl in Hm1, Hm2.
@@ -361,7 +361,7 @@ Section Defs.
     (t2_nin: ~ In T2 (MemAcc e Skip))
   :
     forall m,
-    FRun (translate2 (MemAcc e Skip)) m ->
+    FRun (translate (MemAcc e Skip)) m ->
     forall x,
     EIn x m ->
     exists nx ny,
@@ -442,15 +442,15 @@ Section Defs.
 
   Lemma translate_inv:
     forall i m,
-    FRun (translate2 i) m ->
+    FRun (translate i) m ->
     exists l,
     m == summation l /\
     exists vs1 vs2,
     EEqList l (map2 Prod vs1 vs2) /\
     length vs1 = length vs2 /\
-    Map (Iter2d T1 T2 (i_subst TID (NVar T1) (proj2 i)))
+    Map (Iter2d T1 T2 (i_subst TID (NVar T1) (proj i)))
         (range_list_2d 1 TID_COUNT) vs1 /\
-    Map (Iter2d T1 T2 (i_subst TID (NVar T2) (proj2 i)))
+    Map (Iter2d T1 T2 (i_subst TID (NVar T2) (proj i)))
         (range_list_2d 1 TID_COUNT) vs2
     .
   Proof.
@@ -458,7 +458,7 @@ Section Defs.
     intros.
     apply f_run_inv_decl_map_2d in H; auto using t1_neq_t2.
     destruct H as (l, (R, Hm)).
-    unfold do_proj2 in Hm.
+    unfold do_proj in Hm.
     apply map_iter_2d_inv_seq in Hm.
     destruct Hm as (vs1, (vs2, (R2, (Hl1, (Hm1, Hm2))))).
     exists l.
@@ -481,9 +481,9 @@ Section Defs.
   Qed.
 
   Lemma translate_skip:
-    FRun (translate2 Skip) (One []).
+    FRun (translate Skip) (One []).
   Proof.
-    unfold translate2.
+    unfold translate.
     simpl.
     rewrite f_run_decl_impl_rw with (j:=Skip); auto using f_run_decl_skip.
     intros.
@@ -528,7 +528,7 @@ Section Defs.
 
   Lemma translate_inv_skip:
      forall m,
-     FRun (translate2 Skip) m ->
+     FRun (translate Skip) m ->
      m == One [].
   Proof.
     intros.
@@ -578,8 +578,8 @@ Section Defs.
 
   Lemma translate_inv_loop_nil:
     forall z i j m,
-    FRun (translate2 (Branch z [] i j)) m ->
-    FRun (translate2 j) m.
+    FRun (translate (Branch z [] i j)) m ->
+    FRun (translate j) m.
   Proof.
     intros.
     apply translate_inv in H.
@@ -676,14 +676,14 @@ Section Defs.
   (t1_nin: ~ In T1 (Branch z (n::l) i j))
   (t2_nin: ~ In T2 (Branch z (n::l) i j))
   :
-    FRun (translate2 (Branch z (n::l) i j)) m ->
+    FRun (translate (Branch z (n::l) i j)) m ->
     exists vs1 vs2 vs3 vs4,
     m == summation (map2 Prod (map2 Plus vs1 vs3) (map2 Plus vs2 vs4)) /\
     length vs1 = length vs2 /\
     length vs2 = length vs3 /\
     length vs3 = length vs4 /\
-    FRun (translate2 (seq (i_subst z (NNum n) i) j)) (summation (map2 Prod vs1 vs2)) /\
-    FRun (translate2 (Branch z l i j)) (summation (map2 Prod vs3 vs4)).
+    FRun (translate (seq (i_subst z (NNum n) i) j)) (summation (map2 Prod vs1 vs2)) /\
+    FRun (translate (Branch z l i j)) (summation (map2 Prod vs3 vs4)).
   Proof.
     intros.
     apply translate_inv in H.
@@ -741,13 +741,13 @@ Section Defs.
     }
     split. {
       apply translate_def; simpl.
-      - rewrite X_proj_seq.
+      - rewrite proj_seq.
         rewrite i_subst_seq.
-        rewrite X_i_subst_proj_rw; auto.
+        rewrite i_subst_proj_rw; auto.
         rewrite <- (i_subst_subst_neq_2) in Hma; auto. 
-      - rewrite X_proj_seq.
+      - rewrite proj_seq.
         rewrite i_subst_seq.
-        rewrite X_i_subst_proj_rw; auto.
+        rewrite i_subst_proj_rw; auto.
         rewrite <- (i_subst_subst_neq_2) in Hmc; auto. 
     }
     apply translate_def; simpl; remove_eq TID z; auto.
@@ -809,8 +809,8 @@ Section Defs.
     (t2_nin: ~ In T2 (Decl x r i j))
     :
     forall m,
-    FRun (translate2 (Decl x r i j)) m ->
-    exists l, RStep r l /\ FRun (translate2 (Branch x l i j)) m.
+    FRun (translate (Decl x r i j)) m ->
+    exists l, RStep r l /\ FRun (translate (Branch x l i j)) m.
   Proof.
     intros.
     apply translate_inv in H.
@@ -901,9 +901,9 @@ Section Defs.
       (tid_rin: ~ InRange TID i)
     :
     forall m_l,
-    SymExecMExp.FRun i m_l ->
+    FRun i m_l ->
     forall m_h,
-    SymExecMExp.FRun (translate2 i) m_h ->
+    FRun (translate i) m_h ->
     forall x,
     EIn x m_h ->
     EIn x m_l.
@@ -1092,7 +1092,7 @@ Section Defs.
     forall i m_l,
     Run i m_l ->
     forall m_h,
-    Run (translate2 i) m_h ->
+    Run (translate i) m_h ->
     Hist.MSafe m_l ->
     ~ In T1 i ->
     ~ In T2 i ->
