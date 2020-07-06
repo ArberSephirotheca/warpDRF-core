@@ -1004,18 +1004,52 @@ Proof.
     * apply Sync_in_eq_one in H; assumption.
     * apply Sync_in_eq_one_l in H; assumption.
 Qed.
-                 
 
-Theorem equiv_mrun:
+
+
+Lemma run_seq_eq:
+  forall y h x' h',
+    Run (Seq Skip y, h) (x', h') ->
+    (y=x' /\ h=h').
+Proof.
+  intros.
+  inversion H; subst.
+  - inversion H1.
+  - auto.
+Qed.
+
+
+Theorem equiv_one_mrun:
   forall x x' y h h',
-    iequivstar x y ->
+    IEquivOne x y ->
     Run (x, h) (x', h') ->
     exists y', 
-      (Multi_Run (y, h) (y', h') /\ iequivstar y y').
+      Multi_Run (y, h) (y', h').
 Proof.
   intros x x' y h h' HE HR.
-  cofix H.
-  
+  inversion HE; subst; clear HE.
+  - apply run_seq_eq in HR.
+    destruct HR as (IEQ, HEQ). subst.
+    exists x'. reflexivity.
+  - inversion HR; subst.
+    * exists j. apply run_imp_mrun in H0. assumption.
+    * apply run_seq_eq in HR.
+      destruct HR as (IEQ, HEQ). subst.
+      exists Skip. reflexivity.
+  - inversion HR; subst.
+    * exists (Seq (Seq j y0) z).
+      apply mrun_seq.
+      apply run_seq.
+      assumption.
+    * exists (Seq y0 z).
+      apply mrun_seq.
+      apply run_seq_skip.
+Qed.
+      
+       
+    
+  inversion HR; subst.
+  - exists Skip. 
 
 
 Lemma equiv_refliv:
