@@ -14,6 +14,7 @@ Require Import Access.
 Require Import Util.
 Require Import InUtil.
 Require Import Tasks.
+Require Import SymExec.
 Require Conc.
 
 Import ListNotations.
@@ -23,6 +24,38 @@ Section Defs.
   Context {T:Tasks}.
   Notation history := (list access_val).
   Definition t := (history * Conc.inst) % type.
+
+  Definition LStep e v :=
+    exists vs, Hist.GenAccess TID e TID_COUNT vs /\ List.concat vs = v.
+
+  Lemma l_step_fun: forall (e : access_exp) (l1 l2 : history),
+    LStep e l1 ->
+    LStep e l2 ->
+    l1 = l2.
+  Proof.
+    intros e l1 l2.
+    intros (vs1, (Hg1, ?)).
+    intros (vs2, (Hg2, ?)).
+    assert (vs1 = vs2) by eauto using Hist.gen_access_fun.
+    subst.
+    reflexivity.
+  Qed.
+
+
+  Instance LoopAcc : AccessInst := {
+    access_inst_type := access_exp ;
+    access_inst_subst := access_subst;
+    access_inst_step := LStep;
+    access_inst_in := access_in;
+    access_inst_step_fun := l_step_fun;
+    access_inst_subst_subst_eq := access_subst_subst_eq;
+    access_inst_subst_subst_neq := access_subst_subst_neq;
+    access_inst_subst_subst_neq_2 := access_subst_subst_neq_2;
+    access_inst_subst_not_in := access_subst_not_in;
+    access_inst_subst_subst_trans := access_subst_subst_trans;
+    access_inst_in_subst_neq := access_in_subst_neq;
+  }.
+  
 
   Inductive Run: Conc.inst -> list history -> Prop :=
   | run_skip:

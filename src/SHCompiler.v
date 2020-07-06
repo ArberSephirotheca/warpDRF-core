@@ -20,6 +20,8 @@ Import ListNotations.
 Require Import SymHist.
 Require Import RangeList.
 Require Import Tasks.
+Require SymExec.
+Require LoopFree.
 
 Section Compiler.
   Section Defs.
@@ -34,7 +36,18 @@ Section Compiler.
     | Conc.Loop x l c1 c2 => SymHist.Branch x l (proj c1) (proj c2) 
     end.
 
+  Fixpoint proj2 (c:SymExec.inst (I:=LoopFree.LoopAcc)) : SymExec.inst (I:=SymHist.SymAcc) :=
+    match c with
+    | SymExec.Skip => SymExec.Skip
+    | SymExec.MemAcc a c1 => SymExec.MemAcc (I:=SymHist.SymAcc) (a, NVar TID) (proj2 c1)
+    | SymExec.Decl x r c1 c2 => SymExec.Decl x r (proj2 c1) (proj2 c2)
+    | SymExec.Branch x l c1 c2 => SymExec.Branch x l (proj2 c1) (proj2 c2) 
+    end.
+
   Definition do_proj x i := SymHist.i_subst TID (NVar x) (proj i).
+
+  Definition do_proj2 x i :=
+    SymExec.i_subst TID (NVar x) (proj2 i).
 
   Definition translate (c:Conc.inst) : SymHist.inst :=
       (SymHist.Decl T1 (NNum 1, NNum TID_COUNT)
@@ -42,6 +55,13 @@ Section Compiler.
           (SymHist.seq (do_proj T1 c) (do_proj T2 c))
         SymHist.Skip)
       SymHist.Skip).
+
+  Definition translate2 (c:SymExec.inst) : SymExec.inst :=
+      (SymExec.Decl T1 (NNum 1, NNum TID_COUNT)
+        (SymExec.Decl T2 (NNum 0, NVar T1)
+          (SymExec.seq (do_proj2 T1 c) (do_proj2 T2 c))
+        SymExec.Skip)
+      SymExec.Skip).
 
   Lemma in_proj_to_in:
     forall x i,
@@ -53,6 +73,30 @@ Section Compiler.
         auto using Conc.in_acc_1, Conc.in_acc_2, Conc.in_for_1, Conc.in_for_2, Conc.in_for_3,
           Conc.in_for_4, Conc.in_loop_1, Conc.in_loop_2, Conc.in_loop_3.
     inversion H2; subst; clear H2.
+    contradiction.
+  Qed.
+
+  Lemma X_in_proj_to_in:
+    forall x i,
+    x <> TID ->
+    SymExec.In x (proj2 i) ->
+    SymExec.In x i.
+  Proof.
+    induction i; simpl; intros; inversion H0; subst; clear H0;
+      auto using
+        SymExec.in_acc_1,
+        SymExec.in_acc_2,
+        SymExec.in_decl_1,
+        SymExec.in_decl_2,
+        SymExec.in_decl_3,
+        SymExec.in_decl_4,
+        SymExec.in_branch_1,
+        SymExec.in_branch_2,
+        SymExec.in_branch_3.
+    apply SymExec.in_acc_1.
+    simpl in *.
+    destruct H2 as [Hx|Hx]; auto.
+    inversion Hx; subst; clear Hx.
     contradiction.
   Qed.
 
@@ -68,6 +112,40 @@ Section Compiler.
       reflexivity.
     - rewrite IHi1_2.
       reflexivity.
+  Qed.
+
+  Lemma X_proj_seq:
+    forall i j,
+    proj2 (SymExec.seq i j) = SymExec.seq (proj2 i) (proj2 j).
+  Proof.
+    induction i; intros; simpl.
+    - reflexivity.
+    - rewrite IHi.
+      reflexivity.
+    - rewrite IHi2.
+      reflexivity.
+    - rewrite IHi2.
+      reflexivity.
+  Qed.
+
+  Lemma X_i_subst_proj_rw:
+    forall x i n,
+    x <> TID ->
+    proj2 (SymExec.i_subst x (NNum n) i) = SymExec.i_subst x (NNum n) (proj2 i).
+  Proof.
+    induction i; simpl; intros; destruct (Set_VAR.MF.eq_dec x TID); try contradiction.
+    - reflexivity.
+    - rewrite IHi; auto.
+    - rewrite IHi2; auto.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        auto.
+      }
+      rewrite IHi1; auto.
+    - rewrite IHi2; auto.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        auto.
+      }
+      rewrite IHi1; auto.
   Qed.
 
   Lemma i_subst_proj_rw:

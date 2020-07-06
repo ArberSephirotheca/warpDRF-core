@@ -23,108 +23,58 @@ Require Import InUtil.
 Require Import MExp.
 Import ListNotations.
 Import MHistNotations.
-Require Import SymExec.
+
 Section Defs.
   Context {A:Access}.
+  Class AccessInst := {
+  access_inst_type: Type;
+  access_inst_subst: var -> nexp -> access_inst_type -> access_inst_type;
+  access_inst_step: access_inst_type -> list access_val -> Prop;
+  access_inst_in: var -> access_inst_type -> Prop;
 
-  Definition s_subst (x:var) (v:nexp) (p:access_exp * nexp) :=
-    let (e, n) := p in 
-    (access_subst x v e, n_subst x v n)
-  .
-
-  Definition SIn x (p:access_exp * nexp) :=
-    let (e, n) := p in
-    NIn x n \/ access_in x e
-  .
-
-  Lemma s_subst_subst_eq:
+  access_inst_step_fun:
+    forall e h1 h2,
+    access_inst_step e h1 -> access_inst_step e h2 -> h1 = h2;
+  access_inst_subst_subst_eq:
     forall x n1 n2 a,
-    s_subst x (NNum n1) (s_subst x (NNum n2) a) =
-    s_subst x (NNum n2) a.
-  Proof.
-    intros x n1 n2 (e, n).
-    simpl.
-    rewrite access_subst_subst_eq.
-    rewrite n_subst_subst_eq.
-    reflexivity.
-  Qed.
+    access_inst_subst x (NNum n1) (access_inst_subst x (NNum n2) a) =
+    access_inst_subst x (NNum n2) a;
 
-  Lemma s_subst_subst_neq:
+  access_inst_subst_subst_neq:
     forall x y n1 n2 a,
     x <> y ->
-    s_subst x (NNum n1) (s_subst y (NNum n2) a) =
-    s_subst y (NNum n2) (s_subst x (NNum n1) a).
-  Proof.
-    intros x y n1 n2 (e, n) Hn.
-    simpl.
-    rewrite access_subst_subst_neq; auto.
-    rewrite n_subst_subst_neq; auto.
-  Qed.
-
-  Lemma s_subst_subst_neq_2:
+    access_inst_subst x (NNum n1) (access_inst_subst y (NNum n2) a) =
+    access_inst_subst y (NNum n2) (access_inst_subst x (NNum n1) a)
+  ;
+  access_inst_subst_subst_neq_2:
     forall x y z n i,
     x <> z ->
     y <> z ->
-    s_subst x (NVar y) (s_subst z (NNum n) i) =
-    s_subst z (NNum n) (s_subst x (NVar y) i).
-  Proof.
-    intros x y z n (e, n2) Hn1 Hn2.
-    simpl.
-    rewrite access_subst_subst_neq_2; auto.
-    rewrite n_subst_subst_neq_2; auto.
-  Qed.
-
-  Lemma s_subst_not_in:
+    access_inst_subst x (NVar y) (access_inst_subst z (NNum n) i) =
+    access_inst_subst z (NNum n) (access_inst_subst x (NVar y) i)
+  ;
+  access_inst_subst_not_in:
     forall x e v,
-    ~ SIn x e ->
-    s_subst x v e = e.
-  Proof.
-    intros x (e, n) v Hn.
-    simpl in *.
-    rewrite access_subst_not_in; auto.
-    rewrite n_subst_not_in; auto.
-  Qed.
-
-  Lemma s_subst_subst_trans:
+    ~ access_inst_in x e -> access_inst_subst x v e = e
+  ;
+  access_inst_subst_subst_trans:
     forall e x v y,
-    ~ SIn x e ->
-    s_subst x v (s_subst y (NVar x) e) =
-    s_subst y v e.
-  Proof.
-    intros (e, n); simpl; intros.
-    rewrite access_subst_subst_trans; auto.
-    rewrite n_subst_subst_trans; auto.
-  Qed.
-
-  Lemma s_in_subst_neq:
+    ~ access_inst_in x e ->
+    access_inst_subst x v (access_inst_subst y (NVar x) e) =
+    access_inst_subst y v e
+  ;
+  access_inst_in_subst_neq:
     forall e x y v,
-    SIn x (s_subst y v e) ->
+    access_inst_in x (access_inst_subst y v e) ->
     ~ NIn x v ->
-    SIn x e.
-  Proof.
-    intros (e, n); simpl; intros.
-    destruct H as [H|H].
-    - eauto using in_n_subst_neq.
-    - eauto using access_in_subst_neq.
-  Qed.
-
-  Instance SymAcc : AccessInst := {
-    access_inst_type := (access_exp * nexp) % type ;
-    access_inst_subst := s_subst;
-    access_inst_step := access_step;
-    access_inst_in := SIn;
-    access_inst_step_fun := access_step_fun;
-    access_inst_subst_subst_eq := s_subst_subst_eq;
-    access_inst_subst_subst_neq := s_subst_subst_neq;
-    access_inst_subst_subst_neq_2 := s_subst_subst_neq_2;
-    access_inst_subst_not_in := s_subst_not_in;
-    access_inst_subst_subst_trans := s_subst_subst_trans;
-    access_inst_in_subst_neq := s_in_subst_neq;
+    access_inst_in x e
+  ;
   }.
 
+  Context {I:AccessInst}.
   Inductive inst :=
   | Skip
-  | Acc: access_exp * nexp -> inst -> inst
+  | MemAcc: access_inst_type -> inst -> inst
   | Decl : var -> range -> inst -> inst -> inst
   | Branch : var -> list nat -> inst -> inst -> inst.
 
@@ -132,7 +82,7 @@ Section Defs.
   | var_acc:
     forall p i,
     Var x i ->
-    Var x (Acc p i)
+    Var x (MemAcc p i)
   | var_decl_eq:
     forall r i1 i2,
     Var x (Decl x r i1 i2)
@@ -159,7 +109,7 @@ Section Defs.
   Fixpoint i_subst x v i :=
   match i with
   | Skip => Skip
-  | Acc (a, e) j => Acc (access_subst x v a, n_subst x v e) (i_subst x v j)  
+  | MemAcc e j => MemAcc (access_inst_subst x v e) (i_subst x v j)  
   | Decl y r i2 i3 =>
     let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
     Decl y (r_subst x v r) i2' (i_subst x v i3)
@@ -171,7 +121,7 @@ Section Defs.
   Fixpoint seq (i1 i2:inst) :=
   match i1 with
   | Skip => i2
-  | Acc e i3 => Acc e (seq i3 i2)
+  | MemAcc e i3 => MemAcc e (seq i3 i2)
   | Decl x r i3 i4 => Decl x r i3 (seq i4 i2)
   | Branch x r i3 i4 => Branch x r i3 (seq i4 i2)
   end.
@@ -183,9 +133,9 @@ Section Defs.
     Run Skip [[]]
   | run_access:
     forall i e v hs,
-    access_step e v ->
+    access_inst_step e v ->
     Run i hs ->
-    Run (Acc e i) (prepend v hs)
+    Run (MemAcc e i) (prepend v hs)
   | run_decl:
     forall r l i1 i2 x hs,
     RStep r l ->
@@ -338,7 +288,7 @@ Section Defs.
       split; auto.
   Qed.
 
-  Let run_branch_inv_in:
+  Let run_inv_branch_in:
     forall x l i1 i2 hs,
     Run (Branch x l i1 i2) hs ->
     exists hss, hs = List.concat hss /\
@@ -358,7 +308,7 @@ Section Defs.
     eauto.
   Qed.
 
-  Let run_branch_inv:
+  Let run_inv_branch:
     forall x l i1 i2 hs,
     Run (Branch x l i1 i2) hs ->
     exists hss, hs = List.concat hss /\
@@ -375,7 +325,7 @@ Section Defs.
     eapply do_loop_inv_1; eauto.
   Qed.
 
-  Lemma run_decl_inv:
+  Lemma run_inv_decl:
     forall x e1 e2 i1 i2 hs,
     Run (Decl x (e1, e2) i1 i2) hs ->
     exists n1 n2,
@@ -403,7 +353,7 @@ Section Defs.
       auto.
     }
     right.
-    apply run_branch_inv in H6.
+    apply run_inv_branch in H6.
     destruct H6 as (hss, (?, Hc)).
     exists hss.
     split; auto.
@@ -413,7 +363,7 @@ Section Defs.
     assumption.
   Qed.
 
-  Lemma run_decl_inv_eq:
+  Lemma run_inv_decl_eq:
     forall x n1 n2 i1 i2 hs,
     n1 < n2 ->
     Run (Decl x (NNum n1, NNum n2) i1 i2) hs ->
@@ -424,7 +374,7 @@ Section Defs.
     .
   Proof.
     intros.
-    apply run_decl_inv in H0.
+    apply run_inv_decl in H0.
     destruct H0 as (n3, (n4, (Hn3, (Hn4, [(N,_)|(hss, (?, Hx))])))). {
       inversion Hn3; subst.
       inversion Hn4; subst.
@@ -437,12 +387,12 @@ Section Defs.
     split; auto.
   Qed.
 
-  Lemma run_acc_inv_in:
+  Lemma run_inv_acc_in:
     forall e i hs a,
-    Run (Acc e i) hs ->
+    Run (MemAcc e i) hs ->
     MIn a hs ->
     exists hs' v,
-    access_step e v /\
+    access_inst_step e v /\
     hs = prepend v hs' /\
     ( 
       List.In a v
@@ -461,7 +411,7 @@ Section Defs.
     auto.
   Qed.
 
-  Lemma run_decl_inv_in:
+  Lemma run_inv_decl_in:
     forall x n1 n2 i1 i2 hs,
     Run (Decl x (NNum n1, NNum n2) i1 i2) hs ->
     (
@@ -487,7 +437,7 @@ Section Defs.
     inversion H1; subst; clear H1.
     inversion H2; subst; clear H2.
     assert (Hy := H6).
-    apply run_branch_inv_in in H6.
+    apply run_inv_branch_in in H6.
     destruct H6 as (hss, (Hi, Hx)).
     subst.
     inversion H4; subst; clear H4. {
@@ -599,7 +549,7 @@ Section Defs.
     - inversion H; subst; clear H; auto.
     - inversion H1; subst; clear H1.
       erewrite IHRun; eauto.
-      assert (v0 = v) by eauto using access_step_fun.
+      assert (v0 = v) by eauto using access_inst_step_fun.
       subst.
       reflexivity.
     - inversion H1; subst; clear H1.
@@ -619,10 +569,10 @@ Section Defs.
     | [ H: Hist.Safe [] |- _ ] => clear H
     | [ H: Run [Skip] _ |- _ ] => inversion H; subst; clear H
     | [ H: Run _ _ Skip _ |- _] => inversion H; subst; clear H
-    | [ H1: access_step ?e ?v1,
-        H2: access_step ?e ?v2 |- _ ] =>
+    | [ H1: access_inst_step ?e ?v1,
+        H2: access_inst_step ?e ?v2 |- _ ] =>
           let H := fresh in
-          assert (H: v2 = v1) by eauto using access_step_fun;
+          assert (H: v2 = v1) by eauto using access_inst_step_fun;
           rewrite H in *; clear H;
           clear H1
     | [ H1: RStep ?r ?l1,
@@ -752,9 +702,7 @@ Section Defs.
   Proof.
     induction i1; simpl; intros.
     - reflexivity.
-    - destruct p as (a, e).
-      simpl.
-      rewrite IHi1.
+    - rewrite IHi1.
       reflexivity.
     - rewrite IHi1_2.
       reflexivity.
@@ -768,11 +716,8 @@ Section Defs.
   Proof.
     induction i; simpl; intros.
     - reflexivity.
-    - destruct p.
-      simpl.
-      rewrite access_subst_subst_eq.
+    - rewrite access_inst_subst_subst_eq.
       rewrite IHi.
-      rewrite n_subst_subst_eq.
       reflexivity.
     - destruct (Set_VAR.MF.eq_dec x v). {
         subst.
@@ -802,11 +747,8 @@ Section Defs.
   Proof.
     induction i; intros; simpl.
     - reflexivity.
-    - destruct p.
-      simpl.
-      rewrite IHi; auto.
-      rewrite n_subst_subst_neq; auto.
-      rewrite access_subst_subst_neq; auto.
+    - rewrite IHi; auto.
+      rewrite access_inst_subst_subst_neq; auto.
     - destruct (Set_VAR.MF.eq_dec x v). {
         destruct (Set_VAR.MF.eq_dec y v). {
           subst.
@@ -839,6 +781,7 @@ Section Defs.
       rewrite IHi2; auto.
       rewrite IHi1; auto.
   Qed.
+
   Lemma i_subst_subst_neq_2:
     forall x y z n i,
     y <> z ->
@@ -849,10 +792,7 @@ Section Defs.
   Proof.
     induction i; intros; simpl.
     - reflexivity.
-    - destruct p as (a, e).
-      simpl.
-      rewrite access_subst_subst_neq_2; auto.
-      rewrite n_subst_subst_neq_2; auto.
+    - rewrite access_inst_subst_subst_neq_2; auto.
       rewrite IHi; auto.
     - rewrite IHi2; auto.
       destruct (Set_VAR.MF.eq_dec z v). {
@@ -879,17 +819,13 @@ Section Defs.
 
   Inductive In (x:var) : inst -> Prop :=
   | in_acc_1:
-    forall e n i,
-    access_in x e ->
-    In x (Acc (e, n) i)
+    forall e i,
+    access_inst_in x e ->
+    In x (MemAcc e i)
   | in_acc_2:
-    forall e n i,
-    NIn x n ->
-    In x (Acc (e, n) i)
-  | in_acc_3:
-    forall e n i,
+    forall e i,
     In x i ->
-    In x (Acc (e, n) i)
+    In x (MemAcc e i)
   | in_decl_1:
     forall r i1 i2 y,
     RIn x r ->
@@ -918,13 +854,13 @@ Section Defs.
     In x (Branch y l i1 i2).
 
   Lemma not_in_acc:
-    forall x a n i,
-    ~ In x (Acc (a, n) i) ->
-    ~ In x i /\ ~ access_in x a /\ ~ NIn x n.
+    forall x e i,
+    ~ In x (MemAcc e i) ->
+    ~ In x i /\ ~ access_inst_in x e.
   Proof.
     intros.
     repeat split; intros N; contradict H;
-      auto using in_acc_1, in_acc_2, in_acc_3.
+      auto using in_acc_1, in_acc_2.
   Qed.
 
   Lemma not_in_decl:
@@ -954,11 +890,9 @@ Section Defs.
   Proof.
     induction i; intros; simpl.
     - reflexivity.
-    - destruct p.
-      apply not_in_acc in H.
-      destruct H as (H0, (H1, H2)).
-      rewrite access_subst_not_in; auto.
-      rewrite n_subst_not_in; auto.
+    - apply not_in_acc in H.
+      destruct H as (Ha, Hb).
+      rewrite access_inst_subst_not_in; auto.
       rewrite IHi; auto.
     - apply not_in_decl in H.
       destruct H as (H, (H1, (H2, H3))).
@@ -983,13 +917,10 @@ Section Defs.
   Proof.
     induction i; simpl; intros.
     - reflexivity.
-    - destruct p.
-      simpl.
-      apply not_in_acc in H.
-      destruct H as (H1, (H2, H3)).
+    - apply not_in_acc in H.
+      destruct H as (Ha, Hb).
       rewrite IHi; auto.
-      rewrite access_subst_subst_trans; auto.
-      rewrite n_subst_subst_trans; auto.
+      rewrite access_inst_subst_subst_trans; auto.
     - apply not_in_decl in H.
       destruct H as (H0, (H1, (H2, H3))).
       rewrite r_subst_subst_trans; auto.
@@ -1024,11 +955,9 @@ Section Defs.
   Proof.
     induction i; simpl; intros.
     - inversion H.
-    - destruct p.
-      inversion H; subst; clear H.
-      + apply access_in_subst_neq in H3; auto using in_acc_1.
-      + apply in_n_subst_neq in H3; auto using in_acc_2.
-      + apply IHi in H3; auto using in_acc_3.
+    - inversion H; subst; clear H.
+      + apply access_inst_in_subst_neq in H3; auto using in_acc_1.
+      + apply IHi in H3; auto using in_acc_2.
     - inversion H; subst; clear H.
       + apply in_r_subst_neq in H3; auto using in_decl_1.
       + auto using in_decl_2.
@@ -1062,6 +991,97 @@ Section Defs.
     contradiction.
   Qed.
 
+  Lemma var_not_in_acc:
+    forall x e i,
+    ~ Var x (MemAcc e i) ->
+    ~ Var x i.
+  Proof.
+    intros.
+    intros N.
+    contradict H.
+    auto using var_acc.
+  Qed.
+
+  Lemma var_not_in_branch:
+    forall x y l i j,
+    ~ Var x (Branch y l i j) ->
+    x <> y /\ ~ Var x i /\ ~ Var x j.
+  Proof.
+    intros.
+    repeat split; intros N; subst; contradict H;
+      auto using var_branch_eq, var_branch_l, var_branch_r.
+  Qed.
+
+  Lemma var_branch_to_decl:
+    forall x y i1 i2 l r,
+    Var x (Branch y l i1 i2) ->
+    Var x (Decl y r i1 i2).
+  Proof.
+    intros.
+    inversion H; subst; clear H; auto using var_decl_eq, var_decl_l, var_decl_r.
+  Qed.
+
+  Lemma var_branch_cons:
+    forall x y l i j n,
+    Var x (Branch y l i j) ->
+    Var x (Branch y (n :: l) i j).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    - auto using var_branch_eq.
+    - auto using var_branch_l.
+    - auto using var_branch_r.
+  Qed.
+
+  Lemma var_seq_inv:
+    forall x i j,
+    Var x (seq i j) ->
+    Var x i \/ Var x j.
+  Proof.
+    induction i; simpl; intros.
+    - auto.
+    - inversion H; subst; clear H.
+      apply IHi in H1.
+      destruct H1; auto using var_acc.
+    - inversion H; subst; clear H; auto using var_decl_eq, var_decl_r, var_decl_l.
+      apply IHi2 in H1.
+      destruct H1; auto using var_decl_r.
+    - inversion H; subst; clear H; auto using var_branch_eq, var_branch_r, var_branch_l.
+      apply IHi2 in H1.
+      destruct H1; auto using var_branch_r.
+  Qed.
+
+  Lemma var_subst_inv_1:
+    forall y x n i,
+    Var y (i_subst x (NNum n) i) ->
+    Var y i.
+  Proof.
+    induction i; simpl; intros.
+    - inversion H.
+    - inversion H; subst; clear H.
+      apply IHi in H1.
+      auto using var_acc.
+    - destruct (Set_VAR.MF.eq_dec x v);
+        inversion H; subst; clear H; auto using var_decl_eq, var_decl_l, var_decl_r.
+    - destruct (Set_VAR.MF.eq_dec x v);
+        inversion H; subst; clear H;
+        auto using var_branch_eq, var_branch_l, var_branch_r.
+  Qed.
+
+
+  Lemma var_iter_branch:
+    forall x y n i1 i2 l,
+    Var y (seq (i_subst x (NNum n) i1) i2) ->
+    Var y (Branch x l i1 i2).
+  Proof.
+    intros.
+    apply var_seq_inv in H.
+    destruct H as [N|N]. {
+      apply var_subst_inv_1 in N.
+      auto using var_branch_l.
+    }
+    auto using var_branch_r.
+  Qed.
 
 End Defs.
 

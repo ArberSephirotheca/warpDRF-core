@@ -8,6 +8,7 @@ Require Import Conc.
 Require Import LoopFree.
 Require Import Exp.
 Require Import Util.
+Require Import RangeList.
 
 Import ListNotations.
 Import MHistNotations.
@@ -39,6 +40,7 @@ Section Defs.
     forall x i1 i2 m,
     ERun i2 m ->
     ERun (Conc.Loop x [] i1 i2) m.
+
 
   Lemma e_run_1:
     forall i e,
@@ -318,4 +320,210 @@ Section Defs.
     assumption.
   Qed.
 
+  Notation Iter x i := (fun n=> FRun (Conc.i_subst x (NNum n) i)).
+  Notation LoopMap x i l m := (Map (Iter x i) l m).
+  Definition ForMap x i n1 n2 m := LoopMap x i (range_list n1 n2) m.
+
+  Lemma f_run_loop_cons:
+    forall x n l i1 i2 m1 m2 m3,
+    FRun (seq (Conc.i_subst x (NNum n) i1) i2) m1 ->
+    FRun (Loop x l i1 i2) m2 ->
+    EEq m3 (m1 + m2) ->
+    FRun (Loop x (n :: l) i1 i2) m3.
+  Proof.
+    intros.
+    destruct H as (m1', (R1, Hr1)).
+    destruct H0 as (m2', (R2, Hr2)).
+    rewrite H1.
+    rewrite R1.
+    rewrite R2.
+    eauto using f_run_eq, e_run_loop_cons. 
+  Qed.
+
+  Lemma f_run_loop_cons_eq:
+    forall x n l i1 i2 m1 m2,
+    FRun (seq (Conc.i_subst x (NNum n) i1) i2) m1 ->
+    FRun (Loop x l i1 i2) m2 ->
+    FRun (Loop x (n :: l) i1 i2) (m1 + m2).
+  Proof.
+    intros.
+    apply f_run_loop_cons with (m1:=m1) (m2:=m2); auto.
+    reflexivity.
+  Qed.
+
+  Lemma f_run_loop_nil:
+    forall x i1 i2 m,
+    FRun i2 m ->
+    FRun (Loop x [] i1 i2) m.
+  Proof.
+    intros.
+    destruct H as (m', (R1, Hr1)).
+    rewrite R1.
+    eauto using e_run_loop_nil, f_run_eq.
+  Qed.
+
+  Lemma f_run_loop_map:
+    forall l i1 i2 x m ml,
+    LoopMap x i1 l ml ->
+    FRun i2 m ->
+    FRun (Loop x l i1 i2) (Prod (summation ml) m).
+  Proof.
+    induction l; intros; subst; inversion H; subst; clear H.
+    - simpl.
+      rewrite e_prod_nil_l.
+      auto using f_run_loop_nil.
+    - apply IHl with (i2:=i2) (m:=m) in H6; auto; clear IHl.
+      apply f_run_seq_eq with (i1:=(Conc.i_subst x (NNum a) i1)) (m1:=v) in H0; auto.
+      simpl.
+      rewrite <- e_prod_plus_l.
+      apply f_run_loop_cons_eq; auto.
+  Qed.
+
+  Lemma f_run_for:
+    forall r l i1 i2 x m,
+    RStep r l ->
+    FRun (Loop x l i1 i2) m ->
+    FRun (For x r i1 i2) m.
+  Proof.
+    intros.
+    destruct H0 as (m', (Hr, R)).
+    rewrite Hr.
+    eauto using e_run_for, f_run_eq.
+  Qed.
+
+  Lemma f_run_for_map:
+     forall n1 n2 i1 i2 x lm m,
+     ForMap x i1 n1 n2 lm ->
+     FRun i2 m ->
+     FRun (For x (NNum n1, NNum n2) i1 i2) (Prod (summation lm) m).
+  Proof.
+    eauto using f_run_loop_map, f_run_for, r_step_range_list.
+  Qed.
+
+  Lemma f_run_inv_loop_nil:
+    forall x i1 i2 m,
+    FRun (Loop x [] i1 i2) m ->
+    FRun i2 m.
+  Proof.
+    intros.
+    destruct H as (m', (R, Hr)).
+    inversion Hr; subst; clear Hr.
+    rewrite R.
+    eauto using f_run_eq.
+  Qed.
+
+  Lemma f_run_inv_loop_cons:
+    forall x n l i j m,
+    FRun (Loop x (n :: l) i j) m ->
+    exists m1 m2,
+    m == (m1 + m2) /\
+    FRun (seq (Conc.i_subst x (NNum n) i) j) m1 /\
+    FRun (Loop x l i j) m2.
+  Proof.
+    intros.
+    destruct H as (m', (R, Hr)).
+    inversion Hr; subst; clear Hr.
+    exists m1.
+    exists m2.
+    split; auto.
+    split; auto using f_run_eq.
+  Qed.
+
+  Lemma f_run_inv_loop_map:
+    forall l i1 i2 x m,
+    FRun (Loop x l i1 i2) m ->
+    NoDup l ->
+    exists lm m',
+    EEq m (Prod (summation lm) m')  /\
+    FRun i2 m' /\ LoopMap x i1 l lm.
+  Proof.
+    induction l; intros. {
+      apply f_run_inv_loop_nil in H.
+      exists [].
+      exists m.
+      simpl.
+      rewrite e_prod_nil_l.
+      split. { reflexivity. }
+      split; auto using map_nil.
+    }
+    apply f_run_inv_loop_cons in H.
+    destruct H as (m1, (m2, (R1, (Hr1, Hr2)))).
+    inversion H0; subst; clear H0.
+    apply IHl in Hr2; auto; clear IHl.
+    destruct Hr2 as (hss, (hs3, (R2,(Hr,Hf)))).
+    apply f_run_inv_seq in Hr1.
+    destruct Hr1 as (m3, (m4, (R3, (Hr1, Hr2)))).
+    eapply map_cons in Hf; eauto.
+    exists (m3::hss).
+    exists m4.
+    split; auto.
+    rewrite R3 in *; clear R3.
+    rewrite R1 in *; clear R1.
+    assert (R4: hs3 == m4) by eauto using f_run_fun.
+    simpl.
+    rewrite R2; clear R2.
+    rewrite R4; clear R4.
+    rewrite e_prod_plus_l.
+    reflexivity.
+  Qed.
+
+  Lemma f_run_inv_for:
+    forall x r i1 i2 m,
+    FRun (For x r i1 i2) m ->
+    exists l,
+    RStep r l /\ FRun (Loop x l i1 i2) m.
+  Proof.
+    intros.
+    destruct H as (m', (R, Hr)).
+    inversion Hr; subst; clear Hr.
+    exists l.
+    rewrite R.
+    eauto using f_run_eq.
+  Qed.
+
+  Lemma f_run_inv_for_map:
+    forall n1 n2 i1 i2 x m',
+    FRun (For x (NNum n1, NNum n2) i1 i2) m' ->
+    exists lm m,
+    EEq m' (Prod (summation lm) m) /\
+    FRun i2 m /\
+    ForMap x i1 n1 n2 lm.
+  Proof.
+    intros.
+    apply f_run_inv_for in H.
+    destruct H as (l, (Hr, Hb)).
+    apply r_step_to_range_list in Hr.
+    subst.
+    eauto using f_run_inv_loop_map, range_list_no_dup.
+  Qed.
+(*
+  Definition add_cond (i:Conc.inst) (ub:bexp) := i.
+
+  Lemma asd:
+    forall x lb ub m i j,
+    FRun (Conc.For x (lb, ub) i j) m ->
+    forall n1,
+    NStep ub n1 ->
+    forall ub' n2,
+    n1 <= n2 ->
+    FRun (Conc.For x (lb, ub') (add_cond i (NRel NLt (NVar x) ub)) j) m.
+  Proof.
+    intros.
+    apply f_run_inv_for_map in H.
+    apply f_run_for_map
+    intros x lb ub m i j H.
+    remember (For _ _ _ _) as i'.
+    generalize dependent x.
+    generalize dependent i.
+    generalize dependent j.
+    generalize dependent ub.
+    generalize dependent lb.
+    induction H; intros; inversion Heqi'; subst; clear Heqi'.
+    - inversion Heqi'.
+    - inversion H1.
+    - symmetry in H1.
+      inversion H1; subst; clear H1.
+      
+  Qed.
+  *)
 End Defs.
