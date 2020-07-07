@@ -1121,11 +1121,12 @@ Lemma equiv_inc_star:
     iequivstar x y.
 Proof.
   intros.
-  constructor 2 with (y:=x).
+  (* Print clos_refl_sym_trans_n1. *)
+  apply rstn1_trans with (y:=x).
   - left. assumption.
   - reflexivity.
 Qed.
-  
+
 
 
 Theorem equiv_one_mrun_star_r:
@@ -1161,15 +1162,46 @@ Proof.
 Qed.
 
 
-
-Theorem equiv_star_mrun:
-  forall x x' y h h',
-    iequivstar y x ->
-    Run (x, h) (x', h') ->
-    exists y', 
-      Multi_Run (y, h) (y', h') /\  iequivstar x' y'.
+Theorem equiv_star_mrun_l:
+  forall x y,
+    iequivstar x y ->
+    forall x' h h',
+      Run (x, h) (x', h') ->
+      exists y', 
+        Multi_Run (y, h) (y', h') /\  iequivstar x' y'.
 Proof.
-  intros x x' y h h' HE HR.
+  intros x y HE.
+  induction HE; intros.
+  - exists x'. split.
+    * auto using run_imp_mrun.
+    * reflexivity.
+  - 
+
+Theorem equiv_star_mrun_r:
+  forall x y,
+    iequivstar y x ->
+    forall x' h h',
+      Run (x, h) (x', h') ->
+      exists y', 
+        Multi_Run (y, h) (y', h') /\  iequivstar y' x'.
+Proof.
+  intros x y HE.
+  induction HE; intros.
+  - exists x'. split.
+    * auto using run_imp_mrun.
+    * reflexivity.
+  - destruct H.
+    * apply equiv_one_mrun_star_r with (x:=x').
+    + 
+    + 
+
+    destruct H.
+    * apply equiv_one_mrun_star_l with (x':=x') (h:=h) (h':=h') in H.
+    + destruct H as (y1, Hy).
+     
+
+    
+  - 
   generalize dependent x'.
   induction HE; intros.
   - exists x'. split.
