@@ -1187,28 +1187,44 @@ Qed.
 
 
 Goal
-  forall x x' h h',
-    Multi_Run (x, h) (x', h') ->
+  forall a b, 
+  Multi_Run a b ->
+  forall x h x' h',
+    a= (x, h) ->
+    b= (x', h') ->
     forall y,
       IEquivOne y x ->
       exists y', 
         Multi_Run (y, h) (y', h')  /\ (IEquivOne y' x' \/ y'=x').
 Proof.
-  intros x x' h h' HR.
-  induction HR; intros.
-  - eexists.
-    split.
-    * 
-  - apply IHHR in H0. assumption.
+  intros a b HR.
+  induction HR.
+  - intros. inversion H; inversion H0; subst; clear H H0.
+    exists y. split.
+    * apply mrun_refl.
+    * auto.
+  - intros. inversion H1; inversion H0; subst; clear H0 H1.
+    assert (IHHR := IHHR i2 h2 x' h' eq_refl eq_refl).
+    apply equiv_one_mrun_r with (y:=y) in H.
+    + destruct H as (y2, (HMR, [HMO | HME])).
+      * apply IHHR in HMO.
+        destruct HMO as (yhat, (HMOa, [HMOb | HMOc])).
+        ** exists yhat. split. {
+             transitivity (y2,h2); auto.
+           }
+           auto.
+        ** subst. exists x'. split. {
+             etransitivity; eauto.
+           }
+           auto.
+      * subst.  exists x'. split. {
+             etransitivity; eauto.
+           }
+        auto.
+    + assumption.
 Qed.
+       
 
-
-
-  - inversion H; subst.
-    * exists x. split.
-      +apply run_imp_mrun.
-  - 
-  
 Theorem equiv_star_mrun_l:
   forall x y,
     iequivstar x y ->
