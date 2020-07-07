@@ -1138,12 +1138,82 @@ Proof.
   split; assumption.
 Qed.
 
-   
+
+Lemma seq_skip_x_not_x:
+  forall x y,
+    Seq y x <> x.
+Proof.
+  intros.
+  induction x; unfold not in *; intros; inversion H; subst.
+  - contradiction.
+Qed.
+
+
+Lemma mrun_seq_skip_h:
+  forall x h,
+    Multi_Run (Seq Skip x, h) (x, h).
+Proof.
+  intros.
+  apply mrun_step with (i2:=x) (h2:=h).
+  - apply run_seq_skip.
+  - reflexivity.
+Qed.
+
+
+Lemma run_seq_skip_h_eq:
+  forall x h h',
+    Run (Seq Skip x, h) (x, h') ->
+    h = h'.
+Proof.
+  intros.
+  inversion H; subst.
+  - contradict H4. apply seq_skip_x_not_x.
+  - reflexivity.
+Qed.
+
+(*
+Lemma mrun_seq_skip_h_eq:
+  forall x h h',
+    Multi_Run (Seq Skip x, h) (x, h') ->
+    h = h'.
+Proof.
+  intros.
+  inversion H; subst.
+  - contradict H3.  apply seq_skip_x_not_x.
+  - apply run_seq_skip in H3.
+Qed.
+
+*)
+
+
+Goal
+  forall x x' h h',
+    Multi_Run (x, h) (x', h') ->
+    forall y,
+      IEquivOne y x ->
+      exists y', 
+        Multi_Run (y, h) (y', h')  /\ (IEquivOne y' x' \/ y'=x').
+Proof.
+  intros x x' h h' HR.
+  induction HR; intros.
+  - eexists.
+    split.
+    * 
+  - apply IHHR in H0. assumption.
+Qed.
+
+
+
+  - inversion H; subst.
+    * exists x. split.
+      +apply run_imp_mrun.
+  - 
+  
 Theorem equiv_star_mrun_l:
   forall x y,
     iequivstar x y ->
     forall x' h h',
-      Multi_Run (x, h) (x', h') ->
+      Run (x, h) (x', h') ->
       exists y', 
         Multi_Run (y, h) (y', h') /\  iequivstar x' y'.
 Proof.
