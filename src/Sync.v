@@ -1164,17 +1164,40 @@ Qed.
 
 Theorem equiv_star_mrun:
   forall x x' y h h',
-    iequivstar x y ->
+    iequivstar y x ->
     Run (x, h) (x', h') ->
     exists y', 
       Multi_Run (y, h) (y', h') /\  iequivstar x' y'.
 Proof.
-  intros x x' y h h' HE.
+  intros x x' y h h' HE HR.
+  generalize dependent x'.
   induction HE; intros.
   - exists x'. split.
     * auto using run_imp_mrun.
     * reflexivity.
-  - apply IHHE in H0.
+  - destruct H.
+    * inversion H; subst.
+    + assert (IHHE := IHHE z).
+      assert (HZz: Run (Seq Skip z, h) (z, h)). {
+        apply run_seq_skip.
+      }
+      assert (Hhh: h=h'). { 
+        
+                                       
+
+
+    apply IHHE in H0.
+    destruct H0 as (y0, H0).
+    destruct H0 as (HIR, HIE).
+    inversion HIR; subst.
+    + 
+      
+
+
+
+    eapply equiv_one_mrun_star_l.
+    * 
+    apply IHHE in H0.
     destruct H0 as (y0, (H0R, H0E)).
     inversion H0R; subst.
     *  
