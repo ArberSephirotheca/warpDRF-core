@@ -32,6 +32,7 @@ Section C1.
 
 Fixpoint i_subst x v i :=
   match i with
+  | Seq i2 i3 => Seq (i_subst x v i2) (i_subst x v i3)
   | Access a => Access (access_subst x v a)
   | For y r i2 =>
     let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
@@ -41,7 +42,6 @@ Fixpoint i_subst x v i :=
     Loop y r i2'
   | Skip => Skip
   | Sync => Sync
-  | Seq i2 i3 => Seq (i_subst x v i2) (i_subst x v i3)
   end.
 
 
@@ -1085,7 +1085,29 @@ Proof.
 Qed.
 
 
-
+Lemma equiv_subst:
+  forall x y ,
+    IEquivOne x y ->
+    forall l n,
+    IEquivOne (i_subst l n x) (i_subst l n y).
+Proof.
+  intros x y HE.
+  induction HE; intros; simpl.
+  - apply equiv_unit_r. auto.
+  - apply equiv_unit_l. auto.
+  - apply equiv_assoc; auto.
+  - apply equiv_eq.
+  - apply equiv_seq; auto.
+  - apply equiv_for.
+    destruct (Set_VAR.MF.eq_dec _ _).
+    * subst. assumption.
+    * auto.
+  - apply equiv_loop.
+    destruct (Set_VAR.MF.eq_dec _ _).
+    * subst. assumption.
+    * auto.
+Qed.
+  
 
 Theorem equiv_one_mrun_l:
   forall x y,
@@ -1174,43 +1196,14 @@ Proof.
         apply run_imp_mrun. apply run_for_loop_nil.
       }
       right. reflexivity.
-    * 
-
-Theorem equiv_one_mrun_l:
-  forall x x' y h h',
-    IEquivOne x y ->
-    Run (x, h) (x', h') ->
-    exists y', 
-      (Multi_Run (y, h) (y', h') /\ (IEquivOne x' y' \/ x'=y')). 
-Proof.
-  intros x x' y h h' HE HR.
-  inversion HE; subst; clear HE.
-  - apply run_seq_eq in HR.
-    destruct HR as (IEQ, HEQ). subst.
-    exists x'. split.
-    + reflexivity.
-    + right. reflexivity.
-  - inversion HR; subst.
-    * exists j. apply run_imp_mrun in H0. split.
-    + assumption.
-    + left. apply equiv_unit_l.
-    * apply run_seq_eq in HR.
-      destruct HR as (IEQ, HEQ). subst.
-      exists Skip. split.
-    + reflexivity.
-    + right. reflexivity.
-  - inversion HR; subst.
-    * exists (Seq (Seq j y0) z). split.
-      + apply mrun_seq.
-        apply run_seq.
-        assumption.
-      + left. apply equiv_assoc.
-    * exists (Seq y0 z). split.
-      + apply mrun_seq.
-        apply run_seq_skip.
-      + right. reflexivity.
+    * exists (Seq (i_subst l (NNum n) y) (Loop l l0 y)).
+      split. {
+        apply run_imp_mrun. apply run_for_loop_cons.
+      }
+      left. apply equiv_seq.
+    + apply equiv_subst. assumption.
+    + apply equiv_loop. assumption.
 Qed.
-
 
 Theorem equiv_one_mrun_r:
   forall x x' y h h',
