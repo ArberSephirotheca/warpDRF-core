@@ -1107,7 +1107,7 @@ Proof.
     * subst. assumption.
     * auto.
 Qed.
-  
+
 
 Theorem equiv_one_mrun_l:
   forall x y,
@@ -1205,13 +1205,185 @@ Proof.
     + apply equiv_loop. assumption.
 Qed.
 
+Lemma eq_skip_mrun:
+  forall x y,
+    IEquivOne x y ->
+    y = Skip ->
+    forall  
+    Multi_Run (Seq x z, hp) (z, hp).
+
 Theorem equiv_one_mrun_r:
-  forall x x' y h h',
+  forall x y,
     IEquivOne y x ->
-    Run (x, h) (x', h') ->
-    exists y', 
-      Multi_Run (y, h) (y', h')  /\ (IEquivOne y' x' \/ y'=x').
+    forall x' h h',
+      Run (x, h) (x', h') ->
+      exists y', 
+        (Multi_Run (y, h) (y', h') /\ (IEquivOne y' x' \/ y'=x')). 
 Proof.
+  intros x y HE.
+  induction HE.
+  - intros x' h h' HR.
+    assert (IHHE := IHHE x' h h' HR).
+    destruct IHHE as (yhat, IHHE).
+    destruct IHHE as (Ha, Hb).
+    exists yhat.
+    split. {
+      transitivity (i,h).
+      + apply run_imp_mrun. apply run_seq_skip.
+      + assumption.
+    }
+    assumption.
+  - intros x' h h' HR.
+    assert (IHHE := IHHE x' h h' HR).
+    destruct IHHE as (yhat, IHHE).
+    destruct IHHE as (Ha, Hb).
+    exists (Seq yhat Skip). split. {
+      eapply mrun_mrun_seq; eauto.
+    }
+    left. apply equiv_unit_l.
+    destruct Hb as [Hq|He].
+    + assumption.
+    + subst. apply equiv_eq.
+  - intros xp h hp HR.
+    inversion HR; subst; clear HR.
+    inversion H0; subst; clear H0.
+    + assert (IHHE1 := IHHE1 j0 h hp H1).
+      destruct IHHE1 as (yhat, (GHEa, GHEb)).
+      exists (Seq yhat (Seq y z)). split. { 
+        eapply mrun_mrun_seq; eauto.
+      }
+      destruct GHEb as [Hq|He]; left.
+      * apply equiv_assoc.
+        ** assumption.
+        ** assumption.
+        ** assumption.
+      * subst. apply equiv_assoc.
+        ** apply equiv_eq.
+        ** assumption.
+        ** assumption.
+    + inversion HE1; subst; clear HE1.
+      * 
+          
+          
+      * exists (Seq y z). split. {
+          
+           
+      * admit.
+      * admit.
+      * admit.
+        
+     
+
+        exists (Seq y z). split. {
+          
+          
+          apply mrun_mrun_seq_seq.
+        }
+        left.
+        apply equiv_seq.
+        ** assumption.
+        ** assumption.
+      *
+        left. apply equiv_seq.
+        ** apply equiv_unit_r.
+           admit.
+        ** 
+        apply run_imp_mrun.
+      left.
+        ** 
+           
+        
+        
+      * left. apply equiv_assoc.
+      * 
+    
+    inversion HR; subst; clear HR.
+    * exists i
+    * exists j. split.
+    + reflexivity.
+    + left. assumption.
+  - intros x' h h' HR.
+    inversion HR; subst; clear HR.
+    * assert (IHHE := IHHE j0 h h').
+      apply IHHE in H0.
+      destruct H0 as (yhat, (H0r,H0e)).
+      exists yhat.
+      split.
+    + assumption.
+    + destruct H0e.
+      ++ left. apply equiv_unit_l.  assumption.
+      ++ subst. left. apply equiv_unit_l. apply equiv_eq.
+      * inversion HE; subst.
+        exists Skip. split.
+        ** reflexivity.
+        ** auto.
+  - intros x0' h h' HR.
+    inversion HR; subst; clear HR.
+    * apply IHHE1 in H0.
+      destruct H0 as (yhat, (H0R, H0E)).
+      exists (Seq (Seq yhat y') z'). split.
+      ** apply mrun_mrun_seq_seq with (x:=(x', h)) (y:=(yhat, h')).
+      ++ assumption.
+      ++ reflexivity.
+      ++ reflexivity.
+         ** left. apply equiv_assoc.
+            +++ destruct H0E.
+                *** assumption.
+                *** subst. apply equiv_eq.
+            +++ assumption.
+            +++ assumption.
+    * inversion HE1; subst; clear HE1.
+    + exists (Seq y' z'). split.
+      ++ apply run_imp_mrun. apply run_seq. apply run_seq_skip.
+      ++ left. auto using equiv_seq.
+  -  intros x0' h h' HR.
+     exists x0'.
+     split.
+     + apply run_imp_mrun. assumption.
+     + left. apply equiv_eq.
+  - intros x0' h h' HR.
+    inversion HR; subst; clear HR.
+    + apply IHHE1 in H0.
+      destruct H0 as (yhat, (H0R,H0E)).
+      exists (Seq yhat y'). split.
+      { eapply mrun_mrun_seq. eauto.
+        * reflexivity.
+        * reflexivity.
+      }
+      destruct H0E as [WEQ | SEQ].
+      * left. apply equiv_seq; assumption.
+      * subst. left. apply equiv_seq.
+        ** apply equiv_eq.
+        ** assumption.
+    + inversion HE1; subst; clear HE1.
+      exists y'. split. {
+        apply run_imp_mrun. apply run_seq_skip.
+      }
+      left. assumption.
+  - intros x0' h h' HR.
+    inversion HR; subst; clear HR.
+    exists (Loop l l0 y).
+    split. {
+      apply run_imp_mrun. apply run_for. assumption.
+    }
+    left. apply equiv_loop. assumption.
+  - intros x0' h h' HR.
+    inversion HR; subst; clear HR.
+    * exists Skip. split. {
+        apply run_imp_mrun. apply run_for_loop_nil.
+      }
+      right. reflexivity.
+    * exists (Seq (i_subst l (NNum n) y) (Loop l l0 y)).
+      split. {
+        apply run_imp_mrun. apply run_for_loop_cons.
+      }
+      left. apply equiv_seq.
+    + apply equiv_subst. assumption.
+    + apply equiv_loop. assumption.
+Qed.
+
+
+  
   intros x x' y h h' HE HR.
   inversion HE; subst; clear HE.
   - exists x'. split.
