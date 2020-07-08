@@ -18,67 +18,42 @@ Module OneDim.
 
   (** [ n ] *)
 
-  Definition E := (nexp * bexp) % type.
+  Definition E := nexp.
 
-  Inductive EIn x : nexp * bexp -> Prop :=
-  | e_in_l:
-    forall n b,
-    NIn x n ->
-    EIn x (n, b)
-  | e_in_r:
-    forall n b,
-    BIn x b ->
-    EIn x (n, b).
+  Definition In := NIn.
 
-  Definition In := EIn. 
-
-  Definition subst x v (e:E) :=
-    let (idx, b) := e in
-    (n_subst x v idx, b_subst x v b).
+  Definition subst := n_subst.
 
   Inductive Step:  (E * nexp) -> list A -> Prop :=
-  | step_true:
-    forall idx b ni nt t,
-    BStep b true ->
+  | step_def:
+    forall idx ni nt t,
     NStep idx ni ->
     NStep t nt ->
-    Step ((idx, b), t) [{| index := ni; tid := nt |}]
-  | step_false:
-    forall idx b t ni nt,
-    BStep b false ->
-    NStep idx ni ->
-    NStep t nt ->
-    Step ((idx, b), t) [].
+    Step (idx, t) [{| index := ni; tid := nt |}].
 
   Definition AStep := Step.
 
-  Definition a_step (e:E*nexp) :=
-    let (e, t) := e in
-    let (idx, b) := e in
-    match b_step b, n_step idx, n_step t with
-    | Some b, Some ni, Some nt => Some (if b then [{| index := ni; tid:=nt|}] else [])
-    | _, _, _ => None
+  Definition a_step (e:nexp*nexp) :=
+    let (idx, t) := e in
+    match n_step idx, n_step t with
+    | Some ni, Some nt => Some [{| index := ni; tid:=nt|}]
+    | _, _ => None
     end.
 
   Lemma a_step_to_prop:
     forall e l,
     a_step e = Some l ->
     AStep e l.
-  Proof.
+   Proof.
     intros.
-    destruct e as ((idx, b), t).
+    destruct e as (idx, t).
     simpl in *.
-    destruct (b_step b) eqn:Hb; try (inversion H; fail).
-    destruct b0;
     destruct (n_step idx) eqn:Hi; try (inversion H; fail);
     destruct (n_step t) eqn:Ht; try (inversion H; fail);
     inversion H; subst; clear H;
-    apply b_step_to_prop in Hb;
     apply n_step_to_prop in Hi;
-    apply n_step_to_prop in Ht. {
-      constructor; auto.
-    }
-    econstructor; eauto.
+    apply n_step_to_prop in Ht.
+    constructor; auto.
   Qed.
 
   Lemma prop_to_a_step:
@@ -88,10 +63,9 @@ Module OneDim.
   Proof.
     intros.
     inversion H; subst; clear H; simpl;
-    apply prop_to_b_step in H0;
+    apply prop_to_n_step in H0;
     apply prop_to_n_step in H1;
-    apply prop_to_n_step in H2;
-    rewrite H0; rewrite H1; rewrite H2; reflexivity.
+    rewrite H0; rewrite H1; reflexivity.
   Qed.
 
   Definition Safe (a1 a2:A) :=
@@ -106,15 +80,10 @@ Module OneDim.
     unfold AStep; intros.
     inversion H; subst; clear H;
       inversion H0; subst; clear H0.
-    - assert (ni0 = ni) by eauto using n_step_fun.
-      assert (nt0 = nt) by eauto using n_step_fun.
-      subst.
-      reflexivity.
-    - assert (N: true = false) by eauto using b_step_fun.
-      inversion N.
-    - assert (N: true = false) by eauto using b_step_fun.
-      inversion N.
-    - reflexivity.
+    assert (ni0 = ni) by eauto using n_step_fun.
+    assert (nt0 = nt) by eauto using n_step_fun.
+    subst.
+    reflexivity.
   Qed.
 
   Lemma safe_eq_tid:
@@ -138,13 +107,11 @@ Module OneDim.
   Proof.
     intros.
     rewrite Forall_forall; intros.
-    inversion H; subst; clear H. {
-      destruct H1; subst. {
-        assert (nt = n) by eauto using n_step_fun.
-        simpl.
-        assumption.
-      }
-      contradiction.
+    inversion H; subst; clear H.
+    destruct H1; subst. {
+      assert (nt = n) by eauto using n_step_fun.
+      simpl.
+      assumption.
     }
     contradiction.
   Qed.
@@ -157,35 +124,13 @@ Module OneDim.
     AStep (subst x (NNum m) a, NNum m) v'.
   Proof.
     intros.
-    inversion H; subst; clear H. {
-      inversion H5; subst; clear H5.
-      unfold subst in *.
-      destruct a as (a1, a2).
-      inversion H0; subst; clear H0.
-      apply b_step_subst_next with (m:=m) in H2.
-      apply n_step_subst_next with (m1:=m) in H3.
-      destruct H2 as (b, Hb).
-      destruct H3 as (m1, Hn).
-      destruct b. {
-        exists [{| tid := m; index := m1|} ].
-        constructor; auto using n_step_num.
-      }
-      exists [].
-      econstructor; eauto using n_step_num.
-    }
-    destruct a as (a1, a2); simpl.
-    simpl in *.
-    inversion H0; subst; clear H0.
-    apply b_step_subst_next with (m:=m) in H2.
-    apply n_step_subst_next with (m1:=m) in H3.
-    destruct H2 as (b2, Ha).
-    destruct H3 as (n2, Hb).
-    destruct b2. {
-      exists [{| tid := m; index := n2|} ].
-      constructor; auto using n_step_num.
-    }
-    exists [].
-    econstructor; eauto using n_step_num.
+    inversion H; subst; clear H.
+    inversion H4; subst; clear H4.
+    unfold subst in *.
+    apply n_step_subst_next with (m1:=m) in H2.
+    destruct H2 as (m1, Hn).
+    exists [{| tid := m; index := m1|} ].
+    constructor; auto using n_step_num.
   Qed.
 
   Lemma safe_sym:
@@ -208,11 +153,8 @@ Module OneDim.
     subst x (NNum n1) (subst x (NNum n2) a) = subst x (NNum n2) a.
   Proof.
     intros.
-    destruct a.
-    simpl.
-    rewrite Exp.n_subst_subst_eq.
-    rewrite Exp.b_subst_subst_eq.
-    reflexivity.
+    unfold subst.
+    apply Exp.n_subst_subst_eq.
   Qed.
 
   Lemma subst_subst_neq:
@@ -221,9 +163,9 @@ Module OneDim.
     subst x (NNum n1) (subst y (NNum n2) a) =
     subst y (NNum n2) (subst x (NNum n1) a).
   Proof.
-    destruct a; simpl; intros.
-    rewrite n_subst_subst_neq; auto.
-    rewrite b_subst_subst_neq; auto.
+    unfold subst.
+    intros.
+    auto using Exp.n_subst_subst_neq.
   Qed.
 
   Lemma subst_subst_neq_2:
@@ -234,14 +176,11 @@ Module OneDim.
     =
     subst z (NNum n) (subst x (NVar y) a).
   Proof.
+    unfold subst.
     intros.
-    destruct a.
-    simpl.
-    rewrite n_subst_subst_neq_2; auto.
-    rewrite b_subst_subst_neq_2; auto.
+    auto using Exp.n_subst_subst_neq_2.
   Qed.
-
-  Lemma not_e_in_inv:
+  (*
     forall x n b,
     ~ EIn x (n, b) ->
     ~ NIn x n /\ ~ BIn x b.
@@ -256,20 +195,15 @@ Module OneDim.
       contradict H.
       eauto using e_in_r.
   Qed.
-
+  *)
   Lemma subst_subst_trans:
     forall e x v y,
     ~ In x e ->
     subst x v (subst y (NVar x) e) = subst y v e.
   Proof.
-    unfold In.
+    unfold In, subst.
     intros.
-    destruct e as (n, b).
-    simpl.
-    apply not_e_in_inv in H.
-    destruct H.
-    rewrite n_subst_subst_trans; auto.
-    rewrite b_subst_subst_trans; auto.
+    auto using n_subst_subst_trans.
   Qed.
 
   Lemma subst_not_in:
@@ -277,13 +211,9 @@ Module OneDim.
     ~ In x e ->
     subst x v e = e.
   Proof.
+    unfold In, subst.
     intros.
-    destruct e.
-    simpl.
-    apply not_e_in_inv in H.
-    destruct H.
-    rewrite n_subst_not_in; auto.
-    rewrite b_subst_not_in; auto.
+    apply n_subst_not_in; auto.
   Qed.
 
   Lemma in_subst_neq:
@@ -292,13 +222,9 @@ Module OneDim.
     ~ NIn x v ->
     In x e.
   Proof.
+    unfold In, n_subst.
     intros.
-    destruct e; simpl in *.
-    inversion H; subst; clear H.
-    - apply in_n_subst_neq in H2; auto.
-      apply e_in_l; auto.
-    - apply in_b_subst_neq in H2; auto.
-      apply e_in_r; auto.
+    eapply in_n_subst_neq; eauto.
   Qed.
 
 End OneDim.
