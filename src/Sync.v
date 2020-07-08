@@ -1186,7 +1186,7 @@ Qed.
 *)
 
 
-Goal
+Lemma mrun_eq_sim_l:
   forall a b, 
   Multi_Run a b ->
   forall x h x' h',
@@ -1223,8 +1223,48 @@ Proof.
         auto.
     + assumption.
 Qed.
-       
 
+Lemma mrun_eq_sim_r:
+  forall a b, 
+  Multi_Run a b ->
+  forall x h x' h',
+    a= (x, h) ->
+    b= (x', h') ->
+    forall y,
+      IEquivOne x y ->
+      exists y', 
+        Multi_Run (y, h) (y', h')  /\ (IEquivOne x' y' \/ x'=y').
+Proof.
+  intros a b HR.
+  induction HR; intros.
+  -  inversion H; inversion H0; subst; clear H H0.
+     exists y. split.
+     + reflexivity.
+     + auto.
+  - assert (IHHR := IHHR i2 h2 i3 h3 eq_refl eq_refl).
+    apply equiv_one_mrun_l with (y:=y) in H.
+    inversion H1; inversion H0; subst; clear H0 H1.
+    + destruct H as (y2, (HMR, [HMO | HME])).
+      * apply IHHR in HMO.
+        destruct HMO as (yhat, (HMOa, [HMOb | HMOc])).
+        ** exists yhat. split. {
+             transitivity (y2,h2); auto.
+           }
+           auto.
+        ** subst. exists yhat. split. {
+              transitivity (y2,h2); auto.
+           }
+           auto.
+      * subst. exists x'.  split. {
+             etransitivity; eauto.
+           }
+        auto.
+    + inversion H1; inversion H0; subst; clear H1 H0.
+      assumption.
+Qed.
+           
+
+  
 Theorem equiv_star_mrun_l:
   forall x y,
     iequivstar x y ->
