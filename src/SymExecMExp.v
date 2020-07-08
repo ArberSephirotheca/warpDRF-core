@@ -38,7 +38,13 @@ Section Defs.
   | e_run_branch_nil:
     forall x i1 i2 hs,
     ERun i2 hs ->
-    ERun (Branch x [] i1 i2) hs.
+    ERun (Branch x [] i1 i2) hs
+  | e_run_fork:
+    forall i j m1 m2,
+    ERun i m1 ->
+    ERun j m2 ->
+    ERun (Fork i j) (Plus m1 m2)
+  .
 
   Definition FRun i m :=
     exists m', EEq m m' /\ ERun i m'.
@@ -79,6 +85,7 @@ Section Defs.
     - eauto using run_decl.
     - eauto using run_branch_cons.
     - eauto using run_branch_nil.
+    - eauto using run_fork.
   Qed.
 
 
@@ -115,6 +122,15 @@ Section Defs.
         reflexivity.
     - destruct IHRun as (e1, (Hr1, R1)).
       eauto using e_run_branch_nil.
+    - destruct IHRun1 as (m1, (Hr1, R1)).
+      destruct IHRun2 as (m2, (Hr2, R2)).
+      eexists.
+      split.
+      + eauto using e_run_fork.
+      + simpl.
+        rewrite R1.
+        rewrite R2.
+        reflexivity.
   Qed.
 
   Lemma e_run_inv_seq:
@@ -267,6 +283,9 @@ Section Defs.
       reflexivity.
     - inversion H0; subst; clear H0.
       eauto.
+    - inversion H1; subst; clear H1.
+      erewrite IHERun1; eauto.
+      erewrite IHERun2; eauto.
   Qed.
 
   Lemma f_run_fun:

@@ -72,31 +72,38 @@ Section Defs.
   }.
 
   Context {I:AccessInst}.
+
   Inductive inst :=
   | Skip
   | MemAcc: access_inst_type -> inst -> inst
   | Decl : var -> range -> inst -> inst -> inst
-  | Branch : var -> list nat -> inst -> inst -> inst.
+  | Branch : var -> list nat -> inst -> inst -> inst
+  | Fork : inst -> inst -> inst
+  .
 
   Fixpoint i_subst x v i :=
-  match i with
-  | Skip => Skip
-  | MemAcc e j => MemAcc (access_inst_subst x v e) (i_subst x v j)  
-  | Decl y r i2 i3 =>
-    let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
-    Decl y (r_subst x v r) i2' (i_subst x v i3)
-  | Branch y r i2 i3 =>
-    let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
-    Branch y r i2' (i_subst x v i3)
-  end.
+    match i with
+    | Skip => Skip
+    | MemAcc e j => MemAcc (access_inst_subst x v e) (i_subst x v j)  
+    | Decl y r i2 i3 =>
+      let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
+      Decl y (r_subst x v r) i2' (i_subst x v i3)
+    | Branch y r i2 i3 =>
+      let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
+      Branch y r i2' (i_subst x v i3)
+    | Fork i j => Fork (i_subst x v i) (i_subst x v j)
+    end
+  .
 
   Fixpoint seq (i1 i2:inst) :=
-  match i1 with
-  | Skip => i2
-  | MemAcc e i3 => MemAcc e (seq i3 i2)
-  | Decl x r i3 i4 => Decl x r i3 (seq i4 i2)
-  | Branch x r i3 i4 => Branch x r i3 (seq i4 i2)
-  end.
+    match i1 with
+    | Skip => i2
+    | MemAcc e i3 => MemAcc e (seq i3 i2)
+    | Decl x r i3 i4 => Decl x r i3 (seq i4 i2)
+    | Branch x r i3 i4 => Branch x r i3 (seq i4 i2)
+    | Fork i j => Fork (seq i i2) (seq j i2)
+    end
+  .
 
   Notation history := (list access_val).
 
@@ -121,7 +128,12 @@ Section Defs.
   | run_branch_nil:
     forall x i1 i2 hs,
     Run i2 hs ->
-    Run (Branch x [] i1 i2) hs.
+    Run (Branch x [] i1 i2) hs
+  | run_fork:
+    forall i j hs1 hs2,
+    Run i hs1 ->
+    Run j hs2 ->
+    Run (Fork i j) (hs1 ++ hs2).
 
   Lemma run_inv_nil:
     forall i,
@@ -143,6 +155,8 @@ Section Defs.
       destruct hs1;
         inversion Heql.
     - auto.
+    - destruct hs1; auto.
+      inversion Heql.
   Qed.
 
   Lemma run_not_nil:
@@ -462,6 +476,9 @@ Section Defs.
       reflexivity.
     - rewrite <- IHi1_2.
       reflexivity.
+    - rewrite IHi1_1; clear IHi1_1.
+      rewrite IHi1_2; clear IHi1_2.
+      reflexivity.
   Qed.
 
   Lemma seq_nil_rw:
@@ -475,6 +492,9 @@ Section Defs.
     - rewrite IHi2.
       reflexivity.
     - rewrite IHi2.
+      reflexivity.
+    - rewrite IHi1.
+      rewrite IHi2.
       reflexivity.
   Qed.
 
@@ -508,6 +528,9 @@ Section Defs.
     - simpl.
       apply run_branch_nil.
       auto.
+    - rewrite <- prod_app.
+      simpl.
+      apply run_fork; eauto.
   Qed.
 
   Lemma run_fun:
@@ -533,6 +556,9 @@ Section Defs.
       erewrite IHRun2; eauto.
     - inversion H0; subst; clear H0.
       eauto.
+    - inversion H1; subst; clear H1.
+      erewrite IHRun1; eauto.
+      erewrite IHRun2; eauto.
   Qed.
 
   Ltac run_clean :=
@@ -586,6 +612,12 @@ Section Defs.
       reflexivity.
     - inversion H1; subst; clear H1.
       eapply IHRun in H6; eauto.
+    - inversion H2; subst; clear H2.
+      rewrite <- prod_app.
+      eapply IHRun1 in H5; eauto.
+      eapply IHRun2 in H7; eauto.
+      subst.
+      reflexivity.
   Qed.
 
   Lemma run_inv_seq_2:
@@ -641,16 +673,19 @@ Section Defs.
       exists (hsa ++ hsa1).
       exists hsb.
       subst.
-      split; auto using run_branch_cons.
+      auto using run_branch_cons.
     - destruct i3; simpl in *; try inversion Heqi; subst; try clear Heqi. {
-        exists [[]].
-        exists hs.
-        split; auto using run_skip, run_branch_nil.
+        eauto using run_skip, run_branch_nil.
       }
       destruct (IHRun _ _ eq_refl) as (hs1, (hs2, (?, ?))).
-      exists hs1.
-      exists hs2.
-      split; auto using run_branch_nil.
+      eauto using run_branch_nil.
+    - destruct i1; simpl in *; try inversion Heqi; subst; try clear Heqi. {
+        eauto using run_skip, run_fork.
+      }
+      destruct (IHRun1 _ _ eq_refl) as (hsa, (hsb, (?, ?))).
+      destruct (IHRun2 _ _ eq_refl) as (hsc, (hsd, (?, ?))).
+      assert (hsb = hsd) by eauto using run_fun; subst.
+      eauto using run_fork.
   Qed.
 
   Lemma run_inv_seq:
@@ -680,6 +715,9 @@ Section Defs.
       reflexivity.
     - rewrite IHi1_2.
       reflexivity.
+    - rewrite IHi1_1.
+      rewrite IHi1_2.
+      reflexivity.
   Qed.
 
   Lemma i_subst_subst_eq:
@@ -707,6 +745,9 @@ Section Defs.
         reflexivity.
       }
       rewrite IHi1.
+      rewrite IHi2.
+      reflexivity.
+    - rewrite IHi1.
       rewrite IHi2.
       reflexivity.
   Qed.
@@ -752,6 +793,8 @@ Section Defs.
       }
       rewrite IHi2; auto.
       rewrite IHi1; auto.
+    - rewrite IHi1; auto.
+      rewrite IHi2; auto.
   Qed.
 
   Lemma i_subst_subst_neq_2:
@@ -787,6 +830,8 @@ Section Defs.
         auto.
       }
       rewrite IHi1; auto.
+    - rewrite IHi1; auto.
+      rewrite IHi2; auto.
   Qed.
 
   (* ------------------------------- In ----------------------------- *)
@@ -825,7 +870,16 @@ Section Defs.
   | in_branch_3:
     forall l y i1 i2,
     In x i2 ->
-    In x (Branch y l i1 i2).
+    In x (Branch y l i1 i2)
+  | in_fork_1:
+    forall i j,
+    In x i ->
+    In x (Fork i j)
+  | in_fork_2:
+    forall i j,
+    In x j ->
+    In x (Fork i j)
+  .
 
   Lemma not_in_acc:
     forall x e i,
@@ -892,6 +946,10 @@ Section Defs.
         auto using in_branch_1, in_branch_2.
       apply IHi2 in H1.
       destruct H1; auto using in_branch_3.
+    - inversion H; subst; clear H.
+      + apply IHi1 in H1.
+        destruct H1; auto using in_fork_1.
+      + apply IHi2 in H1; destruct H1; auto using in_fork_2.
   Qed.
 
   Lemma in_branch_cons:
@@ -908,6 +966,21 @@ Section Defs.
 
 
   (* ------------------ i_subst + In ------------------------------ *)
+
+  Lemma not_in_fork:
+    forall x i j,
+    ~ In x (Fork i j) ->
+    ~ In x i /\ ~ In x j.
+  Proof.
+    intros.
+    split.
+    - intros N.
+      contradict H.
+      auto using in_fork_1.
+    - intros N.
+      contradict H.
+      auto using in_fork_2.
+  Qed.
 
   Lemma i_subst_not_in:
     forall i x v,
@@ -931,6 +1004,10 @@ Section Defs.
     - apply not_in_branch in H.
       destruct H as (H, (H1, H2)).
       destruct (Set_VAR.MF.eq_dec x v); try contradiction.
+      rewrite IHi1; auto.
+      rewrite IHi2; auto.
+    - apply not_in_fork in H.
+      destruct H.
       rewrite IHi1; auto.
       rewrite IHi2; auto.
   Qed.
@@ -970,6 +1047,10 @@ Section Defs.
       }
       rewrite IHi1; auto.
       rewrite IHi2; auto.
+    - apply not_in_fork in H.
+      destruct H.
+      rewrite IHi1; auto.
+      rewrite IHi2; auto.
   Qed.
 
   Lemma in_i_subst_neq:
@@ -979,28 +1060,29 @@ Section Defs.
     ~ NIn x v ->
     In x i.
   Proof.
-    induction i; simpl; intros.
-    - inversion H.
-    - inversion H; subst; clear H.
-      + apply access_inst_in_subst_neq in H3; auto using in_acc_1.
-      + apply IHi in H3; auto using in_acc_2.
-    - inversion H; subst; clear H.
-      + apply in_r_subst_neq in H3; auto using in_decl_1.
-      + auto using in_decl_2.
-      + destruct (Set_VAR.MF.eq_dec y v). {
-          subst.
-          auto using in_decl_3.
-        }
-        apply IHi1 in H3; auto using in_decl_3.
-      + apply IHi2 in H3; auto using in_decl_4.
-    - inversion H; subst; clear H.
-      + auto using in_branch_1.
-      + destruct (Set_VAR.MF.eq_dec y v). {
-          subst.
-          auto using in_branch_2.
-        }
-        apply IHi1 in H3; auto using in_branch_2.
-      + apply IHi2 in H3; auto using in_branch_3.
+    induction i;
+      simpl;
+      intros;
+      inversion H; subst; clear H.
+    - apply access_inst_in_subst_neq in H3; auto using in_acc_1.
+    - apply IHi in H3; auto using in_acc_2.
+    - apply in_r_subst_neq in H3; auto using in_decl_1.
+    - auto using in_decl_2.
+    - destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        auto using in_decl_3.
+      }
+      apply IHi1 in H3; auto using in_decl_3.
+    - apply IHi2 in H3; auto using in_decl_4.
+    - auto using in_branch_1.
+    - destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        auto using in_branch_2.
+      }
+      apply IHi1 in H3; auto using in_branch_2.
+    - apply IHi2 in H3; auto using in_branch_3.
+    - eauto using in_fork_1.
+    - eauto using in_fork_2.
   Qed.
 
   Lemma in_inv_subst_in:
@@ -1042,6 +1124,7 @@ Section Defs.
     - destruct (Set_VAR.MF.eq_dec x v);
         inversion H; subst; clear H;
           auto using in_branch_1, in_branch_2, in_branch_3.
+    - inversion H; subst; clear H; auto using in_fork_1, in_fork_2.
   Qed.
 
   (* --------------------------------- VAR ------------------------- *)
@@ -1072,7 +1155,16 @@ Section Defs.
   | var_branch_r:
     forall y i1 i2 l,
     Var x i2 ->
-    Var x (Branch y l i1 i2).
+    Var x (Branch y l i1 i2)
+  | var_fork_l:
+    forall i j,
+    Var x i ->
+    Var x (Fork i j)
+  | var_fork_r:
+    forall i j,
+    Var x j ->
+    Var x (Fork i j)
+  .
 
   Lemma var_not_in_acc:
     forall x e i,
@@ -1132,6 +1224,9 @@ Section Defs.
     - inversion H; subst; clear H; auto using var_branch_eq, var_branch_r, var_branch_l.
       apply IHi2 in H1.
       destruct H1; auto using var_branch_r.
+    - inversion H; subst; clear H.
+      + edestruct IHi1; eauto using var_fork_l.
+      + edestruct IHi2; eauto using var_fork_r.
   Qed.
 
   Lemma var_subst_inv_1:
@@ -1149,6 +1244,7 @@ Section Defs.
     - destruct (Set_VAR.MF.eq_dec x v);
         inversion H; subst; clear H;
         auto using var_branch_eq, var_branch_l, var_branch_r.
+    -inversion H; subst; clear H; auto using var_fork_l, var_fork_r.
   Qed.
 
 
@@ -1193,7 +1289,16 @@ Section Defs.
   | in_range_branch_r:
     forall y i1 i2 l,
     InRange x i2 ->
-    InRange x (Branch y l i1 i2).
+    InRange x (Branch y l i1 i2)
+  | in_range_fork_l:
+    forall i j,
+    InRange x i ->
+    InRange x (Fork i j)
+  | in_range_fork_r:
+    forall i j,
+    InRange x j ->
+    InRange x (Fork i j)
+  .
 
   Lemma in_range_branch_to_decl:
     forall x y i j l r,
@@ -1224,6 +1329,9 @@ Section Defs.
     - inversion H; subst; clear H; auto using in_range_branch_l.
       apply IHi2 in H1.
       destruct H1; auto using in_range_branch_r.
+    - inversion H; subst; clear H.
+      + edestruct IHi1; eauto using in_range_fork_l.
+      + edestruct IHi2; eauto using in_range_fork_r.
   Qed.
 
   Lemma in_range_inv_subst_1:
@@ -1248,6 +1356,8 @@ Section Defs.
     - destruct (Set_VAR.MF.eq_dec x v);
         inversion H; subst; clear H;
           auto using in_range_branch_l, in_range_branch_r.
+    - inversion H; subst; clear H;
+      eauto using in_range_fork_l, in_range_fork_r.
   Qed.
 
   Lemma in_range_branch_cons:
@@ -1259,6 +1369,26 @@ Section Defs.
     inversion H; subst; clear H;
       auto using in_range_branch_l, in_range_branch_r.
   Qed.
+
+(*
+  Goal
+    forall x lb ub m i j,
+    FRun (Decl x (lb, ub) i j) m ->
+    forall n1,
+    NStep ub n1 ->
+    forall n2,
+    n1 <= n2 ->
+    FRun (Decl x (lb, NNum n2) (add_cond (NRel NLt (NVar x) ub)  i) j) m.
+  Proof.
+    intros.
+    apply f_run_inv_decl_range in H.
+    destruct H as (n2', (n1', (Hn1', (Hn2', Hf)))).
+    assert (n1' = n1) by eauto using n_step_fun; subst.
+    apply f_run_inv_decl_map in Hf.
+    destruct Hf as (lm, (m', (He1, (Hf1, Hm)))).
+    apply f_run_decl_map.
+  Qed.
+*)
 
 End Defs.
 
