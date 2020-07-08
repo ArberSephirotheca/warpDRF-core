@@ -660,6 +660,29 @@ Proof.
   auto using run_imp_mrun, run_seq.
 Qed.
 
+Lemma mrun_mrun_seq:
+  forall x y,
+    Multi_Run x y ->
+    forall i j h h',
+      x = (i,h) ->
+      y = (j,h') ->
+      forall k,
+      Multi_Run (Seq i k, h) (Seq j k, h').
+Proof.
+  intros x y HR.
+  induction HR.
+  - intros. inversion H; inversion H0; subst; clear H H0.
+    reflexivity.
+  - intros. inversion H1; inversion H0; subst; clear H1 H0.
+    assert (IHHR:= IHHR i2 j h2 h' eq_refl eq_refl k).
+    transitivity (Seq i2 k, h2).
+    * apply mrun_step with (i2:= Seq i2 k) (h2:=h2).
+    + apply run_seq. auto.
+    + reflexivity.
+      * assumption.
+Qed.
+
+
 Fixpoint Merge  (i: option inst) (j: inst) :=
 match i with
 | None => j
@@ -1298,114 +1321,51 @@ Proof.
         + reflexivity.
         + assumption.
 Qed.
-         
 
 
-       
-Lemma equiv_refliv:
-forall x,
-equivstar x x.
+
+
+
+Lemma sync_src_norm:
+  forall i j,
+    Normalised i j ->
+    forall i1 i2,
+      j = (i1,i2) ->
+      forall x h,
+        Run (i,h) x ->
+        Multi_Run (Merge i1 i2, h) x.
 Proof.
-intros.
-induction x; auto using equiv_refl.
-Qed.
+  intros i j HN.
+  induction HN.
+  - intros. inversion H0; subst. simpl. apply run_imp_mrun. assumption.
+  - intros. inversion H; subst. simpl. transitivity (Seq Skip Skip, @nil access_val).
+    + apply run_imp_mrun. apply run_seq. apply run_sync.
+    + inversion H0; subst. apply run_imp_mrun. apply run_seq_skip.
+  - intros. inversion H; subst; clear H.
+    assert (IHHN1 := IHHN1 (Some i1) i2 eq_refl).
+    inversion H0; subst; clear H0. simpl.
+    + assert  (IHHN1 := IHHN1 (j0,h') h).
+      apply IHHN1 in H4.
+      simpl in H4. 
+      transitivity (Seq (Seq j0 j1) i3 , h').
+      * 
 
-
-
-Lemma equiv_simm:
-forall x y,
-IEquivOne x y ->
-IEquivOne y x.
-Proof.
-intros.
-Admitted.
-
-
-
-Lemma equiv_transi:
-forall x y z,
-IEquivOne x y ->
-IEquivOne y z ->
-IEquivOne x z.
-Proof.
-intros.
-generalize dependent z. 
-induction H; intros.
-- apply IHIEquivOne2 in H1. apply IHIEquivOne1. assumption. 
-- assumption.
-- apply IHIEquivOne in H0. apply equiv_unit_lii. assumption.
-- apply IHIEquivOne in H0. apply equiv_unit_lsi. assumption.
-- apply IHIEquivOne. apply equiv_trans with (j:=Seq Skip j).
-  + apply equiv_unit_ris. apply equiv_refl.
-  + assumption.
-- apply IHIEquivOne. apply equiv_trans with (j:=Seq j Skip).
-  + apply equiv_unit_rii. apply equiv_refl.
-  + assumption.
-- apply equiv_trans with (j:=Seq x1 (Seq y1 z1)).
-  + inversion H2; subst.
-    * 
-  + apply equiv_assoc_l; auto using equiv_refl.
-  + 
-  
-
-induction H; intros.
-- assumption.
-- apply IHIEquivOne in H0. auto using equiv_unit_lii.
-- apply IHIEquivOne in H0. auto using equiv_unit_lii, equiv_unit_lsi, equiv_unit_ris, equiv_unit_rii.
-- inversion H0; subst; clear H0.
-  + apply IHIEquivOne. admit.
-  + apply IHIEquivOne. assumption.
-  + apply IHIEquivOne. assumption.
-  + apply IHIEquivOne. admit.
-  + apply IHIEquivOne. admit.
-  + 
-  
-  * apply equiv_unit_ris. apply equiv_refliv.
-  * assumption.
-  * assumption.
-  * assert (EQ: forall x,  IEquivOne (Seq Skip j) x -> IEquivOne j x). {
-    intros x y HSE. 
-    inversion HSE; subst.
-    + apply equiv_unit_ris. apply equiv_refliv.
-    + assumption.
-    + assumption.
-    + 
-   }
-    apply equiv_unit_ris in H1.
-    rewrite -> EQ.
-    apply equiv_unit_ris.  
-    inversion H1; subst.
-    + apply equiv_refliv.
-    + apply  equiv_unit_lsi in H2.
-    + apply equiv_unit_ris.  apply equiv_refliv.
-    + assumption.
-    + assumption.
-    + apply equiv_unit_ris.
-     
-      assert (EQ: IEquivOne (Seq Skip j) j). { 
-    assert (IHIEquivOne:= IHIEquivOne j0). 
-    apply IHIEquivOne.
-
- auto using equiv_unit_lii, equiv_unit_lsi, equiv_unit_ris, equiv_unit_rii, equiv_refliv.
-  
- * apply equiv_unit_ris. apply equiv_refliv.
-  * 
-
-auto using equiv_unit_lii, equiv_unit_lsi, equiv_unit_ris, equiv_unit_rii.
-
-
-destruct x; auto using equiv_refl.
-- destruct y.
-  * 
-  inversion H0; subst; auto using equiv_refl.
-- 
+    
+forall i hi x,
+Run (i, hi) x ->
+In Sync i ->
+exists i1 i2,
+Normalised i (i1, i2) /\
+Multi_Run (Merge i1 i2, hi) x.
 
 Lemma sync_src_norm_seq:
-forall i j i1 i2 j0 j3 j4 h' hi,
-Normalised i (Some i1, i2) -> 
-Normalised j (Some j0, j3) -> 
-Run (Seq i j, hi) (Seq j4 j, h') -> 
-Multi_Run (Seq (Seq i1 (Seq i2 j0)) j3, hi) (Seq j4 j, h').
+forall i i1 i2,
+  Normalised i (Some i1, i2) ->
+  forall j j0 j3,
+    Normalised j (Some j0, j3) ->
+    forall hi j4 h',
+    Run (Seq i j, hi) (Seq j4 j, h') -> 
+    Multi_Run (Seq (Seq i1 (Seq i2 j0)) j3, hi) (Seq j4 j, h').
 Proof.
 intros.
 assert (Sij: In Sync i /\ In Sync j).  {
@@ -1425,7 +1385,9 @@ inversion H1; subst. inversion H3; subst.
       -- apply run_seq. apply run_seq_skip.
       -- apply mrun_step.
          ++ (* CONTINUE HERE *)
-    
+
+
+           
 
  
 Lemma sync_src_norm:
