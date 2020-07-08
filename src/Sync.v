@@ -1210,8 +1210,9 @@ Lemma eq_skip_mrun:
   forall x y,
     IEquivOne x y ->
     y = Skip ->
-    forall  
-    Multi_Run (Seq x z, hp) (z, hp).
+    forall  z,
+      Multi_Run (Seq x z, hp) (z, hp).
+Proof.
 
 Theorem equiv_one_mrun_r:
   forall x y,
