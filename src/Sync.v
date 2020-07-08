@@ -32,6 +32,7 @@ Section C1.
 
 Fixpoint i_subst x v i :=
   match i with
+  | Seq i2 i3 => Seq (i_subst x v i2) (i_subst x v i3)
   | Access a => Access (access_subst x v a)
   | For y r i2 =>
     let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
@@ -41,7 +42,6 @@ Fixpoint i_subst x v i :=
     Loop y r i2'
   | Skip => Skip
   | Sync => Sync
-  | Seq i2 i3 => Seq (i_subst x v i2) (i_subst x v i3)
   end.
 
 
@@ -660,6 +660,51 @@ Proof.
   auto using run_imp_mrun, run_seq.
 Qed.
 
+Lemma mrun_mrun_seq:
+  forall x y,
+    Multi_Run x y ->
+    forall i j h h',
+      x = (i,h) ->
+      y = (j,h') ->
+      forall k,
+      Multi_Run (Seq i k, h) (Seq j k, h').
+Proof.
+  intros x y HR.
+  induction HR.
+  - intros. inversion H; inversion H0; subst; clear H H0.
+    reflexivity.
+  - intros. inversion H1; inversion H0; subst; clear H1 H0.
+    assert (IHHR:= IHHR i2 j h2 h' eq_refl eq_refl k).
+    transitivity (Seq i2 k, h2).
+    * apply mrun_step with (i2:= Seq i2 k) (h2:=h2).
+    + apply run_seq. auto.
+    + reflexivity.
+      * assumption.
+Qed.
+
+
+Lemma mrun_mrun_seq_seq:
+  forall x y,
+    Multi_Run x y ->
+    forall i j h h',
+      x = (i,h) ->
+      y = (j,h') ->
+      forall k z,
+      Multi_Run (Seq (Seq i k) z, h) (Seq (Seq j k) z, h').
+Proof.
+  intros x y HR.
+  induction HR.
+  - intros. inversion H; inversion H0; subst; clear H H0.
+    reflexivity.
+  - intros. inversion H1; inversion H0; subst; clear H1 H0.
+    assert (IHHR:= IHHR i2 j h2 h' eq_refl eq_refl k z).
+    transitivity (Seq (Seq i2 k) z, h2).
+    * apply mrun_step with (i2:=Seq (Seq i2 k) z) (h2:=h2).
+    + apply run_seq. apply run_seq. auto.
+    + reflexivity.
+      * assumption.
+Qed.
+
 Fixpoint Merge  (i: option inst) (j: inst) :=
 match i with
 | None => j
@@ -796,19 +841,36 @@ Inductive IEquivOne : inst -> inst -> Prop :=
 
 Inductive IEquivOne : inst -> inst -> Prop :=
 | equiv_unit_r:
-  forall i,
-  IEquivOne (Seq Skip i) i
+    forall i j,
+      IEquivOne i j ->
+      IEquivOne (Seq Skip i) j
 | equiv_unit_l:
-  forall i, 
-  IEquivOne (Seq i Skip) i
+    forall i j,
+      IEquivOne i j ->
+      IEquivOne (Seq i Skip) j
 | equiv_assoc:
-  forall x y z,
-    IEquivOne (Seq x (Seq y z)) (Seq (Seq x y) z).
-(*
+    forall x y z x' y' z',
+      IEquivOne x x' ->
+      IEquivOne y y' ->
+      IEquivOne z z' ->
+      IEquivOne (Seq x (Seq y z)) (Seq (Seq x' y') z')
 | equiv_eq:
     forall x,
-      IEquivOne x x.
-*)
+      IEquivOne x x
+| equiv_seq:
+    forall x y x' y',
+      IEquivOne x x' ->
+      IEquivOne y y' ->
+      IEquivOne (Seq x y) (Seq x' y')
+| equiv_for:
+    forall x y r l,
+      IEquivOne x y ->
+      IEquivOne (For l r x) (For l r y)
+| equiv_loop:
+    forall x y l r,
+      IEquivOne x y ->
+      IEquivOne (Loop l r x) (Loop l r y).
+                
 
 (* Definition IEquivStar := clos_refl_sym_trans _ IEquivOne. *)
 
@@ -903,7 +965,7 @@ Proof.
   inversion H.
 Qed.
 
-
+(*
        
 Lemma Sync_in_eq_one_l:
   forall x y,
@@ -1009,7 +1071,7 @@ Proof.
     * apply Sync_in_eq_one_l in H; assumption.
 Qed.
 
-
+*)
 
 Lemma run_seq_eq:
   forall y h x' h',
@@ -1023,41 +1085,125 @@ Proof.
 Qed.
 
 
-Theorem equiv_one_mrun_l:
-  forall x x' y h h',
+Lemma equiv_subst:
+  forall x y ,
     IEquivOne x y ->
-    Run (x, h) (x', h') ->
-    exists y', 
-      (Multi_Run (y, h) (y', h') /\ (IEquivOne x' y' \/ x'=y')). 
+    forall l n,
+    IEquivOne (i_subst l n x) (i_subst l n y).
 Proof.
-  intros x x' y h h' HE HR.
-  inversion HE; subst; clear HE.
-  - apply run_seq_eq in HR.
-    destruct HR as (IEQ, HEQ). subst.
-    exists x'. split.
-    + reflexivity.
-    + right. reflexivity.
-  - inversion HR; subst.
-    * exists j. apply run_imp_mrun in H0. split.
-    + assumption.
-    + left. apply equiv_unit_l.
-    * apply run_seq_eq in HR.
-      destruct HR as (IEQ, HEQ). subst.
-      exists Skip. split.
-    + reflexivity.
-    + right. reflexivity.
-  - inversion HR; subst.
-    * exists (Seq (Seq j y0) z). split.
-      + apply mrun_seq.
-        apply run_seq.
-        assumption.
-      + left. apply equiv_assoc.
-    * exists (Seq y0 z). split.
-      + apply mrun_seq.
-        apply run_seq_skip.
-      + right. reflexivity.
+  intros x y HE.
+  induction HE; intros; simpl.
+  - apply equiv_unit_r. auto.
+  - apply equiv_unit_l. auto.
+  - apply equiv_assoc; auto.
+  - apply equiv_eq.
+  - apply equiv_seq; auto.
+  - apply equiv_for.
+    destruct (Set_VAR.MF.eq_dec _ _).
+    * subst. assumption.
+    * auto.
+  - apply equiv_loop.
+    destruct (Set_VAR.MF.eq_dec _ _).
+    * subst. assumption.
+    * auto.
 Qed.
+  
 
+Theorem equiv_one_mrun_l:
+  forall x y,
+    IEquivOne x y ->
+    forall x' h h',
+      Run (x, h) (x', h') ->
+      exists y', 
+        (Multi_Run (y, h) (y', h') /\ (IEquivOne x' y' \/ x'=y')). 
+Proof.
+  intros x y HE.
+  induction HE.
+  - intros x' h h' HR.
+    inversion HR; subst; clear HR.
+    * inversion H0.
+    * exists j. split.
+    + reflexivity.
+    + left. assumption.
+  - intros x' h h' HR.
+    inversion HR; subst; clear HR.
+    * assert (IHHE := IHHE j0 h h').
+      apply IHHE in H0.
+      destruct H0 as (yhat, (H0r,H0e)).
+      exists yhat.
+      split.
+    + assumption.
+    + destruct H0e.
+      ++ left. apply equiv_unit_l.  assumption.
+      ++ subst. left. apply equiv_unit_l. apply equiv_eq.
+      * inversion HE; subst.
+        exists Skip. split.
+        ** reflexivity.
+        ** auto.
+  - intros x0' h h' HR.
+    inversion HR; subst; clear HR.
+    * apply IHHE1 in H0.
+      destruct H0 as (yhat, (H0R, H0E)).
+      exists (Seq (Seq yhat y') z'). split.
+      ** apply mrun_mrun_seq_seq with (x:=(x', h)) (y:=(yhat, h')).
+      ++ assumption.
+      ++ reflexivity.
+      ++ reflexivity.
+         ** left. apply equiv_assoc.
+            +++ destruct H0E.
+                *** assumption.
+                *** subst. apply equiv_eq.
+            +++ assumption.
+            +++ assumption.
+    * inversion HE1; subst; clear HE1.
+    + exists (Seq y' z'). split.
+      ++ apply run_imp_mrun. apply run_seq. apply run_seq_skip.
+      ++ left. auto using equiv_seq.
+  -  intros x0' h h' HR.
+     exists x0'.
+     split.
+     + apply run_imp_mrun. assumption.
+     + left. apply equiv_eq.
+  - intros x0' h h' HR.
+    inversion HR; subst; clear HR.
+    + apply IHHE1 in H0.
+      destruct H0 as (yhat, (H0R,H0E)).
+      exists (Seq yhat y'). split.
+      { eapply mrun_mrun_seq. eauto.
+        * reflexivity.
+        * reflexivity.
+      }
+      destruct H0E as [WEQ | SEQ].
+      * left. apply equiv_seq; assumption.
+      * subst. left. apply equiv_seq.
+        ** apply equiv_eq.
+        ** assumption.
+    + inversion HE1; subst; clear HE1.
+      exists y'. split. {
+        apply run_imp_mrun. apply run_seq_skip.
+      }
+      left. assumption.
+  - intros x0' h h' HR.
+    inversion HR; subst; clear HR.
+    exists (Loop l l0 y).
+    split. {
+      apply run_imp_mrun. apply run_for. assumption.
+    }
+    left. apply equiv_loop. assumption.
+  - intros x0' h h' HR.
+    inversion HR; subst; clear HR.
+    * exists Skip. split. {
+        apply run_imp_mrun. apply run_for_loop_nil.
+      }
+      right. reflexivity.
+    * exists (Seq (i_subst l (NNum n) y) (Loop l l0 y)).
+      split. {
+        apply run_imp_mrun. apply run_for_loop_cons.
+      }
+      left. apply equiv_seq.
+    + apply equiv_subst. assumption.
+    + apply equiv_loop. assumption.
+Qed.
 
 Theorem equiv_one_mrun_r:
   forall x x' y h h',
@@ -1186,7 +1332,7 @@ Qed.
 *)
 
 
-Goal
+Lemma mrun_eq_sim_r:
   forall a b, 
   Multi_Run a b ->
   forall x h x' h',
@@ -1195,37 +1341,69 @@ Goal
     forall y,
       IEquivOne y x ->
       exists y', 
-        Multi_Run (y, h) (y', h')  /\ (IEquivOne y' x' \/ y'=x').
+        Multi_Run (y, h) (y', h')  /\ (iequivstar y' x').
 Proof.
   intros a b HR.
   induction HR.
   - intros. inversion H; inversion H0; subst; clear H H0.
     exists y. split.
     * apply mrun_refl.
-    * auto.
+    *  apply equiv_inc_star. auto.
   - intros. inversion H1; inversion H0; subst; clear H0 H1.
     assert (IHHR := IHHR i2 h2 x' h' eq_refl eq_refl).
     apply equiv_one_mrun_r with (y:=y) in H.
     + destruct H as (y2, (HMR, [HMO | HME])).
       * apply IHHR in HMO.
-        destruct HMO as (yhat, (HMOa, [HMOb | HMOc])).
+        destruct HMO as (yhat, (HMOa, HMOb)).
         ** exists yhat. split. {
              transitivity (y2,h2); auto.
            }
            auto.
-        ** subst. exists x'. split. {
+      *  subst.  exists x'. split. {
              etransitivity; eauto.
+           }
+         reflexivity.
+    + assumption.    
+Qed.
+
+Lemma mrun_eq_sim_l:
+  forall a b, 
+  Multi_Run a b ->
+  forall x h x' h',
+    a= (x, h) ->
+    b= (x', h') ->
+    forall y,
+      IEquivOne x y ->
+      exists y', 
+        Multi_Run (y, h) (y', h')  /\ (iequivstar x' y').
+Proof.
+  intros a b HR.
+  induction HR; intros.
+  -  inversion H; inversion H0; subst; clear H H0.
+     exists y. split.
+     + reflexivity.
+     + apply equiv_inc_star. auto.
+  - assert (IHHR := IHHR i2 h2 i3 h3 eq_refl eq_refl).
+    apply equiv_one_mrun_l with (y:=y) in H.
+    inversion H1; inversion H0; subst; clear H0 H1.
+    + destruct H as (y2, (HMR, [HMO | HME])).
+      * apply IHHR in HMO.
+        destruct HMO as (yhat, (HMOa, HMOb)).
+        ** exists yhat. split. {
+             transitivity (y2,h2); auto.
            }
            auto.
-      * subst.  exists x'. split. {
+      * subst. exists x'.  split. {
              etransitivity; eauto.
            }
-        auto.
-    + assumption.
+        reflexivity.
+    + inversion H1; inversion H0; subst; clear H1 H0.
+      assumption.
 Qed.
-       
+             
 
-Theorem equiv_star_mrun_l:
+  
+Theorem equiv_star_mrun:
   forall x y,
     iequivstar x y ->
     forall x' h h',
@@ -1238,208 +1416,118 @@ Proof.
   - exists x'. split.
     * auto using run_imp_mrun.
     * reflexivity.
-  - apply IHHE in H0.
-    destruct H0 as (y0, (Hyr, Hye)).
-    exists y0.
-    split.
-    *
-    * assumption.
- 
-       
-      
-      
-Theorem equiv_star_mrun_r:
-  forall x y,
-    iequivstar y x ->
-    forall x' h h',
-      Run (x, h) (x', h') ->
-      exists y', 
-        Multi_Run (y, h) (y', h') /\  iequivstar y' x'.
-Proof.
-  intros x y HE.
-  induction HE; intros.
-  - exists x'. split.
-    * auto using run_imp_mrun.
-    * reflexivity.
   - destruct H.
-    * apply equiv_one_mrun_star_r with (x:=x').
-    + 
-    + 
-
-    destruct H.
-    * apply equiv_one_mrun_star_l with (x':=x') (h:=h) (h':=h') in H.
-    + destruct H as (y1, Hy).
-     
-
-    
-  - 
-  generalize dependent x'.
-  induction HE; intros.
-  - exists x'. split.
-    * auto using run_imp_mrun.
-    * reflexivity.
-  - destruct H.
-    * inversion H; subst.
-    + assert (IHHE := IHHE z).
-      assert (HZz: Run (Seq Skip z, h) (z, h)). {
-        apply run_seq_skip.
+    * apply IHHE in H0.
+      destruct H0 as (yhat, (H0R, H0E)).
+      apply mrun_eq_sim_l with (x:=y) (h:=h) (x':=yhat) (h':=h') (y:=z) in H0R.
+      destruct H0R as (yp, (H0Rl, H0Rr)).
+    + exists yp. split. {
+        auto.
       }
-      assert (Hhh: h=h'). { 
-        
-                                       
-
-
-    apply IHHE in H0.
-    destruct H0 as (y0, H0).
-    destruct H0 as (HIR, HIE).
-    inversion HIR; subst.
-    + 
-      
-
-
-
-    eapply equiv_one_mrun_star_l.
-    * 
-    apply IHHE in H0.
-    destruct H0 as (y0, (H0R, H0E)).
-    inversion H0R; subst.
-    *  
-    apply run_imp_mrun in H0R.
-    exists y0.
-    split.
-    + apply mrun_step with (i2:=.
-    eapply equiv_one_mrun_star_l.
-    + apply equiv_unit_l.
-    + 
-    + 
-    * eapply equiv_one_mrun_star_l with (x:=z).
-    + apply equiv_eq.
-    + 
-    + (* IEquivOne ?x z    --> ?x =y *) admit.
-    + (*  Run (?x, h) (x', h') --> ?x=x *)
-      
-    
-
-    
-    * apply equiv_one_mrun_star_l with (x:=x).
-    + admit.
+      transitivity (yhat).
+      ++ assumption.
+      ++ assumption.
+    + reflexivity.
+    + reflexivity.
     + assumption.
-      * apply equiv_one_mrun_star_l with (x:=x).
-    + admit.
-    + assumption.
-
-        
-
-
-
-Lemma equiv_refliv:
-forall x,
-equivstar x x.
-Proof.
-intros.
-induction x; auto using equiv_refl.
+      * apply IHHE in H0.
+        destruct H0 as (yhat, (H0R, H0E)).
+        apply mrun_eq_sim_r with (x:=y) (h:=h) (x':=yhat) (h':=h') (y:=z) in H0R.
+        destruct H0R as (yp, (H0Rl, H0Rr)).
+        + exists yp. split. {
+        auto.
+      }
+      transitivity (yhat).
+      ++ assumption.
+      ++ symmetry. assumption.
+        + reflexivity.
+        + reflexivity.
+        + assumption.
 Qed.
 
 
-
-
-
-
-
-Lemma equiv_simm:
-forall x y,
-IEquivOne x y ->
-IEquivOne y x.
+Theorem wequiv_star_mrun:
+  forall a b,
+    Multi_Run a b ->
+    forall x h x' h',
+      a = (x, h) -> 
+      b = (x', h') ->
+      forall y,
+        iequivstar x y ->
+        exists y', 
+          Multi_Run (y, h) (y', h') /\  iequivstar x' y'.
 Proof.
-intros.
-Admitted.
-
-
-
-Lemma equiv_transi:
-forall x y z,
-IEquivOne x y ->
-IEquivOne y z ->
-IEquivOne x z.
-Proof.
-intros.
-generalize dependent z. 
-induction H; intros.
-- apply IHIEquivOne2 in H1. apply IHIEquivOne1. assumption. 
-- assumption.
-- apply IHIEquivOne in H0. apply equiv_unit_lii. assumption.
-- apply IHIEquivOne in H0. apply equiv_unit_lsi. assumption.
-- apply IHIEquivOne. apply equiv_trans with (j:=Seq Skip j).
-  + apply equiv_unit_ris. apply equiv_refl.
-  + assumption.
-- apply IHIEquivOne. apply equiv_trans with (j:=Seq j Skip).
-  + apply equiv_unit_rii. apply equiv_refl.
-  + assumption.
-- apply equiv_trans with (j:=Seq x1 (Seq y1 z1)).
-  + inversion H2; subst.
-    * 
-  + apply equiv_assoc_l; auto using equiv_refl.
-  + 
-  
-
-induction H; intros.
-- assumption.
-- apply IHIEquivOne in H0. auto using equiv_unit_lii.
-- apply IHIEquivOne in H0. auto using equiv_unit_lii, equiv_unit_lsi, equiv_unit_ris, equiv_unit_rii.
-- inversion H0; subst; clear H0.
-  + apply IHIEquivOne. admit.
-  + apply IHIEquivOne. assumption.
-  + apply IHIEquivOne. assumption.
-  + apply IHIEquivOne. admit.
-  + apply IHIEquivOne. admit.
-  + 
-  
-  * apply equiv_unit_ris. apply equiv_refliv.
-  * assumption.
-  * assumption.
-  * assert (EQ: forall x,  IEquivOne (Seq Skip j) x -> IEquivOne j x). {
-    intros x y HSE. 
-    inversion HSE; subst.
-    + apply equiv_unit_ris. apply equiv_refliv.
+  intros a b HR.
+  induction HR.
+  - intros. inversion H; inversion H0; subst; clear H0 H.
+    exists y. split.
+    * reflexivity.
+    * assumption.
+  - intros. inversion H0; inversion H1; subst; clear H0 H1.
+    assert (IHHR := IHHR i2 h2 x' h' eq_refl eq_refl).
+    apply equiv_star_mrun with (y:=y) in H.
+    * destruct H as (yhat, (HMR, HME)).
+      assert (IHHR := IHHR yhat HME).
+      destruct IHHR as (yp, (IHa, IHb)).
+      exists yp.
+      split.
+    + transitivity (yhat, h2). assumption. assumption.
     + assumption.
-    + assumption.
-    + 
-   }
-    apply equiv_unit_ris in H1.
-    rewrite -> EQ.
-    apply equiv_unit_ris.  
-    inversion H1; subst.
-    + apply equiv_refliv.
-    + apply  equiv_unit_lsi in H2.
-    + apply equiv_unit_ris.  apply equiv_refliv.
-    + assumption.
-    + assumption.
-    + apply equiv_unit_ris.
+      * assumption.
+Qed.
+
      
-      assert (EQ: IEquivOne (Seq Skip j) j). { 
-    assert (IHIEquivOne:= IHIEquivOne j0). 
-    apply IHIEquivOne.
+Lemma sync_src_norm:
+  forall i j,
+    Normalised i j ->
+    forall i1 i2,
+      j = (i1,i2) ->
+      forall x h,
+        Run (i,h) x ->
+        Multi_Run (Merge i1 i2, h) x.
+Proof.
+  intros i j HN.
+  induction HN.
+  - intros. inversion H0; subst. simpl. apply run_imp_mrun. assumption.
+  - intros. inversion H; subst. simpl. transitivity (Seq Skip Skip, @nil access_val).
+    + apply run_imp_mrun. apply run_seq. apply run_sync.
+    + inversion H0; subst. apply run_imp_mrun. apply run_seq_skip.
+  - intros. inversion H; subst; clear H.
+    assert (IHHN1 := IHHN1 (Some i1) i2 eq_refl).
+    inversion H0; subst; clear H0. simpl.
+    + assert  (IHHN1 := IHHN1 (j0,h') h).
+      apply IHHN1 in H4.
+      simpl in H4.
+      apply mrun_mrun_seq with (i:=(Seq i1 i2)) (j:=j0) (h:=h) (h':=h') (k:=(Seq j1 i3)) in H4.
+      * assert (HEQ: iequivstar  (Seq (Seq i1 i2) (Seq j1 i3)) (Seq (Seq i1 (Seq i2 j1)) i3)). {
+          constructor 2.
+          transitivity (Seq (Seq (Seq i1 i2) j1) i3).
+          ** admit.
+          ** 
 
- auto using equiv_unit_lii, equiv_unit_lsi, equiv_unit_ris, equiv_unit_rii, equiv_refliv.
-  
- * apply equiv_unit_ris. apply equiv_refliv.
-  * 
+      
+      transitivity (Seq (Seq j0 j1) i3 , h').
+      * eapply mrun_mrun_seq; eauto.
+        ** 
 
-auto using equiv_unit_lii, equiv_unit_lsi, equiv_unit_ris, equiv_unit_rii.
+        
 
-
-destruct x; auto using equiv_refl.
-- destruct y.
-  * 
-  inversion H0; subst; auto using equiv_refl.
-- 
+    
+forall i hi x,
+Run (i, hi) x ->
+In Sync i ->
+exists i1 i2,
+Normalised i (i1, i2) /\
+Multi_Run (Merge i1 i2, hi) x.
 
 Lemma sync_src_norm_seq:
-forall i j i1 i2 j0 j3 j4 h' hi,
-Normalised i (Some i1, i2) -> 
-Normalised j (Some j0, j3) -> 
-Run (Seq i j, hi) (Seq j4 j, h') -> 
-Multi_Run (Seq (Seq i1 (Seq i2 j0)) j3, hi) (Seq j4 j, h').
+forall i i1 i2,
+  Normalised i (Some i1, i2) ->
+  forall j j0 j3,
+    Normalised j (Some j0, j3) ->
+    forall hi j4 h',
+    Run (Seq i j, hi) (Seq j4 j, h') -> 
+    Multi_Run (Seq (Seq i1 (Seq i2 j0)) j3, hi) (Seq j4 j, h').
 Proof.
 intros.
 assert (Sij: In Sync i /\ In Sync j).  {
@@ -1459,7 +1547,9 @@ inversion H1; subst. inversion H3; subst.
       -- apply run_seq. apply run_seq_skip.
       -- apply mrun_step.
          ++ (* CONTINUE HERE *)
-    
+
+
+           
 
  
 Lemma sync_src_norm:
