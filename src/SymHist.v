@@ -27,14 +27,14 @@ Require Import SymExec.
 Section Defs.
   Context {A:Access}.
 
-  Definition s_subst (x:var) (v:nexp) (p:access_exp * nexp) :=
+  Definition s_subst (x:var) (v:nexp) (p:cond_access * nexp) :=
     let (e, n) := p in 
-    (access_subst x v e, n_subst x v n)
+    (cond_access_subst x v e, n_subst x v n)
   .
 
-  Definition SIn x (p:access_exp * nexp) :=
+  Definition SIn x (p:cond_access * nexp) :=
     let (e, n) := p in
-    NIn x n \/ access_in x e
+    CIn x e \/ NIn x n
   .
 
   Lemma s_subst_subst_eq:
@@ -44,7 +44,7 @@ Section Defs.
   Proof.
     intros x n1 n2 (e, n).
     simpl.
-    rewrite access_subst_subst_eq.
+    rewrite cond_access_subst_subst_eq.
     rewrite n_subst_subst_eq.
     reflexivity.
   Qed.
@@ -57,7 +57,7 @@ Section Defs.
   Proof.
     intros x y n1 n2 (e, n) Hn.
     simpl.
-    rewrite access_subst_subst_neq; auto.
+    rewrite cond_access_subst_subst_neq; auto.
     rewrite n_subst_subst_neq; auto.
   Qed.
 
@@ -70,7 +70,7 @@ Section Defs.
   Proof.
     intros x y z n (e, n2) Hn1 Hn2.
     simpl.
-    rewrite access_subst_subst_neq_2; auto.
+    rewrite cond_access_subst_subst_neq_2; auto.
     rewrite n_subst_subst_neq_2; auto.
   Qed.
 
@@ -81,7 +81,7 @@ Section Defs.
   Proof.
     intros x (e, n) v Hn.
     simpl in *.
-    rewrite access_subst_not_in; auto.
+    rewrite cond_access_subst_not_in; auto.
     rewrite n_subst_not_in; auto.
   Qed.
 
@@ -92,7 +92,7 @@ Section Defs.
     s_subst y v e.
   Proof.
     intros (e, n); simpl; intros.
-    rewrite access_subst_subst_trans; auto.
+    rewrite cond_access_subst_subst_trans; auto.
     rewrite n_subst_subst_trans; auto.
   Qed.
 
@@ -104,16 +104,16 @@ Section Defs.
   Proof.
     intros (e, n); simpl; intros.
     destruct H as [H|H].
+    - eauto using cond_access_in_subst_neq.
     - eauto using in_n_subst_neq.
-    - eauto using access_in_subst_neq.
   Qed.
 
   Instance SymAcc : AccessInst := {
-    access_inst_type := (access_exp * nexp) % type ;
+    access_inst_type := (cond_access * nexp) % type ;
     access_inst_subst := s_subst;
-    access_inst_step := access_step;
+    access_inst_step := CStep;
     access_inst_in := SIn;
-    access_inst_step_fun := access_step_fun;
+    access_inst_step_fun := c_step_fun;
     access_inst_subst_subst_eq := s_subst_subst_eq;
     access_inst_subst_subst_neq := s_subst_subst_neq;
     access_inst_subst_subst_neq_2 := s_subst_subst_neq_2;

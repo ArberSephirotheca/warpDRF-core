@@ -181,13 +181,13 @@ Section Defs.
   (* --------------------------- ACCESS ----------------------------- *)
 
 
-  Definition Access2d x y (e:access_exp * nexp) (p:nat*nat) m :=
+  Definition Access2d x y (e:cond_access * nexp) (p:nat*nat) m :=
     let (nx, ny) := p in
     let (a, e) := e in
       exists v,
-      access_step
-        (access_subst y (NNum ny)
-          (access_subst x (NNum nx) a),
+      CStep
+        (cond_access_subst y (NNum ny)
+          (cond_access_subst x (NNum nx) a),
            n_subst y (NNum ny) (n_subst x (NNum nx) e)) v /\
       m = One v.
 
@@ -234,7 +234,7 @@ Section Defs.
     FRun (I:=SymHist.SymAcc) (MemAcc e i) m ->
     exists v m',
     m == One v * m' /\
-    access_step e v /\
+    CStep e v /\
     FRun i m'.
   Proof.
     intros.
@@ -286,9 +286,9 @@ Section Defs.
 
   Lemma translate_access_skip:
     forall e vs1 vs2,
-    Map (Access2d T1 T2 (access_subst TID (NVar T1) e, NVar T1))
+    Map (Access2d T1 T2 (cond_access_subst TID (NVar T1) e, NVar T1))
           (range_list_2d 1 TID_COUNT) vs1 ->
-    Map (Access2d T1 T2 (access_subst TID (NVar T2) e, NVar T2))
+    Map (Access2d T1 T2 (cond_access_subst TID (NVar T2) e, NVar T2))
           (range_list_2d 1 TID_COUNT) vs2 ->
     FRun (translate (MemAcc (I:=LoopFree.LoopAcc) e Skip)) (Σ (map2 Prod vs1 vs2)).
   Proof.
@@ -367,8 +367,8 @@ Section Defs.
     exists nx ny,
     1 <= nx < TID_COUNT /\ 0 <= ny < nx
     /\ exists vx vy,
-    access_step (access_subst TID (NNum nx) e, NNum nx) vx /\
-    access_step (access_subst TID (NNum ny) e, NNum ny) vy /\
+    CStep (cond_access_subst TID (NNum nx) e, NNum nx) vx /\
+    CStep (cond_access_subst TID (NNum ny) e, NNum ny) vy /\
     (List.In x vx \/ List.In x vy).
   Proof.
     intros.
@@ -409,12 +409,12 @@ Section Defs.
     remove_eq T1 T2.
     remove_eq T2 T2.
     split. {
-      rewrite access_subst_subst_trans in Hs2. {
-        rewrite access_subst_not_in in Hs2; auto.
+      rewrite cond_access_subst_subst_trans in Hs2. {
+        rewrite cond_access_subst_not_in in Hs2; auto.
         intros N.
         contradict t2_nin.
         apply in_acc_1.
-        apply access_in_subst_neq in N; auto using t2_neq_tid.
+        apply cond_access_in_subst_neq in N; auto using t2_neq_tid.
         intros M.
         inversion M.
       }
@@ -423,15 +423,15 @@ Section Defs.
       auto using in_acc_1.
     }
     split. {
-      rewrite (access_subst_not_in T1) in Hy. {
-        rewrite access_subst_subst_trans in Hy; auto.
+      rewrite (cond_access_subst_not_in T1) in Hy. {
+        rewrite cond_access_subst_subst_trans in Hy; auto.
         intros N.
         contradict t2_nin.
         auto using in_acc_1.
       }
       intros N.
       contradict t1_nin.
-      apply access_in_subst_neq in N; auto using t1_neq_tid, in_acc_1.
+      apply cond_access_in_subst_neq in N; auto using t1_neq_tid, in_acc_1.
       intros M.
       inversion M.
       apply t1_neq_t2 in H0.

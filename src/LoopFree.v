@@ -28,7 +28,7 @@ Section Defs.
   Definition LStep e v :=
     exists vs, Hist.GenAccess TID e TID_COUNT vs /\ List.concat vs = v.
 
-  Lemma l_step_fun: forall (e : access_exp) (l1 l2 : history),
+  Lemma l_step_fun: forall (e : cond_access) (l1 l2 : history),
     LStep e l1 ->
     LStep e l2 ->
     l1 = l2.
@@ -43,17 +43,17 @@ Section Defs.
 
 
   Instance LoopAcc : AccessInst := {
-    access_inst_type := access_exp ;
-    access_inst_subst := access_subst;
+    access_inst_type := cond_access ;
+    access_inst_subst := cond_access_subst;
     access_inst_step := LStep;
-    access_inst_in := access_in;
+    access_inst_in := CIn;
     access_inst_step_fun := l_step_fun;
-    access_inst_subst_subst_eq := access_subst_subst_eq;
-    access_inst_subst_subst_neq := access_subst_subst_neq;
-    access_inst_subst_subst_neq_2 := access_subst_subst_neq_2;
-    access_inst_subst_not_in := access_subst_not_in;
-    access_inst_subst_subst_trans := access_subst_subst_trans;
-    access_inst_in_subst_neq := access_in_subst_neq;
+    access_inst_subst_subst_eq := cond_access_subst_subst_eq;
+    access_inst_subst_subst_neq := cond_access_subst_subst_neq;
+    access_inst_subst_subst_neq_2 := cond_access_subst_subst_neq_2;
+    access_inst_subst_not_in := cond_access_subst_not_in;
+    access_inst_subst_subst_trans := cond_access_subst_subst_trans;
+    access_inst_in_subst_neq := cond_access_in_subst_neq;
   }.
  
   Coercion NNum: nat >-> nexp.  
@@ -90,7 +90,7 @@ Section Defs.
   Fixpoint translate (i:Conc.inst) : SymExec.inst :=
     match i with
     | Conc.Skip => SymExec.Skip
-    | Conc.Acc e i => SymExec.MemAcc e (translate i)
+    | Conc.MemAcc e i => SymExec.MemAcc e (translate i)
     | Conc.For x r i j => SymExec.Decl x r (translate i) (translate j)
     | Conc.Loop x l i j => SymExec.Branch x l (translate i) (translate j)
     end.
