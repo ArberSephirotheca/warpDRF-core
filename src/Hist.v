@@ -1,104 +1,13 @@
 Require Import Coq.Lists.List.
-Require Import Coq.Strings.String.
-Require Import Coq.Relations.Relation_Definitions.
-Require Import Coq.Relations.Relation_Operators.
-Require Import Coq.Relations.Operators_Properties.
-Require Coq.Sets.Constructive_sets.
-Require Coq.omega.Omega.
-Require Import Recdef.
-Require Omega.
-Require Import Var.
-Require Import Tid.
-Require Import Loc.
+
+Require Import AccExp.
 Require Import Exp.
-Require Import Util.
 Require Import InUtil.
 Require Import PairInUtil.
+Require Import Util.
+
 Import ListNotations.
 
-Class Access := {
-  access_exp: Type;
-  access_val: Type;
-  access_in: var -> access_exp -> Prop;
-  access_subst: var -> nexp -> access_exp -> access_exp;
-  access_step: (access_exp * nexp) -> list access_val -> Prop;
-  access_eval1: (access_exp * nexp) -> option (list access_val);
-  access_safe: access_val -> access_val -> Prop;
-  access_tid: access_val -> nat;
-  access_safe_eq_tid:
-    forall v1 v2,
-    access_tid v1 = access_tid v2 ->
-    access_safe v1 v2;
-  access_step_fun:
-    forall e l1 l2,
-    access_step e l1 ->
-    access_step e l2 ->
-    l1 = l2;
-  access_eval1_to_step:
-    forall e l,
-    access_eval1 e = Some l ->
-    access_step e l;
-  access_step_to_eval1:
-    forall e l,
-    access_step e l ->
-    access_eval1 e = Some l;
-
-  access_step_inv_tid:
-    forall e en n l,
-    access_step (e, en) l ->
-    NStep en n -> 
-    Forall (fun a=> access_tid a = n) l;
-
-  access_step_next:
-    forall x n a v,
-    access_step (access_subst x (NNum n) a, NNum n) v ->
-    forall m,
-    exists v',
-    access_step (access_subst x (NNum m) a, NNum m) v';
-
-  access_safe_sym:
-    forall x y,
-    access_safe x y ->
-    access_safe y x;
-
-  access_subst_subst_eq:
-    forall x n1 n2 a,
-    access_subst x (NNum n1) (access_subst x (NNum n2) a) =
-    access_subst x (NNum n2) a;
-
-  access_subst_subst_neq:
-    forall x y n1 n2 a,
-    x <> y ->
-    access_subst x (NNum n1) (access_subst y (NNum n2) a) =
-    access_subst y (NNum n2) (access_subst x (NNum n1) a);
-
-  access_subst_subst_neq_2:
-    forall x y z n i,
-    x <> z ->
-    y <> z ->
-    access_subst x (NVar y) (access_subst z (NNum n) i)
-    =
-    access_subst z (NNum n) (access_subst x (NVar y) i);
-
-  access_subst_subst_trans:
-    forall e x v y,
-    ~ access_in x e ->
-    access_subst x v (access_subst y (NVar x) e) = access_subst y v e;
-
-  access_subst_not_in:
-    forall x e v,
-    ~ access_in x e ->
-    access_subst x v e = e;
-
-  access_in_subst_neq:
-    forall e x y v,
-    access_in x (access_subst y v e) ->
-    ~ NIn x v ->
-    access_in x e;
-
-}.
-
-Module Hist.
 Section Defs.
   Context {A:Access}.
 
@@ -132,7 +41,7 @@ Section Defs.
   | gen_access_cons:
     forall n v l,
     GenAccess x a n l ->
-    access_step (access_subst x (NNum n) a, NNum  n) v ->
+    CStep (cond_access_subst x (NNum n) a, NNum  n) v ->
     GenAccess x a (S n) (v::l).
 
   Import Omega.
@@ -142,7 +51,7 @@ Section Defs.
     GenAccess x e n v ->
     forall m,
     m < n ->
-    exists l, access_step (access_subst x (NNum m) e, NNum m) l /\ List.In l v.
+    exists l, CStep (cond_access_subst x (NNum m) e, NNum m) l /\ List.In l v.
   Proof.
     intros x e n v Hg.
     induction Hg; intros. {
@@ -162,7 +71,7 @@ Section Defs.
     GenAccess x e n v ->
     forall l,
     List.In l v ->
-    exists m, access_step (access_subst x (NNum m) e, NNum m) l /\ m < n.
+    exists m, CStep (cond_access_subst x (NNum m) e, NNum m) l /\ m < n.
   Proof.
     intros x e n v Hg.
     induction Hg; intros. {
@@ -181,7 +90,7 @@ Section Defs.
     GenAccess x e n v ->
     forall m,
     m < n ->
-    exists l, access_step (access_subst x (NNum m) e, NNum m) l.
+    exists l, CStep (cond_access_subst x (NNum m) e, NNum m) l.
   Proof.
     induction n; intros. {
       omega.
@@ -195,7 +104,7 @@ Section Defs.
     GenAccess x e n2 vs ->
     forall n1 v,
     n1 < n2 ->
-    access_step (access_subst x (NNum n1) e, NNum n1) v ->
+    CStep (cond_access_subst x (NNum n1) e, NNum n1) v ->
     List.In v vs.
   Proof.
     induction vs; intros. {
@@ -204,7 +113,7 @@ Section Defs.
     }
     inversion H; subst; clear H.
     inversion H0; subst; clear H0. {
-      assert (a = v) by eauto using access_step_fun.
+      assert (a = v) by eauto using c_step_fun.
       subst.
       auto using in_eq.
     }
@@ -660,18 +569,18 @@ Section Defs.
 
   Lemma proj_id:
     forall a n l,
-    access_step (a, NNum n) l ->
+    CStep (a, NNum n) l ->
     proj n l = l.
   Proof.
     intros.
-    apply access_step_inv_tid with (n0:=n) in H; auto using n_step_num.
+    apply cond_access_step_inv_tid with (n0:=n) in H; auto using n_step_num.
     apply forall_tid_proj_id.
     assumption.
   Qed.
 
   Lemma proj2_id_l:
     forall x n m a l,
-    access_step (access_subst x (NNum n) a, NNum n) l ->
+    CStep (cond_access_subst x (NNum n) a, NNum n) l ->
     proj2 n m l = l.
   Proof.
     unfold proj2.
@@ -679,7 +588,7 @@ Section Defs.
     rewrite List.filter_forallb.
     rewrite forallb_forall.
     intros v; intros.
-    apply access_step_inv_tid with (n0:=n) in H; auto using n_step_num.
+    apply cond_access_step_inv_tid with (n0:=n) in H; auto using n_step_num.
     rewrite Forall_forall in H.
     apply H in H0.
     rewrite H0.
@@ -689,7 +598,7 @@ Section Defs.
 
   Lemma proj2_id_r:
     forall x n m a l,
-    access_step (access_subst x (NNum m) a, NNum m) l ->
+    CStep (cond_access_subst x (NNum m) a, NNum m) l ->
     proj2 n m l = l.
   Proof.
     unfold proj2.
@@ -697,7 +606,7 @@ Section Defs.
     rewrite List.filter_forallb.
     rewrite forallb_forall.
     intros v; intros.
-    apply access_step_inv_tid with (n0:=m) in H; auto using n_step_num.
+    apply cond_access_step_inv_tid with (n0:=m) in H; auto using n_step_num.
     rewrite Forall_forall in H.
     apply H in H0.
     rewrite H0.
@@ -708,7 +617,7 @@ Section Defs.
 
   Lemma proj2_neq:
     forall x n m p a l,
-    access_step (access_subst x (NNum p) a, NNum p) l ->
+    CStep (cond_access_subst x (NNum p) a, NNum p) l ->
     p <> n ->
     p <> m ->
     proj2 n m l = [].
@@ -720,7 +629,7 @@ Section Defs.
     intros v Hi.
     rewrite Bool.negb_orb.
     assert (R: access_tid v = p). {
-      apply access_step_inv_tid with (n0 := p) in H; auto using n_step_num.
+      apply cond_access_step_inv_tid with (n0 := p) in H; auto using n_step_num.
       rewrite Forall_forall in *.
       apply H in Hi.
       assumption.
@@ -734,7 +643,7 @@ Section Defs.
   Qed.
 
   Fixpoint gen_access x a n :=
-    let a_step n := access_eval1 (access_subst x (NNum n) a, NNum n) in 
+    let a_step n := cond_access_eval1 (cond_access_subst x (NNum n) a, NNum n) in 
     match n with
     | 0 => Some []
     | S n =>
@@ -744,24 +653,50 @@ Section Defs.
       end
     end.
 
+
+  Lemma gen_access_inv_succ:
+    forall x a n l,
+    gen_access x a (S n) = Some l ->
+    exists v l',
+    l = v :: l' /\
+    cond_access_eval1 (cond_access_subst x (NNum n) a, NNum n) = Some v
+    /\
+    gen_access x a n = Some l'.
+  Proof.
+    intros.
+    simpl in *.
+    destruct (cond_access_eval1 _) as [v'|] eqn:Hc; try (inversion H; fail).
+    destruct (gen_access _ _ _) as [l'|] eqn:Hg; inversion H; subst; clear H.
+    eauto.
+  Qed.
+
+  Lemma gen_access_succ:
+    forall x a n v l,
+    gen_access x a n = Some l ->
+    cond_access_eval1 (cond_access_subst x (NNum n) a, NNum n) = Some v ->
+    gen_access x a (S n) = Some (v :: l).
+  Proof.
+    intros.
+    simpl.
+    rewrite H0.
+    rewrite H.
+    reflexivity.
+  Qed.
+
   Lemma gen_access_to_prop:
     forall x a n l,
     gen_access x a n = Some l ->
     GenAccess x a n l.
   Proof.
-    induction n; simpl; intros. {
+    induction n; intros. {
+      simpl.
       inversion H; subst; clear H.
       apply gen_access_nil.
     }
-    destruct (access_eval1 _) eqn:He. {
-      apply access_eval1_to_step in He.
-      destruct (gen_access x a n) eqn:Hg. {
-        inversion H; subst; clear H.
-        auto using gen_access_cons.
-      }
-      inversion H.
-    }
-    inversion H.
+    apply gen_access_inv_succ in H.
+    destruct H as (v, (l', (?, (Ha, Hg)))).
+    subst.
+    eauto using gen_access_cons, cond_access_eval1_to_step.
   Qed.
 
   Lemma prop_to_gen_access:
@@ -769,18 +704,14 @@ Section Defs.
     GenAccess x a n l ->
     gen_access x a n = Some l.
   Proof.
-    induction n; intros; simpl; inversion H; subst; clear H. {
+    induction n; intros; inversion H; subst; clear H. {
       reflexivity.
     }
-    apply access_step_to_eval1 in H2.
-    rewrite H2.
-    apply IHn in H1.
-    rewrite H1.
-    reflexivity. 
+    eauto using gen_access_succ, cond_access_step_to_eval1.
   Qed.
 
   Definition gen_access_item x a n :=
-    match access_eval1 (access_subst x (NNum n) a, NNum n) with
+    match cond_access_eval1 (cond_access_subst x (NNum n) a, NNum n) with
     | Some v => v
     | None => []
     end.
@@ -796,16 +727,16 @@ Section Defs.
     unfold gen_access_iter, gen_access_item; induction Hg. {
       reflexivity.
     }
+    apply cond_access_step_to_eval1 in H.
     simpl.
     rewrite IHHg.
-    apply access_step_to_eval1 in H.
     rewrite H.
     reflexivity.
   Qed.
 
   Lemma step_proj_neq:
     forall n p a l,
-    access_step (a, NNum p) l ->
+    CStep (a, NNum p) l ->
     p <> n ->
     proj n l = [].
   Proof.
@@ -815,7 +746,7 @@ Section Defs.
     apply forallb_forall.
     intros v Hi.
     assert (R: access_tid v = p). {
-      apply access_step_inv_tid with (n0 := p) in H; auto using n_step_num.
+      apply cond_access_step_inv_tid with (n0 := p) in H; auto using n_step_num.
       rewrite Forall_forall in *.
       apply H in Hi.
       assumption.
@@ -865,7 +796,7 @@ Section Defs.
       erewrite gen_access_proj_ge; eauto.
       unfold gen_access_item.
       assert (Hx := H3).
-      apply access_step_to_eval1 in Hx.
+      apply cond_access_step_to_eval1 in Hx.
       rewrite Hx.
       apply proj_id in H3.
       unfold id.
@@ -884,13 +815,13 @@ Section Defs.
     forall x n a v l t1,
     GenAccess x a n v ->
     t1 < n ->
-    access_step (access_subst x (NNum t1) a, NNum t1) l ->
+    CStep (cond_access_subst x (NNum t1) a, NNum t1) l ->
     proj t1 (List.concat v) = l.
   Proof.
     intros.
     erewrite gen_access_proj_lt; eauto.
     unfold gen_access_item.
-    apply access_step_to_eval1 in H1.
+    apply cond_access_step_to_eval1 in H1.
     rewrite H1.
     reflexivity.
   Qed.
@@ -964,7 +895,7 @@ Section Defs.
       }
       rewrite R.
       unfold gen_access_item.
-      apply access_step_to_eval1 in H4.
+      apply cond_access_step_to_eval1 in H4.
       rewrite H4.
       rewrite app_nil_r.
       reflexivity.
@@ -1011,7 +942,7 @@ Section Defs.
       erewrite proj2_id_r; eauto.
       assert (R: gen_access_item x a n = v0). { 
         unfold gen_access_item.
-        apply access_step_to_eval1 in H5.
+        apply cond_access_step_to_eval1 in H5.
         rewrite H5.
         reflexivity.
       }
@@ -1049,10 +980,10 @@ Section Defs.
     eapply gen_access_proj_3; eauto.
   Qed.
 
-  Lemma access_step_to_gen_access:
+  Lemma cond_access_step_to_gen_access:
     forall x m n a v,
     n < m ->
-    access_step (access_subst x (NNum n) a, NNum n) v ->
+    CStep (cond_access_subst x (NNum n) a, NNum n) v ->
     exists l, List.In v l /\ GenAccess x a m l.
   Proof.
     induction m; intros. {
@@ -1063,7 +994,7 @@ Section Defs.
         exists [v].
         auto using gen_access_cons, gen_access_nil, in_eq.
       }
-      assert (Hx := access_step_next _ _ _ _ H0 m).
+      assert (Hx := cond_access_step_next _ _ _ _ H0 m).
       destruct Hx as (v2, Hs).
       apply IHm in Hs; auto.
       destruct Hs as (l, (Hi, Hg)).
@@ -1074,7 +1005,7 @@ Section Defs.
     destruct m. {
       omega.
     }
-    assert (Hy := access_step_next _ _ _ _ H0 (S m)).
+    assert (Hy := cond_access_step_next _ _ _ _ H0 (S m)).
     destruct Hy as (v', Hi).
     apply IHm in H0; auto.
     destruct H0 as (l, (Hj, Hg)).
@@ -1087,7 +1018,7 @@ Section Defs.
     MIn v vs ->
     exists n l,
     n < m /\
-    access_step (access_subst x (NNum n) a, NNum n) l /\
+    CStep (cond_access_subst x (NNum n) a, NNum n) l /\
     List.In l vs /\
     List.In v l.
   Proof.
@@ -1302,7 +1233,7 @@ Section Defs.
     forall hs x m e n vs v,
     n < m ->
     GenAccess x e m vs ->
-    access_step (access_subst x (NNum n) e, NNum n) v ->
+    CStep (cond_access_subst x (NNum n) e, NNum n) v ->
     m_proj n (prepend (List.concat vs) hs) = prepend v (m_proj n hs).
   Proof.
     induction hs. {
@@ -1376,397 +1307,3 @@ Section Defs.
     contradiction.
   Qed.
 End Defs.
-End Hist.
-
-
-Module OneDim.
-
-  (** One dimension *)
-  Record access := {
-    tid : nat;
-    index: nat;
-  }.
-
-  Definition A := access.
-
-  (** [ n ] *)
-
-  Definition E := (nexp * bexp) % type.
-
-  Inductive EIn x : nexp * bexp -> Prop :=
-  | e_in_l:
-    forall n b,
-    NIn x n ->
-    EIn x (n, b)
-  | e_in_r:
-    forall n b,
-    BIn x b ->
-    EIn x (n, b).
-
-  Definition In := EIn. 
-
-  Definition subst x v (e:E) :=
-    let (idx, b) := e in
-    (n_subst x v idx, b_subst x v b).
-
-  Inductive Step:  (E * nexp) -> list A -> Prop :=
-  | step_true:
-    forall idx b ni nt t,
-    BStep b true ->
-    NStep idx ni ->
-    NStep t nt ->
-    Step ((idx, b), t) [{| index := ni; tid := nt |}]
-  | step_false:
-    forall idx b t ni nt,
-    BStep b false ->
-    NStep idx ni ->
-    NStep t nt ->
-    Step ((idx, b), t) [].
-
-  Definition AStep := Step.
-
-  Definition a_step (e:E*nexp) :=
-    let (e, t) := e in
-    let (idx, b) := e in
-    match b_step b, n_step idx, n_step t with
-    | Some b, Some ni, Some nt => Some (if b then [{| index := ni; tid:=nt|}] else [])
-    | _, _, _ => None
-    end.
-
-  Lemma a_step_to_prop:
-    forall e l,
-    a_step e = Some l ->
-    AStep e l.
-  Proof.
-    intros.
-    destruct e as ((idx, b), t).
-    simpl in *.
-    destruct (b_step b) eqn:Hb; try (inversion H; fail).
-    destruct b0;
-    destruct (n_step idx) eqn:Hi; try (inversion H; fail);
-    destruct (n_step t) eqn:Ht; try (inversion H; fail);
-    inversion H; subst; clear H;
-    apply b_step_to_prop in Hb;
-    apply n_step_to_prop in Hi;
-    apply n_step_to_prop in Ht. {
-      constructor; auto.
-    }
-    econstructor; eauto.
-  Qed.
-
-  Lemma prop_to_a_step:
-    forall e l,
-    AStep e l ->
-    a_step e = Some l.
-  Proof.
-    intros.
-    inversion H; subst; clear H; simpl;
-    apply prop_to_b_step in H0;
-    apply prop_to_n_step in H1;
-    apply prop_to_n_step in H2;
-    rewrite H0; rewrite H1; rewrite H2; reflexivity.
-  Qed.
-
-  Definition Safe (a1 a2:A) :=
-    tid a1 = tid a2 \/ (tid a1 <> tid a2 /\ index a1 = index a2).
-
-  Lemma a_step_fun:
-    forall e v1 v2,
-    AStep e v1 ->
-    AStep e v2 ->
-    v1 = v2.
-  Proof.
-    unfold AStep; intros.
-    inversion H; subst; clear H;
-      inversion H0; subst; clear H0.
-    - assert (ni0 = ni) by eauto using n_step_fun.
-      assert (nt0 = nt) by eauto using n_step_fun.
-      subst.
-      reflexivity.
-    - assert (N: true = false) by eauto using b_step_fun.
-      inversion N.
-    - assert (N: true = false) by eauto using b_step_fun.
-      inversion N.
-    - reflexivity.
-  Qed.
-
-  Lemma safe_eq_tid:
-    forall v1 v2,
-    tid v1 = tid v2 -> 
-    Safe v1 v2.
-  Proof.
-    intros.
-    destruct v1 as (n1, n2);
-    destruct v2 as (n3, n4).
-    simpl in *; subst.
-    unfold Safe.
-    intuition.
-  Qed.
-
-  Lemma access_step_inv_tid:
-    forall e en n (l:list A),
-    AStep (e, en) l ->
-    NStep en n -> 
-    Forall (fun a=> tid a = n) l.
-  Proof.
-    intros.
-    rewrite Forall_forall; intros.
-    inversion H; subst; clear H. {
-      destruct H1; subst. {
-        assert (nt = n) by eauto using n_step_fun.
-        simpl.
-        assumption.
-      }
-      contradiction.
-    }
-    contradiction.
-  Qed.
-
-  Lemma access_step_next:
-    forall x n a v,
-    AStep (subst x (NNum n) a, NNum n) v ->
-    forall m,
-    exists v',
-    AStep (subst x (NNum m) a, NNum m) v'.
-  Proof.
-    intros.
-    inversion H; subst; clear H. {
-      inversion H5; subst; clear H5.
-      unfold subst in *.
-      destruct a as (a1, a2).
-      inversion H0; subst; clear H0.
-      apply b_step_subst_next with (m:=m) in H2.
-      apply n_step_subst_next with (m1:=m) in H3.
-      destruct H2 as (b, Hb).
-      destruct H3 as (m1, Hn).
-      destruct b. {
-        exists [{| tid := m; index := m1|} ].
-        constructor; auto using n_step_num.
-      }
-      exists [].
-      econstructor; eauto using n_step_num.
-    }
-    destruct a as (a1, a2); simpl.
-    simpl in *.
-    inversion H0; subst; clear H0.
-    apply b_step_subst_next with (m:=m) in H2.
-    apply n_step_subst_next with (m1:=m) in H3.
-    destruct H2 as (b2, Ha).
-    destruct H3 as (n2, Hb).
-    destruct b2. {
-      exists [{| tid := m; index := n2|} ].
-      constructor; auto using n_step_num.
-    }
-    exists [].
-    econstructor; eauto using n_step_num.
-  Qed.
-
-  Lemma safe_sym:
-    forall a1 a2,
-    Safe a1 a2 ->
-    Safe a2 a1.
-  Proof.
-    unfold Safe.
-    intros.
-    destruct H as [H|[H1 H2]]. {
-      left.
-      rewrite H.
-      reflexivity.
-    }
-    repeat split; auto.
-  Qed.
-
-  Lemma subst_subst_eq:
-    forall x n1 n2 a,
-    subst x (NNum n1) (subst x (NNum n2) a) = subst x (NNum n2) a.
-  Proof.
-    intros.
-    destruct a.
-    simpl.
-    rewrite Exp.n_subst_subst_eq.
-    rewrite Exp.b_subst_subst_eq.
-    reflexivity.
-  Qed.
-
-  Lemma subst_subst_neq:
-    forall x y n1 n2 a,
-    x <> y ->
-    subst x (NNum n1) (subst y (NNum n2) a) =
-    subst y (NNum n2) (subst x (NNum n1) a).
-  Proof.
-    destruct a; simpl; intros.
-    rewrite n_subst_subst_neq; auto.
-    rewrite b_subst_subst_neq; auto.
-  Qed.
-
-  Lemma subst_subst_neq_2:
-    forall x y z n a,
-    x <> z ->
-    y <> z ->
-    subst x (NVar y) (subst z (NNum n) a)
-    =
-    subst z (NNum n) (subst x (NVar y) a).
-  Proof.
-    intros.
-    destruct a.
-    simpl.
-    rewrite n_subst_subst_neq_2; auto.
-    rewrite b_subst_subst_neq_2; auto.
-  Qed.
-
-  Lemma not_e_in_inv:
-    forall x n b,
-    ~ EIn x (n, b) ->
-    ~ NIn x n /\ ~ BIn x b.
-  Proof.
-    intros.
-    split.
-    - intros N.
-      contradict H.
-      constructor.
-      assumption.
-    - intros N.
-      contradict H.
-      eauto using e_in_r.
-  Qed.
-
-  Lemma subst_subst_trans:
-    forall e x v y,
-    ~ In x e ->
-    subst x v (subst y (NVar x) e) = subst y v e.
-  Proof.
-    unfold In.
-    intros.
-    destruct e as (n, b).
-    simpl.
-    apply not_e_in_inv in H.
-    destruct H.
-    rewrite n_subst_subst_trans; auto.
-    rewrite b_subst_subst_trans; auto.
-  Qed.
-
-  Lemma subst_not_in:
-    forall x e v,
-    ~ In x e ->
-    subst x v e = e.
-  Proof.
-    intros.
-    destruct e.
-    simpl.
-    apply not_e_in_inv in H.
-    destruct H.
-    rewrite n_subst_not_in; auto.
-    rewrite b_subst_not_in; auto.
-  Qed.
-
-  Lemma in_subst_neq:
-    forall e x y v,
-    In x (subst y v e) ->
-    ~ NIn x v ->
-    In x e.
-  Proof.
-    intros.
-    destruct e; simpl in *.
-    inversion H; subst; clear H.
-    - apply in_n_subst_neq in H2; auto.
-      apply e_in_l; auto.
-    - apply in_b_subst_neq in H2; auto.
-      apply e_in_r; auto.
-  Qed.
-
-End OneDim.
-
-Instance ONE_DIM : Access := {|
-  access_subst := OneDim.subst;
-  access_step := OneDim.Step;
-  access_safe := OneDim.Safe;
-  access_in := OneDim.In;
-  access_step_fun := OneDim.a_step_fun;
-  access_eval1 := OneDim.a_step;
-  access_eval1_to_step := OneDim.a_step_to_prop;
-  access_step_to_eval1 := OneDim.prop_to_a_step;
-  access_tid := OneDim.tid;
-  access_safe_eq_tid := OneDim.safe_eq_tid;
-  access_step_inv_tid := OneDim.access_step_inv_tid;
-  access_step_next := OneDim.access_step_next;
-  access_safe_sym := OneDim.safe_sym;
-  access_subst_subst_eq := OneDim.subst_subst_eq;
-  access_subst_subst_neq := OneDim.subst_subst_neq;
-  access_subst_subst_neq_2 := OneDim.subst_subst_neq_2;
-  access_subst_subst_trans := OneDim.subst_subst_trans;
-  access_subst_not_in := OneDim.subst_not_in;
-  access_in_subst_neq := OneDim.in_subst_neq;
-|}.
-
-
-Module Acc.
-  Record access_exp := {
-    access_exp_loc: loc;
-    access_exp_index: list nexp;
-    access_exp_mode : mode;
-  }.
-
-  Record access := {
-    access_loc: loc;
-    access_index: list nat;
-    access_mode : mode; 
-    access_tid : tid;
-  }. 
-
-  Inductive ModeConflict: mode -> mode -> Prop :=
-  | mode_conflict_l:
-    forall o,
-    ModeConflict W o
-  | mode_conflict_r:
-    forall o,
-    ModeConflict o W.
-
-  Inductive Racy: access -> access -> Prop :=
-  | racy_def:
-    forall t1 t2 i m1 m2 l,
-    t1 <> t2 ->
-    ModeConflict m1 m2 ->
-    Racy {| access_loc := l; access_index := i; access_mode := m1; access_tid := t1 |}
-         {| access_loc := l; access_index := i; access_mode := m2; access_tid := t2 |}.
-
-  Inductive SafeAcc: access -> access -> Prop :=
-  | safe_acc_neq_loc:
-    forall l1 l2 t1 t2 m1 m2 i1 i2,
-    l1 <> l2 ->
-    SafeAcc {| access_loc := l1; access_tid := t1; access_mode := m1; access_index := i1 |}
-            {| access_loc := l2; access_tid := t2; access_mode := m2; access_index := i2 |}
-  | safe_acc_eq_task:
-    forall t m1 m2 i1 i2 l1 l2,
-    SafeAcc {| access_loc := l1; access_tid := t; access_mode := m1; access_index := i1 |}
-            {| access_loc := l2; access_tid := t; access_mode := m2; access_index := i2 |}
-  | safe_acc_read:
-    forall t1 t2 i1 i2 l1 l2,
-    SafeAcc {| access_loc := l1; access_tid := t1; access_mode := R; access_index := i1 |}
-            {| access_loc := l2; access_tid := t2; access_mode := R; access_index := i2 |}
-  | safe_acc_neq_index:
-    forall t1 t2 i1 i2 m1 m2 l1 l2,
-    i1 <> i2 ->
-    SafeAcc {| access_loc := l1; access_tid := t1; access_mode := m1; access_index := i1 |}
-            {| access_loc := l2; access_tid := t2; access_mode := m2; access_index := i2 |}.
-
-  Section Add.
-
-    Fixpoint eval_acc l i m (tids:list tid) : list access :=
-    match tids with
-    | [] => []
-    | t :: tids =>
-      {| access_loc := l; access_tid := t; access_mode := m; access_index := i |}
-      :: eval_acc l i m tids
-    end.
-
-    Variable tids: list tid.
-
-    Inductive AStep: access_exp -> list access -> Prop :=
-    | a_step_def:
-      forall i l m n,
-      IStep i n -> 
-      AStep {| access_exp_loc := l; access_exp_index := i; access_exp_mode := m; |}
-            (eval_acc l n m tids).
-
-  End Add.
-End Acc.

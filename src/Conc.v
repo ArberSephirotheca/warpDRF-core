@@ -12,10 +12,11 @@ Require Import Var.
 Require Import Tid.
 Require Import Loc.
 Require Import Exp.
-Require Import Access.
+Require Import AccExp.
 Require Import Util.
 Require Aniceto.Graphs.Graph.
 Require Import Tasks.
+Require Hist.
 
 Import ListNotations.
 
@@ -23,13 +24,13 @@ Section C1.
   Context {A:Access}.
   Inductive inst :=
   | Skip
-  | Acc: access_exp -> inst -> inst
+  | MemAcc: cond_access -> inst -> inst
   | For : var -> range -> inst -> inst -> inst
   | Loop : var -> list nat -> inst -> inst -> inst.
 
   Fixpoint i_subst x v i :=
   match i with
-  | Acc a i => Acc (access_subst x v a) (i_subst x v i)  
+  | MemAcc a i => MemAcc (cond_access_subst x v a) (i_subst x v i)  
   | For y r i2 i3 =>
     let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
     For y (r_subst x v r) i2' (i_subst x v i3)
@@ -48,12 +49,12 @@ Section C1.
   Inductive In (x:var) : inst -> Prop :=
   | in_acc_1:
     forall e i,
-    access_in x e ->
-    In x (Acc e i)
+    CIn x e ->
+    In x (MemAcc e i)
   | in_acc_2:
     forall e i,
     In x i ->
-    In x (Acc e i)
+    In x (MemAcc e i)
   | in_for_1:
     forall r i1 i2 y,
     RIn x r ->
@@ -85,7 +86,7 @@ Section C1.
   | var_acc:
     forall p i,
     Var x i ->
-    Var x (Acc p i)
+    Var x (MemAcc p i)
   | var_for_1:
     forall r i1 i2,
     Var x (For x r i1 i2)
@@ -113,7 +114,7 @@ Section C1.
   | in_range_access:
     forall e i,
     InRange x i ->
-    InRange x (Acc e i)
+    InRange x (MemAcc e i)
   | in_range_for_eq:
     forall y r i1 i2,
     RIn x r ->
@@ -137,7 +138,7 @@ Section C1.
 
   Lemma var_not_in_acc:
     forall x e i,
-    ~ Var x (Acc e i) ->
+    ~ Var x (MemAcc e i) ->
     ~ Var x i.
   Proof.
     intros.
@@ -198,7 +199,7 @@ Section C1.
   Fixpoint seq (i1 i2:inst) :=
   match i1 with
   | Skip => i2
-  | Acc e i3 => Acc e (seq i3 i2)
+  | MemAcc e i3 => MemAcc e (seq i3 i2)
   | For x r i3 i4 => For x r i3 (seq i4 i2)
   | Loop x r i3 i4 => Loop x r i3 (seq i4 i2)
   end.
@@ -243,7 +244,7 @@ Section C1.
     induction i; simpl; intros.
     - reflexivity.
     - rewrite IHi.
-      rewrite access_subst_subst_eq.
+      rewrite cond_access_subst_subst_eq.
       reflexivity.
     - destruct (Set_VAR.MF.eq_dec x v). {
         subst.
@@ -274,7 +275,7 @@ Section C1.
     induction i; intros; simpl.
     - reflexivity.
     - rewrite IHi; auto.
-      rewrite access_subst_subst_neq; auto.
+      rewrite cond_access_subst_subst_neq; auto.
     - destruct (Set_VAR.MF.eq_dec x v). {
         destruct (Set_VAR.MF.eq_dec y v). {
           subst.
@@ -402,7 +403,7 @@ Section C1.
     induction i; simpl; intros.
     - inversion H.
     - inversion H; subst; clear H.
-      + apply access_in_subst_neq in H1; auto using in_acc_1.
+      + apply cond_access_in_subst_neq in H1; auto using in_acc_1.
         intros N.
         inversion N.
       + auto using in_acc_2.
@@ -443,7 +444,7 @@ Section C1.
     forall i h e v,
     GenAccess TID e TID_COUNT v ->
     Run i h ->
-    Run (Acc e i) (List.concat v ++ h)
+    Run (MemAcc e i) (List.concat v ++ h)
   | run_for:
     forall r l i1 i2 x h,
     RStep r l ->

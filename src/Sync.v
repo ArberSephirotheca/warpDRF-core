@@ -12,10 +12,11 @@ Require Import Var.
 Require Import Tid.
 Require Import Loc.
 Require Import Exp.
-Require Import Access.
+Require Import AccExp.
 Require Import Util.
 Require Aniceto.Graphs.Graph.
 Require Import Tasks.
+Require Hist.
 
 Import ListNotations.
 
@@ -25,7 +26,7 @@ Section C1.
   | Skip
   | Sync
   | Seq: inst -> inst -> inst
-  | Access: access_exp -> inst
+  | Access: cond_access -> inst
   | For : var -> range -> inst -> inst
   | Loop : var -> list nat -> inst -> inst.
 
@@ -33,7 +34,7 @@ Section C1.
 Fixpoint i_subst x v i :=
   match i with
   | Seq i2 i3 => Seq (i_subst x v i2) (i_subst x v i3)
-  | Access a => Access (access_subst x v a)
+  | Access a => Access (cond_access_subst x v a)
   | For y r i2 =>
     let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
     For y (r_subst x v r) i2'
@@ -510,7 +511,7 @@ induction i.
        exists (Seq x2 (Seq y2 x)).
        exists y.
        auto using norm_seq_dual.
-  - assert (HA: ~In Sync (Access a)). 
+  - assert (HA: ~In Sync (Access c)). 
     { 
       unfold not.
       intro.
