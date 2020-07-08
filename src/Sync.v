@@ -1323,9 +1323,36 @@ Proof.
 Qed.
 
 
-
-
-
+Theorem wequiv_star_mrun:
+  forall a b,
+    Multi_Run a b ->
+    forall x h x' h',
+      a = (x, h) -> 
+      b = (x', h') ->
+      forall y,
+        iequivstar x y ->
+        exists y', 
+          Multi_Run (y, h) (y', h') /\  iequivstar x' y'.
+Proof.
+  intros a b HR.
+  induction HR.
+  - intros. inversion H; inversion H0; subst; clear H0 H.
+    exists y. split.
+    * reflexivity.
+    * assumption.
+  - intros. inversion H0; inversion H1; subst; clear H0 H1.
+    assert (IHHR := IHHR i2 h2 x' h' eq_refl eq_refl).
+    apply equiv_star_mrun with (y:=y) in H.
+    * destruct H as (yhat, (HMR, HME)).
+      assert (IHHR := IHHR yhat HME).
+      destruct IHHR as (yp, (IHa, IHb)).
+      exists yp.
+      split.
+    + transitivity (yhat, h2). assumption. assumption.
+    + assumption.
+      * assumption.
+Qed.
+     
 Lemma sync_src_norm:
   forall i j,
     Normalised i j ->
@@ -1346,9 +1373,12 @@ Proof.
     inversion H0; subst; clear H0. simpl.
     + assert  (IHHN1 := IHHN1 (j0,h') h).
       apply IHHN1 in H4.
-      simpl in H4. 
+      simpl in H4.
       transitivity (Seq (Seq j0 j1) i3 , h').
-      * 
+      * eapply mrun_mrun_seq; eauto.
+        ** admit.
+        ** admit.
+        
 
     
 forall i hi x,
