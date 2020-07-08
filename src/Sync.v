@@ -1186,7 +1186,7 @@ Qed.
 *)
 
 
-Lemma mrun_eq_sim_l:
+Lemma mrun_eq_sim_r:
   forall a b, 
   Multi_Run a b ->
   forall x h x' h',
@@ -1195,36 +1195,32 @@ Lemma mrun_eq_sim_l:
     forall y,
       IEquivOne y x ->
       exists y', 
-        Multi_Run (y, h) (y', h')  /\ (IEquivOne y' x' \/ y'=x').
+        Multi_Run (y, h) (y', h')  /\ (iequivstar y' x').
 Proof.
   intros a b HR.
   induction HR.
   - intros. inversion H; inversion H0; subst; clear H H0.
     exists y. split.
     * apply mrun_refl.
-    * auto.
+    *  apply equiv_inc_star. auto.
   - intros. inversion H1; inversion H0; subst; clear H0 H1.
     assert (IHHR := IHHR i2 h2 x' h' eq_refl eq_refl).
     apply equiv_one_mrun_r with (y:=y) in H.
     + destruct H as (y2, (HMR, [HMO | HME])).
       * apply IHHR in HMO.
-        destruct HMO as (yhat, (HMOa, [HMOb | HMOc])).
+        destruct HMO as (yhat, (HMOa, HMOb)).
         ** exists yhat. split. {
              transitivity (y2,h2); auto.
            }
            auto.
-        ** subst. exists x'. split. {
+      *  subst.  exists x'. split. {
              etransitivity; eauto.
            }
-           auto.
-      * subst.  exists x'. split. {
-             etransitivity; eauto.
-           }
-        auto.
-    + assumption.
+         reflexivity.
+    + assumption.    
 Qed.
 
-Lemma mrun_eq_sim_r:
+Lemma mrun_eq_sim_l:
   forall a b, 
   Multi_Run a b ->
   forall x h x' h',
@@ -1233,36 +1229,32 @@ Lemma mrun_eq_sim_r:
     forall y,
       IEquivOne x y ->
       exists y', 
-        Multi_Run (y, h) (y', h')  /\ (IEquivOne x' y' \/ x'=y').
+        Multi_Run (y, h) (y', h')  /\ (iequivstar x' y').
 Proof.
   intros a b HR.
   induction HR; intros.
   -  inversion H; inversion H0; subst; clear H H0.
      exists y. split.
      + reflexivity.
-     + auto.
+     + apply equiv_inc_star. auto.
   - assert (IHHR := IHHR i2 h2 i3 h3 eq_refl eq_refl).
     apply equiv_one_mrun_l with (y:=y) in H.
     inversion H1; inversion H0; subst; clear H0 H1.
     + destruct H as (y2, (HMR, [HMO | HME])).
       * apply IHHR in HMO.
-        destruct HMO as (yhat, (HMOa, [HMOb | HMOc])).
+        destruct HMO as (yhat, (HMOa, HMOb)).
         ** exists yhat. split. {
              transitivity (y2,h2); auto.
-           }
-           auto.
-        ** subst. exists yhat. split. {
-              transitivity (y2,h2); auto.
            }
            auto.
       * subst. exists x'.  split. {
              etransitivity; eauto.
            }
-        auto.
+        reflexivity.
     + inversion H1; inversion H0; subst; clear H1 H0.
       assumption.
 Qed.
-           
+             
 
   
 Theorem equiv_star_mrun_l:
@@ -1278,15 +1270,36 @@ Proof.
   - exists x'. split.
     * auto using run_imp_mrun.
     * reflexivity.
-  - apply IHHE in H0.
-    destruct H0 as (y0, (Hyr, Hye)).
-    exists y0.
-    split.
-    *
-    * assumption.
- 
-       
-      
+  - destruct H.
+    * apply IHHE in H0.
+      destruct H0 as (yhat, (H0R, H0E)).
+      apply mrun_eq_sim_l with (x:=y) (h:=h) (x':=yhat) (h':=h') (y:=z) in H0R.
+      destruct H0R as (yp, (H0Rl, H0Rr)).
+    + exists yp. split. {
+        auto.
+      }
+      transitivity (yhat).
+      ++ assumption.
+      ++ assumption.
+    + reflexivity.
+    + reflexivity.
+    + assumption.
+      * apply IHHE in H0.
+        destruct H0 as (yhat, (H0R, H0E)).
+        apply mrun_eq_sim_r with (x:=y) (h:=h) (x':=yhat) (h':=h') (y:=z) in H0R.
+        destruct H0R as (yp, (H0Rl, H0Rr)).
+        + exists yp. split. {
+        auto.
+      }
+      transitivity (yhat).
+      ++ assumption.
+      ++ symmetry. assumption.
+        + reflexivity.
+        + reflexivity.
+        + assumption.
+Qed.
+         
+
       
 Theorem equiv_star_mrun_r:
   forall x y,
