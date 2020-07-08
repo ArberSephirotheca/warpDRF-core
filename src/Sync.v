@@ -338,6 +338,8 @@ Proof.
   - assumption.
 Qed.
 
+  
+  
 
 (* Run (Seq Sync Skip) h2 Skip h2 ==> h2 = [] *)
 
@@ -1206,13 +1208,99 @@ Proof.
     + apply equiv_loop. assumption.
 Qed.
 
+Lemma seq_skip_x_not_x:
+  forall x y,
+    Seq y x <> x.
+Proof.
+  intros.
+  induction x; unfold not in *; intros; inversion H; subst.
+  - contradiction.
+Qed.
+
+(*
+Multi_Run (Seq x1 z, h) (z, h)
+  ============================
+  Multi_Run (Seq (Seq x1 Skip) z, h) (z, h)
+*)
+
+
+
+Theorem unit_skip_r:
+    forall x y,
+    Run x y ->
+    forall i z hi,
+      x = (Seq i z, hi) ->
+      y = (z, hi) -> 
+      Multi_Run (Seq (Seq i Skip) z, hi) y.
+Proof.
+  intros. subst.
+  inversion H; subst; clear H.
+  - apply seq_skip_x_not_x in H4. contradiction.
+  - transitivity (Seq Skip z, hi).
+    + apply run_imp_mrun.
+      apply run_seq.
+      apply run_seq_skip.
+    + apply run_imp_mrun.
+      apply run_seq_skip.
+Qed.
+      
+Theorem unit_skip_star_r:
+    forall x y,
+    Multi_Run x y ->
+    forall i z hi,
+      x = (Seq i z, hi) ->
+      y = (z, hi) -> 
+      Multi_Run (Seq (Seq i Skip) z, hi) y.
+Proof.
+  intros x y HR.
+  induction HR.
+  - intros. inversion H; inversion H0; subst; clear H H0.
+    apply seq_skip_x_not_x in H4. contradiction.
+  - intros. inversion H0; inversion H1; subst; clear H0 H1.
+    assert (IHHR := IHHR i z h2).
+    inversion H; subst; clear H.
+    +  assert (IHHR := IHHR eq_refl).
+    
+    transitivity (i2,h2).
+    + eapply unit_skip_r; eauto.
+      
+    + assumption.
+    eapply unit_skip_r in H; eauto.
+    + 
+      
+
 Lemma eq_skip_mrun:
   forall x y,
     IEquivOne x y ->
     y = Skip ->
-    forall  z,
-      Multi_Run (Seq x z, hp) (z, hp).
+    forall z h,
+      Multi_Run (Seq x z, h) (z, h).
 Proof.
+  intros x y HE HS z h.
+  induction x.
+  - apply run_imp_mrun. apply run_seq_skip.
+  - inversion HE; subst. inversion H0.
+  - inversion HE; subst; clear HE.
+    + apply IHx2 in H2.
+      transitivity (Seq x2 z, h).
+      * apply run_imp_mrun. apply run_seq. apply run_seq_skip.
+      * assumption.
+    + apply IHx1 in H2.
+      transitivity (Seq (Seq Skip Skip) z, h).
+      * assert (HMR: Multi_Run (Seq x1 z, h) (Seq Skip z, h)). {
+          
+        
+      induction H2.
+      * 
+      pose x1 = (Seq x1 z, h).
+      inversion H2; subst; clear H2.
+      * apply seq_skip_x_not_x in H. contradiction.
+      * transitivity (i2,h2).
+        ** inversion H3; subst; clear H3.
+           ++ 
+             
+      * 
+ 
 
 Theorem equiv_one_mrun_r:
   forall x y,
@@ -1263,16 +1351,8 @@ Proof.
         ** apply equiv_eq.
         ** assumption.
         ** assumption.
-    + inversion HE1; subst; clear HE1.
-      * 
-          
-          
-      * exists (Seq y z). split. {
-          
-           
-      * admit.
-      * admit.
-      * admit.
+    + admit.
+  - intros. exists x'.
         
      
 
@@ -1459,14 +1539,6 @@ Proof.
 Qed.
 
 
-Lemma seq_skip_x_not_x:
-  forall x y,
-    Seq y x <> x.
-Proof.
-  intros.
-  induction x; unfold not in *; intros; inversion H; subst.
-  - contradiction.
-Qed.
 
 
 Lemma mrun_seq_skip_h:
