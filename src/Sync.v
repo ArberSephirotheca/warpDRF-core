@@ -1374,10 +1374,18 @@ Proof.
     + assert  (IHHN1 := IHHN1 (j0,h') h).
       apply IHHN1 in H4.
       simpl in H4.
+      apply mrun_mrun_seq with (i:=(Seq i1 i2)) (j:=j0) (h:=h) (h':=h') (k:=(Seq j1 i3)) in H4.
+      * assert (HEQ: iequivstar  (Seq (Seq i1 i2) (Seq j1 i3)) (Seq (Seq i1 (Seq i2 j1)) i3)). {
+          constructor 2.
+          transitivity (Seq (Seq (Seq i1 i2) j1) i3).
+          ** admit.
+          ** 
+
+      
       transitivity (Seq (Seq j0 j1) i3 , h').
       * eapply mrun_mrun_seq; eauto.
-        ** admit.
-        ** admit.
+        ** 
+
         
 
     
