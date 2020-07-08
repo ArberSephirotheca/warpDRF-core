@@ -1257,7 +1257,7 @@ Qed.
              
 
   
-Theorem equiv_star_mrun_l:
+Theorem equiv_star_mrun:
   forall x y,
     iequivstar x y ->
     forall x' h h',
@@ -1300,91 +1300,8 @@ Proof.
 Qed.
          
 
-      
-Theorem equiv_star_mrun_r:
-  forall x y,
-    iequivstar y x ->
-    forall x' h h',
-      Run (x, h) (x', h') ->
-      exists y', 
-        Multi_Run (y, h) (y', h') /\  iequivstar y' x'.
-Proof.
-  intros x y HE.
-  induction HE; intros.
-  - exists x'. split.
-    * auto using run_imp_mrun.
-    * reflexivity.
-  - destruct H.
-    * apply equiv_one_mrun_star_r with (x:=x').
-    + 
-    + 
 
-    destruct H.
-    * apply equiv_one_mrun_star_l with (x':=x') (h:=h) (h':=h') in H.
-    + destruct H as (y1, Hy).
-     
-
-    
-  - 
-  generalize dependent x'.
-  induction HE; intros.
-  - exists x'. split.
-    * auto using run_imp_mrun.
-    * reflexivity.
-  - destruct H.
-    * inversion H; subst.
-    + assert (IHHE := IHHE z).
-      assert (HZz: Run (Seq Skip z, h) (z, h)). {
-        apply run_seq_skip.
-      }
-      assert (Hhh: h=h'). { 
-        
-                                       
-
-
-    apply IHHE in H0.
-    destruct H0 as (y0, H0).
-    destruct H0 as (HIR, HIE).
-    inversion HIR; subst.
-    + 
-      
-
-
-
-    eapply equiv_one_mrun_star_l.
-    * 
-    apply IHHE in H0.
-    destruct H0 as (y0, (H0R, H0E)).
-    inversion H0R; subst.
-    *  
-    apply run_imp_mrun in H0R.
-    exists y0.
-    split.
-    + apply mrun_step with (i2:=.
-    eapply equiv_one_mrun_star_l.
-    + apply equiv_unit_l.
-    + 
-    + 
-    * eapply equiv_one_mrun_star_l with (x:=z).
-    + apply equiv_eq.
-    + 
-    + (* IEquivOne ?x z    --> ?x =y *) admit.
-    + (*  Run (?x, h) (x', h') --> ?x=x *)
-      
-    
-
-    
-    * apply equiv_one_mrun_star_l with (x:=x).
-    + admit.
-    + assumption.
-      * apply equiv_one_mrun_star_l with (x:=x).
-    + admit.
-    + assumption.
-
-        
-
-
-
+       
 Lemma equiv_refliv:
 forall x,
 equivstar x x.
@@ -1392,10 +1309,6 @@ Proof.
 intros.
 induction x; auto using equiv_refl.
 Qed.
-
-
-
-
 
 
 
