@@ -3,7 +3,7 @@ Require Import Coq.Lists.List.
 Require Import Var.
 Require Import Util.
 Require Import RangeList.
-Require Import Access.
+Require Import AccExp.
 Require Import Exp.
 Require Import MExp.
 Require Import MultiHist.
@@ -651,7 +651,24 @@ Section Defs.
     eauto using f_run_eq.
   Qed.
 
-  Lemma f_run_decl_inv_map:
+  Lemma f_run_inv_decl_range:
+    forall e1 e2 x i j m,
+    FRun (Decl x (e1, e2) i j) m ->
+    exists n1 n2,
+    NStep e1 n1 /\ NStep e2 n2 /\ FRun (Decl x (NNum n1, NNum n2) i j) m.
+  Proof.
+    intros.
+    apply f_run_inv_decl in H.
+    destruct H as (l, (Hr, Hb)).
+    inversion Hr; subst; clear Hr.
+    exists n1, n2.
+    split; auto.
+    split; auto.
+    eapply f_run_decl; eauto.
+    eapply r_step_def; eauto using n_step_num.
+  Qed.
+
+  Lemma f_run_inv_decl_map:
     forall n1 n2 i1 i2 x m',
     FRun (Decl x (NNum n1, NNum n2) i1 i2) m' ->
     exists lm m,
@@ -676,11 +693,11 @@ Section Defs.
   Proof.
     intros.
     split; intros.
-    - apply f_run_decl_inv_map in H0.
+    - apply f_run_inv_decl_map in H0.
       destruct H0 as (lm, (m', (R, (Hr1, Hr2)))).
       rewrite R; clear R m.
       eauto using decl_map_rw, f_run_decl_map. 
-    - apply f_run_decl_inv_map in H0.
+    - apply f_run_inv_decl_map in H0.
       destruct H0 as (lm, (m', (R, (Hr1, Hr2)))).
       rewrite R; clear R m.
       apply decl_map_rw with (j:=i) in Hr2; auto using f_run_decl_map.
@@ -979,7 +996,7 @@ Section Defs.
       | [ H: FRun _ _ |- _ ] => rename H into Hr
       end.
       apply i_subst_not_in_decl_rw in Hr; auto.
-      apply f_run_decl_inv_map in Hr.
+      apply f_run_inv_decl_map in Hr.
       destruct Hr as (ms1, (m2, (R, (Hr, Hm)))).
       inversion H4; clear H4.
       subst.
@@ -995,7 +1012,7 @@ Section Defs.
     | [ H: FRun _ _ |- _ ] => rename H into Hr
     end.
     apply i_subst_not_in_decl_rw in Hr; auto.
-    apply f_run_decl_inv_map in Hr.
+    apply f_run_inv_decl_map in Hr.
     destruct Hr as (ms1, (m2, (R, (Hr, Hm)))).
     subst.
     inversion Hd; subst; clear Hd.

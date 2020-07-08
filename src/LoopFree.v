@@ -10,7 +10,7 @@ Require Coq.omega.Omega.
 Require Import Var.
 Require Import Loc.
 Require Import Exp.
-Require Import Access.
+Require Import AccExp.
 Require Import Util.
 Require Import InUtil.
 Require Import Tasks.
@@ -287,6 +287,32 @@ Section Defs.
     split; auto.
     eauto using correctness.
   Qed.
+(*
+  Fixpoint add_cond (b:bexp) (i:inst) :=
+  match i with
+  | Skip => Skip
+  | MemAcc a i => MemAcc (add_cond b a) (add_cond b i)
+  | Decl x r i j => Decl r (add_cond b i) (add_cond b j)
+  end.
+
+  Require Import SymExecMExp.
+  Definition add_cond (i:inst (I:=LoopAcc))  (b:bexp) := i.
+  Goal
+    forall x lb ub m i j,
+    FRun (Decl x (lb, ub) i j) m ->
+    forall n1,
+    NStep ub n1 ->
+    forall n2,
+    n1 <= n2 ->
+    FRun (Decl x (lb, NNum n2) (add_cond i (NRel NLt (NVar x) ub)) j) m.
+  Proof.
+    intros.
+    apply f_run_inv_decl_range in H.
+    destruct H as (n2', (n1', (Hn1', (Hn2', Hf)))).
+    assert (n1' = n1) by eauto using n_step_fun; subst.
+    apply f_run_inv_decl_map in H.
+  Qed.
+*)
 
 End Defs.
 

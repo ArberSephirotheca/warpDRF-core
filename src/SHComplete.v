@@ -10,7 +10,7 @@ Require Import Var.
 Require Import Tid.
 Require Import Loc.
 Require Import Exp.
-Require Import Access.
+Require Import AccExp.
 Require Import Util.
 Require LoopFree.
 Require Import SetTh.

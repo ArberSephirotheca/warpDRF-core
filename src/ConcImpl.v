@@ -12,13 +12,14 @@ Require Import Var.
 Require Import Tid.
 Require Import Loc.
 Require Import Exp.
-Require Import Access.
+Require Import AccExp.
 Require Import Util.
 Require Aniceto.Graphs.Graph.
 Require Import Tasks.
 Require Import Conc.
 Import ListNotations.
-
+Require Hist.
+Require Import AccExpImpl.
 Section C1.
   Context {A:Access}.
   Import Hist.
