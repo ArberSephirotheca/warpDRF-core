@@ -1231,7 +1231,7 @@ Theorem unit_skip_r:
     forall i z hi,
       x = (Seq i z, hi) ->
       y = (z, hi) -> 
-      Multi_Run (Seq (Seq i Skip) z, hi) y.
+      Multi_Run (Seq (Seq i Skip) z, hi) (z, hi).
 Proof.
   intros. subst.
   inversion H; subst; clear H.
@@ -1243,9 +1243,25 @@ Proof.
     + apply run_imp_mrun.
       apply run_seq_skip.
 Qed.
-      
+
+
+(*
+Lemma run_nostep:
+  forall i z hi i2 h2,
+    Run (Seq i z, hi) (i2, h2) ->
+    Multi_Run (i2, h2) (z, hi) ->
+    (i2 = Seq i z) /\ (hi=h2).
+Proof.
+  intros.
+  inversion H; subst; clear H.
+  -  inversion H0; subst; clear H0.
+    + apply seq_skip_x_not_x in H. contradiction.
+    + 
+ *)
+
+
 Theorem unit_skip_star_r:
-    forall x y,
+  forall x y,
     Multi_Run x y ->
     forall i z hi,
       x = (Seq i z, hi) ->
@@ -1254,11 +1270,54 @@ Theorem unit_skip_star_r:
 Proof.
   intros x y HR.
   induction HR.
-  - intros. inversion H; inversion H0; subst; clear H H0.
-    apply seq_skip_x_not_x in H4. contradiction.
-  - intros. inversion H0; inversion H1; subst; clear H0 H1.
-    assert (IHHR := IHHR i z h2).
+  - intros j z hj Hx Hy.
+    inversion Hx; inversion Hy; subst.
+    apply seq_skip_x_not_x in H2. contradiction.
+  - intros i z hi Hx Hy.
+    assert (HB: Seq i z <> z). {
+      apply seq_skip_x_not_x.
+    }
+    inversion Hx; subst; clear Hx.
+    inversion Hy; subst; clear Hy.
+    assert (IHHR := IHHR i z hi).
+    assert (HIJ: i2 = Seq i z). {
+      inversion H; subst; clear H.
+      + inversion H1; subst.
+        ++ 
+
+      
     inversion H; subst; clear H.
+    + 
+    + assert (HIJ: i = j). {
+        inversion H1; subst; clear H1; auto.
+        * inversion HR; subst; clear HR.
+          ++ apply seq_skip_x_not_x in H. contradiction.
+          ++ inversion H2; subst; clear H2.
+             ** inversion H0.
+             ** inversion H4; subst.
+                +++
+    apply unit_skip_r with (x:=(Seq i z, hi)) (y:=(z, hi)).
+    
+    + apply run_seq.
+    + apply run_imp_mrun in H.
+    inversion H; subst; clear H.
+    + 
+    + reflexivity.
+Qed.
+    
+    inversion HR; subst; clear HR.
+    + reflexivity.
+    + inversion H; subst.
+      * 
+
+    intros. inversion H0; inversion H1; subst; clear H0 H1.
+    assert (IHHR := IHHR i z h2).
+    eapply unit_skip_r; eauto.
+    inversion H; subst; clear H.
+    + 
+    
+    
+    inversion H; subst; clear H. (* WEDS HERE *)
     +  assert (IHHR := IHHR eq_refl).
     
     transitivity (i2,h2).
@@ -1286,6 +1345,7 @@ Proof.
       * apply run_imp_mrun. apply run_seq. apply run_seq_skip.
       * assumption.
     + apply IHx1 in H2.
+      
       transitivity (Seq (Seq Skip Skip) z, h).
       * assert (HMR: Multi_Run (Seq x1 z, h) (Seq Skip z, h)). {
           
