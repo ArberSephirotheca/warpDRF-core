@@ -33,7 +33,7 @@ Section C1.
   | step_access:
     forall h e v i,
     GenAccess TID e TID_COUNT v ->
-    Step (h, Acc e i) (List.concat v ++ h, i)
+    Step (h, MemAcc e i) (List.concat v ++ h, i)
   | step_for:
     forall x r h l i1 i2,
     RStep r l ->
@@ -49,7 +49,7 @@ Section C1.
   Variable h:history.
   Definition step_iter i : option state :=
     match i with
-    | Acc e j =>
+    | MemAcc e j =>
       match gen_access TID e TID_COUNT with
       | Some l => Some (List.concat l ++ h, j) 
       | None => None
@@ -187,7 +187,7 @@ Module Examples.
   Definition run steps s := bstep steps 0 s.
 
 
-  Let hello_world := Acc (NNum 0, BBool true) Skip.
+  Let hello_world := MemAcc (NNum 0, BBool true) Skip.
 
   Goal step ([], hello_world) = Some
   ([{| OneDim.tid := 1; OneDim.index := 0 |};
@@ -200,7 +200,7 @@ Module Examples.
      } *)
 
   Let x := variable "x".
-  Let i1 := Acc (add (NVar TID) (NVar x), BBool true) Skip.
+  Let i1 := MemAcc (add (NVar TID) (NVar x), BBool true) Skip.
 
   Definition BAD :=
     For x (NNum 0, NNum 2) i1 Skip.
@@ -235,7 +235,7 @@ Module Examples.
   Open Scope string_scope.
   Definition GOOD1 :=
     (FOR "x" IN  0 TO 2 DO
-      (Acc ("x" WHEN TID == "x") Skip)
+      (MemAcc ("x" WHEN TID == "x") Skip)
     OD)
     Skip.
 
@@ -248,7 +248,7 @@ Module Examples.
   Proof. auto. Qed.
 
   Definition GOOD2 :=
-      Acc (NNum 9, BBool true) Skip.
+      MemAcc (NNum 9, BBool true) Skip.
 
 
   Goal run 10 ([], GOOD2) =
