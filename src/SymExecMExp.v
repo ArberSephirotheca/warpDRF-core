@@ -1953,7 +1953,7 @@ Section Defs.
       rewrite <- e_plus_assoc.
       apply f_run_branch_cons_eq; auto.
   Qed.
-*)
+
 (*
   Lemma rw_decl_plus:
     forall x lb ub1 ub2 i j,
