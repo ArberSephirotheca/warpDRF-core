@@ -483,6 +483,18 @@ Section SO.
     apply n_step_plus.
   Qed.
 
+  Lemma n_step_inv_plus:
+    forall e1 e2 n,
+    NStep (NBin NPlus e1 e2) n ->
+    exists n1 n2, n = n1 + n2 /\ NStep e1 n1 /\ NStep e2 n2.
+  Proof.
+    destruct e1; intros; inversion H; subst; clear H.
+    - eauto.
+    - eauto.
+    - simpl.
+      eauto.
+  Qed.
+
   Lemma n_step_plus_num:
     forall n1 n2,
     NStep (NBin NPlus (NNum n1) (NNum n2)) (n1 + n2).

@@ -557,6 +557,40 @@ Section Defs.
     omega.
   Qed.
 
+  Lemma range_list_inv_plus_l_1:
+    forall l n1 n2 n3,
+    n1 < n2 ->
+    RangeList n1 (n2 + n3) l ->
+    exists l1 l2,
+    l = l1 ++ l2 /\ RangeList n1 n2 l1 /\ RangeList n2 (n2 + n3) l2.
+  Proof.
+    induction l; intros. {
+      inversion H0; subst; clear H0.
+      omega.
+    }
+    inversion H0; subst; clear H0.
+    inversion H; subst; clear H. {
+      simpl.
+      exists [a].
+      simpl.
+      exists (l).
+      simpl in *.
+      split; auto.
+      split; auto using range_list_nil, range_list_cons.
+    }
+    apply IHl in H6; auto with *; clear IHl.
+    destruct H6 as (l1, (l2, (?, (Hr1, Hr2)))).
+    subst.
+    eexists.
+    eexists.
+    split.
+    2: {
+      split; eauto.
+      apply range_list_cons; eauto.
+    }
+    reflexivity.
+  Qed.
+
 End Defs.
 
 
