@@ -1900,7 +1900,7 @@ Section Defs.
       reflexivity.
   Qed.
 
-  Lemma rw_branch_plus:
+  Lemma rw_branch_app:
     forall x l1 l2 i j,
     ProgEquiv (Branch x (l1 ++ l2) i j)
               (Fork (Branch x l1 i j) (Branch x l2 i j)).
@@ -1954,10 +1954,77 @@ Section Defs.
       apply f_run_branch_cons_eq; auto.
   Qed.
 
-(*
+  Lemma rw_decl_branch:
+    forall x r i j l,
+    RStep r l ->
+    ProgEquiv (Decl x r i j) (Branch x l i j).
+  Proof.
+    split; intros.
+    - apply f_run_inv_decl in H0.
+      destruct H0 as (l', (Hr1, Hb)).
+      assert (l' = l) by eauto using r_step_fun.
+      subst.
+      assumption.
+    - eauto using f_run_decl.
+  Qed.
+
   Lemma rw_decl_plus:
-    forall x lb ub1 ub2 i j,
+    forall x ub1 ub2 lb i j n_lb n_ub1,
+    NStep lb n_lb ->
+    NStep ub1 n_ub1 ->
+    n_lb < n_ub1 ->
     ProgEquiv (Decl x (lb, (NBin NPlus ub1 ub2)) i j)
-              (seq (Decl x (lb, ub1) i Skip) (Decl x (ub1, ub2) i j)).
-*)
+              (Fork (Decl x (lb, ub1) i j) (Decl x (ub1, (NBin NPlus ub1 ub2)) i j)).
+  Proof.
+    split; intros.
+    - apply f_run_inv_decl in H2.
+      destruct H2 as (l1, (Hr1, Hb)).
+      inversion Hr1; subst; clear Hr1.
+      match goal with
+        H: NStep (NBin _ _ _) _ |- _ =>
+          apply n_step_inv_plus in H;
+          destruct H as (n_ub1', (n_ub2, (?, (H_ub1, H_ub2))))
+      end.
+      assert (n_ub1' = n_ub1) by eauto using n_step_fun.
+      assert (n1 = n_lb) by eauto using n_step_fun.
+      subst.
+      match goal with
+        H : RangeList _ _ _ |- _ =>
+        apply range_list_inv_plus_l_1 in H; auto with *;
+        destruct H as (l1_1, (l1_2, (?, (Hr1, Hr2))))
+      end.
+      subst.
+      assert (RStep (lb, ub1) l1_1) by eauto using r_step_def.
+      assert (RStep (ub1, NBin NPlus ub1 ub2) l1_2) by
+        eauto using n_step_add, r_step_def.
+      erewrite rw_decl_branch; eauto.
+      erewrite rw_decl_branch; eauto.
+      apply rw_branch_app; assumption.
+    - apply f_run_inv_fork in H2.
+      destruct H2 as (m_lb_ub1, (m_ub1_ub2, (R, (Hd1, Hd2)))).
+      rewrite R; clear R m.
+      apply f_run_inv_decl in Hd1.
+      apply f_run_inv_decl in Hd2.
+      destruct Hd1 as (l1, (Hr_l1, Hb_l1)).
+      destruct Hd2 as (l2, (Hr_l2, Hb_l2)).
+      eapply f_run_decl.
+      2: {
+        apply rw_branch_app.
+        apply f_run_fork_eq; eauto.
+      }
+      inversion Hr_l2; subst; clear Hr_l2.
+      assert (n1 = n_ub1) by eauto using n_step_fun; subst.
+      eapply r_step_def; eauto.
+      apply n_step_inv_plus in H5.
+      destruct H5 as (n_ub1', (n_ub2, (?, (Hn1', Hn2')))).
+      assert (n_ub1' = n_ub1) by eauto using n_step_fun.
+      subst.
+      apply range_list_plus_l_1; auto.
+      inversion Hr_l1; subst; clear Hr_l1.
+      assert (n1 = n_lb) by eauto using n_step_fun.
+      assert (n2 = n_ub1) by eauto using n_step_fun.
+      subst.
+      assumption.
+  Qed.
+
 End Defs.

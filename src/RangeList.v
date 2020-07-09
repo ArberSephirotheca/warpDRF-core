@@ -591,6 +591,27 @@ Section Defs.
     reflexivity.
   Qed.
 
+  Lemma range_list_plus_l_1:
+    forall l1 l2 n1 n2 n3,
+    n1 < n2 ->
+    RangeList n1 n2 l1 ->
+    RangeList n2 (n2 + n3) l2 ->
+    RangeList n1 (n2 + n3) (l1 ++ l2).
+  Proof.
+    induction l1; intros; simpl; inversion H0; subst; clear H0. {
+      omega.
+    }
+    inversion H; subst; clear H. {
+      assert (l1 = []). {
+        eauto using range_list_inv_3 with *.
+      }
+      subst.
+      simpl.
+      apply range_list_cons; auto with *.
+    }
+    apply range_list_cons; auto with *.
+  Qed.
+
 End Defs.
 
 
