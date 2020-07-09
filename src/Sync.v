@@ -1444,6 +1444,16 @@ Proof.
     inversion N.
 Qed. 
 
+Lemma ibefore_clo_neq:
+  forall x y,
+    clos_trans_n1 _ IBefore x y ->
+    x <> y.
+Proof.
+  intros x y HC.
+  induction HC.
+  - apply ibefore_neq. assumption.
+  - 
+
 
 (*
 
@@ -1451,14 +1461,19 @@ Qed.
   HR : clos_trans_1n inst IBefore iy j
   H0 : IBefore iy j
 
-
-
-Lemma list_neq:
-  forall l n,
-    l <> (n :: l).
+*)
+Theorem list_n_l :
+  forall (x:nat) (l:list nat),
+    l <> x :: l.
 Proof.
+  intros.
+  induction l.
+  - discriminate.
+  - intro N.
+    inversion N; subst.
+    contradiction.
+Qed.
 
- *)
 
 Lemma ibefore_anti:
   forall x y,
@@ -1480,19 +1495,35 @@ Proof.
     }
     apply HSS in H0.
     contradiction.
-  -
-             
-     
-      
-      
+  - contradict H2.
+    apply list_n_l.
+  - contradict H.
+    apply list_n_l.
+Qed.
 
-    induction i0; unfold not in *; intros; inversion H0; subst.
-    + 
-    +  
-    + 
-    
-  
-  
+
+Notation ibeforeplus := (clos_trans_n1 _ IBefore).
+
+(*
+Global Add Parametric Relation : _ ibeforeplus
+    transitivity proved by (clos_rst1n_trans inst ibeforeplus)
+  as ibeforeplus_setoid.
+*)
+
+Lemma ibeforeplus_skip:
+  forall x,
+    ~ibeforeplus Skip x.
+Proof.
+  intro x.
+  intro N.
+  induction N.
+  - inversion H.
+  - contradiction.
+Qed.
+
+
+         
+
 Lemma mrun_ibefore:
   forall x y,
     clos_trans_1n _ Run x y ->
@@ -1519,6 +1550,7 @@ Proof.
     + assumption.
     + assumption.
 Qed. 
+          
 
 Lemma mrun_diff:
   forall x y,
@@ -1529,8 +1561,11 @@ Lemma mrun_diff:
         y=(j,h') ->
           i <> j.
 Proof.
-  intros x y HR.
-  induction HR.
+  intros.
+  eapply mrun_ibefore in H; eauto.
+  intro N.
+
+  
   - intros; subst.
     eapply norun in H; eauto.
   - intros; subst.
@@ -1540,8 +1575,17 @@ Proof.
     intros N; subst.
     eapply mrun_ibefore in HR; eauto.
     inversion HR; subst.
-    + admit.
-    + 
+    + apply ibefore_anti in H.
+      contradiction.
+    + apply ibefore_anti in H.
+      assert (HT1: clos_trans_1n inst IBefore iy j).{
+        constructor 2 with (y:=y).
+        + assumption.
+        + assumption.
+        }
+      apply 
+            g
+      contradiction.
     
     
    
