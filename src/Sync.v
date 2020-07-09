@@ -296,6 +296,7 @@ Global Add Parametric Relation : _ Multi_Run
 
 
 
+
 Theorem uni_skip_one:
 forall i1 i2 h1 h2,
 Run (i1, h1) (i2, h2) ->
@@ -351,6 +352,18 @@ Proof.
 intros.
 inversion H.
 reflexivity.
+Qed.
+
+
+Lemma seq_sync_imp_emptyhist:
+  forall z hi i2 h2,
+    Run (Seq Sync z, hi) (i2, h2) ->
+    (i2=Seq Skip z) /\ (h2=[]).
+Proof.
+  intros.
+  inversion H; subst; clear H.
+  inversion H1; subst; clear H1.
+  auto.
 Qed.
 
 
@@ -602,6 +615,9 @@ Proof.
   apply run_imp_mrun.
   apply run_seq_skip.
 Qed.
+
+
+
 
 Lemma run_fun:
   forall x y,
@@ -1207,6 +1223,50 @@ Proof.
     + apply equiv_subst. assumption.
     + apply equiv_loop. assumption.
 Qed.
+(*
+
+
+
+Lemma mrun_seq_skip_h:
+  forall x h,
+    Multi_Run (Seq Skip x, h) (x, h).
+Proof.
+  intros.
+  apply mrun_step with (i2:=x) (h2:=h).
+  - apply run_seq_skip.
+  - reflexivity.
+Qed.
+
+
+Lemma run_seq_skip_h_eq:
+  forall x h h',
+    Run (Seq Skip x, h) (x, h') ->
+    h = h'.
+Proof.
+  intros.
+  inversion H; subst.
+  - contradict H4. apply seq_skip_x_not_x.
+  - reflexivity.
+Qed.
+
+
+Lemma mrun_seq_skip_h_eq:
+  forall x h h',
+    Multi_Run (Seq Skip x, h) (x, h') ->
+    h = h'.
+Proof.
+  intros.
+  inversion H; subst.
+  - contradict H3.  apply seq_skip_x_not_x.
+  - apply run_seq_skip in H3.
+Qed.
+*)
+(*
+Multi_Run (Seq x1 z, h) (z, h)
+  ============================
+  Multi_Run (Seq (Seq x1 Skip) z, h) (z, h)
+*)
+
 
 Lemma seq_skip_x_not_x:
   forall x y,
@@ -1217,14 +1277,17 @@ Proof.
   - contradiction.
 Qed.
 
-(*
-Multi_Run (Seq x1 z, h) (z, h)
-  ============================
-  Multi_Run (Seq (Seq x1 Skip) z, h) (z, h)
-*)
+Lemma seq_skip_x_not_x_rev:
+  forall x y,
+   x <> Seq y x.
+Proof.
+  intros.
+  induction x; unfold not in *; intros; inversion H; subst.
+  - contradiction.
+Qed.
 
 
-
+      
 Theorem unit_skip_r:
     forall x y,
     Run x y ->
@@ -1245,20 +1308,446 @@ Proof.
 Qed.
 
 
-(*
-Lemma run_nostep:
-  forall i z hi i2 h2,
-    Run (Seq i z, hi) (i2, h2) ->
-    Multi_Run (i2, h2) (z, hi) ->
-    (i2 = Seq i z) /\ (hi=h2).
+Lemma mrun_seq_skip_h:
+  forall x h,
+    Multi_Run (Seq Skip x, h) (x, h).
 Proof.
   intros.
-  inversion H; subst; clear H.
-  -  inversion H0; subst; clear H0.
-    + apply seq_skip_x_not_x in H. contradiction.
-    + 
- *)
+  apply mrun_step with (i2:=x) (h2:=h).
+  - apply run_seq_skip.
+  - reflexivity.
+Qed.
 
+
+Lemma run_seq_skip_h_eq:
+  forall x h h',
+    Run (Seq Skip x, h) (x, h') ->
+    h = h'.
+Proof.
+  intros.
+  inversion H; subst.
+  - contradict H4. apply seq_skip_x_not_x.
+  - reflexivity.
+Qed.
+
+
+Lemma norun:
+  forall x y,
+    Run x y ->
+    forall i h,
+      x = (i,h) ->
+    forall j h',
+      y = (j,h') ->
+      i <> j.
+Proof.
+  intros x y HR.
+  induction HR; intros ip hi Hx jp hj Hy.
+  inversion Hx; inversion Hy; subst; discriminate.
+  - inversion Hx; inversion Hy; subst.
+    discriminate.
+  - inversion Hx; inversion Hy; subst.
+    assert (IHHR:=IHHR i hi eq_refl j hj eq_refl).
+    intro N.
+    inversion N.
+    contradiction.
+  - inversion Hx; inversion Hy; subst.
+    intro N.
+    apply seq_skip_x_not_x in N.
+    contradiction.
+  - inversion Hx; inversion Hy; subst.
+    intro N.
+    inversion N.
+  - inversion Hx; inversion Hy; subst.
+    discriminate.
+  - inversion Hx; inversion Hy; subst.
+    discriminate.
+Qed.
+
+Lemma skip_bottom:
+  forall x y h j h',
+    x = (Skip, h) ->
+    y = (j, h') ->
+    ~clos_trans_1n _ Run x y.
+Proof.
+  intros.
+  intro N.
+  induction N; subst.
+  - inversion H1.
+  - inversion H1.
+Qed.
+
+
+
+Inductive IBefore: inst -> inst -> Prop:=
+| ibefore_sync:
+      IBefore Sync Skip
+| ibefore_access:
+    forall a,
+      IBefore (Access a) Skip
+| ibefore_seq:
+    forall i j k,
+      IBefore i j ->
+      IBefore (Seq i k) (Seq j k)
+| ibefore_seq_skip:
+    forall i,
+      IBefore (Seq Skip i) i
+| ibefore_for:
+    forall r l i x,
+      IBefore (For x r i) (Loop x l i)
+| ibefore_for_loop_nil:
+    forall x i,
+      IBefore (Loop x [] i) Skip
+| ibefore_for_loop_cons:
+    forall x n i l,
+      IBefore (Loop x (n::l) i) (Seq (i_subst x (NNum n) i) (Loop x l i)).
+
+Lemma run_ibefore:
+  forall x y,
+    Run x y ->
+    forall i h,
+      x=(i,h) ->
+      forall j h',
+        y=(j,h') ->
+        IBefore i j.
+Proof.
+  intros x y HR.
+  induction HR; intros ip hp Hi jp hp' Hj; subst; inversion Hi; inversion Hj; subst.
+  - apply ibefore_sync.
+  - apply ibefore_access.
+  - apply ibefore_seq.
+    assert (IHHR:=IHHR i hp eq_refl j hp' eq_refl).
+    assumption.
+  - apply ibefore_seq_skip.
+  - apply ibefore_for.
+  - apply ibefore_for_loop_nil.
+  - apply ibefore_for_loop_cons.
+Qed.
+
+
+
+Lemma ibefore_neq:
+  forall x y,
+    IBefore x y ->
+    x <> y.
+Proof.
+  intros x y H.
+  induction H.
+  - discriminate.
+  - discriminate.
+  - intro N.
+    inversion N; subst.
+    contradict IHIBefore.
+    reflexivity.
+  - apply seq_skip_x_not_x.
+  - intro N.
+    inversion N.
+  - discriminate.
+  - intro N.
+    inversion N.
+Qed. 
+
+
+
+Theorem list_n_l :
+  forall (x:nat) (l:list nat),
+    l <> x :: l.
+Proof.
+  intros.
+  induction l.
+  - discriminate.
+  - intro N.
+    inversion N; subst.
+    contradiction.
+Qed.
+
+
+Lemma ibefore_anti:
+  forall x y,
+    IBefore x y ->
+    ~IBefore y x.
+Proof.
+  intros x y HB.
+  induction HB; intro N; inversion N; subst.
+  - contradiction.
+  - apply seq_skip_x_not_x_rev in H2.
+    contradiction.
+  - apply seq_skip_x_not_x_rev in H2.
+    contradiction.
+  - assert (HSS: forall u, u <> Seq Skip (Seq Skip u)). {
+      intros.
+      induction u; unfold not in *; intros; inversion H; subst.
+      + assert (IHu2:= IHu2 H3).
+        contradiction.
+    }
+    apply HSS in H0.
+    contradiction.
+  - contradict H2.
+    apply list_n_l.
+  - contradict H.
+    apply list_n_l.
+Qed.
+
+
+Notation ibeforeplus := (clos_trans_n1 _ IBefore).
+
+(*
+Global Add Parametric Relation : _ ibeforeplus
+    transitivity proved by (clos_rst1n_trans inst ibeforeplus)
+  as ibeforeplus_setoid.
+*)
+
+Lemma ibeforeplus_skip:
+  forall x,
+    ~ibeforeplus Skip x.
+Proof.
+  intro x.
+  intro N.
+  induction N.
+  - inversion H.
+  - contradiction.
+Qed.
+
+Lemma ibefore_anti_star:
+  forall x y,
+    IBefore x y ->
+    ~clos_trans_n1 _ IBefore y x.
+Proof.
+  intros x y HC.
+  induction HC.
+  - intro N.
+    apply ibeforeplus_skip in N.
+    contradiction.
+  - intro N.
+    apply ibeforeplus_skip in N.
+    contradiction.
+  - admit.
+  - intro N.
+    inversion N.
+    + inversion H; subst.
+      * apply seq_skip_x_not_x_rev in H4.
+        contradiction.
+      * 
+          
+
+    intro N.
+    inversion N; subst.
+    + inversion H; subst.
+      * apply ibefore_anti in HC.
+        contradiction.
+      * apply seq_skip_x_not_x_rev in H0.
+        contradiction.
+    + inversion H; subst.
+      * 
+    
+         
+
+Lemma mrun_ibefore:
+  forall x y,
+    clos_trans_1n _ Run x y ->
+    forall i h,
+      x=(i,h) ->
+      forall j h',
+        y=(j,h') ->
+          clos_trans_1n _ IBefore i j.
+Proof.
+  intros x y HR.
+  induction HR.
+  - intros ip hp Hx jp hpp Hy.
+    inversion Hx; inversion Hy; subst.
+    eapply run_ibefore in H; eauto.
+    apply clos_trans_t1n_iff.
+    constructor 1.
+    assumption.
+  - intros ip hp Hx jp hpp Hy.
+    inversion Hx; inversion Hy; subst.
+    destruct y as (iy,hy).
+    assert (IHHR:= IHHR iy hy eq_refl jp hpp eq_refl).
+    eapply run_ibefore in H; eauto.
+    constructor 2 with (y:=iy).
+    + assumption.
+    + assumption.
+Qed. 
+    
+   
+Lemma mrun_refl_inst:
+  forall x y,
+    clos_trans_1n _ Run x y ->
+    forall i h h',
+    x = (i, h) ->
+    y=  (i, h') ->
+    h=h'.
+Proof.
+  intros x y HR.
+  induction HR.
+  -  intros j h0 h1 Hx Hy;inversion Hx; inversion Hy; subst.
+     eapply run_ibefore in H; eauto.
+     apply ibefore_neq in H.
+     contradiction.
+  -  intros j h0 h1 Hx Hy;inversion Hx; inversion Hy; subst.
+     destruct y as (yi,yh).
+     assert (IHHR:=IHHR yi yh h1 eq_refl).
+     eapply run_ibefore in H; eauto.
+     eapply mrun_ibefore in HR; eauto.
+     Search IBefore.
+    
+     contradict H.
+     
+ 
+  
+  inversion HR; subst.
+  - intros j h0 h1 Hx Hy;inversion Hx; inversion Hy; subst.
+    reflexivity.
+  - intros j h0 h' Hx Hy;inversion Hx; inversion Hy; subst; clear Hx Hy.
+    assert (NEQ: j<>i2). {
+      eapply norun in H; eauto.
+    }
+    inversion H; subst.
+    + inversion H0; subst.
+      inversion H4.
+    + inversion H0; subst. inversion H5.
+    + inversion H0; subst.
+      * inversion H; subst.
+        ** contradict NEQ.
+           reflexivity.
+        ** contradict H6.
+           apply seq_skip_x_not_x_rev.
+      * 
+           
+           symmetry.
+        intro N.
+        
+        
+        inversion H2; subst.
+        -- 
+       
+      
+    inversion H0; subst; clear H0.
+    + contradict NEQ.
+      reflexivity.
+    + 
+  
+    
+    
+    
+    + 
+  - 
+
+  
+  intros j.
+  induction j; intros h0 h1 Hx Hy;inversion Hx; inversion Hy; subst.
+  - inversion HR; subst.
+    + reflexivity.
+    + inversion H4.
+  - inversion HR; subst.
+    + reflexivity.
+    + inversion H4; subst.
+      inversion H6; subst.
+      inversion H5.
+  - inversion HR; subst.
+    + reflexivity.
+    + inversion H6; subst; clear H6.
+      * eapply norun in H4; eauto. contradict H4.
+        reflexivity.
+      * inversion H4; subst.
+        -- eapply norun in H4; eauto.
+           contradict H4.
+
+reflexivity.
+
+           inversion H4; subst.
+           ++ 
+        
+        
+     
+  inversion HR; subst.
+  - reflexivity.
+  -
+
+
+    assert (HIJ: j<>i2). {
+      eapply norun in H4; eauto.
+    }
+     apply multi_run_inv_step with (i':=j) (h1':=h1) in H6.
+     + 
+  
+  induction HR.
+  - intros j h0 h1 Hx Hy.
+    inversion Hx; inversion Hy; subst.
+    reflexivity.
+  - intros j h5 h6 Hx Hy.
+    inversion Hx; inversion Hy; subst; clear Hx Hy.
+    assert (HIJ: j<>i2). {
+      eapply norun in H; eauto.
+    }
+    
+   
+
+      
+    inversion H; subst; clear H.
+    + inversion HR; subst; clear HR. inversion H2.
+    + inversion HR; subst; clear HR. inversion H3.
+    + assert (HJI: j0 = i). {
+        
+
+      inversion HR; subst; clear HR.
+      * eapply norun in H1; eauto. contradiction.
+      * assert (IHHR:=IHHR (Seq j0 k) h2 h6 eq_refl).
+        assert (HJI: j0 = i). {
+          transitivity (i2,h0).
+    
+            
+
+Lemma mrun_seq_skip_h_eq:
+  forall x y,
+    Multi_Run x y ->
+    forall i h h', 
+      x = (Seq Skip i, h) ->
+      y = (i, h') ->
+      h = h'.
+Proof.
+  intros x y HR.
+  induction HR.
+  - intros i0 h0 h' Hi Hj.
+    inversion Hi; inversion Hj; subst.
+    reflexivity.
+  - intros i0 h0 h' Hi Hj.
+    inversion H; inversion Hi; inversion Hj; subst; clear Hi Hj H.
+    + inversion H5.
+    + inversion H6.
+    + inversion H6; subst; clear H6.
+      inversion H1.
+    + inversion H5; subst; clear H5.
+      
+
+
+      assert (HT: i = Skip). {
+        inversion H6.
+        reflexivity.
+      }
+      subst.
+      inversion H1.
+    + inversion H5. subst.
+      inversion HR; subst.
+      * reflexivity.
+      * inversion H2; subst.
+        -- 
+      assert (IHHR := IHHR i2 h2 h').
+      
+      assert (HT: i0 = k). {
+        inversion H6.
+        reflexivity.
+      }
+      subst.
+      
+                      
+    inversion Hi; inversion Hj; subst; clear Hi Hj.
+    inversion H; subst; clear H.
+    + inversion H1.
+    + 
+      assert (IHHR := IHHR i2 h2 h').
+    
+  - contradict H3.  apply seq_skip_x_not_x.
+  - 
 
 Theorem unit_skip_star_r:
   forall x y,
@@ -1601,41 +2090,29 @@ Qed.
 
 
 
-Lemma mrun_seq_skip_h:
-  forall x h,
-    Multi_Run (Seq Skip x, h) (x, h).
+
+
+Lemma unit_skip_par_intrm:
+  forall x y,
+    Multi_Run x y ->
+    forall i z hi,
+      x = (Seq i z, hi) ->
+      y = (z, hi) ->
+      Multi_Run x (Seq Skip z, hi).
 Proof.
-  intros.
-  apply mrun_step with (i2:=x) (h2:=h).
-  - apply run_seq_skip.
+  intros x y HR.
+  intros i z hi Hx Hy.
+  induction i; inversion Hy; inversion Hx; subst.
   - reflexivity.
-Qed.
+  - assert (HIE: hi = []). {
+      inversion HR; subst; clear HR.
+      + apply seq_skip_x_not_x in H4. contradiction.
+      + apply seq_sync_imp_emptyhist in H4.
+        destruct H4 as (Hi,Hh).
+        subst.
+        
 
 
-Lemma run_seq_skip_h_eq:
-  forall x h h',
-    Run (Seq Skip x, h) (x, h') ->
-    h = h'.
-Proof.
-  intros.
-  inversion H; subst.
-  - contradict H4. apply seq_skip_x_not_x.
-  - reflexivity.
-Qed.
-
-(*
-Lemma mrun_seq_skip_h_eq:
-  forall x h h',
-    Multi_Run (Seq Skip x, h) (x, h') ->
-    h = h'.
-Proof.
-  intros.
-  inversion H; subst.
-  - contradict H3.  apply seq_skip_x_not_x.
-  - apply run_seq_skip in H3.
-Qed.
-
-*)
 
 
 Lemma mrun_eq_sim_r:
