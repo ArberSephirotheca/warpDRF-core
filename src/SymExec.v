@@ -105,6 +105,62 @@ Section Defs.
     end
   .
 
+  (* --------------------------- SEQ --------------------------------- *)
+
+  Lemma seq_inv_skip:
+    forall i1 i2,
+    seq i1 i2 = Skip ->
+    i1 = Skip /\ i2 = Skip.
+  Proof.
+    intros.
+    destruct i1; simpl in *; subst; auto;
+    inversion H.
+  Qed.
+
+  Lemma seq_seq_rw:
+    forall i1 i2 i3,
+    seq (seq i1 i2) i3 = (seq i1 (seq i2 i3)).
+  Proof.
+    induction i1; intros; simpl in *.
+    - reflexivity.
+    - rewrite IHi1.
+      reflexivity.
+    - rewrite <- IHi1_2.
+      reflexivity.
+    - rewrite <- IHi1_2.
+      reflexivity.
+    - rewrite IHi1_1; clear IHi1_1.
+      rewrite IHi1_2; clear IHi1_2.
+      reflexivity.
+  Qed.
+
+  Lemma seq_nil_rw:
+    forall i,
+    seq i Skip = i.
+  Proof.
+    induction i; intros; simpl.
+    - reflexivity.
+    - rewrite IHi.
+      reflexivity.
+    - rewrite IHi2.
+      reflexivity.
+    - rewrite IHi2.
+      reflexivity.
+    - rewrite IHi1.
+      rewrite IHi2.
+      reflexivity.
+  Qed.
+
+  Lemma seq_branch_rw:
+    forall x l i j,
+    Branch x l i j = seq (Branch x l i Skip) j.
+  Proof.
+    intros.
+    reflexivity.
+  Qed.
+
+  (* ---------------------------------- RUN ------------------------- *)
+  
   Notation history := (list access_val).
 
   Inductive Run: inst -> list history -> Prop :=
@@ -452,50 +508,6 @@ Section Defs.
       exists n.
       assert (S n0 <= n < n3) by eauto using range_list_inv_in.
       auto with *.
-  Qed.
-
-  Lemma seq_inv_skip:
-    forall i1 i2,
-    seq i1 i2 = Skip ->
-    i1 = Skip /\ i2 = Skip.
-  Proof.
-    intros.
-    destruct i1; simpl in *; subst; auto;
-    inversion H.
-  Qed.
-
-  Lemma seq_seq_rw:
-    forall i1 i2 i3,
-    seq (seq i1 i2) i3 = (seq i1 (seq i2 i3)).
-  Proof.
-    induction i1; intros; simpl in *.
-    - reflexivity.
-    - rewrite IHi1.
-      reflexivity.
-    - rewrite <- IHi1_2.
-      reflexivity.
-    - rewrite <- IHi1_2.
-      reflexivity.
-    - rewrite IHi1_1; clear IHi1_1.
-      rewrite IHi1_2; clear IHi1_2.
-      reflexivity.
-  Qed.
-
-  Lemma seq_nil_rw:
-    forall i,
-    seq i Skip = i.
-  Proof.
-    induction i; intros; simpl.
-    - reflexivity.
-    - rewrite IHi.
-      reflexivity.
-    - rewrite IHi2.
-      reflexivity.
-    - rewrite IHi2.
-      reflexivity.
-    - rewrite IHi1.
-      rewrite IHi2.
-      reflexivity.
   Qed.
 
   Lemma run_seq:
@@ -1187,6 +1199,18 @@ Section Defs.
       auto using var_branch_eq, var_branch_l, var_branch_r.
   Qed.
 
+  Lemma var_not_in_fork:
+    forall x i j,
+    ~ Var x (Fork i j) ->
+    ~ Var x i /\ ~ Var x j.
+  Proof.
+    intros.
+    split;
+    intros N;
+    contradict H;
+    auto using var_fork_l, var_fork_r.
+  Qed.
+
   Lemma var_branch_to_decl:
     forall x y i1 i2 l r,
     Var x (Branch y l i1 i2) ->
@@ -1369,6 +1393,19 @@ Section Defs.
     inversion H; subst; clear H;
       auto using in_range_branch_l, in_range_branch_r.
   Qed.
+
+  Lemma not_in_range_fork:
+    forall x i j,
+    ~ InRange x (Fork i j) ->
+    ~ InRange x i /\ ~ InRange x j.
+  Proof.
+    intros.
+    split;
+    intros N;
+    contradict H;
+    auto using in_range_fork_l, in_range_fork_r.
+  Qed.
+
 
 (*
   Goal

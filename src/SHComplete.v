@@ -155,6 +155,7 @@ Section Compiler.
     - inversion H.
     - inversion H.
     - inversion H.
+    - inversion H.
   Qed.
 
 End Defs.
@@ -891,6 +892,97 @@ Section Defs.
     apply translate_def; auto.
   Qed.
 
+  (* --------------------------- FORK ------------------------ *)
+
+  Lemma iter_2d_inv_fork I:
+    forall x y i j m p,
+    Iter2d (I:=I) x y (Fork i j) p m ->
+    exists m1 m2,
+    m == m1 + m2 /\
+    Iter2d x y i p m1 /\
+    Iter2d x y j p m2.
+  Proof.
+    unfold Iter2d.
+    intros.
+    destruct p as (nx, ny).
+    simpl in H.
+    apply f_run_inv_fork in H.
+    assumption.
+  Qed.
+
+  Lemma map_iter_2d_inv_fork I:
+    forall x y ks vs i j,
+    Map (Iter2d (I:=I) x y (Fork i j)) ks vs ->
+    exists vs1 vs2,
+    EEqList vs (map2 Plus vs1 vs2) /\
+    length vs1 = length vs2 /\
+    Map (Iter2d x y i) ks vs1 /\
+    Map (Iter2d x y j) ks vs2.
+  Proof.
+    induction ks; intros. {
+      inversion H; subst; clear H.
+      exists [], [].
+      auto using map_nil, e_eq_list_nil.
+    }
+    inversion H; subst; clear H.
+    edestruct IHks as (vs1, (vs2, (Rl, (Hl, (Hm1, Hm2))))); eauto.
+    edestruct iter_2d_inv_fork as (ma, (mb, (R2, (Hr1, Hr2)))); eauto.
+    exists (ma :: vs1), (mb :: vs2).
+    rewrite Rl.
+    rewrite R2.
+    simpl.
+    rewrite Hl.
+    rewrite map2_cons_rw.
+    split. { reflexivity. }
+    split. { reflexivity. }
+    split; auto using map_cons.
+  Qed.
+
+  Lemma translate_inv_fork i j m:
+    FRun (translate (Fork i j)) m ->
+    exists vs1_1 vs2_1 vs1_2 vs2_2,
+    m == Σ (map2 Prod (map2 Plus vs1_1 vs2_1) (map2 Plus vs1_2 vs2_2)) /\
+    length vs1_1 = length vs2_1 /\
+    length vs2_1 = length vs1_2 /\
+    length vs1_2 = length vs2_2 /\
+    FRun (translate i) (Σ (map2 Prod vs1_1 vs1_2)) /\
+    FRun (translate j) (Σ (map2 Prod vs2_1 vs2_2)).
+  Proof.
+    intros.
+    apply translate_inv in H.
+    destruct H as (lm, (R1, (vs1, (vs2, (R2, (Hl, (Hm1, Hm2))))))).
+    simpl in *.
+    apply map_iter_2d_inv_fork in Hm1.
+    destruct Hm1 as (vs1_1, (vs2_1, (R_1, (Hl1, (Hm1_1, Hm2_1))))).
+    apply map_iter_2d_inv_fork in Hm2.
+    destruct Hm2 as (vs1_2, (vs2_2, (R_2, (Hl2, (Hm1_2, Hm2_2))))).
+    eexists.
+    eexists.
+    eexists.
+    eexists.
+    split.
+    2: {
+      split. 2: {
+        split. 2: {
+          split. 2: {
+            split.
+            - eapply translate_def; eauto.
+            - eapply translate_def; eauto.
+          }
+          auto.
+        }
+        apply e_eq_list_inv_length_r in R_1; auto.
+        apply e_eq_list_inv_length_r in R_2; auto.
+        auto with *.
+      }
+      auto.
+    }
+    rewrite R1.
+    rewrite R2.
+    rewrite R_1.
+    rewrite R_2.
+    reflexivity.
+  Qed.
   (* -------------------------- MAIN THEOREM ------------------------- *)
 
   Lemma completeness_1
@@ -1086,6 +1178,43 @@ Section Defs.
       contradict tid_rin.
       eauto using in_range_branch_r.
     + reflexivity.
+  - apply translate_inv_fork in H1.
+    destruct H1 as (vs1_1, (vs2_1, (vs1_2, (vs2_2, (R1, (Hl1, (Hl2, (Hl3, (Hf1, Hf2))))))))).
+    rewrite R1 in *.
+    assert (Hx: EIn x (Σ (map2 Prod vs1_1 vs1_2)) \/ EIn x (Σ (map2 Prod vs2_1 vs2_2))). {
+      assert (length (map2 Plus vs1_1 vs2_1) = length (map2 Plus vs1_2 vs2_2)
+). {
+        rewrite map2_length_l; auto.
+        rewrite map2_length_l; auto with *.
+      }
+      apply e_in_rw_summation_map2_prod in H2; auto.
+      destruct H2 as [Hx|Hx]. {
+        apply e_in_rw_summation_map2_plus in Hx; auto.
+        destruct Hx. {
+          left.
+          apply e_in_rw_summation_map2_prod; auto with *.
+        }
+        right.
+        apply e_in_rw_summation_map2_prod; auto with *.
+      }
+      apply e_in_rw_summation_map2_plus in Hx; auto.
+      destruct Hx. {
+        left.
+        apply e_in_rw_summation_map2_prod; auto with *.
+      }
+      right.
+      apply e_in_rw_summation_map2_prod; auto with *.
+    }
+    apply not_in_fork in T1_nin_i; destruct T1_nin_i.
+    apply not_in_fork in T2_nin_i; destruct T2_nin_i.
+    apply var_not_in_fork in tid_nin; destruct tid_nin.
+    apply not_in_range_fork in tid_rin; destruct tid_rin.
+    destruct Hx. {
+      left.
+      eapply IHERun1; eauto; reflexivity.
+    }
+    right.
+    eapply IHERun2; eauto; reflexivity.
   Qed.
 
   Corollary completeness:

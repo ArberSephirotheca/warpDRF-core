@@ -525,6 +525,20 @@ Section Defs.
       assumption.
   Qed.
 
+  Lemma f_run_inv_fork:
+    forall i j m,
+    FRun (Fork i j) m ->
+    exists m1 m2,
+    m == m1 + m2 /\
+    FRun i m1 /\
+    FRun j m2.
+  Proof.
+    intros.
+    destruct H as (m', (R1, Hf)).
+    inversion Hf; subst; clear Hf.
+    exists m1, m2.
+    auto using f_run_eq.
+  Qed.
 
   Lemma branch_map_rw:
     forall l i j x hss,
@@ -1175,6 +1189,32 @@ Section Defs.
     reflexivity.
   Qed.
 
+  Lemma f_run_fork:
+    forall m m1 m2 i j,
+    m == m1 + m2 ->
+    i // m1 ->
+    j // m2 ->
+    Fork i j // m.
+  Proof.
+    intros.
+    destruct H0 as (m_i, (R_i, Hr_i)).
+    destruct H1 as (m_j, (R_j, Hr_j)).
+    rewrite H.
+    rewrite R_i.
+    rewrite R_j.
+    auto using f_run_eq, e_run_fork.
+  Qed.
+
+  Lemma f_run_fork_eq:
+    forall m1 m2 i j,
+    i // m1 ->
+    j // m2 ->
+    Fork i j // (m1 + m2).
+  Proof.
+    intros.
+    eapply f_run_fork; eauto; reflexivity.
+  Qed.
+
   Lemma branch_map_inv_acc:
     forall l x e i ms,
     BranchMap x (MemAcc e i) l ms ->
@@ -1338,6 +1378,32 @@ Section Defs.
     destruct H0.
     transitivity i2; auto.
     transitivity j2; auto.
+  Qed.
+
+  Lemma p_eq_fork:
+    forall i i' j j' m,
+    ProgEquiv i i' ->
+    ProgEquiv j j' ->
+    FRun (Fork i j) m ->
+    FRun (Fork i' j') m.
+  Proof.
+    intros.
+    apply f_run_inv_fork in H1.
+    destruct H1 as (m1, (m2, (R1, (Hf1, Hf2)))).
+    rewrite R1.
+    rewrite H in *.
+    rewrite H0 in *.
+    auto using f_run_fork_eq.
+  Qed.
+
+  Global Instance fork_p_eq_proper: Proper (ProgEquiv ==> ProgEquiv ==> ProgEquiv) Fork.
+  Proof.
+    unfold Proper, respectful.
+    split; intros.
+    - eauto using p_eq_fork.
+    - symmetry in H.
+      symmetry in H0.
+      eauto using p_eq_fork.
   Qed.
 
   Lemma impl_seq_skip_1:
@@ -1763,4 +1829,135 @@ Section Defs.
     apply f_run_inv_branch_map_2d in Hb; auto using range_list_no_dup.
   Qed.
 
+
+  Lemma rw_branch_cons:
+    forall x n l i j,
+    ProgEquiv (Branch x (n::l) i j)
+              (Fork (seq (i_subst x (NNum n) i) j) (Branch x l i j)).
+  Proof.
+    split; intros.
+    - apply f_run_inv_branch_cons in H.
+      destruct H as (m1, (m2, (R, (Hr1, Hr2)))).
+      eapply f_run_fork; eauto.
+    - apply f_run_inv_fork in H.
+      destruct H as (m1, (m2, (R, (Hr1, Hr2)))).
+      eauto using f_run_branch_cons.
+  Qed.
+
+  Lemma rw_fork_assoc:
+    forall i j k,
+    ProgEquiv (Fork i (Fork j k))
+              (Fork (Fork i j) k).
+  Proof.
+    split; intros.
+    - apply f_run_inv_fork in H.
+      destruct H as (mi, (m2, (R1, (Hr1, Hr2)))).
+      rewrite R1; clear m R1.
+      apply f_run_inv_fork in Hr2.
+      destruct Hr2 as (mj, (mk, (R1, (Hr3, Hr4)))).
+      rewrite R1; clear R1 m2.
+      eapply f_run_fork with (m1:=mi + mj); eauto.
+      { apply e_plus_assoc. }
+      auto using f_run_fork_eq.
+    - apply f_run_inv_fork in H.
+      destruct H as (mi_mj, (mk, (R1, (Hr1, Hr2)))).
+      rewrite R1; clear m R1.
+      apply f_run_inv_fork in Hr1.
+      destruct Hr1 as (mi, (mj, (R1, (Hr3, Hr4)))).
+      rewrite R1; clear R1 mi_mj.
+      eapply f_run_fork with (m2:=mj + mk); eauto.
+      { rewrite e_plus_assoc. reflexivity. }
+      auto using f_run_fork_eq.
+  Qed.
+
+  Lemma p_eq_fork_branch:
+    forall x l i j,
+    ProgEquiv (Fork j (Branch x l i j))
+              (Branch x l i j).
+  Proof.
+    split; intros.
+    + apply f_run_inv_fork in H.
+      destruct H as (mj, (mb, (R, (Hr1, Hr2)))).
+      rewrite R; clear R m.
+      rewrite seq_branch_rw in Hr2.
+      assert (Hb := Hr2).
+      apply f_run_inv_seq in Hr2.
+      destruct Hr2 as (mi, (mj', (R, (Hr2, Hr3)))).
+      rewrite R in *; clear R mb.
+      assert (R: mj' == mj) by eauto using f_run_fun.
+      rewrite R in *; clear R mj'.
+      rewrite e_plus_sym.
+      rewrite e_prod_plus_absorb_rw.
+      assumption.
+    + rewrite seq_branch_rw in H.
+      assert (Hb := H).
+      apply f_run_inv_seq in H.
+      destruct H as (mi, (mj, (R, (Hr1, Hr2)))).
+      rewrite R in *; clear R m.
+      apply f_run_fork with (m1:=mj) (m2:=mi*mj); auto.
+      rewrite e_plus_sym.
+      rewrite e_prod_plus_absorb_rw.
+      reflexivity.
+  Qed.
+
+  Lemma rw_branch_plus:
+    forall x l1 l2 i j,
+    ProgEquiv (Branch x (l1 ++ l2) i j)
+              (Fork (Branch x l1 i j) (Branch x l2 i j)).
+  Proof.
+    split; intros.
+    - generalize dependent l2.
+      generalize dependent i.
+      generalize dependent j.
+      generalize dependent x.
+      generalize dependent m.
+      induction l1; intros. {
+        rewrite p_eq_branch_nil.
+        simpl in *.
+        rewrite p_eq_fork_branch.
+        assumption.
+      }
+      simpl in *.
+      apply f_run_inv_branch_cons in H.
+      destruct H as (m1, (m2, (R1, (Hr1, Hr2)))).
+      apply IHl1 in Hr2; clear IHl1.
+      rewrite rw_branch_cons.
+      rewrite R1; clear R1 m.
+      assert
+        (FRun (Fork (i_subst x (NNum a) i;; j)  (Fork (Branch x l1 i j) (Branch x l2 i j))) (m1 + m2)). {
+        auto using f_run_fork_eq.
+      }
+      apply rw_fork_assoc.
+      assumption.
+    - generalize dependent l2.
+      generalize dependent i.
+      generalize dependent j.
+      generalize dependent x.
+      generalize dependent m.
+      induction l1; intros. {
+        simpl in *.
+        rewrite p_eq_branch_nil in *.
+        rewrite p_eq_fork_branch in H.
+        assumption.
+      }
+      simpl.
+      apply f_run_inv_fork in H.
+      destruct H as (mb1, (m2, (R, (Hb1, Hb2)))).
+      rewrite R in *.
+      clear R m.
+      apply f_run_inv_branch_cons in Hb1.
+      destruct Hb1 as (mi, (mb2, (R, (Hri, Hrb2)))).
+      rewrite R; clear R mb1.
+      assert (Hf := f_run_fork_eq _ _ _ _ Hrb2 Hb2); clear Hrb2 Hb2.
+      apply IHl1 in Hf; clear IHl1.
+      rewrite <- e_plus_assoc.
+      apply f_run_branch_cons_eq; auto.
+  Qed.
+*)
+(*
+  Lemma rw_decl_plus:
+    forall x lb ub1 ub2 i j,
+    ProgEquiv (Decl x (lb, (NBin NPlus ub1 ub2)) i j)
+              (seq (Decl x (lb, ub1) i Skip) (Decl x (ub1, ub2) i j)).
+*)
 End Defs.

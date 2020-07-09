@@ -384,6 +384,20 @@ Section Ops.
     reflexivity.
   Qed.
 
+  Lemma map2_length_l:
+    forall A B C f l1 l2,
+    length l1 = length l2 ->
+    length (@map2 A B C f l1 l2) = length l1.
+  Proof.
+    induction l1; intros;
+      destruct l2; try (inversion H; fail). {
+      reflexivity.
+    }
+    rewrite map2_cons_rw.
+    inversion H; subst; clear H.
+    simpl.
+    rewrite IHl1; auto.
+  Qed.
 
   Lemma Exists_app_or:
     forall A P l1 l2,
