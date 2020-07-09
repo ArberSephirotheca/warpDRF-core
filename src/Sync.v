@@ -296,6 +296,7 @@ Global Add Parametric Relation : _ Multi_Run
 
 
 
+
 Theorem uni_skip_one:
 forall i1 i2 h1 h2,
 Run (i1, h1) (i2, h2) ->
@@ -1286,6 +1287,7 @@ Proof.
 Qed.
 
 
+      
 Theorem unit_skip_r:
     forall x y,
     Run x y ->
@@ -1444,24 +1446,8 @@ Proof.
     inversion N.
 Qed. 
 
-Lemma ibefore_clo_neq:
-  forall x y,
-    clos_trans_n1 _ IBefore x y ->
-    x <> y.
-Proof.
-  intros x y HC.
-  induction HC.
-  - apply ibefore_neq. assumption.
-  - 
 
 
-(*
-
- IBefore j iy
-  HR : clos_trans_1n inst IBefore iy j
-  H0 : IBefore iy j
-
-*)
 Theorem list_n_l :
   forall (x:nat) (l:list nat),
     l <> x :: l.
@@ -1521,7 +1507,38 @@ Proof.
   - contradiction.
 Qed.
 
+Lemma ibefore_anti_star:
+  forall x y,
+    IBefore x y ->
+    ~clos_trans_n1 _ IBefore y x.
+Proof.
+  intros x y HC.
+  induction HC.
+  - intro N.
+    apply ibeforeplus_skip in N.
+    contradiction.
+  - intro N.
+    apply ibeforeplus_skip in N.
+    contradiction.
+  - admit.
+  - intro N.
+    inversion N.
+    + inversion H; subst.
+      * apply seq_skip_x_not_x_rev in H4.
+        contradiction.
+      * 
+          
 
+    intro N.
+    inversion N; subst.
+    + inversion H; subst.
+      * apply ibefore_anti in HC.
+        contradiction.
+      * apply seq_skip_x_not_x_rev in H0.
+        contradiction.
+    + inversion H; subst.
+      * 
+    
          
 
 Lemma mrun_ibefore:
@@ -1550,59 +1567,33 @@ Proof.
     + assumption.
     + assumption.
 Qed. 
-          
-
-Lemma mrun_diff:
-  forall x y,
-    clos_trans_1n _ Run x y ->
-    forall i h,
-      x=(i,h) ->
-      forall j h',
-        y=(j,h') ->
-          i <> j.
-Proof.
-  intros.
-  eapply mrun_ibefore in H; eauto.
-  intro N.
-
-  
-  - intros; subst.
-    eapply norun in H; eauto.
-  - intros; subst.
-    destruct y as (iy,hy).
-    assert (IHHR:=IHHR iy hy eq_refl j h' eq_refl).
-    eapply run_ibefore in H; eauto.
-    intros N; subst.
-    eapply mrun_ibefore in HR; eauto.
-    inversion HR; subst.
-    + apply ibefore_anti in H.
-      contradiction.
-    + apply ibefore_anti in H.
-      assert (HT1: clos_trans_1n inst IBefore iy j).{
-        constructor 2 with (y:=y).
-        + assumption.
-        + assumption.
-        }
-      apply 
-            g
-      contradiction.
-    
-    
-   
-
-       
-    Search clos_trans.
     
    
 Lemma mrun_refl_inst:
   forall x y,
-    Multi_Run x y ->
+    clos_trans_1n _ Run x y ->
     forall i h h',
     x = (i, h) ->
     y=  (i, h') ->
     h=h'.
 Proof.
   intros x y HR.
+  induction HR.
+  -  intros j h0 h1 Hx Hy;inversion Hx; inversion Hy; subst.
+     eapply run_ibefore in H; eauto.
+     apply ibefore_neq in H.
+     contradiction.
+  -  intros j h0 h1 Hx Hy;inversion Hx; inversion Hy; subst.
+     destruct y as (yi,yh).
+     assert (IHHR:=IHHR yi yh h1 eq_refl).
+     eapply run_ibefore in H; eauto.
+     eapply mrun_ibefore in HR; eauto.
+     Search IBefore.
+    
+     contradict H.
+     
+ 
+  
   inversion HR; subst.
   - intros j h0 h1 Hx Hy;inversion Hx; inversion Hy; subst.
     reflexivity.
