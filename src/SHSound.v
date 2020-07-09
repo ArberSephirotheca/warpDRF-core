@@ -48,7 +48,9 @@ Section Compiler.
         in_decl_4,
         in_branch_1,
         in_branch_2,
-        in_branch_3.
+        in_branch_3,
+        in_fork_1,
+        in_fork_2.
     apply in_acc_1.
     simpl in *.
     auto.
@@ -141,6 +143,13 @@ Section Compiler.
         auto using SymExec.var_branch_r.
       }
       auto.
+    - simpl in *.
+      inversion H2; subst; clear H2.
+      rewrite Hist.m_proj_app.
+      erewrite IHRun1; eauto.
+      2: { intros N. contradict H3. auto using var_fork_l. }
+      erewrite IHRun2; eauto.
+      intros N. contradict H3. auto using var_fork_r.
   Qed.
 
   Lemma run_do_proj (t:var):

@@ -33,7 +33,8 @@ Section Compiler.
     | Skip => Skip
     | MemAcc a c1 => MemAcc (I:=SymHist.SymAcc) (a, NVar TID) (proj c1)
     | Decl x r c1 c2 => Decl x r (proj c1) (proj c2)
-    | Branch x l c1 c2 => Branch x l (proj c1) (proj c2) 
+    | Branch x l c1 c2 => Branch x l (proj c1) (proj c2)
+    | Fork i j => Fork (proj i) (proj j)
     end.
 
   Definition do_proj x i := i_subst TID (NVar x) (proj i).
@@ -61,7 +62,9 @@ Section Compiler.
         in_decl_4,
         in_branch_1,
         in_branch_2,
-        in_branch_3.
+        in_branch_3,
+        in_fork_1,
+        in_fork_2.
     apply in_acc_1.
     simpl in *.
     destruct H2 as [Hx|Hx]; auto.
@@ -80,6 +83,9 @@ Section Compiler.
     - rewrite IHi2.
       reflexivity.
     - rewrite IHi2.
+      reflexivity.
+    - rewrite IHi1;
+      rewrite IHi2.
       reflexivity.
   Qed.
 
@@ -101,6 +107,8 @@ Section Compiler.
         auto.
       }
       rewrite IHi1; auto.
+    - rewrite IHi1; auto.
+      rewrite IHi2; auto.
   Qed.
 
   End Defs.
