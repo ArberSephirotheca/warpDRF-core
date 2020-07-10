@@ -97,28 +97,31 @@ Qed.
 
 Inductive In : inst -> inst -> Prop :=
 | in_skip:
-  In Skip Skip
+    In Skip Skip
 | in_sync:
-  In Sync Sync
+    In Sync Sync
 | in_access:
-  forall a,
-  In (Access a) (Access a)
+    forall a,
+      In (Access a) (Access a)
 | in_seq_l:
-  forall k i j,
-  In k i ->
-  In k (Seq i j)
+    forall k i j,
+      In k i ->
+      In k (Seq i j)
 | in_seq_r:
-  forall k i j,
-  In k j ->
-  In k (Seq i j)
+    forall k i j,
+      In k j ->
+      In k (Seq i j)
 | in_for:
-  forall k v r i,
-  In k i ->
-  In k (For v r i)
+    forall k v r i,
+      In k i ->
+      In k (For v r i)
 | in_loop:
-  forall k v r i,
-  In k i ->
-  In k (Loop v r i).
+    forall k v r i,
+      In k i ->
+      In k (Loop v r i)
+| in_refl:
+    forall x,
+      In x x.
 
 Theorem Sync_sync_in:
 forall i,
@@ -1286,7 +1289,145 @@ Proof.
   - contradiction.
 Qed.
 
+(* i0 = Seq Skip (Seq Skip i0) *)
 
+Lemma for_not_y:
+  forall v r y,
+    For v r y <> y.
+Proof.
+  intros.
+  induction y; intro N; inversion N; subst.
+  contradiction.
+Qed.
+  
+Lemma y_in_for_y:
+  forall v r y,
+    In y (For v r y).
+Proof.
+  intros.
+  apply in_for.
+  apply in_refl.
+Qed.
+
+
+
+
+Lemma in_transitive:
+  forall y z,
+    In y z->
+    forall x,
+      In x y ->
+      In x z.
+Proof.
+  intros y z .
+  intros H.
+  induction H; intros.
+  - assumption.
+  - assumption.
+  - assumption.
+  - assert (IHIn:= IHIn x H0).
+    apply in_seq_l.
+    assumption.
+  - assert (IHIn:= IHIn x H0).
+    apply in_seq_r.
+    assumption.
+  - assert (IHIn:= IHIn x H0).
+    apply in_for.
+    assumption.
+  - assert (IHIn:= IHIn x H0).
+    apply in_loop.
+    assumption.
+  - assumption.
+Qed.
+
+Lemma in_trans:
+  forall x y z,
+    In x y ->
+    In y z ->
+    In x z.
+Proof.
+  intros.
+  apply in_transitive with (z:=z) in H.
+  + assumption.
+  + assumption.
+Qed.
+  
+
+Global Add Parametric Relation : _ In
+  transitivity proved by in_trans
+  as iin_setoid.
+
+
+
+Goal
+  forall y x,
+    x <> y ->
+    In x y ->
+    ~In y x.
+Proof.
+  intros y
+
+
+      
+        
+
+Goal
+  forall y z,
+    ~In (Seq y z) y.
+Proof.
+  intros y z HI.
+  induction y.
+  - inversion HI.
+  - inversion HI.
+  - inversion HI; subst.
+    + inversion H1; subst.
+      * 
+
+  intro N; inversion N; subst.
+  -
+    
+  induction HI.
+  - 
+
+Lemma x_not_in_seq:
+  forall x y z,
+    (In x y) \/ (In x z) ->
+    x <> Seq y z.
+Proof.
+  intros x y z HIN.
+  - induction x; intro N; inversion N; subst; clear N.
+    + assert (INy: In y y). {
+        apply in_refl.
+      }
+      destruct HIN as [Hy | Hz].
+      * 
+        apply seq_skip_x_not_x in Hy.
+      destruct IHx1.
+      * left. assumption.
+      * 
+      
+      assert (IHx1 := IHx1 (INy \/ false)).
+      apply IHx1 in INy.
+
+
+      
+    + inversion N.
+    + inversion N.
+    + inversion N; subst.
+  intro N.
+  destruct HIN as [Hy | Hz].
+ 
+                
+    + subst.
+      inversion Hy; subst.
+      * 
+      assert (INy: In y y). {
+        apply in_refl.
+      }
+      apply IHx1 in INy.
+      * contradiction.
+      * eapply in_seq_l in Hy; eauto.
+   
       
 Theorem unit_skip_r:
     forall x y,
@@ -2373,6 +2514,7 @@ induction NH; subst; intros.
             ** eapply run_seq. apply run_seq. admit.            ** 
                   
       -- assert (EQS:
+                   
       -- assumption.
     + 
     inversion H; subst.
