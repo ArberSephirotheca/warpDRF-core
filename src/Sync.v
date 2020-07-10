@@ -1,5 +1,5 @@
 Require Import Coq.Lists.List.
-Require Import Coq.Strings.String.
+(* Require Import Coq.Strings.String. *)
 Require Import Coq.Relations.Relation_Definitions.
 Require Import Coq.Relations.Relation_Operators.
 Require Import Coq.Relations.Operators_Properties.
@@ -1358,13 +1358,39 @@ Global Add Parametric Relation : _ In
   as iin_setoid.
 
 Fixpoint size (i: inst) :=
-match i with
-| Skip | Sync | Access _ => 1
-| Seq x y => size x + size y
-| For _ _ x => S (size x)
-| Loop _ _ x => S (size x)
-end.
+  match i with
+  | Skip => 0
+  | Sync | Access _ => 1
+  | Seq x y => S (size x + size y)
+  | For _ _ x => S ( S ( (size x) ))
+  | Loop _ _ x => S (size x)
+  end.
 
+      
+Fixpoint runsize (i: inst) :=
+  match i with
+  | Seq j (Loop x l k) => (S (size k), length l)
+  | Loop _ l k => (S (size k), length l)
+  | x => (size x, 0)
+  end.
+
+
+Definition ige i j := 
+  (fst (runsize i) > fst (runsize j))
+  \/
+  (
+    (fst (runsize i) = fst (runsize j))
+    /\
+    (snd (runsize i) > snd (runsize j))
+  ).
+      
+
+Import Omega.
+
+
+    
+
+    
 Lemma in_size: forall y x, In x y -> size x <= size y.
 Proof.
   intros x y H.
@@ -1373,11 +1399,11 @@ Qed.
 
 Lemma size_ge:
   forall i,
-  size i > 0.
+  size i >= 0.
 Proof.
   induction i; simpl; intros; auto with *.
 Qed.
-Import Omega.
+
 Lemma in_eq:
   forall x y,
   In x y ->
@@ -1387,24 +1413,24 @@ Proof.
   intros x y H; induction H; intros; auto.
   - apply in_size in H0.
     apply in_size in H.
-    assert (size i > 0) by auto using size_ge.    
-    assert (size j > 0) by auto using size_ge.
+    assert (size i >= 0) by auto using size_ge.    
+    assert (size j >= 0) by auto using size_ge.
     simpl in *.
     omega.
   - apply in_size in H0.
     apply in_size in H.
-    assert (size i > 0) by auto using size_ge.    
-    assert (size j > 0) by auto using size_ge.
+    assert (size i >= 0) by auto using size_ge.    
+    assert (size j >= 0) by auto using size_ge.
     simpl in *.
     omega.
   - apply in_size in H0.
     apply in_size in H.
-    assert (size i > 0) by auto using size_ge.
+    assert (size i >= 0) by auto using size_ge.
     simpl in *.
     omega.
   - apply in_size in H0.
     apply in_size in H.
-    assert (size i > 0) by auto using size_ge.
+    assert (size i >= 0) by auto using size_ge.
     simpl in *.
     omega.
 Qed.
@@ -1421,63 +1447,57 @@ Proof.
   contradiction.
 Qed.
 
-Goal
-  forall y z,
-    ~In (Seq y z) y.
+
+Lemma neq_size_neq:
+  forall x y,
+    (size x <> size y) ->
+    x <> y.
 Proof.
-  intros y z HI.
-  induction y.
-  - inversion HI.
-  - inversion HI.
-  - inversion HI; subst.
-    + inversion H1; subst.
-      * 
-
-  intro N; inversion N; subst.
-  -
-    
-  induction HI.
-  - 
-
-Lemma x_not_in_seq:
-  forall x y z,
-    (In x y) \/ (In x z) ->
-    x <> Seq y z.
-Proof.
-  intros x y z HIN.
-  - induction x; intro N; inversion N; subst; clear N.
-    + assert (INy: In y y). {
-        apply in_refl.
-      }
-      destruct HIN as [Hy | Hz].
-      * 
-        apply seq_skip_x_not_x in Hy.
-      destruct IHx1.
-      * left. assumption.
-      * 
-      
-      assert (IHx1 := IHx1 (INy \/ false)).
-      apply IHx1 in INy.
+  intros.
+  induction x; intro N; subst; simpl in *; contradict H;  reflexivity.
+Qed.
 
 
-      
-    + inversion N.
-    + inversion N.
-    + inversion N; subst.
-  intro N.
-  destruct HIN as [Hy | Hz].
- 
-                
-    + subst.
-      inversion Hy; subst.
-      * 
-      assert (INy: In y y). {
-        apply in_refl.
-      }
-      apply IHx1 in INy.
-      * contradiction.
-      * eapply in_seq_l in Hy; eauto.
    
+Lemma run_runsize:
+  forall x y,
+    Run x y ->
+    forall i hi j hj,
+      x = (i, hi) ->
+      y = (j, hj) ->
+      ige i j.
+Proof.
+  intros x y HR.
+  induction HR; intros ix hx jy hy Hx Hy;
+    inversion Hx; inversion Hy; clear Hx Hy; subst.
+  - simpl. unfold ige. left. auto.
+  - simpl. unfold ige. left. auto.
+  - assert (IHHR := IHHR i hx j hy eq_refl eq_refl).
+    unfold ige in IHHR.
+    destruct IHHR as [Hp | Hs].
+    + unfold ige. left.
+      destruct k.
+      * simpl in *.
+        assert (HS: size i >= size j). {
+          
+      
+      admit.
+    + unfold ige. right.
+      assert 
+    + admit.
+  - admit.  
+  - unfold ige. left. simpl. auto.
+  - unfold ige. left. simpl.
+    assert (size i >= 0) by auto using size_ge.
+    omega.
+  - unfold ige. right. split. {
+      simpl. auto.
+    }
+    simpl. auto.
+    
+    
+
+
       
 Theorem unit_skip_r:
     forall x y,
@@ -1698,6 +1718,8 @@ Proof.
   - contradiction.
 Qed.
 
+
+
 Lemma ibefore_anti_star:
   forall x y,
     IBefore x y ->
@@ -1713,23 +1735,27 @@ Proof.
     contradiction.
   - admit.
   - intro N.
-    inversion N.
-    + inversion H; subst.
-      * apply seq_skip_x_not_x_rev in H4.
-        contradiction.
-      * 
-          
-
-    intro N.
     inversion N; subst.
     + inversion H; subst.
-      * apply ibefore_anti in HC.
+      * apply seq_skip_x_not_x_rev in H3.
         contradiction.
-      * apply seq_skip_x_not_x_rev in H0.
+      * assert (HT: (size i0) <> size (Seq Skip (Seq Skip i0))). {
+          simpl. omega.
+        }
+        apply neq_size_neq in HT.
         contradiction.
-    + inversion H; subst.
-      * 
-    
+      * apply list_n_l in H3; auto.
+    + inversion H; subst; clear H.
+      *  
+
+
+
+      
+      * inversion
+        
+        
+        
+
          
 
 Lemma mrun_ibefore:
