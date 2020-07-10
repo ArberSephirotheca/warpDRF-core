@@ -1385,17 +1385,29 @@ Lemma in_eq:
   x = y.
 Proof.
   intros x y H; induction H; intros; auto.
-  - assert (In i k). {
-      transitivity (Seq i j); auto using in_seq_l, in_refl.
-    }
-    assert (k = i) by auto; clear IHIn; subst.
-    apply in_size in H0.
-    simpl in *.
-    assert (size i > 0) by auto using size_ge.
+  - apply in_size in H0.
+    apply in_size in H.
+    assert (size i > 0) by auto using size_ge.    
     assert (size j > 0) by auto using size_ge.
+    simpl in *.
     omega.
-  -
-Admitted.
+  - apply in_size in H0.
+    apply in_size in H.
+    assert (size i > 0) by auto using size_ge.    
+    assert (size j > 0) by auto using size_ge.
+    simpl in *.
+    omega.
+  - apply in_size in H0.
+    apply in_size in H.
+    assert (size i > 0) by auto using size_ge.
+    simpl in *.
+    omega.
+  - apply in_size in H0.
+    apply in_size in H.
+    assert (size i > 0) by auto using size_ge.
+    simpl in *.
+    omega.
+Qed.
 
 Lemma in_asymmetric:
   forall x y,
