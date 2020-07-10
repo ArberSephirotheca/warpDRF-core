@@ -1357,19 +1357,57 @@ Global Add Parametric Relation : _ In
   transitivity proved by in_trans
   as iin_setoid.
 
+Fixpoint size (i: inst) :=
+match i with
+| Skip | Sync | Access _ => 1
+| Seq x y => size x + size y
+| For _ _ x => S (size x)
+| Loop _ _ x => S (size x)
+end.
 
+Lemma in_size: forall y x, In x y -> size x <= size y.
+Proof.
+  intros x y H.
+  induction H; simpl; auto with *.
+Qed.
 
-Goal
-  forall y x,
+Lemma size_ge:
+  forall i,
+  size i > 0.
+Proof.
+  induction i; simpl; intros; auto with *.
+Qed.
+Import Omega.
+Lemma in_eq:
+  forall x y,
+  In x y ->
+  In y x ->
+  x = y.
+Proof.
+  intros x y H; induction H; intros; auto.
+  - assert (In i k). {
+      transitivity (Seq i j); auto using in_seq_l, in_refl.
+    }
+    assert (k = i) by auto; clear IHIn; subst.
+    apply in_size in H0.
+    simpl in *.
+    assert (size i > 0) by auto using size_ge.
+    assert (size j > 0) by auto using size_ge.
+    omega.
+  -
+Admitted.
+
+Lemma in_asymmetric:
+  forall x y,
     x <> y ->
     In x y ->
     ~In y x.
 Proof.
-  intros y
-
-
-      
-        
+  intros.
+  intros N.
+  assert (x = y) by auto using in_eq.
+  contradiction.
+Qed.
 
 Goal
   forall y z,
