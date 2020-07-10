@@ -1,29 +1,17 @@
 Require Import Coq.Lists.List.
-Require Import Coq.Relations.Relation_Definitions.
-Require Import Coq.Relations.Relation_Operators.
-Require Import Coq.Relations.Operators_Properties.
-Require Coq.Sets.Ensembles.
-Require Coq.omega.Omega.
-Require Import Recdef.
-Require Import Omega.
-Require Import Var.
-Require Import Tid.
-Require Import Loc.
 Require Import Exp.
 Require Import AccExp.
 Require Import Util.
-Require LoopFree.
-Require Import SetTh.
-Import ListNotations.
 Require Import Tasks.
 Require Import SymExec.
 Require Import MExp.
 Require Import SymExecMExp.
 Require Import RangeList.
 Require Import SHCompiler.
-Require Import MultiHist.
-Require InUtil.
+
+Import ListNotations.
 Import MHistNotations.
+
 Section Compiler.
   Section Defs.
   Context {A:Access}.
