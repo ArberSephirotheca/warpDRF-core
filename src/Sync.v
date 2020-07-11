@@ -1362,47 +1362,105 @@ Fixpoint size (i: inst) :=
   | Skip => 0
   | Sync | Access _ => 1
   | Seq x y => S (size x + size y)
-  | For _ _ x => S ( S ( (size x) ))
-  | Loop _ _ x => S (size x)
+  | For _ _ x => S (size x)
+  | Loop _ l x => S (size x * S (length l))
   end.
 
-      (* TODO: change this to: (#for-loops, #iterations, #size-of-ast) *)
-Fixpoint runsize (i: inst) :=
+Fixpoint forsize (i: inst) :=
   match i with
-  | Seq j (Loop x l k) => (S (size k), length l)
-  | Loop _ l k => (S (size k), length l)
-  | x => (size x, 0)
+  | Skip | Sync | Access _ => 0
+  | Seq x y => forsize x + forsize y
+  | For _ _ x => S (forsize x)
+  | Loop _ _ x => forsize x
+  end.
+
+Fixpoint loopsize (i: inst) :=
+  match i with
+  | Skip | Sync | Access _ => 0
+  | Seq x y => loopsize x + loopsize y
+  | For _ _ x => loopsize x
+  | Loop _ l x => S (length l)
   end.
 
 
-Definition ige i j := 
-  (fst (runsize i) > fst (runsize j))
+(* 
+   for x -> loop x  ----> number of loops goes up, number of fors goes
+   down (ast stays the same)
+   (F, L, A) -> (F-1, L+k, A)
+
+   loop x -> x ; loop x --> ast + number of fors goes up --> but
+   #loops goes down
+   # Should i not count stuff in Loops ?
+   (F, L, A) -> (F, L-1, A-1)
+
+
+   loop (for x) -> for x ; loop (for x)
+   (F, L, A) -> (F+k, L-1; A-1)
+
+Skip; x -> (F,L,A-1)
+
+*) 
+
+Definition ige i j :=
+  (forsize i > forsize j)
   \/
   (
-    (fst (runsize i) = fst (runsize j))
+    (forsize i <= forsize j)
     /\
-    (snd (runsize i) > snd (runsize j))
+    (size i > size j)
   ).
-      
+    (*
+  \/
+  (
+    (forsize i <= forsize j)
+    /\
+    (loopsize i <= loopsize j)
+    /\
+   
+  ).
+*)
+
 
 Import Omega.
 
 
     
-
-    
-Lemma in_size: forall y x, In x y -> size x <= size y.
-Proof.
-  intros x y H.
-  induction H; simpl; auto with *.
-Qed.
-
 Lemma size_ge:
   forall i,
   size i >= 0.
 Proof.
   induction i; simpl; intros; auto with *.
 Qed.
+
+    
+
+
+
+
+Lemma forsize_ge:
+  forall i,
+  forsize i >= 0.
+Proof.
+  induction i; simpl; intros; auto with *.
+Qed.
+
+
+Lemma loopsize_ge:
+  forall i,
+  loopsize i >= 0.
+Proof.
+  induction i; simpl; intros; auto with *.
+Qed.
+
+(*
+Lemma in_size: forall y x, In x y -> size x <= size y.
+Proof.
+  intros x y H.
+  induction H; simpl; auto with *.
+  - assert (length r >=0 ).
+    {
+Qed.
+
 
 Lemma in_eq:
   forall x y,
@@ -1457,7 +1515,29 @@ Proof.
   induction x; intro N; subst; simpl in *; contradict H;  reflexivity.
 Qed.
 
+*)
+Lemma i_subst_forsize:
+  forall x n i k,
+    forsize i = k ->
+    forsize (i_subst x (NNum n) i) = k.
+Proof.
+Admitted.
 
+
+Lemma i_subst_loopsize:
+  forall x n i k,
+    loopsize i = k ->
+    loopsize (i_subst x (NNum n) i) = k.
+Proof.
+Admitted.
+
+
+Lemma i_subst_size:
+  forall x n i k,
+    size i = k ->
+    size (i_subst x (NNum n) i) = k.
+Proof.
+Admitted.
    
 Lemma run_runsize:
   forall x y,
@@ -1470,32 +1550,51 @@ Proof.
   intros x y HR.
   induction HR; intros ix hx jy hy Hx Hy;
     inversion Hx; inversion Hy; clear Hx Hy; subst.
-  - simpl. unfold ige. left. auto.
-  - simpl. unfold ige. left. auto.
+  - simpl. unfold ige. right. simpl. auto.
+  - simpl. unfold ige. right. simpl. auto.
   - assert (IHHR := IHHR i hx j hy eq_refl eq_refl).
     unfold ige in IHHR.
-    destruct IHHR as [Hp | Hs].
-    + unfold ige. left.
-      destruct k.
-      * simpl in *.
-        assert (HS: size i >= size j). {
-          
-      
-      admit.
-    + unfold ige. right.
-      assert 
-    + admit.
-  - admit.  
-  - unfold ige. left. simpl. auto.
-  - unfold ige. left. simpl.
+    unfold ige.
+    simpl.
     assert (size i >= 0) by auto using size_ge.
-    omega.
+    assert (size j >= 0) by auto using size_ge.
+    assert (forsize i >= 0) by auto using forsize_ge.
+    assert (forsize j >= 0) by auto using forsize_ge.
+    destruct IHHR as [Hf | Ht].
+    + left. omega.
+    + right. omega.
   - unfold ige. right. split. {
-      simpl. auto.
+      simpl. reflexivity.
     }
-    simpl. auto.
+    simpl. omega.
+  - unfold ige. left. simpl. omega.
+  - unfold ige.
+    assert (forsize i >= 0) by auto using forsize_ge.
+    simpl.
+    assert (HFS: forsize i = 0 \/ forsize i > 0). {
+      omega.
+    }
+    destruct HFS as [FZ | FP].
+    + right. omega.
+    + left. omega.
+  - unfold ige.
+    right. simpl.
+    assert (forsize i >= 0) by auto using forsize_ge.
+    assert (forsize (i_subst x (NNum n) i) = forsize i). {
+      apply  i_subst_forsize.
+      reflexivity.
+    }
+    assert (size (i_subst x (NNum n) i) = size i). {
+      apply  i_subst_size.
+      reflexivity.
+    }
+    split. {
+      omega.
+    }
+
     
     
+          
 
 
       
