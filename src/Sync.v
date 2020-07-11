@@ -1579,7 +1579,8 @@ Proof.
     + rewrite IHi. reflexivity.
 Qed.
 
-
+Require Import Lia.
+Require Import Lra.
 
 
 Lemma ineq_intrm:
@@ -1587,7 +1588,9 @@ Lemma ineq_intrm:
     S ( i + S ( l + ( l + 0)) * S ( i)) >
     i + ( l + ( l + 0)) * S ( i).
 Proof.
-Admitted.
+  lia.
+Qed. 
+
    
 Lemma run_runsize:
   forall x y,
