@@ -1363,7 +1363,7 @@ Fixpoint size (i: inst) :=
   | Sync | Access _ => 1
   | Seq x y => S (size x + size y)
   | For _ _ x => S (size x)
-  | Loop _ l x => (size x) * (length l)
+  | Loop _ l x => S(size x * (length l))
   end.
 
 Fixpoint forsize (i: inst) :=
@@ -1379,7 +1379,7 @@ Fixpoint loopsize (i: inst) :=
   | Skip | Sync | Access _ => 0
   | Seq x y => loopsize x + loopsize y
   | For _ _ x => loopsize x
-  | Loop _ l x => (length l) * (loopsize x)
+  | Loop _ l x => 2 * (length l) * S (loopsize x)
   end.
 
 (* 
@@ -1514,25 +1514,78 @@ Qed.
 
 *)
 Lemma i_subst_forsize:
-  forall x n i k,
-    forsize i = k ->
-    forsize (i_subst x (NNum n) i) = k.
+  forall i x n k,
+    forsize i =  forsize (i_subst x (NNum n) i).
 Proof.
-Admitted.
+  intros i.
+  induction i; intros; simpl in *; try reflexivity.
+  - assert (IHi1:=IHi1 x n).
+    assert (IHi2:=IHi2 x n).
+    rewrite IHi1.
+    rewrite IHi2.
+    reflexivity.
+  - assert (IHi:=IHi x n).
+    destruct (Set_VAR.MF.eq_dec x v).
+    + reflexivity.
+    + rewrite IHi. reflexivity.
+  - assert (IHi:=IHi x n).
+    destruct (Set_VAR.MF.eq_dec x v).
+    + reflexivity.
+    + rewrite IHi. reflexivity.
+Qed.
 
 
 Lemma i_subst_loopsize:
-  forall x n i k,
-    loopsize i = k ->
-    loopsize (i_subst x (NNum n) i) = k.
+  forall i x n,
+    loopsize i =
+    loopsize (i_subst x (NNum n) i).
 Proof.
-Admitted.
+    intros i.
+    induction i; intros; simpl in *; try reflexivity.
+  - assert (IHi1:=IHi1 x n).
+    assert (IHi2:=IHi2 x n).
+    rewrite IHi1.
+    rewrite IHi2.
+    reflexivity.
+  - assert (IHi:=IHi x n).
+    destruct (Set_VAR.MF.eq_dec x v).
+    + reflexivity.
+    + rewrite IHi. reflexivity.
+  - assert (IHi:=IHi x n).
+    destruct (Set_VAR.MF.eq_dec x v).
+    + reflexivity.
+    + rewrite IHi. reflexivity.
+Qed.
 
 
 Lemma i_subst_size:
-  forall x n i k,
-    size i = k ->
-    size (i_subst x (NNum n) i) = k.
+  forall i x n,
+    size i = size (i_subst x (NNum n) i).
+Proof.
+    intros i.
+    induction i; intros; simpl in *; try reflexivity.
+  - assert (IHi1:=IHi1 x n).
+    assert (IHi2:=IHi2 x n).
+    rewrite IHi1.
+    rewrite IHi2.
+    reflexivity.
+  - assert (IHi:=IHi x n).
+    destruct (Set_VAR.MF.eq_dec x v).
+    + reflexivity.
+    + rewrite IHi. reflexivity.
+  - assert (IHi:=IHi x n).
+    destruct (Set_VAR.MF.eq_dec x v).
+    + reflexivity.
+    + rewrite IHi. reflexivity.
+Qed.
+
+
+
+
+Lemma ineq_intrm:
+  forall i l, 
+    S ( i + S ( l + ( l + 0)) * S ( i)) >
+    i + ( l + ( l + 0)) * S ( i).
 Proof.
 Admitted.
    
@@ -1572,26 +1625,23 @@ Proof.
       omega.
     }
     destruct HFS as [FZ | FP].
-    + right. admit.
+    + right. right. omega.
     + left. omega.
   - unfold ige.
     assert (forsize i >= 0) by auto using forsize_ge.
     assert (loopsize i >= 0) by auto using loopsize_ge.
     assert (size i >= 0) by auto using size_ge.
     assert (forsize (i_subst x (NNum n) i) = forsize i). {
-      apply  i_subst_forsize.
-      reflexivity.
+      symmetry.
+      apply i_subst_forsize.
     }
     assert (size (i_subst x (NNum n) i) = size i). {
+      symmetry.
       apply  i_subst_size.
-      reflexivity.
     }
     assert (loopsize (i_subst x (NNum n) i) = loopsize i). {
+      symmetry.      
       apply  i_subst_loopsize.
-      reflexivity.
-    }
-    assert (length l >= 0). {
-      admit.
     }
     right.
     left.
@@ -1599,21 +1649,14 @@ Proof.
     split. {
       omega.
     }
-    assert (HLS: loopsize i = 0 \/ loopsize i > 0). {
+    rewrite H4.
+    assert (HE: (length l + S (length l + 0)) = S (length l + (length l + 0))). {
       omega.
     }
+    rewrite HE.
+    apply ineq_intrm.
+Qed.
 
-    
- 
-                                                                           
-    
-    
-    
-    
-          
-
-
-      
 Theorem unit_skip_r:
     forall x y,
     Run x y ->
