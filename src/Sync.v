@@ -1366,7 +1366,7 @@ Fixpoint size (i: inst) :=
   | Loop _ _ x => S (size x)
   end.
 
-      
+      (* TODO: change this to: (#for-loops, #iterations, #size-of-ast) *)
 Fixpoint runsize (i: inst) :=
   match i with
   | Seq j (Loop x l k) => (S (size k), length l)
