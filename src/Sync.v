@@ -1363,7 +1363,7 @@ Fixpoint size (i: inst) :=
   | Sync | Access _ => 1
   | Seq x y => S (size x + size y)
   | For _ _ x => S (size x)
-  | Loop _ l x => S (size x * S (length l))
+  | Loop _ l x => (size x) * (length l)
   end.
 
 Fixpoint forsize (i: inst) :=
@@ -1379,9 +1379,8 @@ Fixpoint loopsize (i: inst) :=
   | Skip | Sync | Access _ => 0
   | Seq x y => loopsize x + loopsize y
   | For _ _ x => loopsize x
-  | Loop _ l x => S (length l)
+  | Loop _ l x => (length l) * (loopsize x)
   end.
-
 
 (* 
    for x -> loop x  ----> number of loops goes up, number of fors goes
@@ -1407,18 +1406,17 @@ Definition ige i j :=
   (
     (forsize i <= forsize j)
     /\
-    (size i > size j)
-  ).
-    (*
+    (loopsize i > loopsize j)
+  )
   \/
   (
     (forsize i <= forsize j)
     /\
     (loopsize i <= loopsize j)
     /\
-   
+    (size i > size j)        
   ).
-*)
+
 
 
 Import Omega.
@@ -1460,7 +1458,6 @@ Proof.
   - assert (length r >=0 ).
     {
 Qed.
-
 
 Lemma in_eq:
   forall x y,
@@ -1550,8 +1547,8 @@ Proof.
   intros x y HR.
   induction HR; intros ix hx jy hy Hx Hy;
     inversion Hx; inversion Hy; clear Hx Hy; subst.
-  - simpl. unfold ige. right. simpl. auto.
-  - simpl. unfold ige. right. simpl. auto.
+  - simpl. unfold ige. right. simpl. omega.
+  - simpl. unfold ige. right. simpl. omega.
   - assert (IHHR := IHHR i hx j hy eq_refl eq_refl).
     unfold ige in IHHR.
     unfold ige.
@@ -1563,11 +1560,11 @@ Proof.
     destruct IHHR as [Hf | Ht].
     + left. omega.
     + right. omega.
-  - unfold ige. right. split. {
+  - unfold ige. right. right. split. {
       simpl. reflexivity.
     }
     simpl. omega.
-  - unfold ige. left. simpl. omega.
+  - unfold ige. left. simpl. auto.
   - unfold ige.
     assert (forsize i >= 0) by auto using forsize_ge.
     simpl.
@@ -1575,11 +1572,12 @@ Proof.
       omega.
     }
     destruct HFS as [FZ | FP].
-    + right. omega.
+    + right. admit.
     + left. omega.
   - unfold ige.
-    right. simpl.
     assert (forsize i >= 0) by auto using forsize_ge.
+    assert (loopsize i >= 0) by auto using loopsize_ge.
+    assert (size i >= 0) by auto using size_ge.
     assert (forsize (i_subst x (NNum n) i) = forsize i). {
       apply  i_subst_forsize.
       reflexivity.
@@ -1588,10 +1586,28 @@ Proof.
       apply  i_subst_size.
       reflexivity.
     }
+    assert (loopsize (i_subst x (NNum n) i) = loopsize i). {
+      apply  i_subst_loopsize.
+      reflexivity.
+    }
+    assert (length l >= 0). {
+      admit.
+    }
+    right.
+    left.
+    simpl.
     split. {
       omega.
     }
+    assert (HLS: loopsize i = 0 \/ loopsize i > 0). {
+      omega.
+    }
 
+    
+ 
+                                                                           
+    
+    
     
     
           
