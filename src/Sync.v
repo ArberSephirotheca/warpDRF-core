@@ -1580,16 +1580,6 @@ Proof.
 Qed.
 
 Require Import Lia.
-Require Import Lra.
-
-
-Lemma ineq_intrm:
-  forall i l, 
-    S ( i + S ( l + ( l + 0)) * S ( i)) >
-    i + ( l + ( l + 0)) * S ( i).
-Proof.
-  lia.
-Qed. 
 
    
 Lemma run_runsize:
@@ -1652,13 +1642,9 @@ Proof.
     split. {
       omega.
     }
-    rewrite H4.
-    assert (HE: (length l + S (length l + 0)) = S (length l + (length l + 0))). {
-      omega.
-    }
-    rewrite HE.
-    apply ineq_intrm.
-Qed.
+    lia.
+Qed
+
 
 Theorem unit_skip_r:
     forall x y,
