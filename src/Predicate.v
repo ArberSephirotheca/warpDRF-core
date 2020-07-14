@@ -52,6 +52,7 @@ Section Defs.
     StepAccess a l l' ->
     CStep (multi_subst cond_access_subst m a, NNum (length l)) v ->
     StepAccess a (m::l) (v::l').
+  Declare Scope access_scope.
 
   Inductive HasIter : range -> shmem -> Prop :=
   | has_iter_eq:
@@ -100,27 +101,67 @@ Section Defs.
   Inductive Step: list (shmem * inst * bexp) * history -> list (shmem * inst * bexp) * history -> Prop :=
 
   | step_access:
+    (*
+      Evaluate 'a' conditionally with 'p' using 'm'.
+      The result is v.
+    
+      m(a,p) --> v
+      ------------
+      (m,a,p)::l, h --> l, (concat v) U h
+    *)
     forall p a h v l m,
     StepAccess (a,p) m v ->
     Step ((m, MemAcc a, p)::l, h) (l, List.concat v ++ h)
 
   | step_seq:
+    (*
+      Evaluating sequence retains the same condition on each instruction.
+      
+      (m, i;; j, p)::l, h  -->  (m, i)::(m, j)::l, h
+     *)
     forall p h i j l m,
     Step ((m, Seq i j, p)::l, h) ((m, i, p)::(m, j, p)::l, h)
 
   | step_if:
+    (*
+      A conditional 'if b then i else j'  adds condition 'b' to the then-branch
+      and 'not b' to the else branch.
+       
+      (m, if b i j, p)::l, h --> (m, i, b & p) :: (m, i, b & ! p) :: l, h
+     *) 
     forall p b i j h l m,
     Step ((m, If b i j, p)::l, h)
          ((m, i, BRel BAnd p b)::(m, j, BRel BAnd p (BNot b))::l, h)
 
   | step_for_seq:
+    (*
+      If there exists at least one task 't' where evaluating 'n1'
+      results in a natural that is smaller than evaluating 'n2' for
+      that same task 't'.
+      
+      Unfolding a loop corresponds to declaring a local variable 'x'
+      which may depend on thread-local data, followed by running the
+      loop with the successor of the lower bound, and 
+    
+      exists t, m(t,n1) < m(t,n2)
+      -------------------------------------------------------
+      (m, for x (n1, n2) i, p) :: l, h
+      -->
+      (m[x := n1], i, p & n1 < n2, p) ::
+      (m, for x (1 + n1, n2) i, p) :: l, h
+     *)
     forall n1 n2 l i x h p m m',
     HasIter (n1,n2) m ->
     ShAdd x n1 m m' ->
     Step ((m, For x (n1,n2) i,p)::l, h)
-         ((m', i, (b_and p (b_and (n_le n1 (NVar x)) (n_lt (NVar x) n2))))::
+         ((m', i, (b_and p (n_lt n1 n2)))::
           (m, For x (add (NNum 1) n1, n2) i,p)::l, h)
   | step_for_skip:
+    (*
+      forall t, m(t, n1) >= m(t, n2)
+      -----------------------------------
+      (m, for x (n1, n2) i, p) :: l, h --> l, h
+    *)
     forall n1 n2 l i x h p m,
     EmptyIter (n1,n2) m ->
     Step ((m, For x (n1,n2) i,p)::l, h)
