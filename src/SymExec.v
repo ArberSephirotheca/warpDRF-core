@@ -1407,25 +1407,6 @@ Section Defs.
   Qed.
 
 
-(*
-  Goal
-    forall x lb ub m i j,
-    FRun (Decl x (lb, ub) i j) m ->
-    forall n1,
-    NStep ub n1 ->
-    forall n2,
-    n1 <= n2 ->
-    FRun (Decl x (lb, NNum n2) (add_cond (NRel NLt (NVar x) ub)  i) j) m.
-  Proof.
-    intros.
-    apply f_run_inv_decl_range in H.
-    destruct H as (n2', (n1', (Hn1', (Hn2', Hf)))).
-    assert (n1' = n1) by eauto using n_step_fun; subst.
-    apply f_run_inv_decl_map in Hf.
-    destruct Hf as (lm, (m', (He1, (Hf1, Hm)))).
-    apply f_run_decl_map.
-  Qed.
-*)
 
 End Defs.
 
