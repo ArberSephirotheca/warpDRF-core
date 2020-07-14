@@ -34,6 +34,12 @@ Section Defs.
   | BRel : brel -> bexp -> bexp -> bexp
   | BNot : bexp -> bexp.
 
+  Definition b_and := BRel BAnd.
+  Definition b_or := BRel BOr.
+  Definition n_lt := NRel NLt.
+  Definition n_le := NRel NLe.
+  Definition n_eq := NRel NEq.
+
   Inductive mode := R | W.
 
   Definition mode_eqb m1 m2 :=
