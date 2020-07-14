@@ -1401,9 +1401,41 @@ Definition ige i j :=
     (size i > size j)        
   ).
 
-
-      
-
+Lemma ige_antirefl:
+  forall x,
+    ~ige x x.
+Proof.
+  intro x.
+  intro N.
+  unfold ige in N.
+  destruct N as [HF | [HL | HT]].
+  - inversion HF; subst; clear HF.
+    + contradict H0.
+      auto.
+    + contradict H0.
+      omega.
+  - destruct HL as (Hf, Hl).
+    inversion Hl.
+    + contradict H0.
+      auto.
+    + contradict H0.
+      omega.
+  - destruct HT as (Hf, (Hl, Ht)).
+    inversion Ht.
+    + contradict H0.
+      auto.
+    + contradict H0.
+      omega.
+Qed.
+        
+Lemma ige_trans:
+  forall x y z,
+    ige x y ->
+    ige y z ->
+    ige x z.
+Proof.
+  intros.
+    
     
 Lemma size_ge:
   forall i,
