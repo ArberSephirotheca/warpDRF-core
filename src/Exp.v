@@ -1217,5 +1217,149 @@ Section SO.
     - apply n_in_subst_eq in H2; auto using r_in_r.
   Qed.
 
+  Definition BEq b1 b2 :=
+    forall b,
+    BStep b1 b <-> BStep b2 b.
+
+  Lemma b_eq_refl:
+    forall b,
+    BEq b b.
+  Proof.
+    unfold BEq; tauto.
+  Qed.
+
+  Lemma b_eq_sym:
+    forall b1 b2,
+    BEq b1 b2 ->
+    BEq b2 b1.
+  Proof.
+    unfold BEq; intros.
+    rewrite H.
+    reflexivity.
+  Qed.
+
+  Lemma b_eq_trans:
+    forall b1 b2 b3,
+    BEq b1 b2 ->
+    BEq b2 b3 ->
+    BEq b1 b3.
+  Proof.
+    unfold BEq.
+    intros.
+    rewrite H.
+    rewrite H0.
+    reflexivity.
+  Qed.
+
+  (** Register [BEq] in Coq's tactics. *)
+  Global Add Parametric Relation : _ BEq
+    reflexivity proved by b_eq_refl
+    symmetry proved by b_eq_sym
+    transitivity proved by b_eq_trans
+    as b_eq_setoid.
+  Import Morphisms.
+
+  Lemma b_eq_rel_1:
+    forall b b1 b1' b2 b2' o,
+    BEq b1 b1' ->
+    BEq b2 b2' ->
+    BStep (BRel o b1 b2) b ->
+    BStep (BRel o b1' b2') b.
+  Proof.
+    intros.
+    inversion H1; subst; clear H1.
+    apply H in H6.
+    apply H0 in H7.
+    apply b_step_brel; auto.
+  Qed.
+
+  Global Instance b_eq_proper_1: Proper (eq ==> BEq ==> BEq ==> BEq) BRel.
+  Proof.
+    unfold Proper, respectful.
+    intros.
+    subst.
+    split; intros; subst.
+    - eauto using b_eq_rel_1.
+    - symmetry in H0.
+      symmetry in H1.
+      eauto using b_eq_rel_1.
+  Qed.
+
+  Global Instance b_eq_proper_2: Proper (BEq ==> eq ==> iff) BStep.
+  Proof.
+    unfold Proper, respectful.
+    split; intros; subst.
+    - apply H.
+      assumption.
+    - apply H.
+      assumption.
+  Qed.
+
+  Lemma b_eq_and_true:
+    forall b,
+    BEq (BRel BAnd b (BBool true)) b.
+  Proof.
+    split; intros.
+    - inversion H; subst; clear H.
+      inversion H5; subst; clear H5.
+      simpl.
+      rewrite Bool.andb_true_r.
+      assumption.
+    - assert (R: b0 = eval_brel BAnd b0 true). {
+        simpl.
+        rewrite Bool.andb_true_r.
+        reflexivity.
+      }
+      rewrite R.
+      apply b_step_brel; auto using b_step_bool.
+  Qed.
+
+  Lemma eval_brel_sym:
+    forall o b1 b2,
+    eval_brel o b1 b2 = eval_brel o b2 b1.
+  Proof.
+    intros.
+    destruct o; simpl.
+    - destruct b1, b2; auto.
+    - destruct b1, b2; auto.
+  Qed.
+
+  Lemma b_eq_brel_sym:
+    forall o b1 b2,
+    BEq (BRel o b1 b2) (BRel o b2 b1).
+  Proof.
+    split; intros.
+    - inversion H; subst; clear H.
+      rewrite eval_brel_sym.
+      apply b_step_brel; auto.
+    - inversion H; subst; clear H.
+      rewrite eval_brel_sym.
+      apply b_step_brel; auto.
+  Qed.
+
+  Lemma b_eq_and_false:
+    forall b b',
+    BStep b b' ->
+    BEq (BRel BAnd b (BBool false)) (BBool false).
+  Proof.
+    split; intros.
+    - inversion H0; subst; clear H0.
+      inversion H6; subst; clear H6.
+      simpl.
+      rewrite Bool.andb_false_r.
+      auto using b_step_bool.
+    - inversion H0; subst; clear H0.
+      assert (R: false = eval_brel BAnd b' false). {
+        simpl.
+        rewrite Bool.andb_false_r.
+        reflexivity.
+      }
+      rewrite R.
+      apply b_step_brel; auto using b_step_bool.
+      simpl in *.
+      rewrite Bool.andb_false_r.
+      auto using b_step_bool.
+  Qed.
+
 End SO.
 
