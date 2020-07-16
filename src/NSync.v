@@ -153,15 +153,45 @@ Global Add Parametric Relation : _ nsequivstar
     transitivity proved by (clos_rstn1_trans inst NSEquiv)
       as nsequivstar_setoid.
 
-
 Lemma i_subst_equiv:
-  forall v n i j,
+  forall i j,
     NSEquiv i j ->
+    forall v n,
     NSEquiv (i_subst v (NNum n) i) (i_subst v (NNum n) j).
 Proof.
-  intros.
-  Admitted.
+  intros i j HE.
+  induction HE.
+  - intros. simpl. assert (IHHE:= IHHE v n).
+    apply equiv_unit_r.
+    assumption.
+  -  intros. simpl. assert (IHHE:= IHHE v n).
+    apply equiv_unit_l.
+    assumption.
+  - intros. simpl.
+    assert (IHHE1 := IHHE1 v n).
+    assert (IHHE2 := IHHE2 v n).
+    assert (IHHE3 := IHHE3 v n).
+    apply equiv_assoc; assumption.
+  - intros. apply equiv_eq.
+  - intros.
+    assert (IHHE1 := IHHE1 v n).
+    assert (IHHE2 := IHHE2 v n).
+    simpl.
+    apply equiv_seq; assumption.
+  - intros.
+    assert (IHHE := IHHE v n).
+    simpl.
+    apply equiv_for.
+    destruct (Set_VAR.MF.eq_dec v l); assumption.
+  - intros.
+    simpl.
+    assert (IHHE:=IHHE v n).
+    apply equiv_loop.
+    destruct (Set_VAR.MF.eq_dec v l); assumption.
+Qed.
+        
 
+  
 Lemma equiv_one_run:
   forall x ht,
     Run x ht ->
