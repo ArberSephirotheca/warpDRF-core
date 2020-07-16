@@ -89,5 +89,150 @@ Inductive Run: ((mhistory * history) * inst) -> (mhistory * history) -> Prop :=
       Run (y, Loop v l i) z ->
       Run (x, Loop v (n::l) i) z.
 
+Goal
+  forall hs i x, 
+  Run (hs, i) x ->
+  Run (hs, Seq Skip i) x.
+Proof.
+  intros hs i x HR.
+  apply run_seq with (y:=hs).
+  - apply run_skip.
+  - assumption.
+Qed.
+
+Goal
+  forall hs i x, 
+  Run (hs, i) x ->
+  Run (hs, Seq i Skip) x.
+Proof.
+  intros hs i x HR.
+  eapply run_seq; eauto.
+  apply run_skip.
+Qed.
+
+
+
+Inductive NSEquiv : inst -> inst -> Prop :=
+| equiv_unit_r:
+    forall i j,
+      NSEquiv i j ->
+      NSEquiv (Seq Skip i) j
+| equiv_unit_l:
+    forall i j,
+      NSEquiv i j ->
+      NSEquiv (Seq i Skip) j
+| equiv_assoc:
+    forall x y z x' y' z',
+      NSEquiv x x' ->
+      NSEquiv y y' ->
+      NSEquiv z z' ->
+      NSEquiv (Seq x (Seq y z)) (Seq (Seq x' y') z')
+| equiv_eq:
+    forall x,
+      NSEquiv x x
+| equiv_seq:
+    forall x y x' y',
+      NSEquiv x x' ->
+      NSEquiv y y' ->
+      NSEquiv (Seq x y) (Seq x' y')
+| equiv_for:
+    forall x y r l,
+      NSEquiv x y ->
+      NSEquiv (For l r x) (For l r y)
+| equiv_loop:
+    forall x y l r,
+      NSEquiv x y ->
+      NSEquiv (Loop l r x) (Loop l r y).
+
+
+Notation nsequivstar := (clos_refl_sym_trans_n1 _ NSEquiv).
+
+Global Add Parametric Relation : _ nsequivstar
+    reflexivity proved by (rstn1_refl inst NSEquiv)                                   
+    symmetry proved by (clos_rstn1_sym inst NSEquiv)
+    transitivity proved by (clos_rstn1_trans inst NSEquiv)
+      as nsequivstar_setoid.
+
+
+Lemma i_subst_equiv:
+  forall v n i j,
+    NSEquiv i j ->
+    NSEquiv (i_subst v (NNum n) i) (i_subst v (NNum n) j).
+Proof.
+  intros.
+  Admitted.
+
+Lemma equiv_one_run:
+  forall x ht,
+    Run x ht ->
+    forall hs i,
+      x = (hs, i) ->
+      forall j,
+      NSEquiv i j ->
+      Run (hs, j) ht.
+Proof.
+  intros x ht HR.
+  induction HR.
+  - intros; inversion H; subst; clear H;
+    inversion H0; subst; clear H0. apply run_skip.
+  - intros; inversion H; subst; clear H;
+    inversion H0; subst; clear H0. apply run_sync.
+  - intros; inversion H; subst; clear H;
+      inversion H0; subst; clear H0.
+    + assert (HS: y = hs). {
+        inversion HR1. reflexivity.
+      }
+      subst.
+      assert (IHHR2:= IHHR2 hs j eq_refl j0 H3).
+      assumption.
+    + assert (HS: y = z). {
+        inversion HR2. reflexivity.
+      }
+      subst.
+      assert (IHHR1:= IHHR1 hs i eq_refl j0 H3).
+      assumption.
+    + assert (IHHR1:= IHHR1 hs i eq_refl x' H2).
+      assert (HE: NSEquiv (Seq y0 z0) (Seq y' z')). {
+        apply equiv_seq; assumption.
+      }
+      assert (IHHR2:= IHHR2 y (Seq y0 z0) eq_refl (Seq y' z') HE).
+      inversion IHHR2; subst; clear IHHR2.
+      apply run_seq with (y:=y1).
+      * eapply run_seq; eauto.
+      * assumption.
+    + assert (Hi: NSEquiv i i) by auto using equiv_eq.
+      assert (Hj: NSEquiv j j) by auto using equiv_eq.
+      assert (IHHR1 := IHHR1 hs i eq_refl i Hi).
+      assert (IHHR2 := IHHR2 y j eq_refl j Hj).
+      eapply run_seq; eauto.
+    + assert (IHHR1 := IHHR1 hs i eq_refl x' H2).
+      assert (IHHR2 := IHHR2 y j eq_refl y' H4).
+      eapply run_seq; eauto.
+  - intros. inversion H0; subst; clear H0.
+    inversion H1; subst; clear H1.
+    + eapply run_for; eauto.
+    + assert (HE: NSEquiv (Loop v l i) (Loop v l y0)) by auto using equiv_loop.
+      assert (IHHR:=IHHR hs (Loop v l i) eq_refl (Loop v l y0) HE).
+      eapply run_for; eauto.
+ 
+  - intros; inversion H; subst; clear H;
+      inversion H0; subst; clear H0.
+    + apply run_loop_nil. assumption.
+    + assert (IHHR := IHHR hs i eq_refl y0 H4).
+      apply run_loop_nil. assumption.
+  - intros; inversion H; subst; clear H;
+      inversion H0; subst; clear H0.
+    + eapply run_loop_cons; eauto.
+    + assert (HE: NSEquiv (Loop v l i) (Loop v l y0)) by auto using equiv_loop.
+      assert (IHHR2 := IHHR2 y (Loop v l i) eq_refl (Loop v l y0) HE).
+      eapply run_loop_cons; eauto.
+      assert (HES: NSEquiv (i_subst v (NNum n) i) (i_subst v (NNum n) y0)). {
+        apply i_subst_equiv.
+        assumption.
+      }
+      assert (IHHR1 := IHHR1 hs (i_subst v (NNum n) i) eq_refl (i_subst v (NNum n) y0) HES).
+      assumption.
+Qed.
+
 
 
