@@ -1369,11 +1369,14 @@ Fixpoint size (i: inst) :=
 Fixpoint forsize (i: inst) :=
   match i with
   | Skip | Sync | Access _ => 0
-  | Seq x y => forsize x + forsize y
+  | Seq x y => match y with
+              | Loop _ l z => forsize z
+              | z => forsize x + forsize y
+              end
   | For _ _ x => S (forsize x)
-  | Loop _ _ x => forsize x
+  | Loop _ l x => (forsize x) 
   end.
-
+  
 Fixpoint loopsize (i: inst) :=
   match i with
   | Skip | Sync | Access _ => 0
@@ -1388,18 +1391,22 @@ Definition ige i j :=
   (forsize i > forsize j)
   \/
   (
-    (forsize i <= forsize j)
+    (forsize i = forsize j)
     /\
     (loopsize i > loopsize j)
   )
   \/
   (
-    (forsize i <= forsize j)
+    (forsize i = forsize j)
     /\
-    (loopsize i <= loopsize j)
+    (loopsize i = loopsize j)
     /\
-    (size i > size j)        
+    (size i > size j)
   ).
+      (*
+  )
+  \/
+  (i <> Skip /\ j = Skip).*)
 
 Lemma ige_antirefl:
   forall x,
@@ -1427,15 +1434,26 @@ Proof.
     + contradict H0.
       omega.
 Qed.
-        
+
+
+(* Require Import Coq.Classes.RelationClasses. *)
+  (*      
 Lemma ige_trans:
   forall x y z,
     ige x y ->
     ige y z ->
     ige x z.
 Proof.
-  intros.
-    
+  intros x y z Hx.
+  generalize dependent z.
+  induction Hx.
+  - intros z Hy.
+    unfold ige in *.
+    destruct Hy as [Hf | [Hl | Ht]]; omega.
+  - intro z.
+      
+      
+   
     
 Lemma size_ge:
   forall i,
@@ -1464,7 +1482,7 @@ Qed.
 
 
 Lemma i_subst_forsize:
-  forall i x n k,
+  forall i x n,
     forsize i =  forsize (i_subst x (NNum n) i).
 Proof.
   intros i.
@@ -1473,7 +1491,13 @@ Proof.
     assert (IHi2:=IHi2 x n).
     rewrite IHi1.
     rewrite IHi2.
-    reflexivity.
+    destruct i2; simpl; try reflexivity.
+    + destruct (Set_VAR.MF.eq_dec x v).
+      * reflexivity.
+      * inversion IHi2.
+        destruct (Set_VAR.MF.eq_dec x v) in H0.
+        -- contradict n0. assumption.
+        -- assumption.
   - assert (IHi:=IHi x n).
     destruct (Set_VAR.MF.eq_dec x v).
     + reflexivity.
@@ -1543,24 +1567,41 @@ Proof.
   intros x y HR.
   induction HR; intros ix hx jy hy Hx Hy;
     inversion Hx; inversion Hy; clear Hx Hy; subst.
-  - simpl. unfold ige. right. simpl. omega.
+  - simpl. unfold ige. right. right. auto.
   - simpl. unfold ige. right. simpl. omega.
   - assert (IHHR := IHHR i hx j hy eq_refl eq_refl).
     unfold ige in IHHR.
     unfold ige.
-    simpl.
     assert (size i >= 0) by auto using size_ge.
     assert (size j >= 0) by auto using size_ge.
     assert (forsize i >= 0) by auto using forsize_ge.
     assert (forsize j >= 0) by auto using forsize_ge.
-    destruct IHHR as [Hf | Ht].
-    + left. omega.
-    + right. omega.
+    destruct IHHR as [HF | [HL | HT]].
+    + destruct i; inversion HF.
+      * 
+    
+    +  
+    + 
+        
+    
+    destruct k; simpl; try lia.
+   
+      *
+      * lia.
+    + destruct IHHR.
+      * admit.
+      * lia.
+    + destruct IHHR.
+      * 
+    
+
   - unfold ige. right. right. split. {
       simpl. reflexivity.
     }
     simpl. omega.
-  - unfold ige. left. simpl. auto.
+  - unfold ige. left. simpl.
+    assert (forsize i >= 0) by auto using forsize_ge.
+    omega.
   - unfold ige.
     assert (forsize i >= 0) by auto using forsize_ge.
     simpl.
@@ -1569,7 +1610,7 @@ Proof.
     }
     destruct HFS as [FZ | FP].
     + right. right. omega.
-    + left. omega.
+    + left. assumption.
   - unfold ige.
     assert (forsize i >= 0) by auto using forsize_ge.
     assert (loopsize i >= 0) by auto using loopsize_ge.
@@ -1586,16 +1627,22 @@ Proof.
       symmetry.      
       apply  i_subst_loopsize.
     }
+
     right.
     left.
+    split. {
+      simpl.
     simpl.
+    split. {
+      
+    
     split. {
       omega.
     }
     lia.
 Qed.
 
-
+ *)
 Theorem unit_skip_r:
     forall x y,
     Run x y ->
@@ -1704,7 +1751,7 @@ Qed.
 
 
     
-   
+   (*
 Lemma mrun_refl_inst:
   forall x y,
     clos_trans_1n _ Run x y ->
@@ -1714,8 +1761,8 @@ Lemma mrun_refl_inst:
     h=h'.
 Proof.
 
-            
-
+  *)          
+(*
 Lemma mrun_seq_skip_h_eq:
   forall x y,
     Multi_Run x y ->
@@ -1739,7 +1786,7 @@ Proof.
       
 
 
-      assert (HT: i = Skip). {
+      assert (HT: i0 = Skip). {
         inversion H6.
         reflexivity.
       }
@@ -1767,6 +1814,60 @@ Proof.
     
   - contradict H3.  apply seq_skip_x_not_x.
   - 
+ *)
+
+
+Theorem skip_r_run_imp_mrun:
+  forall x y,
+    Run x y ->
+    forall i j h h',
+      x = (Seq i j, h) ->
+      y = (j, h') ->
+      Multi_Run (Seq (Seq i Skip) j, h) (j, h').
+Proof.
+  intros x y HR.
+  induction HR; intros i0 j0 hi hj Hx Hy; inversion Hx; inversion Hy; subst; clear Hx Hy.
+  - assert (Seq j j0 <> j0). {
+      apply seq_skip_x_not_x in H3.
+      contradiction.
+    }
+    contradiction.
+  - apply mrun_step with (i2:=(Seq Skip j0)) (h2:=hj).
+    + apply run_seq.
+      apply run_seq_skip.
+    + apply mrun_seq_skip_h.
+Qed.
+
+
+Lemma mrun_nostep_same_hist:
+  forall x y,
+    Multi_Run x y ->
+    forall i h h',
+    x = (i, h) ->
+    y = (i, h') ->
+    x=y. 
+Proof.
+  intros x y HR.
+  induction HR; intros i0 h0 hp Hx Hy; inversion Hx; inversion Hy; subst; clear Hx Hy.
+  - reflexivity.
+  - assert (IHHR:=IHHR i2 h2 hp eq_refl).
+
+Theorem skip_r_mrun_imp_mrun:
+  forall x y,
+    Multi_Run x y ->
+    forall i j h h',
+      x = (Seq i j, h) ->
+      y = (j, h') ->
+      Multi_Run (Seq (Seq i Skip) j, h) (j, h').
+Proof.
+    intros x y HR.
+    induction HR; intros i0 j0 hi hj Hx Hy; inversion Hx; inversion Hy; subst; clear Hx Hy.
+    - apply seq_skip_x_not_x in H2. contradiction.
+    - inversion H; subst; clear H.
+      + assert (IHHR := IHHR j j0 h2 hj eq_refl eq_refl).
+        admit.
+      + assert (IHHR := IHHR i2 i2 h2 hj).
+      assert (IHHR := IHHR i0 j0 hi hj).
 
 Theorem unit_skip_star_r:
   forall x y,
@@ -1791,8 +1892,10 @@ Proof.
     assert (HIJ: i2 = Seq i z). {
       inversion H; subst; clear H.
       + inversion H1; subst.
-        ++ 
-
+        ++ assert (HBN: z <> Seq Sync z). {
+             apply seq_skip_x_not_x_rev.
+           }
+           
       
     inversion H; subst; clear H.
     + 
