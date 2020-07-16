@@ -75,15 +75,19 @@ Inductive Run: ((mhistory * history) * inst) -> (mhistory * history) -> Prop :=
       Run (y,j) z ->
       Run (x, Seq i j) z
 | run_for:
-  forall r l i x h,
-  RStep r l ->
-  Run (x, (For x r i)) ((Loop x l i), h)
-
-
-
-      
+  forall r l v x y i,
+    RStep r l ->
+    Run (x, Loop v l i) y ->
+    Run (x, For v r i) y
 | run_loop_nil:
-  forall x i h,
-  Run ((Loop x [] i), h) (Skip, h)
+    forall x i y v,
+    Run (x,i) y ->
+    Run (x, Loop v [] i) y
 | run_loop_cons:
+    forall x i y v l n z,
+      Run (x, i_subst v (NNum n) i) y ->
+      Run (y, Loop v l i) z ->
+      Run (x, Loop v (n::l) i) z.
+
+
 
