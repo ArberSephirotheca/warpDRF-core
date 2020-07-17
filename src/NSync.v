@@ -192,7 +192,7 @@ Qed.
         
 
   
-Lemma equiv_one_run:
+Lemma equiv_one_run_l:
   forall x ht,
     Run x ht ->
     forall hs i,
@@ -264,5 +264,57 @@ Proof.
       assumption.
 Qed.
 
+Lemma equiv_one_run_r:
+  forall j i,
+  NSEquiv j i ->
+  forall x ht,
+    Run x ht ->
+    forall hs,
+      x = (hs, i) ->
+      Run (hs, j) ht.
+Proof.
+  intros j i HE.
+  induction HE.
+  -  intros x0 h0 HR h' Hx; inversion Hx; subst.
+     eapply IHHE in HR; eauto.
+     eapply run_seq; eauto.
+     apply run_skip.
+  -  intros x0 h0 HR h' Hx; inversion Hx; subst.
+     eapply IHHE in HR; eauto.
+     eapply run_seq; eauto.
+     apply run_skip.
+  -  intros x0 h0 HR h' Hx; inversion Hx; subst.
+     inversion HR; subst; clear HR.
+     inversion H4; subst; clear H4.
+     assert (IHHE1 := IHHE1 (h',x') y1 H6 h' eq_refl).
+     assert (IHHE2 := IHHE2 (y1,y') y0 H7 y1 eq_refl).
+     assert (IHHE3 := IHHE3 (y0,z') h0 H5 y0 eq_refl).
+     eapply run_seq; eauto.
+     eapply run_seq; eauto.
+  - 
 
 
+     eapply IHHE1 in HR; eauto.
+     + 
+  -  intros x0 h0 HR h' Hx; inversion Hx; subst.
+
+  x ht HR.
+  induction HR; intros h0 i0 Hx j0 HE; inversion Hx; subst; clear Hx.
+  - inversion HE; subst; clear HE.
+    + apply run_seq with (y:=.
+  - 
+
+
+Lemma equiv_star_run:
+  forall i j,
+    nsequivstar i j ->
+    forall hs x,
+    Run (hs, i) x ->
+    Run (hs, j) x.
+Proof.
+  intros i j HE.
+  induction HE.
+  - intros. assumption.
+  - intros hs x HR.
+    destruct H as [Hyz | Hzy].
+    + apply IHHE in HR.
