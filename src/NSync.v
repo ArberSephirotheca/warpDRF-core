@@ -264,6 +264,51 @@ Proof.
       assumption.
 Qed.
 
+(*
+Lemma equiv_one_run_r:
+  forall x ht,
+    Run x ht ->
+    forall hs i,
+      x = (hs, i) ->
+      forall j,
+      NSEquiv j i ->
+      Run (hs, j) ht.
+Proof.
+  intros x ht HR.
+  induction HR.
+  - intros hs' i' Hx j' HE; inversion Hx; subst; clear Hx.
+    inversion HE; subst; clear HE.
+    + apply run_seq with (y:=hs').
+      * apply run_skip.
+      * 
+
+      ; eauto.
+      * 
+      *)
+
+
+Lemma run_equiv_for:
+  forall i j,
+    NSEquiv i j ->
+    forall x z,
+      Run x z ->
+      forall y h l r,
+        x = (h, For l r j) ->
+        y = (h, For l r i) ->
+        Run y z.
+Proof.
+  intros i.
+  induction i.
+  - intros. inversion H1; inversion H2; subst.
+    inversion H0; subst.
+    eapply run_for; eauto.
+    eapply run_loop_cons; eauto.
+    + 
+  
+   
+    
+
+
 Lemma equiv_one_run_r:
   forall j i,
   NSEquiv j i ->
@@ -291,19 +336,23 @@ Proof.
      assert (IHHE3 := IHHE3 (y0,z') h0 H5 y0 eq_refl).
      eapply run_seq; eauto.
      eapply run_seq; eauto.
-  - 
-
-
-     eapply IHHE1 in HR; eauto.
-     + 
   -  intros x0 h0 HR h' Hx; inversion Hx; subst.
-
-  x ht HR.
-  induction HR; intros h0 i0 Hx j0 HE; inversion Hx; subst; clear Hx.
-  - inversion HE; subst; clear HE.
-    + apply run_seq with (y:=.
-  - 
-
+     assumption.
+  -  intros x0 h0 HR h' Hx; inversion Hx; subst.
+     inversion HR; subst; clear HR.
+     assert (IHHE1 := IHHE1 (h',x') y0 H4 h' eq_refl).
+     assert (IHHE2 := IHHE2 (y0,y') h0 H5 y0 eq_refl).
+     eapply run_seq; eauto.
+  - intros x0 h0 HR h' Hx; inversion Hx; subst.
+  - intros x0 h0 HR h' Hx; inversion Hx; subst.
+    inversion HR; subst; clear HR.
+    + assert (IHHE:= IHHE (h',y) h0 H5 h' eq_refl).
+      apply run_loop_nil.
+      assumption.
+    + inversion H6; subst; clear H6.
+      * admit.
+      * 
+    
 
 Lemma equiv_star_run:
   forall i j,
