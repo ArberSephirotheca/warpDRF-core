@@ -264,49 +264,21 @@ Proof.
       assumption.
 Qed.
 
+
+
 (*
-Lemma equiv_one_run_r:
-  forall x ht,
-    Run x ht ->
-    forall hs i,
-      x = (hs, i) ->
-      forall j,
-      NSEquiv j i ->
-      Run (hs, j) ht.
-Proof.
-  intros x ht HR.
-  induction HR.
-  - intros hs' i' Hx j' HE; inversion Hx; subst; clear Hx.
-    inversion HE; subst; clear HE.
-    + apply run_seq with (y:=hs').
-      * apply run_skip.
-      * 
-
-      ; eauto.
-      * 
-      *)
-
-
 Lemma run_equiv_for:
-  forall i j,
-    NSEquiv i j ->
-    forall x z,
-      Run x z ->
-      forall y h l r,
-        x = (h, For l r j) ->
-        y = (h, For l r i) ->
-        Run y z.
+  forall h v l h' x y,
+  Run (h, Loop v l y) h' ->
+  NSEquiv x y -> 
+  Run (h, Loop v l x) h'.
 Proof.
-  intros i.
-  induction i.
-  - intros. inversion H1; inversion H2; subst.
-    inversion H0; subst.
-    eapply run_for; eauto.
-    eapply run_loop_cons; eauto.
-    + 
-  
-   
-    
+  intros.
+  induction l.
+  - inversion H; subst; clear H.
+    apply run_loop_nil.
+      
+ *)
 
 
 Lemma equiv_one_run_r:
@@ -344,14 +316,28 @@ Proof.
      assert (IHHE2 := IHHE2 (y0,y') h0 H5 y0 eq_refl).
      eapply run_seq; eauto.
   - intros x0 h0 HR h' Hx; inversion Hx; subst.
-  - intros x0 h0 HR h' Hx; inversion Hx; subst.
     inversion HR; subst; clear HR.
-    + assert (IHHE:= IHHE (h',y) h0 H5 h' eq_refl).
-      apply run_loop_nil.
+    apply run_for with (l:=l0).
+    + assumption.
+    + assert  (HL: forall vs v hv hp, Run (hv, Loop v vs y) hp -> Run (hv, Loop v vs x) hp). {
+        intros vs.
+        induction vs.
+        * intros.
+          apply run_loop_nil.
+          inversion H0; subst.
+          assert (IHHE:=IHHE (hv, y) hp H7 hv eq_refl).
+          assumption.
+        * intros.
+          inversion H0; subst.
+          assert (IHvs := IHvs v y0 hp H10).
+          assert (IHHE := IHHE (hv, y) y0).
+          (* NEED TO define i_subst on histories somehow? *)
+          admit.
+      }
+      assert (HL := HL l0 l h' h0 H6).
       assumption.
-    + inversion H6; subst; clear H6.
-      * admit.
-      * 
+  - intros. (*Use HL above *).
+          
     
 
 Lemma equiv_star_run:
