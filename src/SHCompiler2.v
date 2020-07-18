@@ -23,6 +23,7 @@ Require LoopFree2.
 Require SymHist2.
 Require Import SymExecMRun.
 Require Import SymExecMap.
+Require Import SymExecEq.
 Require Import MExp.
 
 Section Compiler.
@@ -94,6 +95,116 @@ Section Compiler.
     unfold translate.
     apply f_run_decl_map_2d; auto using t1_neq_t2.
     apply map_iter2d_map2_prod; auto.
+  Qed.
+
+  Lemma translate_inv:
+    forall i m,
+    FRun (translate i) m ->
+    exists l,
+    EEq m (summation l) /\
+    exists vs1 vs2,
+    EEqList l (map2 Prod vs1 vs2) /\
+    length vs1 = length vs2 /\
+    Map (Iter2d T1 T2 (i_subst TID (NVar T1) (proj i)))
+        (range_list_2d 1 TID_COUNT) vs1 /\
+    Map (Iter2d T1 T2 (i_subst TID (NVar T2) (proj i)))
+        (range_list_2d 1 TID_COUNT) vs2
+    .
+  Proof.
+    unfold translate.
+    intros.
+    apply f_run_inv_decl_map_2d in H; auto using t1_neq_t2.
+    destruct H as (l, (R, Hm)).
+    unfold do_proj in Hm.
+    apply map_iter_2d_inv_seq in Hm.
+    destruct Hm as (vs1, (vs2, (R2, (Hl1, (Hm1, Hm2))))).
+    exists l.
+    split; auto.
+    exists vs1.
+    exists vs2.
+    auto.
+  Qed.
+
+  (* --------------------------- SKIP ---------------------------- *)
+
+  Lemma f_run_decl_skip:
+    forall x n1 n2,
+    FRun (I:=SymHist2.SymAcc) (Decl x (NNum n1, NNum n2) Skip) (One []).
+  Proof.
+    intros.
+    rewrite p_eq_decl_skip.
+    apply f_run_skip_eq.
+  Qed.
+
+  Lemma translate_skip:
+    FRun (translate Conc2.Skip) (One []).
+  Proof.
+    unfold translate.
+    rewrite p_eq_decl_impl with (j:=Skip); auto using f_run_decl_skip.
+    intros.
+    simpl.
+    remove_eq T1 T1.
+    remove_eq T1 T2.
+    rewrite p_eq_decl_impl with (j:=Skip); auto.
+    - rewrite p_eq_decl_skip.
+      reflexivity.
+    - intros.
+      simpl.
+      rewrite p_eq_seq_skip_r.
+      reflexivity.
+  Qed.
+
+  Lemma iter_2d_inv_skip I:
+    forall x y p m,
+    Iter2d (I:=I) x y Skip p m ->
+    EEq m (One []).
+  Proof.
+    unfold Iter2d.
+    intros x y (nx, ny) m Hm.
+    simpl in *.
+    inversion Hm; subst; clear Hm.
+    assumption.
+  Qed.
+
+  Lemma map_iter_2d_inv_seq_skip_skip I:
+    forall x y ks vs,
+    Map (Iter2d (I:=I) x y (Seq Skip Skip)) ks vs ->
+    EEq (summation vs) (One []).
+  Proof.
+    induction ks; intros. {
+      inversion H; subst; clear H.
+      reflexivity.
+    }
+    inversion H; subst; clear H.
+    apply IHks in H5.
+    simpl.
+    rewrite H5; clear H5.
+    rewrite e_plus_nil_r.
+    apply iter_2d_inv_seq in H2.
+    destruct H2 as (m1, (m2, (R, (Hi1, Hi2)))).
+    apply iter_2d_inv_skip in Hi1.
+    apply iter_2d_inv_skip in Hi2.
+    rewrite Hi1 in *.
+    rewrite Hi2 in *.
+    rewrite e_prod_nil_l in R.
+    assumption.
+  Qed.
+
+  Lemma translate_inv_skip:
+     forall m,
+     FRun (translate Conc2.Skip) m ->
+     EEq m (One []).
+  Proof.
+    intros.
+    unfold translate in H.
+    apply f_run_inv_decl_map_2d in H; auto using t1_neq_t2.
+    destruct H as (l, (R, Hm)).
+    simpl in *.
+    unfold do_proj in *.
+    simpl in *.
+    rewrite R; clear R.
+    apply map_iter_2d_inv_seq_skip_skip in Hm.
+    assumption.
   Qed.
 
   (* -------------------- ACCESS ---------------------------- *)

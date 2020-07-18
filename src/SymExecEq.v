@@ -558,6 +558,39 @@ Section Defs.
       reflexivity.
   Qed.
 
+
+  Lemma p_eq_seq_skip_r:
+    forall i,
+    ProgEquiv (Seq Skip i) i.
+  Proof.
+    split; intros.
+    - inversion H; subst; clear H.
+      rewrite H5; clear H5.
+      inversion H2; subst; clear H2.
+      rewrite H; subst; clear H.
+      rewrite e_prod_nil_l.
+      assumption.
+    - eapply f_run_seq; eauto using f_run_skip_eq.
+      rewrite e_prod_nil_l.
+      reflexivity.
+  Qed.
+
+  Lemma p_eq_seq_skip_l:
+    forall i,
+    ProgEquiv (Seq i Skip) i.
+  Proof.
+    split; intros.
+    - inversion H; subst; clear H.
+      rewrite H5; clear H5.
+      inversion H3; subst; clear H3.
+      rewrite H; subst; clear H.
+      rewrite e_prod_nil_r.
+      assumption.
+    - eapply f_run_seq; eauto using f_run_skip_eq.
+      rewrite e_prod_nil_r.
+      reflexivity.
+  Qed.
+
   Lemma p_eq_fork_sym:
     forall i j,
     ProgEquiv (Fork i j) (Fork j i).
