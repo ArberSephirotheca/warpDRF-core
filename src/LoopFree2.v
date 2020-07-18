@@ -14,8 +14,8 @@ Require Import AccExp.
 Require Import Util.
 Require Import InUtil.
 Require Import Tasks.
-Require Import SymExec.
-Require Conc.
+Require Import SymExec2.
+Require Conc2.
 
 Import ListNotations.
 
@@ -25,48 +25,36 @@ Section Defs.
   Notation history := (list access_val).
   Definition t := (history * Conc.inst) % type.
 
-  Definition LStep e v :=
-    exists vs, Hist.GenAccess TID e TID_COUNT vs /\ List.concat vs = v.
+  Definition LStep n e v :=
+    access_step (e, NNum n) v.
 
-  Lemma l_step_fun: forall (e : cond_access) (l1 l2 : history),
-    LStep e l1 ->
-    LStep e l2 ->
+  Lemma l_step_fun n: forall (e : access_exp) (l1 l2 : history),
+    LStep n e l1 ->
+    LStep n e l2 ->
     l1 = l2.
   Proof.
     intros e l1 l2.
-    intros (vs1, (Hg1, ?)).
-    intros (vs2, (Hg2, ?)).
-    assert (vs1 = vs2) by eauto using Hist.gen_access_fun.
-    subst.
-    reflexivity.
+    unfold LStep.
+    intros.
+    eauto using access_step_fun.
   Qed.
 
 
-  Instance LoopAcc : AccessInst := {
-    access_inst_type := cond_access ;
-    access_inst_subst := cond_access_subst;
-    access_inst_step := LStep;
-    access_inst_in := CIn;
-    access_inst_step_fun := l_step_fun;
-    access_inst_subst_subst_eq := cond_access_subst_subst_eq;
-    access_inst_subst_subst_neq := cond_access_subst_subst_neq;
-    access_inst_subst_subst_neq_2 := cond_access_subst_subst_neq_2;
-    access_inst_subst_not_in := cond_access_subst_not_in;
-    access_inst_subst_subst_trans := cond_access_subst_subst_trans;
-    access_inst_in_subst_neq := cond_access_in_subst_neq;
+  Instance LoopAcc n : AccessInst := {
+    access_inst_type := access_exp;
+    access_inst_subst := access_subst;
+    access_inst_step := LStep n;
+    access_inst_in := access_in;
+    access_inst_step_fun := l_step_fun n;
+    access_inst_subst_subst_eq := access_subst_subst_eq;
+    access_inst_subst_subst_neq := access_subst_subst_neq;
+    access_inst_subst_subst_neq_2 := access_subst_subst_neq_2;
+    access_inst_subst_not_in := access_subst_not_in;
+    access_inst_subst_subst_trans := access_subst_subst_trans;
+    access_inst_in_subst_neq := access_in_subst_neq;
   }.
- 
-  Coercion NNum: nat >-> nexp.  
-  Infix "⇓" := Run (at level 80).
-  Notation "⊢" := Hist.Safe.
-  Notation "⊨" := Hist.MSafe.
-  Infix "*⊆" := AllIncl (at level 80).
-  Infix "⊆*" := InclAll (at level 80).
-  Infix "*⊆*" := AllInclAll (at level 70).
-  Infix "×" := prod (at level 50).
-  Infix "↓" := SymExec.Run (at level 80).
-  Notation "i '[' x ':=' n ']'" := (Conc.i_subst x n i) (at level 40).
 
+(*
   Lemma run_inv_branch_all_incl_all:
     forall x l i1 i2 hs2,
     Run (Branch x l i1 i2) hs2 ->
@@ -86,34 +74,41 @@ Section Defs.
     assert (hs = hs1) by eauto using run_fun; subst.
     apply all_incl_all_refl.
   Qed.
-
-  Fixpoint translate (i:Conc.inst) : SymExec.inst :=
+*) 
+  Variable CurTask : nat.
+  Fixpoint translate (i:Conc2.inst) : SymExec2.inst (I:=LoopAcc CurTask) :=
     match i with
-    | Conc.Skip => SymExec.Skip
-    | Conc.MemAcc e i => SymExec.MemAcc e (translate i)
-    | Conc.For x r i j => SymExec.Decl x r (translate i) (translate j)
-    | Conc.Loop x l i j => SymExec.Branch x l (translate i) (translate j)
+    | Conc2.Skip => SymExec2.Skip
+    | Conc2.Seq i j => SymExec2.Seq (translate i) (translate j)
+    | Conc2.If b i j => SymExec2.If b (translate i) (translate j)
+    | Conc2.MemAcc e => SymExec2.MemAcc (I:=LoopAcc CurTask) e
+    | Conc2.For x r i => SymExec2.Decl x r (translate i)
+    | Conc2.Loop x l i => SymExec2.Branch x l (translate i)
     end.
 
   Lemma i_subst_translate_rw:
     forall i x n,
     i_subst x n (translate i) =
-    translate (Conc.i_subst x n i).
+    translate (Conc2.i_subst x n i).
   Proof.
     induction i; simpl; intros.
     - reflexivity.
-    - rewrite IHi.
+    - rewrite IHi1.
+      rewrite IHi2.
       reflexivity.
     - rewrite IHi1.
       rewrite IHi2.
+      reflexivity.
+    - reflexivity.
+    - rewrite IHi.
       destruct (Set_VAR.MF.eq_dec x v); auto.
-    - rewrite IHi1; rewrite IHi2.
+    - rewrite IHi.
       destruct (Set_VAR.MF.eq_dec x v); auto.
   Qed.
 
   Lemma run_to_all_incl:
     forall i h,
-    Conc.Run i h ->
+    Conc2.Run CurTask i h ->
     forall hs,
     Run (translate i) hs ->
     AllIncl hs h.
@@ -121,41 +116,38 @@ Section Defs.
     intros i h H; induction H; intros.
     - inversion H; subst; clear H.
       auto using all_incl_nil_nil.
-    - inversion H1; subst; clear H1.
-      simpl in *.
-      destruct H4 as (vs, (Hg, ?)).
-      subst.
-      assert (v = vs) by eauto using Hist.gen_access_fun.
-      subst.
-      assert (AllIncl hs0 h) by auto.
-      auto using all_incl_prepend.
-    - inversion H1; subst; clear H1.
-      assert (l0 = l) by eauto using r_step_fun; subst.
-      auto.
-    - inversion H1; subst; clear H1.
-      apply run_inv_seq in H8.
-      destruct H8 as (hs3, (hs4, (?, (Hr1, Hr2)))); subst.
-      simpl in *.
-      rewrite i_subst_translate_rw in *.
-      assert (IHRun1 := IHRun1 _ Hr1).
-      assert (IHRun2 := IHRun2 _ H9).
-      apply Conc.run_inv_loop in H0.
-      destruct H0 as (ha, (hb, (Ha, (Hb, ?)))).
-      subst.
-      eapply run_inv_branch_all_incl_all in Hr2; eauto.
-      apply all_incl_app.
-      + apply all_incl_prod.
-        * auto using all_incl_appl.
-        * apply all_incl_appr.
-          apply all_incl_all_incl_all with (ls2:=hs2); auto.
-      + auto using all_incl_appr.
     - inversion H0; subst; clear H0.
-      auto.
+      simpl in *.
+      unfold LStep in *.
+      assert (v0 = v) by eauto using access_step_fun; subst.
+      apply all_incl_cons; auto using incl_refl, all_incl_nil.
+    - inversion H1; subst; clear H1.
+      apply IHRun1 in H4.
+      apply IHRun2 in H6.
+      auto using all_incl_prod, all_incl_appl, all_incl_appr.
+    - inversion H1; subst; clear H1; auto.
+      assert (N: true = false) by eauto using b_step_fun.
+      inversion N.
+    - inversion H1; subst; clear H1; auto.
+      assert (N: true = false) by eauto using b_step_fun.
+      inversion N.
+    - inversion H1; subst; clear H1.
+      simpl in IHRun.
+      assert (l0 = l) by eauto using r_step_fun; subst.
+      apply IHRun in H7.
+      assumption.
+    - simpl in *.
+      inversion H1; subst; clear H1.
+      rewrite i_subst_translate_rw in *.
+      auto using all_incl_app, all_incl_appl, all_incl_appr.
+    - simpl in *.
+      inversion H; subst; clear H.
+      apply all_incl_nil_nil.
   Qed.
 
   Theorem completeness:
     forall i h,
-    Conc.Run i h ->
+    Conc2.Run CurTask i h ->
     forall hs,
     Run (translate i) hs ->
     Hist.Safe h ->
@@ -166,50 +158,55 @@ Section Defs.
     eauto using Hist.safe_to_msafe.
   Qed.
 
+  Lemma incl_all_eq:
+    forall A v,
+    @InclAll A v [v].
+  Proof.
+    unfold InclAll, Ensembles.Included, Ensembles.In; intros.
+    auto using m_in_eq.
+  Qed.
+
   Lemma run_to_incl_all:
     forall i h,
-    Conc.Run i h ->
+    Conc2.Run CurTask i h ->
     forall hs,
     Run (translate i) hs ->
     InclAll h hs.
   Proof.
-    intros i h H; induction H; intros.
+    intros i h H; induction H; intros; simpl in *.
     - apply incl_all_nil.
-    - inversion H1; subst; clear H1; simpl in *.
-      match goal with
-      | H: LStep _ _ |- _ => destruct H as (vs, (Hvs,?))
-      end.
+    - inversion H0; subst; clear H0.
+      simpl in *.
+      unfold LStep in *.
+      assert (v0 = v) by eauto using access_step_fun.
       subst.
-      assert (vs = v) by eauto using Hist.gen_access_fun; subst; clear Hvs.
-      assert (hs0 <> []) by eauto using run_not_nil.
-      apply IHRun in H6; clear IHRun.
+      apply incl_all_eq.
+    - inversion H1; subst; clear H1.
       apply incl_all_app.
-      + auto using incl_all_prepend_l.
-      + auto using incl_all_prepend_r.
+      + apply incl_all_prod_l; eauto using SymExec2.run_not_nil.
+      + apply incl_all_prod_r; eauto using SymExec2.run_not_nil.
+    - inversion H1; subst; clear H1; eauto using SymExec2.run_not_nil.
+      assert (N: false = true) by eauto using b_step_fun.
+      inversion N.
+    - inversion H1; subst; clear H1; eauto using SymExec2.run_not_nil.
+      assert (N: false = true) by eauto using b_step_fun.
+      inversion N.
     - inversion H1; subst; clear H1.
       assert (l0 = l) by eauto using r_step_fun; subst.
       auto.
     - inversion H1; subst; clear H1.
-      apply run_inv_seq in H8.
-      destruct H8 as (hs3, (hs4, (?, (Hr1, Hr2)))); subst.
-      assert (hs4 <> nil) by eauto using run_not_nil.
-      simpl in *.
       rewrite i_subst_translate_rw in *.
-      assert (IHRun1 := IHRun1 _ Hr1).
-      assert (IHRun2 := IHRun2 _ H9).
-      eapply run_inv_branch_all_incl_all in Hr2; eauto.
+      apply IHRun1 in H7; auto; clear IHRun1.
+      apply IHRun2 in H8; auto; clear IHRun2.
       apply incl_all_app.
-      + apply incl_all_app_l.
-        auto using incl_all_prod_l.
-      + apply incl_all_app_r.
-        auto.
-    - inversion H0; subst; clear H0.
-      auto.
+      + apply incl_all_app_l; eauto using SymExec2.run_not_nil.
+      + apply incl_all_app_r; eauto using SymExec2.run_not_nil.
+    - apply incl_all_nil.
   Qed.
 
   Theorem soundness:
     forall i h,
-    Conc.Run i h ->
+    Conc2.Run CurTask i h ->
     forall hs,
     Run (translate i) hs ->
     Hist.MSafe hs ->
@@ -222,14 +219,14 @@ Section Defs.
 
   Corollary correctness:
     forall i h hs,
-    Conc.Run i h ->
+    Conc2.Run CurTask i h ->
     Run (translate i) hs ->
     Hist.MSafe hs <-> Hist.Safe h.
   Proof.
     intros.
     split; eauto using completeness, soundness.
   Qed.
-
+(*
   Lemma run_inv_branch_1:
     forall x l i j m,
     Run (Branch x l i j) m ->
@@ -287,7 +284,7 @@ Section Defs.
     split; auto.
     eauto using correctness.
   Qed.
-
+*)
 
 End Defs.
 

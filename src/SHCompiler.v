@@ -46,6 +46,24 @@ Section Compiler.
         Skip)
       Skip).
 
+  Fixpoint split (c:inst (I:=LoopFree.LoopAcc)) : inst (I:=SymHist.SymAcc) :=
+    match c with
+    | Skip => Skip
+    | MemAcc a c =>
+      MemAcc (I:=SymHist.SymAcc) (a, NVar T1)
+        (MemAcc (I:=SymHist.SymAcc) (a, NVar T2) (split c))
+    | Decl x r c1 c2 => Decl x r (split c1) (split c2)
+    | Branch x l c1 c2 => Branch x l (split c1) (split c2)
+    | Fork i j => Fork (split i) (split j)
+    end.
+
+  Definition X_translate (c:inst) : inst :=
+      (Decl T1 (NNum 1, NNum TID_COUNT)
+        (Decl T2 (NNum 0, NVar T1)
+          (split c)
+        Skip)
+      Skip).
+
   Lemma in_proj_to_in:
     forall x i,
     x <> TID ->

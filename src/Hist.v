@@ -1214,7 +1214,7 @@ Section Defs.
     reflexivity.
   Qed.
 
-  Lemma msafe_to_safe:
+  Lemma m_safe_to_safe:
     forall h hs,
     MSafe hs ->
     InclAll h hs ->
@@ -1291,6 +1291,27 @@ Section Defs.
       auto using access_safe_eq_tid.
     }
     eauto using m_in_def.
+  Qed.
+
+  Definition PairInclMPair (h:list access_val) m :=
+    forall x y,
+    In x h ->
+    In y h ->
+    (*access_tid x <> access_tid y ->*)
+    MPairIn (x, y) m.
+
+  Lemma m_safe_strong_to_safe:
+    forall m h,
+    PairInclMPair h m ->
+    MSafeStrong m ->
+    Safe h.
+  Proof.
+    unfold MSafeStrong, Safe; intros.
+    assert (X: access_tid x = access_tid y \/ access_tid x <> access_tid y) by omega.
+    destruct X. {
+      auto using access_safe_eq_tid.
+    }
+    unfold PairInclMPair in *; auto.
   Qed.
 
   Lemma access_in_inv_neq:

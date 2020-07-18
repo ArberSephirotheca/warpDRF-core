@@ -3,7 +3,9 @@
   GPUVerify OOPSLA12.
   *)
 
+Require Import Coq.Classes.RelationPairs.
 Require Import Coq.Lists.List.
+
 Require Import Var.
 Require Import Tid.
 Require Import Loc.
@@ -548,7 +550,7 @@ Section Props.
   Qed.
 *)
 
-  Lemma b_equiv_and_true_l d:
+  Lemma b_equiv1_and_true_l d:
     forall b,
     BEquiv1 d (BRel BAnd b (BBool true)) b.
   Proof.
@@ -584,6 +586,55 @@ Section Props.
     List.In d td ->
     BEquiv1 d b1 b2.
 
+  Lemma b_equiv_refl d:
+    forall b,
+    BEquiv d b b.
+  Proof.
+    unfold BEquiv; intros.
+    reflexivity.
+  Qed.
+
+  Lemma b_equiv_sym d:
+    forall b1 b2,
+    BEquiv d b1 b2 ->
+    BEquiv d b2 b1.
+  Proof.
+    unfold BEquiv.
+    intros.
+    symmetry.
+    auto.
+  Qed.
+
+  Lemma b_equiv_trans td:
+    forall b1 b2 b3,
+    BEquiv td b1 b2 ->
+    BEquiv td b2 b3 ->
+    BEquiv td b1 b3.
+  Proof.
+    unfold BEquiv; intros.
+    transitivity (b2); auto.
+  Qed.
+
+  (** Register [BEquiv] in Coq's tactics. *)
+  Section BEquivSetoid.
+    Variable td : list (Map_VAR.t nat).
+    Global Add Parametric Relation : _ (BEquiv td)
+      reflexivity proved by (b_equiv_refl td)
+      symmetry proved by (b_equiv_sym td)
+      transitivity proved by (b_equiv_trans td)
+      as b_equiv_setoid.
+
+  End BEquivSetoid.
+
+  Lemma b_equiv_and_true_l d:
+    forall b,
+    BEquiv d (BRel BAnd b (BBool true)) b.
+  Proof.
+    unfold BEquiv.
+    intros.
+    apply b_equiv1_and_true_l.
+  Qed.
+
   Lemma b_equiv_inv_cons_1:
     forall a td b1 b2,
     BEquiv (a :: td) b1 b2 ->
@@ -616,7 +667,50 @@ Section Props.
         eapply c_step_b_eq; eauto using b_equiv_inv_cons_2.
   Qed.
 
+  Global Instance p_run_proper_1 d: Proper (eq * (BEquiv d) ==> eq ==> iff) (StepAccess d).
+  Proof.
+    unfold Proper, respectful.
+    split; intros; subst.
+    - destruct x as (a1, c1).
+      destruct y as (a2, c2).
+      destruct H as (?, Hb).
+      unfold RelCompFun in *.
+      simpl in *.
+      subst.
+      eauto using step_access_b_eq.
+    - destruct x as (a1, c1).
+      destruct y as (a2, c2).
+      destruct H as (?, Hb).
+      unfold RelCompFun in *.
+      simpl in *.
+      subst.
+      symmetry in Hb.
+      eauto using step_access_b_eq.
+  Qed.
+(*
+  Lemma b_equiv_p_run:
+    forall d i e1 l,
+    PRun d i e1 l ->
+    forall e2,
+    BEquiv d e1 e2 ->
+    PRun d i e2 l.
+  Proof.
+    intros d i e1 l H.
+    induction H; intros.
+    - apply p_run_skip.
+    - apply p_run_access.
+      eapply step_access_b_eq; eauto.
+      rewrite H0.
+      rewrite H0 in H.
+  Qed.
 
+  Global Instance p_run_proper_1 d: Proper (eq ==> eq ==> BEquiv d ==> eq ==> iff) PRun.
+  Proof.
+    unfold Proper, respectful.
+    split; intros; subst.
+    - 
+*)
+(*
   Lemma inline_if_1:
     forall td i b m,
     PRun td i b m ->
@@ -627,8 +721,6 @@ Section Props.
     - apply p_run_skip.
     - apply p_run_access.
       apply step_access_b_eq with (b1:=b_and b p); auto.
-      unfold BEquiv.
-      intros.
       rewrite b_equiv_and_true_l.
       reflexivity.
     - apply p_run_seq; auto.
@@ -638,46 +730,178 @@ Section Props.
       admit.
     - eapply p_run_for_skip; eauto.
   Admitted.
-
+*)
+(*
   Lemma inline_if_2:
     forall td i b m,
     PRun td (inline_if b i) (BBool true) m ->
-    PRun td i b m.
+    PRun td j b m.
   Proof.
+    intros td i b m H; induction 
     induction i; simpl; intros.
     - inversion H; subst; clear H.
       apply p_run_skip.
     - destruct c as (a, b').
       inversion H; subst; clear H.
       apply p_run_access.
-      admit.
+      rewrite b_equiv_and_true_l in *.
+      assumption.
     - inversion H; subst; clear H.
       apply p_run_seq; auto.
     - inversion H; subst; clear H.
       apply p_run_if; auto.
+    - inversion H; subst; clear H.
+      + eapply p_run_for_seq; eauto.
+        * apply IHi
+  Qed.
+*)
+
+  Lemma inline_if_inv_skip:
+    forall b i,
+    inline_if b i = Skip ->
+    i = Skip.
+  Proof.
+    intros b [] Hi; simpl in Hi; inversion Hi.
+    - reflexivity.
+    - destruct c.
+      inversion Hi.
+  Qed.
+
+  Lemma inline_if_inv_acc:
+    forall b i a,
+    inline_if b i = MemAcc a ->
+    exists e p,
+    i = MemAcc (e, p) /\ a = (e, BRel BAnd p b).
+  Proof.
+    intros.
+    destruct i; intros; simpl in H; inversion H.
+    destruct c as (e, b').
+    inversion H; subst; clear H.
+    eauto.
+  Qed.
+
+  Lemma inline_if_inv_seq:
+    forall b i i1 i2,
+    inline_if b i = Seq i1 i2 ->
+    exists i1' i2',
+    (i = Seq i1' i2' /\ i1 = inline_if b i1' /\ i2 = inline_if b i2')
+    \/
+    (exists b',
+      i = If b' i1' i2' /\
+      i1 = inline_if (BRel BAnd b b') i1' /\
+      i2 = inline_if (BRel BAnd b (BNot b')) i2').
+  Proof.
+    intros.
+    destruct i; simpl in H; inversion H; subst.
+    - destruct c; inversion H.
+    - exists i3, i4.
+      left.
+      eauto.
+    - exists i3, i4.
+      eauto.
+  Qed.
+
+  Lemma inline_if_inv_if:
+    forall b b' i' i j,
+    inline_if b' i' <> If b i j.
+  Proof.
+    intros.
+    intros N.
+    destruct i'; simpl in *; inversion N.
+    destruct c; inversion N.
+  Qed.
+
+  Lemma inline_if_inv_for:
+    forall b i' r i1 x,
+    inline_if b i' = For x r i1 ->
+    exists i1',
+    i' = For x r i1' /\ i1 = inline_if b i1'.
+  Proof.
+    intros.
+    destruct i'; simpl in *; inversion H; subst; clear H.
+    - destruct c; inversion H1.
+    - eauto.
+  Qed.
+
+  Lemma inline_if_2:
+    forall td b i p h,
+    PRun td (inline_if b i) p h ->
+    PRun td i (b_and b p) h.
+  Proof.
+    intros.
+    remember (inline_if _ _) as j.
+    generalize dependent b.
+    generalize dependent i.
+    induction H; intros; symmetry in Heqj.
+    - apply inline_if_inv_skip in Heqj.
+      subst.
+      apply p_run_skip.
+    - apply inline_if_inv_acc in Heqj.
+      destruct Heqj as (e, (p', (Hx, Hy))).
+      inversion Hy; subst; clear Hy.
+      apply p_run_access.
+      unfold b_and in *.
+      admit.
+    - apply inline_if_inv_seq in Heqj.
+      destruct Heqj as (i1', (i2', [(?, (?, ?))|(b', (?, (?,?)))])); subst.
+      + auto using p_run_seq.
+      + unfold b_and in *.
+        apply p_run_if.
+        * assert (IHPRun1 := IHPRun1 _ _ eq_refl).
+          admit.
+        * assert (IHPRun2 := IHPRun2 _ _ eq_refl).
+          admit.
+    - apply inline_if_inv_if in Heqj.
+      contradiction.
+    - apply inline_if_inv_for in Heqj.
+      destruct Heqj as (i', (?, ?)).
+      subst.
+      assert (IHPRun1 := IHPRun1 _ _ eq_refl).
+      eapply p_run_for_seq; eauto.
+      admit.
+    - apply inline_if_inv_for in Heqj.
+      destruct Heqj as (i1', (?, ?)).
+      subst.
+      auto using p_run_for_skip.
   Admitted.
 
   Lemma run_to_p_run:
-    forall td i m,
-    Run td i m ->
-    PRun td i (BBool true) m.
+    forall td i m b,
+    Run td (inline_if b i) m ->
+    PRun td i b m.
   Proof.
     intros.
-    induction H; intros.
-    - apply p_run_skip.
-    - destruct a as (a, b).
-      apply p_run_access.
-      admit.
-    - apply p_run_seq; auto.
-    - apply p_run_if.
-      + apply inline_if_2 in IHRun1.
-        admit.
-      + apply inline_if_2 in IHRun2.
-        admit.
-    - eapply p_run_for_seq; eauto.
-      admit.
-    - eapply p_run_for_skip; auto.
-  Admitted.
+    remember (inline_if _ _) as j.
+    generalize dependent Heqj.
+    generalize dependent b.
+    generalize dependent i.
+    induction H; intros; symmetry in Heqj.
+    - apply inline_if_inv_skip in Heqj.
+      subst.
+      apply p_run_skip.
+    - apply inline_if_inv_acc in Heqj.
+      destruct Heqj as (e, (p, (?, ?))).
+      subst.
+      apply p_run_access; auto.
+    - apply inline_if_inv_seq in Heqj.
+      destruct Heqj as (i1', (i2', [(?,(?,?))|(b',(?,(?,?)))])); subst.
+      * auto using p_run_seq.
+      * auto using p_run_if.
+    - apply inline_if_inv_if in Heqj.
+      contradiction.
+    - apply inline_if_inv_for in Heqj.
+      destruct Heqj as (i1', (?, ?)).
+      subst.
+      assert (IHRun1 := IHRun1 _ _ eq_refl).
+      assert (IHRun2 := IHRun2 (For x (add (NNum 1) n1, n2) i1') b eq_refl).
+      eapply p_run_for_seq; eauto.
+      apply inline_if_2.
+      auto.
+    - apply inline_if_inv_for in Heqj.
+      destruct Heqj as (i1', (?, ?)).
+      subst.
+      eapply p_run_for_skip; auto.
+  Qed.
 
   Lemma p_run_to_run:
     forall i td m b,
@@ -686,8 +910,7 @@ Section Props.
   Proof.
     intros i td m b H; induction H; simpl.
     - apply run_skip.
-    - apply run_access.
-      admit.
+    - apply run_access; auto.
     - eauto using run_seq.
     - simpl.
       apply run_seq; auto.
@@ -696,4 +919,41 @@ Section Props.
     - apply run_for_skip; auto.
   Admitted.
 
+  Fixpoint inline_bound n i :=
+  match i with
+  | Skip | MemAcc _ => i
+  | Seq i j => Seq (inline_bound n i) (inline_bound n j)
+  | If b i j => If b (inline_bound n i) (inline_bound n j)
+  | For x (e1, e2) i =>
+    For x (NNum 0, NNum n)
+      (If
+        (BRel BAnd
+          (NRel NLe e1 (NVar x))
+          (NRel NLt (NVar x) e2))
+        (inline_bound n i)
+        Skip)
+  end.
+(*
+
+  Lemma undep_1:
+    forall td i p h,
+    PRun td i p h ->
+    forall n j,
+    Undep n i j ->
+    PRun td j p h.
+  Proof.
+    intros td i h p H.
+    induction H; intros.
+    - inversion H; subst; clear H.
+      apply p_run_skip.
+    - inversion H0; subst; clear H0.
+      auto using p_run_access.
+    - inversion H1; subst; clear H1.
+      eauto using p_run_seq.
+    - inversion H1; subst; clear H1.
+      apply p_run_if; eauto.
+    - inversion H3; subst; clear H3.
+      eapply p_run_seq; eauto.
+  Qed.
+  *)
 End Props.
