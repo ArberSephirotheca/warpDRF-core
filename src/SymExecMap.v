@@ -675,4 +675,115 @@ Section Defs.
     apply f_run_inv_branch_map_2d in H6; auto using range_list_no_dup.
   Qed.
 
+
+  Lemma range_list_2d_inv_in:
+    forall nx ny n1 n2,
+    List.In (nx, ny) (range_list_2d n1 n2) ->
+    n1 <= nx < n2 /\ 0 <= ny < nx.
+  Proof.
+    unfold range_list_2d.
+    intros.
+    apply in_flat_map in H.
+    destruct H as (x, (Ha, Hb)).
+    unfold range_list_2d_inner in *.
+    apply in_map_iff in Hb.
+    destruct Hb as (y, (R, Hc)).
+    inversion R; subst; clear R.
+    apply range_list_in_iff in Ha.
+    apply range_list_in_iff in Hc.
+    auto.
+  Qed.
+
+  Lemma iter_2d_inv_seq:
+    forall x y i j p m,
+    Iter2d x y (Seq i j) p m ->
+    exists m1 m2,
+    m == m1 * m2 /\
+    Iter2d x y i p m1 /\
+    Iter2d x y j p m2.
+  Proof.
+    unfold Iter2d.
+    intros.
+    destruct p as (nx, ny).
+    simpl in H.
+    inversion H; subst; clear H.
+    exists m1, m2.
+    split; auto.
+  Qed.
+
+  Lemma iter_2d_seq:
+    forall x y i j p m1 m2 m3,
+    Iter2d x y i p m1 ->
+    Iter2d x y j p m2 ->
+    m3 == m1 * m2 ->
+    Iter2d x y (Seq i j) p m3.
+  Proof.
+    intros.
+    unfold Iter2d in *.
+    destruct p as (nx, ny).
+    simpl.
+    eapply f_run_seq; eauto.
+  Qed.
+
+  Lemma iter_2d_seq_eq:
+    forall x y i j p m1 m2,
+    Iter2d x y i p m1 ->
+    Iter2d x y j p m2 ->
+    Iter2d x y (Seq i j) p (m1 * m2).
+  Proof.
+    intros.
+    eapply iter_2d_seq; eauto.
+    reflexivity.
+  Qed.
+
+  Lemma map_iter_2d_inv_seq:
+    forall ks vs i j x y,
+    Map (Iter2d x y (Seq i j)) ks vs ->
+    exists vs1 vs2,
+    EEqList vs (map2 Prod vs1 vs2) /\
+    length vs1 = length vs2 /\
+    Map (Iter2d x y i) ks vs1 /\
+    Map (Iter2d x y j) ks vs2.
+  Proof.
+    induction ks; intros. {
+      inversion H; subst; clear H.
+      exists [], [].
+      rewrite map2_nil_l.
+      split. { reflexivity. }
+      auto using map_nil.
+    }
+    inversion H; subst; clear H.
+    apply IHks in H5.
+    destruct H5 as (vs1, (vs2, (R1, (Hl, (Hm1, Hm2))))).
+    apply iter_2d_inv_seq in H2.
+    destruct H2 as (m1, (m2, (R2, (Hr1, Hr2)))).
+    exists (m1 :: vs1), (m2::vs2).
+    split. {
+      rewrite R2.
+      rewrite R1.
+      rewrite map2_cons_rw.
+      reflexivity.
+    }
+    simpl.
+    auto using map_cons.
+  Qed.
+
+
+  Lemma map_iter2d_map2_prod:
+    forall ks vs1 vs2 x y i j,
+    Map (Iter2d x y i) ks vs1 ->
+    Map (Iter2d x y j) ks vs2 ->
+    Map (Iter2d x y (Seq i j)) ks (map2 Prod vs1 vs2).
+  Proof.
+    induction ks; intros. {
+      inversion H; subst.
+      rewrite map2_nil_l.
+      apply map_nil.
+    }
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0.
+    apply IHks with (vs1:=vs) (i:=i) in H8; eauto.
+    apply map_cons; auto using iter_2d_seq_eq.
+  Qed.
+
 End Defs.
