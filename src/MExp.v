@@ -693,6 +693,29 @@ Section Defs.
     split; auto using e_in_summation_map2_plus_or, e_in_summation_map2_plus_or_rev.
   Qed.
 
+  Lemma e_plus_inv_nil:
+    forall e1 e2,
+    EEq (Plus e1 e2) (One []) ->
+    EEq e1 (One []) /\ EEq e2 (One []).
+  Proof.
+    intros.
+    unfold EEq in *.
+    split. {
+      split; intros.
+      - apply H.
+        simpl; auto.
+      - simpl in *.
+        apply par_not_in_nil in H0.
+        contradiction.
+    }
+    split; intros.
+    - apply H.
+      simpl; auto.
+    - simpl in *.
+      apply par_not_in_nil in H0.
+      contradiction.
+  Qed.
+  
   (* ------------------- EEqList ----------------------------- *)
 
   Inductive EEqList : list mexp -> list mexp -> Prop :=

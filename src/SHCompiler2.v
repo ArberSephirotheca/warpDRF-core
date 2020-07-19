@@ -316,6 +316,170 @@ Section Compiler.
   Qed.
 
 
-  End Defs.
+  (* --------------------------- SEQ ------------------------ *)
+
+  Lemma iter_2d_inv_seq I:
+    forall x y i j m p,
+    Iter2d (I:=I) x y (Seq i j) p m ->
+    exists m1 m2,
+    EEq m (Prod m1 m2) /\
+    Iter2d x y i p m1 /\
+    Iter2d x y j p m2.
+  Proof.
+    unfold Iter2d.
+    intros.
+    destruct p as (nx, ny).
+    simpl in H.
+    inversion H; subst; clear H.
+    eauto.
+  Qed.
+
+  Lemma map_iter_2d_inv_fork I:
+    forall x y ks vs i j,
+    Map (Iter2d (I:=I) x y (Seq i j)) ks vs ->
+    exists vs1 vs2,
+    EEqList vs (map2 Prod vs1 vs2) /\
+    length vs1 = length vs2 /\
+    Map (Iter2d x y i) ks vs1 /\
+    Map (Iter2d x y j) ks vs2.
+  Proof.
+    induction ks; intros. {
+      inversion H; subst; clear H.
+      exists [], [].
+      auto using map_nil, e_eq_list_nil.
+    }
+    inversion H; subst; clear H.
+    edestruct IHks as (vs1, (vs2, (Rl, (Hl, (Hm1, Hm2))))); eauto.
+    edestruct iter_2d_inv_seq as (ma, (mb, (R2, (Hr1, Hr2)))); eauto.
+    exists (ma :: vs1), (mb :: vs2).
+    rewrite Rl.
+    rewrite R2.
+    simpl.
+    rewrite Hl.
+    rewrite map2_cons_rw.
+    split. { reflexivity. }
+    split. { reflexivity. }
+    split; auto using map_cons.
+  Qed.
+
+  Lemma translate_inv_seq i j m:
+    FRun (translate (Conc2.Seq i j)) m ->
+    exists vs1_1 vs2_1 vs1_2 vs2_2,
+    EEq m (summation (map2 Prod (map2 Prod vs1_1 vs2_1) (map2 Prod vs1_2 vs2_2))) /\
+    length vs1_1 = length vs2_1 /\
+    length vs2_1 = length vs1_2 /\
+    length vs1_2 = length vs2_2 /\
+    FRun (translate i) (summation (map2 Prod vs1_1 vs1_2)) /\
+    FRun (translate j) (summation (map2 Prod vs2_1 vs2_2)).
+  Proof.
+    intros.
+    apply translate_inv in H.
+    destruct H as (lm, (R1, (vs1, (vs2, (R2, (Hl, (Hm1, Hm2))))))).
+    simpl in *.
+    apply map_iter_2d_inv_seq in Hm1.
+    destruct Hm1 as (vs1_1, (vs2_1, (R_1, (Hl1, (Hm1_1, Hm2_1))))).
+    apply map_iter_2d_inv_seq in Hm2.
+    destruct Hm2 as (vs1_2, (vs2_2, (R_2, (Hl2, (Hm1_2, Hm2_2))))).
+    eexists.
+    eexists.
+    eexists.
+    eexists.
+    split.
+    2: {
+      split. 2: {
+        split. 2: {
+          split. 2: {
+            split.
+            - eapply translate_def; eauto.
+            - eapply translate_def; eauto.
+          }
+          auto.
+        }
+        apply e_eq_list_inv_length_r in R_1; auto.
+        apply e_eq_list_inv_length_r in R_2; auto.
+        auto with *.
+      }
+      auto.
+    }
+    rewrite R1.
+    rewrite R2.
+    rewrite R_1.
+    rewrite R_2.
+    reflexivity.
+  Qed.
+
+  (* ------------------------ BRANCH NIL ------------------ *)
+
+  Lemma iter_2d_inv_branch_nil I:
+    forall x y z i m p,
+    Iter2d (I:=I) x y (Branch z [] i) p m ->
+    EEq m (One []).
+  Proof.
+    unfold Iter2d.
+    intros.
+    destruct p as (nx, ny).
+    simpl in *.
+    remove_eq y z;
+      remove_eq x z;
+        rewrite p_eq_branch_nil in H;
+        inversion H; subst; clear H;
+        assumption.
+  Qed.
+
+  Lemma map_iter_2d_inv_branch_nil I:
+    forall x y ks vs i z,
+    Map (Iter2d (I:=I) x y (Branch z [] i)) ks vs ->
+    EEq (summation vs) (One []).
+  Proof.
+    induction ks; intros; inversion H; subst; clear H. {
+      reflexivity.
+    }
+    apply IHks in H5.
+    simpl.
+    rewrite H5.
+    apply iter_2d_inv_branch_nil in H2.
+    rewrite H2.
+    simpl.
+    rewrite e_plus_nil_l.
+    reflexivity.
+  Qed.
+
+  Lemma translate_inv_loop_nil:
+    forall z i m,
+    FRun (translate (Conc2.Loop z [] i)) m ->
+    EEq m (One []).
+  Proof.
+    intros.
+    apply translate_inv in H.
+    destruct H as (l, (R, (vs1, (vs2, (R2, (Hl, (Hm1, Hm2))))))).
+    simpl in *.
+    apply map_iter_2d_inv_branch_nil in Hm1.
+    apply map_iter_2d_inv_branch_nil in Hm2.
+    rewrite R; clear R m.
+    rewrite R2; clear R2 l.
+    generalize dependent vs2.
+    generalize dependent vs1.
+    induction vs1; intros. {
+      destruct vs2; inversion Hl.
+      simpl.
+      reflexivity.
+    }
+    destruct vs2; inversion Hl; clear Hl.
+    rewrite map2_cons_rw.
+    simpl.
+    simpl in Hm1, Hm2.
+    apply e_plus_inv_nil in Hm1.
+    apply e_plus_inv_nil in Hm2.
+    destruct Hm1 as (R1, R2).
+    destruct Hm2 as (R3, R4).
+    rewrite R1; clear R1.
+    rewrite R3; clear R3.
+    rewrite e_prod_nil_l.
+    rewrite e_plus_nil_l.
+    apply IHvs1; auto.
+  Qed.
+
+  (* ------------------------ IF -------------------------- *)
+
 
 End Compiler.
