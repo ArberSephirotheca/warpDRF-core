@@ -20,7 +20,6 @@ src/SetTh.v
 src/SymExec.v
 src/SymExec2.v
 src/LoopFree.v
-src/LoopFree2.v
 src/SymHist.v
 src/SymHist2.v
 src/SymExecMExp.v

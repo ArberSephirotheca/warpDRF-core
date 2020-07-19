@@ -28,7 +28,8 @@ Section C1.
   | Seq: inst -> inst -> inst
   | MemAcc: access_exp -> inst
   | For : var -> range -> inst -> inst
-  | Loop : var -> list nat -> inst -> inst.
+  (*| Loop : var -> list nat -> inst -> inst*)
+  .
 
   Fixpoint i_subst x v i :=
   match i with
@@ -39,9 +40,9 @@ Section C1.
   | For y r i =>
     let i' := if VAR.eq_dec x y then i else i_subst x v i in
     For y (r_subst x v r) i'
-  | Loop y r i =>
+(*  | Loop y r i =>
     let i' := if VAR.eq_dec x y then i else i_subst x v i in
-    Loop y r i'
+    Loop y r i'*)
   end.
 
   Import Hist.
@@ -55,14 +56,14 @@ Section C1.
   | If b i j => BIn x b \/ In x i \/ In x j
   | Seq i j => In x i \/ In x j
   | For y r i => x = y \/ RIn x r \/ In x i
-  | Loop y l i => x = y \/ In x i
+  (*| Loop y l i => x = y \/ In x i*)
   end.
 
   Fixpoint Var x i :=
   match i with
   | Skip | MemAcc _ => False
   | If _ i j | Seq i j => Var x i \/ Var x j
-  | For y _ i | Loop y _ i => x = y \/ Var x i
+  | For y _ i (*| Loop y _ i*) => x = y \/ Var x i
   end.
 
   Fixpoint InRange x i :=
@@ -70,9 +71,9 @@ Section C1.
   | Skip | MemAcc _ => False
   | If _ i j | Seq i j => InRange x i \/ InRange x j
   | For _ r i => RIn x r \/ InRange x i
-  | Loop _ _ i => InRange x i
+(*  | Loop _ _ i => InRange x i*)
   end.
-
+(*
   Lemma var_not_in_loop:
     forall x y l i,
     ~ Var x (Loop y l i) ->
@@ -117,7 +118,7 @@ Section C1.
     intros.
     inversion H; subst; clear H; simpl; auto.
   Qed.
-
+*)
   Infix ";;" := Seq (at level 50).
 
   Lemma i_subst_seq:
@@ -148,11 +149,11 @@ Section C1.
       rewrite IHi.
       rewrite r_subst_subst_eq.
       reflexivity.
-    - destruct (Set_VAR.MF.eq_dec x v). {
+(*    - destruct (Set_VAR.MF.eq_dec x v). {
         reflexivity.
       }
       rewrite IHi.
-      reflexivity.
+      reflexivity.*)
   Qed.
 
   Lemma i_subst_subst_neq:
@@ -182,6 +183,7 @@ Section C1.
       }
       rewrite IHi; auto.
       rewrite r_subst_subst_neq; auto.
+      (*
     - destruct (Set_VAR.MF.eq_dec y v). {
         destruct (Set_VAR.MF.eq_dec x v). {
           subst.
@@ -194,7 +196,7 @@ Section C1.
         subst.
         auto.
       }
-      rewrite IHi; auto.
+      rewrite IHi; auto.*)
   Qed.
 
   Lemma var_subst_inv_1:
@@ -204,7 +206,7 @@ Section C1.
   Proof.
     induction i; simpl; intros; auto; destruct H; auto.
     - destruct (Set_VAR.MF.eq_dec x v); auto.
-    - destruct (Set_VAR.MF.eq_dec x v); auto.
+(*    - destruct (Set_VAR.MF.eq_dec x v); auto.*)
   Qed.
 
   Lemma in_range_subst_inv_1:
@@ -217,9 +219,9 @@ Section C1.
       intros N.
       inversion N.
     - destruct (Set_VAR.MF.eq_dec x v); auto.
-    - destruct (Set_VAR.MF.eq_dec x v); auto.
+(*    - destruct (Set_VAR.MF.eq_dec x v); auto.*)
   Qed.
-
+(*
   Lemma in_range_loop_cons:
     forall x y l i n,
     InRange x (Loop y l i) ->
@@ -228,7 +230,7 @@ Section C1.
     intros.
     auto.
   Qed.
-
+*)
   Lemma in_subst_inv_1:
     forall y x n i,
     In y (i_subst x (NNum n) i) ->
@@ -247,7 +249,7 @@ Section C1.
         intros N.
         inversion N.
       + destruct (Set_VAR.MF.eq_dec x v); auto.
-    - destruct (Set_VAR.MF.eq_dec x v); auto.
+(*    - destruct (Set_VAR.MF.eq_dec x v); auto.*)
   Qed.
 (*
   Lemma var_iter_loop:
@@ -289,19 +291,20 @@ Section C1.
     BStep b false ->
     Run n j h ->
     Run n (If b i j) h
-  | run_for:
-    forall r l i x h,
-    RStep r l ->
-    Run n (Loop x l i) h ->
-    Run n (For x r i) h
-  | run_loop_cons:
-    forall n' x i h1 h2 l,
-    Run n (i_subst x (NNum n') i) h1 ->
-    Run n (Loop x l i) h2 ->
-    Run n (Loop x (n'::l) i) (h1 ++ h2)
-  | run_loop_nil:
-    forall x i,
-    Run n (Loop x [] i) [].
+  | run_for_cons:
+    forall e1 e2 n1 n2 i x h1 h2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    Run n (i_subst x (NNum n1) i) h1 ->
+    Run n (For x (NNum (S n1), NNum n2) i) h2 ->
+    Run n (For x (e1, e2) i) (h1 ++ h2)
+  | run_for_nil:
+    forall x i e1 e2 n1 n2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 >= n2 ->
+    Run n (For x (e1, e2) i) [].
 
 
   Inductive RunAll : nat -> inst -> history -> Prop :=

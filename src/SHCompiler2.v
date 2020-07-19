@@ -12,14 +12,11 @@ Require Import Loc.
 Require Import Exp.
 Require Import AccExp.
 Require Import Util.
-Require Aniceto.Graphs.Graph.
-Require Conc.
 Require Import SetTh.
 Import ListNotations.
 Require Import RangeList.
 Require Import Tasks.
 Require Import SymExec2.
-Require LoopFree2.
 Require SymHist2.
 Require Import SymExecMRun.
 Require Import SymExecMap.
@@ -626,8 +623,148 @@ Section Defs.
         auto.
   Qed.
 
-  (* ------------------------ FOR -------------------------- *)
+  (* ----------------------------- FOR ------------------------------- *)
+(*
+  Lemma iter_2d_inv_decl I:
+    forall x y z i j m p r,
+    ~ RIn x r ->
+    ~ RIn y r ->
+    Iter2d x y (Decl (I:=I) z r i j) p m ->
+    exists l,
+    RStep r l /\ Iter2d x y (Branch z l i j) p m.
+  Proof.
+    unfold Iter2d.
+    intros.
+    destruct p as (nx, ny).
+    simpl in *.
+    apply f_run_inv_decl in H1.
+    destruct H1 as (l, (Hr, Hf)).
+    exists l.
+    split; auto.
+    rewrite r_subst_not_in in Hr.
+    - rewrite r_subst_not_in in Hr; auto.
+    - rewrite r_subst_not_in; auto.
+  Qed.
 
+  Lemma map_iter_2d_inv_decl I:
+    forall x y ks vs i j z r,
+    ks <> [] ->
+    ~ RIn x r ->
+    ~ RIn y r ->
+    Map (Iter2d (I:=I) x y (Decl z r i j)) ks vs ->
+    exists l, RStep r l /\ Map (Iter2d x y (Branch z l i j)) ks vs.
+  Proof.
+    intros.
+    assert (Hr: exists l, RStep r l). {
+      inversion H2; subst; clear H2. { contradiction. }
+      apply iter_2d_inv_decl in H3; auto.
+      destruct H3 as (l, (Hr, Hk)).
+      eauto.
+    }
+    destruct Hr as (l, Hr).
+    exists l.
+    split; auto.
+    apply map_impl with (P:=Iter2d x y (Decl z r i j)); auto.
+    intros k v Hi.
+    apply iter_2d_inv_decl in Hi; auto.
+    destruct Hi as (l', (Hr', Hi)).
+    assert (l' = l) by eauto using r_step_fun.
+    subst.
+    assumption.
+  Qed.
+*)
+  Lemma translate_inv_for x r i
+    (tid_nin: TID <> x)
+    (*
+    (Hv: ~ InRange TID (Decl x r i j))
+    
+    (t1_nin: ~ In T1 (For x r i j))
+    (t2_nin: ~ In T2 (For x r i j))
+    *)
+    :
+    forall m,
+    FRun (translate (Conc2.For x r i)) m ->
+    exists l, RStep r l /\ FRun (translate (Conc2.Loop x l i)) m.
+  Proof.
+    intros.
+    apply translate_inv in H.
+    destruct H as (ml, (R, (vs1, (vs2, (Rl, (Hl, (Hm1, Hm2))))))).
+    simpl in Hm1, Hm2.
+    remove_eq TID x; auto.
+    assert (~ RIn T1 (r_subst TID (NVar T1) r)). {
+      intros N.
+      apply r_in_subst_eq in N.
+      - contradict Hv.
+        auto using in_range_decl_eq.
+      - intros M.
+        contradict t1_nin.
+        auto using in_decl_1.
+    }
+    assert (~ RIn T2 (r_subst TID (NVar T1) r)). {
+      intros N.
+      rewrite r_subst_not_in in N.
+      - contradict t2_nin.
+        auto using in_decl_1.
+      - intros M.
+        contradict Hv.
+        auto using in_range_decl_eq.
+    }
+    assert (range_list_2d 1 TID_COUNT <> []). {
+      intros N.
+      unfold range_list_2d in *.
+      unfold range_list in N.
+      destruct TID_COUNT eqn:Hn. {
+        assert (Hx := tid_count_1_lt).
+        rewrite Hn in Hx.
+        inversion Hx.
+      }
+      simpl in N.
+      destruct n. {
+        simpl in N.
+        assert (Hx := tid_count_1_lt).
+        rewrite Hn in Hx.
+        auto with *.
+      }
+      simpl in N.
+      inversion N.
+    }
+    apply map_iter_2d_inv_decl in Hm1; auto.
+    destruct Hm1 as (l, (Hr1, Hm1)).
+    simpl in Hm2.
+    assert (~ RIn T1 (r_subst TID (NVar T2) r)). {
+      intros N.
+      rewrite r_subst_not_in in N.
+      - contradict t1_nin.
+        auto using in_decl_1.
+      - intros M.
+        contradict Hv.
+        auto using in_range_decl_eq.
+    }
+    assert (~ RIn T2 (r_subst TID (NVar T2) r)). {
+      intros N.
+      apply r_in_subst_eq in N.
+      - contradict Hv.
+        auto using in_range_decl_eq.
+      - intros M.
+        contradict t2_nin.
+        auto using in_decl_1.
+    }
+    apply map_iter_2d_inv_decl in Hm2; auto.
+    destruct Hm2 as (l', (Hr2, Hm2)).
+    assert (~ RIn TID r). {
+      intros N.
+      contradict Hv.
+      auto using in_range_decl_eq.
+    }
+    rewrite r_subst_not_in in Hr1; auto.
+    rewrite r_subst_not_in in Hr2; auto.
+    assert (l' = l) by eauto using r_step_fun; subst.
+    exists l.
+    split; auto.
+    rewrite R.
+    rewrite Rl.
+    apply translate_def; auto.
+  Qed.
   (* ------------------------ IF -------------------------- *)
 
 

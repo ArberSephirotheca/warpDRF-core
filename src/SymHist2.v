@@ -130,7 +130,7 @@ Section Defs.
     | Conc2.If b i j => SymExec2.If b (translate i) (translate j)
     | Conc2.MemAcc e => SymExec2.MemAcc (I:=SymAcc) (e, NNum CurTask)
     | Conc2.For x r i => SymExec2.Decl x r (translate i)
-    | Conc2.Loop x l i => SymExec2.Branch x l (translate i)
+(*    | Conc2.Loop x l i => SymExec2.Branch x l (translate i)*)
     end.
 
   Lemma i_subst_translate_rw:
@@ -149,8 +149,8 @@ Section Defs.
     - reflexivity.
     - rewrite IHi.
       destruct (Set_VAR.MF.eq_dec x v); auto.
-    - rewrite IHi.
-      destruct (Set_VAR.MF.eq_dec x v); auto.
+(*    - rewrite IHi.
+      destruct (Set_VAR.MF.eq_dec x v); auto.*)
   Qed.
 
   Lemma all_incl_eq:
@@ -162,7 +162,7 @@ Section Defs.
     + apply incl_refl.
     + apply all_incl_nil.
   Qed.
-
+(*
   Lemma run_to_all_incl:
     forall i h,
     Conc2.Run CurTask i h ->
@@ -338,6 +338,7 @@ Section Defs.
     split; auto.
     eauto using correctness.
   Qed.
+*)
 *)
 
 End Defs.

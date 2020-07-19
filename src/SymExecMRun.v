@@ -47,24 +47,25 @@ Section Defs.
     forall e v,
     access_inst_step e v ->
     ERun (MemAcc e) (One v)
-  | e_run_decl:
-    forall r l i x m,
-    RStep r l ->
-    ERun (Branch x l i) m ->
-    ERun (Decl x r i) m
-  | e_run_branch_cons:
-    forall x n l i m1 m2,
-    ERun (i_subst x (NNum n) i) m1 ->
-    ERun (Branch x l i) m2 ->
-    ERun (Branch x (n::l) i) (Plus m1 m2)
-  | e_run_branch_nil:
-    forall x i,
-    ERun (Branch x [] i) (One [])
   | e_run_fork:
     forall i j m1 m2,
     ERun i m1 ->
     ERun j m2 ->
     ERun (Fork i j) (Plus m1 m2)
+  | e_run_decl_cons:
+    forall e1 e2 n1 n2 i x m1 m2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    ERun (i_subst x (NNum n1) i) m1 ->
+    ERun (Decl x (NNum (S n1), NNum n2) i) m2 ->
+    ERun (Decl x (e1, e2) i) (Plus m1 m2)
+  | e_run_decl_nil:
+    forall x i e1 e2 n1 n2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 >= n2 ->
+    ERun (Decl x (e1, e2) i) (One [])
   .
 
   Lemma e_run_1:
@@ -80,9 +81,8 @@ Section Defs.
         run_if_true,
         run_if_false,
         run_access,
-        run_decl,
-        run_branch_cons,
-        run_branch_nil,
+        run_decl_cons,
+        run_decl_nil,
         run_fork.
   Qed.
 
@@ -112,19 +112,6 @@ Section Defs.
     - exists (One v).
       split; auto using e_run_access.
       reflexivity.
-    - destruct IHRun as (e1, (Hr, R)).
-      eauto using e_run_decl.
-    - destruct IHRun1 as (e1, (Hr1, R1)).
-      destruct IHRun2 as (e2, (Hr2, R2)).
-      eexists.
-      split.
-      + apply e_run_branch_cons; eauto.
-      + rewrite R1.
-        rewrite R2.
-        reflexivity.
-    - eexists.
-      split; eauto using e_run_branch_nil.
-      reflexivity.
     - destruct IHRun1 as (m1, (Hr1, R1)).
       destruct IHRun2 as (m2, (Hr2, R2)).
       eexists.
@@ -134,6 +121,17 @@ Section Defs.
         rewrite R1.
         rewrite R2.
         reflexivity.
+    - destruct IHRun1 as (e1', (Hr1, R1)).
+      destruct IHRun2 as (e2', (Hr2, R2)).
+      eexists.
+      split.
+      + eapply e_run_decl_cons; eauto.
+      + rewrite R1.
+        rewrite R2.
+        reflexivity.
+    - eexists.
+      split; eauto using e_run_decl_nil.
+      reflexivity.
   Qed.
 
   Lemma e_run_fun:
@@ -162,17 +160,19 @@ Section Defs.
       subst.
       reflexivity.
     - inversion H1; subst; clear H1.
-      assert (l0 = l) by eauto using r_step_fun.
-      subst.
-      erewrite IHERun; eauto.
-    - inversion H1; subst; clear H1.
       erewrite IHERun1; eauto.
       erewrite IHERun2; eauto.
-    - inversion H; subst; clear H.
-      reflexivity.
-    - inversion H1; subst; clear H1.
-      erewrite IHERun1; eauto.
-      erewrite IHERun2; eauto.
+    - inversion H4; subst; clear H4.
+      + assert (n0 = n1) by eauto using n_step_fun; subst.
+        assert (n3 = n2) by eauto using n_step_fun; subst.
+        rewrite IHERun1 with (e2:=m0); auto.
+        rewrite IHERun2 with (e2:=m3); auto.
+      + assert (n0 = n1) by eauto using n_step_fun; subst.
+        assert (n3 = n2) by eauto using n_step_fun; subst.
+        Import Omega.
+        omega.
+    - inversion H2; subst; clear H2.
+      + 
   Qed.
 
   (* ------------------------------ FRun  ---------------------------- *)
