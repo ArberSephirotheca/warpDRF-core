@@ -26,8 +26,7 @@ Require Import SymExecMap.
 Require Import SymExecEq.
 Require Import MExp.
 
-Section Compiler.
-  Section Defs.
+Section Defs.
   Context {A:Access}.
   Context {T:Tasks}.
 
@@ -60,7 +59,35 @@ Section Compiler.
       contradiction.
     + destruct H1; auto.
   Qed.
-
+(*
+  Lemma i_subst_proj_rw_eq:
+    forall i n,
+    proj (Conc2.i_subst TID (NNum n) i) = i_subst TID (NNum n) (proj i).
+  Proof.
+    induction i; intros; simpl;
+      try (rewrite IHi1; auto);
+      try (rewrite IHi2; auto);
+      try (rewrite IHi; auto);
+      auto
+    .
+    - destruct (Set_VAR.MF.eq_dec TID TID). {
+        
+      }
+    - .
+      rewrite IHi2; auto.
+    - rewrite IHi1; auto.
+      rewrite IHi2; auto.
+    - reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        auto.
+      }
+      rewrite IHi; auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        auto.
+      }
+      rewrite IHi; auto.
+  Qed.
+*)
   Lemma i_subst_proj_rw:
     forall x i n,
     x <> TID ->
@@ -408,7 +435,7 @@ Section Compiler.
     reflexivity.
   Qed.
 
-  (* ------------------------ BRANCH NIL ------------------ *)
+  (* ------------------------ LOOP NIL ------------------ *)
 
   Lemma iter_2d_inv_branch_nil I:
     forall x y z i m p,
@@ -479,7 +506,131 @@ Section Compiler.
     apply IHvs1; auto.
   Qed.
 
+  (* ------------------------ LOOP-CONS ------------------- *)
+
+
+  Lemma iter_2d_inv_branch_cons I:
+    forall x y z i m p l n,
+    Iter2d (I:=I) x y (Branch z (n::l) i) p m ->
+    x <> y ->
+    x <> z ->
+    y <> z ->
+    exists m1 m2,
+    EEq m (Plus m1 m2) /\ 
+    Iter2d x y (i_subst z (NNum n) i) p m1 /\
+    Iter2d x y (Branch z l i) p m2
+    .
+  Proof.
+    unfold Iter2d.
+    intros.
+    destruct p as (nx, ny).
+    simpl in H.
+    inversion H; subst; clear H.
+    exists m1, m2.
+    remove_eq y z.
+    remove_eq x z.
+    remove_eq y z.
+    rewrite (i_subst_subst_neq z y) in H8; auto.
+    rewrite (i_subst_subst_neq z x) in H8; auto.
+  Qed.
+
+  Lemma map_iter_2d_inv_branch_cons I z i n l x y
+    (Hn1: x <> y)
+    (Hn2: x <> z)
+    (Hn3: y <> z)
+    :
+    forall ks vs,
+    Map (Iter2d (I:=I) x y (Branch z (n::l) i)) ks vs ->
+    exists vs1 vs2,
+    EEqList vs (map2 Plus vs1 vs2) /\
+    length vs1 = length vs2 /\
+    Map (Iter2d x y (i_subst z (NNum n) i)) ks vs1 /\
+    Map (Iter2d x y (Branch z l i)) ks vs2
+    .
+  Proof.
+    induction ks; intros. {
+      inversion H.
+      subst.
+      exists [], [].
+      split. { reflexivity. }
+      auto using map_nil.
+    }
+    inversion H; subst; clear H.
+    apply IHks in H5.
+    destruct H5 as (vs1, (vs2, (R1, (R2, (Ha, Hb))))).
+    apply iter_2d_inv_branch_cons in H2; auto.
+    destruct H2 as (m1, (m2, (R3, (Hi1, Hi2)))).
+    exists (m1::vs1), (m2::vs2).
+    rewrite map2_cons_rw.
+    split. {
+      rewrite R1 in *.
+      rewrite R3.
+      reflexivity.
+    }
+    split. { simpl. rewrite R2; auto. }
+    auto using map_cons.
+  Qed.
+
+  Lemma translate_inv_loop_cons z i m n l
+    (t1_nin: ~ Conc2.Var T1 (Conc2.Loop z (n::l) i))
+    (t2_nin: ~ Conc2.Var T2 (Conc2.Loop z (n::l) i))
+    (tid_nin: TID <> z)
+  :
+    FRun (translate (Conc2.Loop z (n::l) i)) m ->
+    exists vs1 vs2 vs3 vs4,
+    EEq m (summation (map2 Prod (map2 Plus vs1 vs3) (map2 Plus vs2 vs4))) /\
+    length vs1 = length vs2 /\
+    length vs2 = length vs3 /\
+    length vs3 = length vs4 /\
+    FRun (translate (Conc2.i_subst z (NNum n) i)) (summation (map2 Prod vs1 vs2)) /\
+    FRun (translate (Conc2.Loop z l i)) (summation (map2 Prod vs3 vs4)).
+  Proof.
+    intros.
+    apply translate_inv in H.
+    destruct H as (lm, (R1, (vs1, (vs2, (R2, (Hl, (Hm1, Hm2))))))).
+    simpl in *.
+    apply map_iter_2d_inv_branch_cons in Hm1; auto using t1_neq_t2.
+    apply map_iter_2d_inv_branch_cons in Hm2; auto using t1_neq_t2.
+    destruct Hm1 as (vsi_m1, (vsl_m1, (Rl_m1, (Hl_m1, (Hm1_m1, Hm2_m1))))).
+    destruct Hm2 as (vsi_m2, (vsl_m2, (Rl_m2, (Hl_m2, (Hm1_m2, Hm2_m2))))).
+    remove_eq TID z.
+    exists vsi_m1, vsi_m2, vsl_m1, vsl_m2.
+    split. {
+      rewrite R1; clear R1 m.
+      rewrite R2; clear R2 lm.
+      rewrite Rl_m1 in *; clear Rl_m1.
+      rewrite Rl_m2 in *; clear Rl_m2.
+      reflexivity.
+    }
+    assert (length vs1 = length vsi_m1) by eauto using e_eq_list_inv_length_l.
+    assert (length vs1 = length vsl_m1) by eauto using e_eq_list_inv_length_r.
+    assert (length vs2 = length vsi_m2) by eauto using e_eq_list_inv_length_l.
+    assert (length vs2 = length vsl_m2) by eauto using e_eq_list_inv_length_r.
+    split. { auto with *. }
+    split. { auto with *. }
+    split. { auto with *. }
+    split.
+    - (* i [ z := n ] *)
+      apply translate_def.
+      + rewrite i_subst_proj_rw in *; auto.
+        assert (T1 <> z) by auto.
+        rewrite i_subst_subst_neq_2; auto.
+      + rewrite i_subst_proj_rw in *; auto.
+        assert (T2 <> z) by auto.
+        rewrite i_subst_subst_neq_2; auto.
+    - (* Loop z l i  *) 
+      apply translate_def.
+      + simpl.
+        remove_eq TID z.
+        auto.
+      + simpl.
+        remove_eq TID z.
+        auto.
+  Qed.
+
+  (* ------------------------ FOR -------------------------- *)
+
   (* ------------------------ IF -------------------------- *)
 
 
-End Compiler.
+End Defs.

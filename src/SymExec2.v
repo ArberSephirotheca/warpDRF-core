@@ -730,53 +730,33 @@ Section Defs.
     exists hs1, hs2.
     repeat split; auto.
   Qed.
-
-  Lemma i_subst_seq:
-    forall x v i1 i2,
-    i_subst x v (seq i1 i2) = seq (i_subst x v i1) (i_subst x v i2).
-  Proof.
-    induction i1; simpl; intros.
-    - reflexivity.
-    - rewrite IHi1.
-      reflexivity.
-    - rewrite IHi1_2.
-      reflexivity.
-    - rewrite IHi1_2.
-      reflexivity.
-    - rewrite IHi1_1.
-      rewrite IHi1_2.
-      reflexivity.
-  Qed.
+*)
 
   Lemma i_subst_subst_eq:
     forall x i n1 n2,
     i_subst x (NNum n1) (i_subst x (NNum n2) i) = i_subst x (NNum n2) i.
   Proof.
-    induction i; simpl; intros.
-    - reflexivity.
-    - rewrite access_inst_subst_subst_eq.
-      rewrite IHi.
-      reflexivity.
+    induction i; simpl; intros;
+      try (rewrite IHi; auto; clear IHi);
+      try (rewrite IHi1; auto; clear IHi1);
+      try (rewrite IHi2; auto; clear IHi2);
+      try reflexivity
+    .
+    - rewrite b_subst_subst_eq; auto.
+    - rewrite access_inst_subst_subst_eq; auto.
     - destruct (Set_VAR.MF.eq_dec x v). {
         subst.
-        rewrite IHi2.
         rewrite r_subst_subst_eq.
         reflexivity.
       }
-      rewrite IHi1.
-      rewrite IHi2.
+      rewrite IHi; auto.
       rewrite r_subst_subst_eq.
       reflexivity.
     - destruct (Set_VAR.MF.eq_dec x v). {
-        rewrite IHi2.
         subst.
         reflexivity.
       }
-      rewrite IHi1.
-      rewrite IHi2.
-      reflexivity.
-    - rewrite IHi1.
-      rewrite IHi2.
+      rewrite IHi.
       reflexivity.
   Qed.
 
@@ -786,43 +766,35 @@ Section Defs.
     i_subst x (NNum n1) (i_subst y (NNum n2) i) =
     i_subst y (NNum n2) (i_subst x (NNum n1) i).
   Proof.
-    induction i; intros; simpl.
-    - reflexivity.
-    - rewrite IHi; auto.
-      rewrite access_inst_subst_subst_neq; auto.
+    induction i; intros; simpl;
+      try (rewrite IHi; auto; clear IHi);
+      try (rewrite IHi1; auto; clear IHi1);
+      try (rewrite IHi2; auto; clear IHi2);
+      try reflexivity
+    .
+    - rewrite b_subst_subst_neq; auto.
+    - rewrite access_inst_subst_subst_neq; auto.
     - destruct (Set_VAR.MF.eq_dec x v). {
         destruct (Set_VAR.MF.eq_dec y v). {
           subst.
           contradiction.
         }
-        subst.
-        rewrite IHi2; auto.
         rewrite r_subst_subst_neq; auto.
       }
       destruct (Set_VAR.MF.eq_dec y v). {
         subst.
-        rewrite IHi2; auto.
         rewrite r_subst_subst_neq; auto.
       }
-      rewrite IHi2; auto.
-      rewrite IHi1; auto.
       rewrite r_subst_subst_neq; auto.
+      rewrite IHi; auto.
     - destruct (Set_VAR.MF.eq_dec y v). {
-        destruct (Set_VAR.MF.eq_dec x v). {
-          subst.
-          contradiction.
-        }
-        subst.
-        rewrite IHi2; auto.
+        destruct (Set_VAR.MF.eq_dec x v); subst; reflexivity.
       }
       destruct (Set_VAR.MF.eq_dec x v). {
         subst.
-        rewrite IHi2; auto.
+        auto.
       }
-      rewrite IHi2; auto.
-      rewrite IHi1; auto.
-    - rewrite IHi1; auto.
-      rewrite IHi2; auto.
+      rewrite IHi; auto.
   Qed.
 
   Lemma i_subst_subst_neq_2:
@@ -833,12 +805,15 @@ Section Defs.
     =
     i_subst z (NNum n) (i_subst x (NVar y) i).
   Proof.
-    induction i; intros; simpl.
-    - reflexivity.
+    induction i; intros; simpl;
+      try (rewrite IHi; auto; clear IHi);
+      try (rewrite IHi1; auto; clear IHi1);
+      try (rewrite IHi2; auto; clear IHi2);
+      try reflexivity
+    .
+    - rewrite b_subst_subst_neq_2; auto.
     - rewrite access_inst_subst_subst_neq_2; auto.
-      rewrite IHi; auto.
-    - rewrite IHi2; auto.
-      destruct (Set_VAR.MF.eq_dec z v). {
+    - destruct (Set_VAR.MF.eq_dec z v). {
         subst.
         rewrite r_subst_subst_neq_2; auto.
       }
@@ -847,9 +822,8 @@ Section Defs.
         subst.
         reflexivity.
       }
-      rewrite IHi1; auto.
-    - rewrite IHi2; auto.
-      destruct (Set_VAR.MF.eq_dec x v). {
+      rewrite IHi; auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
         subst.
         auto.
       }
@@ -857,11 +831,9 @@ Section Defs.
         subst.
         auto.
       }
-      rewrite IHi1; auto.
-    - rewrite IHi1; auto.
-      rewrite IHi2; auto.
+      rewrite IHi; auto.
   Qed.
-*)
+
   (* ------------------------------- In ----------------------------- *)
 
   Fixpoint In x (i:inst) : Prop :=
