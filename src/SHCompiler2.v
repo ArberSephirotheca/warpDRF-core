@@ -572,8 +572,8 @@ Section Defs.
   Qed.
 
   Lemma translate_inv_loop_cons z i m n l
-    (t1_nin: ~ Conc2.Var T1 (Conc2.Loop z (n::l) i))
-    (t2_nin: ~ Conc2.Var T2 (Conc2.Loop z (n::l) i))
+    (t1_nin: T1 <> z)
+    (t2_nin: T2 <> z)
     (tid_nin: TID <> z)
   :
     FRun (translate (Conc2.Loop z (n::l) i)) m ->
@@ -613,10 +613,8 @@ Section Defs.
     - (* i [ z := n ] *)
       apply translate_def.
       + rewrite i_subst_proj_rw in *; auto.
-        assert (T1 <> z) by auto.
         rewrite i_subst_subst_neq_2; auto.
       + rewrite i_subst_proj_rw in *; auto.
-        assert (T2 <> z) by auto.
         rewrite i_subst_subst_neq_2; auto.
     - (* Loop z l i  *) 
       apply translate_def.
