@@ -441,9 +441,24 @@ Proof.
     + assumption.
     + apply run_i_skip. apply equiv_eq.
   - intros.
-      
+    inversion H; subst; clear H.
+    assert (HEQ: NSEquiv (Seq k1 y) (Seq x' y')). {
+      apply equiv_seq; assumption.
+    }
+    apply H1 in HEQ.
+    apply H2 in H5.
+    inversion HEQ; subst; clear HEQ.
+    apply run_seq with (y:=y1).
+    + assumption.
+    + apply run_seq with (y:= yh); assumption.
+  - intros.
+    apply run_seq with (y:= yh); assumption.
+  - intros.
+    apply run_seq with (y:= yh).
+    + apply H1 in H2. assumption.
+    + apply H3 in H4. assumption.
+Qed.
     
-    apply run_seq
     
 
       
@@ -469,7 +484,7 @@ Proof.
     inversion Hx; subst; clear Hx.
     assert (IHHR1 := IHHR1 h' i eq_refl).
     assert (IHHR2 := IHHR2 y j eq_refl).
-
+    eapply run_i_seq; eauto.
   - intros h' i' Hx j' HE.
     inversion Hx; subst; clear Hx.
     assert (IHHR := IHHR h' (Loop v l i) eq_refl).
@@ -483,6 +498,7 @@ Proof.
     assert (IHHR1 := IHHR1 h' (i_subst v (NNum n) i) eq_refl).
     assert (IHHR2 := IHHR2 y (Loop v l i) eq_refl).
     eapply run_i_loop_cons; eauto.
+Qed.
     
 
 Lemma equiv_one_run_r:
