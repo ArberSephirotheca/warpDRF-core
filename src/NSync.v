@@ -28,7 +28,7 @@ Section C1.
   Inductive inst :=
   | Skip
   | Sync
-  | If
+  | If: bexp -> inst -> inst -> inst
   | Hole
   | Seq: inst -> inst -> inst
   | For : var -> range -> inst -> inst
@@ -40,7 +40,7 @@ Fixpoint i_subst x v i :=
   match i with
   | Skip => Skip
   | Sync => Sync
-  | If => If
+  | If b i j => If (b_subst x v b) (i_subst x v i) (i_subst x v j)
   | Hole => Hole
   | Seq i2 i3 => Seq (i_subst x v i2) (i_subst x v i3)
   | For y r i2 =>
@@ -74,6 +74,16 @@ Inductive Run: ((mhistory * history) * inst) -> (mhistory * history) -> Prop :=
       Run (x, i) y ->
       Run (y,j) z ->
       Run (x, Seq i j) z
+| run_if_true:
+    forall i j b x y,
+      BStep b true ->
+      Run (x, i) y ->
+      Run (x, If b i j) y
+| run_if_false:
+    forall i j b x y,
+      BStep b false ->
+      Run (x, j) y ->
+      Run (x, If b i j) y
 | run_for:
   forall r l v x y i,
     RStep r l ->
@@ -142,7 +152,13 @@ Inductive NSEquiv : inst -> inst -> Prop :=
 | equiv_loop:
     forall x y l r,
       NSEquiv x y ->
-      NSEquiv (Loop l r x) (Loop l r y).
+      NSEquiv (Loop l r x) (Loop l r y)
+| equiv_if:
+    forall b x y x' y',
+      NSEquiv x x' ->
+      NSEquiv y y' ->      
+      NSEquiv (If b x y) (If b x' y')
+.
 
 
 Notation nsequivstar := (clos_refl_sym_trans_n1 _ NSEquiv).
@@ -188,8 +204,12 @@ Proof.
     assert (IHHE:=IHHE v n).
     apply equiv_loop.
     destruct (Set_VAR.MF.eq_dec v l); assumption.
-Qed.
-        
+  - intros.
+    assert (IHHE1 := IHHE1 v n).
+    assert (IHHE2 := IHHE2 v n).
+    simpl.
+    apply equiv_if; assumption.
+Qed. 
 
   
 Lemma equiv_one_run_l:
@@ -240,6 +260,16 @@ Proof.
       eapply run_seq; eauto.
   - intros. inversion H0; subst; clear H0.
     inversion H1; subst; clear H1.
+    + apply run_if_true; assumption.
+    + assert (IHHR:=IHHR hs i eq_refl x' H5).
+      apply run_if_true; assumption.
+  - intros. inversion H0; subst; clear H0.
+    inversion H1; subst; clear H1.
+    + apply run_if_false; assumption.
+    + assert (IHHR:=IHHR hs j eq_refl y' H6).
+      apply run_if_false; assumption.
+  - intros. inversion H0; subst; clear H0.
+    inversion H1; subst; clear H1.
     + eapply run_for; eauto.
     + assert (HE: NSEquiv (Loop v l i) (Loop v l y0)) by auto using equiv_loop.
       assert (IHHR:=IHHR hs (Loop v l i) eq_refl (Loop v l y0) HE).
@@ -260,84 +290,313 @@ Proof.
         apply i_subst_equiv.
         assumption.
       }
-      assert (IHHR1 := IHHR1 hs (i_subst v (NNum n) i) eq_refl (i_subst v (NNum n) y0) HES).
+      assert (IHHR1 := IHHR1 hs (i_subst v (NNum n) i)
+                             eq_refl (i_subst v (NNum n) y0) HES).
       assumption.
 Qed.
 
 
-
-(*
-Lemma run_equiv_for:
-  forall h v l h' x y,
-  Run (h, Loop v l y) h' ->
-  NSEquiv x y -> 
-  Run (h, Loop v l x) h'.
+Lemma run_i_skip:
+  forall i hs,
+    NSEquiv i Skip ->
+    Run (hs, i) hs.
 Proof.
   intros.
-  induction l.
-  - inversion H; subst; clear H.
+  induction i.
+  - apply run_skip.
+  - inversion H.
+  - inversion H.
+  - inversion H.
+  - inversion H; subst.
+    + apply run_seq with (y:=hs).
+      * apply run_skip.
+      * apply IHi2 in H3. assumption.
+    + apply run_seq with (y:=hs).
+      * apply IHi1 in H3. assumption.
+      * apply run_skip.
+  - inversion H.
+  - inversion H.
+Qed.
+    
+
+Lemma run_i_sync:
+  forall j,
+    NSEquiv j Sync ->
+    forall h hs,
+      Run (hs, h, j) (h :: hs, []).
+Proof.
+  intro j.
+  induction j.
+  - intros HE h. inversion HE.
+  - intros. apply run_sync.
+  - intros HE h hs. inversion HE.
+  - intros HE h hs. inversion HE.
+  - intros HE h hs. inversion HE; subst.
+    + apply run_seq with (y:=(hs,h)).
+      * apply run_skip.
+      * eapply IHj2 in H2; eauto.
+    + apply run_seq with (y:=(h::hs, [])).
+      * eapply IHj1 in H2; eauto.
+      * apply run_skip.
+  - intros HE h hs. inversion HE.
+  - intros HE h hs. inversion HE.
+Qed.
+
+
+Lemma run_i_for:
+  forall j' v r i l,
+    NSEquiv j' (For v r i) ->
+    RStep r l ->
+    forall y h',
+    (forall j, NSEquiv j (Loop v l i) -> Run (h', j) y) ->
+    Run (h', Loop v l i) y ->
+    Run (h', j') y.
+Proof.
+  intros jh.
+  induction jh; intros vh rh ih lh HE; inversion HE; subst; clear HE.
+  - intros.
+    eapply IHjh2 in H2; eauto.
+    apply run_seq with (y:=h').
+    + apply run_i_skip. apply equiv_eq.
+    + assumption.
+  - intros.
+    eapply IHjh1 in H2; eauto.
+    + apply run_seq with (y:=y).
+      * assumption.
+      * apply run_i_skip. apply equiv_eq.
+  - intros.
+    eapply run_for; eauto.
+  - intros.
+    assert (HEQ: NSEquiv (Loop vh lh jh) (Loop vh lh ih)). {
+      apply equiv_loop.
+      assumption.
+    }
+    assert (H1 := H1 (Loop vh lh jh) HEQ).
+    eapply run_for; eauto.
+Qed.
+
+
+Lemma run_i_loop_nil:
+  forall j v i h' y,
+  NSEquiv j (Loop v [] i) ->
+  (forall j : inst, NSEquiv j i -> Run (h', j) y) ->
+  Run (h', i) y -> 
+  Run (h', j) y.
+Proof.
+  intros j.
+  induction j; intros vh ih hh yh HE;
+    inversion HE; subst; clear HE.
+  - intros.
+    eapply IHj2 in H2; eauto.
+    apply run_seq with (y:=hh).
+    + apply run_i_skip. apply equiv_eq.
+    + assumption.
+  - intros.
+    eapply IHj1 in H2; eauto.
+    apply run_seq with (y:=yh).
+    + assumption.
+    + apply run_i_skip.
+      apply equiv_eq.
+  - intros.
     apply run_loop_nil.
+    assumption.
+  - intros.
+    apply run_loop_nil.
+    apply H in H0.
+    assumption.
+Qed.
+
+
+Lemma run_i_loop_cons:
+  forall k v n l i z h' y,
+  NSEquiv k (Loop v (n :: l) i) ->
+  Run (h', i_subst v (NNum n) i) y ->
+  Run (y, Loop v l i) z ->
+  (forall j : inst, NSEquiv j (i_subst v (NNum n) i) -> Run (h', j) y) ->
+  (forall j : inst, NSEquiv j (Loop v l i) -> Run (y, j) z) ->
+  Run (h', k) z.
+Proof.
+  intros k.
+  induction k;
+    intros vn nn ln i0 zn hn yn HE; inversion HE; subst; clear HE.
+  - intros.
+    eapply IHk2 in H1; eauto.
+    apply run_seq with (y:=hn).
+    + apply run_i_skip. apply equiv_eq.
+    + assumption.
+  - intros.
+    eapply IHk1 in H1; eauto.
+    apply run_seq with (y:=zn).
+    + assumption.
+    + apply run_i_skip. apply equiv_eq.
+  - intros.
+    eapply run_loop_cons; eauto.
+  - intros.
+    apply run_loop_cons with (y:=yn).
+    + assert (H2 := H2 (i_subst vn (NNum nn) k)).
+      assert (HEQ: NSEquiv (i_subst vn (NNum nn) k) (i_subst vn (NNum nn) i0)). {
+        apply i_subst_equiv.
+        assumption.
+      }
+      apply H2 in HEQ.
+      assumption.
+    + assert (H3 := H3 (Loop vn ln k)).
+      assert (HEQ: NSEquiv (Loop vn ln k) (Loop vn ln i0)). {
+        apply equiv_loop.
+        assumption.
+      }
+      apply H3 in HEQ.
+      assumption.
+Qed.
+
+Lemma run_i_seq:
+  forall k i j h' y z,
+  NSEquiv k (Seq i j) ->
+  Run (h', i) y ->
+  Run (y, j) z -> 
+  (forall j : inst, NSEquiv j i -> Run (h', j) y) ->
+  (forall j0 : inst, NSEquiv j0 j -> Run (y, j0) z) ->
+  Run (h', k) z.
+Proof.
+  intros k.
+  induction k;
+    intros ih jh hh yh zh HE; inversion HE; subst; clear HE.
+  - intros.
+    eapply IHk2 in H2; eauto.
+    apply run_seq with (y:=hh).
+    + apply run_i_skip. apply equiv_eq.
+    + assumption.
+  - intros.
+    eapply IHk1 in H2; eauto.
+    apply run_seq with (y:=zh).
+    + assumption.
+    + apply run_i_skip. apply equiv_eq.
+  - intros.
+    inversion H; subst; clear H.
+    assert (HEQ: NSEquiv (Seq k1 y) (Seq x' y')). {
+      apply equiv_seq; assumption.
+    }
+    apply H1 in HEQ.
+    apply H2 in H5.
+    inversion HEQ; subst; clear HEQ.
+    apply run_seq with (y:=y1).
+    + assumption.
+    + apply run_seq with (y:= yh); assumption.
+  - intros.
+    apply run_seq with (y:= yh); assumption.
+  - intros.
+    apply run_seq with (y:= yh).
+    + apply H1 in H2. assumption.
+    + apply H3 in H4. assumption.
+Qed.
+    
+Lemma run_i_ite_true:
+  forall k b i j y h',
+    NSEquiv k (If b i j) ->
+    BStep b true ->
+    (forall j : inst, NSEquiv j i -> Run (h', j) y) ->
+    Run (h', i) y ->
+    Run (h', k) y.
+Proof.
+  intro k.
+  induction k; intros bh ih jh yh hh HE; inversion HE; subst; clear HE.
+  - intros.
+    eapply run_if_true; assumption.
+  - intros.
+    apply run_if_true.
+    + assumption.
+    + apply H0 in H1.
+      assumption.
+  - intros.
+    apply run_seq with (y:=hh).
+    + apply run_i_skip.
+      apply equiv_eq.
+    + eapply IHk2 in H2; eauto.
+  - intros.
+    eapply IHk1 in H2; eauto.
+    eapply run_seq with (y:=yh); eauto.
+    apply run_i_skip.
+    apply equiv_eq.
+Qed.
+
+
+Lemma run_i_ite_false:
+  forall k b i j y h',
+    NSEquiv k (If b i j) ->
+    BStep b false ->
+    (forall j0 : inst, NSEquiv j0 j -> Run (h', j0) y) ->
+    Run (h', j) y ->
+    Run (h', k) y.
+Proof.
+  intro k.
+  induction k; intros bh ih jh yh hh HE; inversion HE; subst; clear HE.
+  - intros.
+    eapply run_if_false; assumption.
+  - intros.
+    apply H0 in H6.
+    apply run_if_false; assumption.
+  - intros.
+    apply run_seq with (y:=hh).
+    + apply run_i_skip.
+      apply equiv_eq.
+    + eapply IHk2 in H2; eauto.
+  - intros.
+    eapply IHk1 in H2; eauto.
+    eapply run_seq with (y:=yh); eauto.
+    apply run_i_skip.
+    apply equiv_eq.
+Qed.
+
+
+
       
- *)
-
-
 Lemma equiv_one_run_r:
-  forall j i,
-  NSEquiv j i ->
   forall x ht,
     Run x ht ->
-    forall hs,
+    forall hs i,
       x = (hs, i) ->
+      forall j,
+      NSEquiv j i ->
       Run (hs, j) ht.
 Proof.
-  intros j i HE.
-  induction HE.
-  -  intros x0 h0 HR h' Hx; inversion Hx; subst.
-     eapply IHHE in HR; eauto.
-     eapply run_seq; eauto.
-     apply run_skip.
-  -  intros x0 h0 HR h' Hx; inversion Hx; subst.
-     eapply IHHE in HR; eauto.
-     eapply run_seq; eauto.
-     apply run_skip.
-  -  intros x0 h0 HR h' Hx; inversion Hx; subst.
-     inversion HR; subst; clear HR.
-     inversion H4; subst; clear H4.
-     assert (IHHE1 := IHHE1 (h',x') y1 H6 h' eq_refl).
-     assert (IHHE2 := IHHE2 (y1,y') y0 H7 y1 eq_refl).
-     assert (IHHE3 := IHHE3 (y0,z') h0 H5 y0 eq_refl).
-     eapply run_seq; eauto.
-     eapply run_seq; eauto.
-  -  intros x0 h0 HR h' Hx; inversion Hx; subst.
-     assumption.
-  -  intros x0 h0 HR h' Hx; inversion Hx; subst.
-     inversion HR; subst; clear HR.
-     assert (IHHE1 := IHHE1 (h',x') y0 H4 h' eq_refl).
-     assert (IHHE2 := IHHE2 (y0,y') h0 H5 y0 eq_refl).
-     eapply run_seq; eauto.
-  - intros x0 h0 HR h' Hx; inversion Hx; subst.
-    inversion HR; subst; clear HR.
-    apply run_for with (l:=l0).
-    + assumption.
-    + assert  (HL: forall vs v hv hp, Run (hv, Loop v vs y) hp -> Run (hv, Loop v vs x) hp). {
-        intros vs.
-        induction vs.
-        * intros.
-          apply run_loop_nil.
-          inversion H0; subst.
-          assert (IHHE:=IHHE (hv, y) hp H7 hv eq_refl).
-          assumption.
-        * intros.
-          inversion H0; subst.
-          assert (IHvs := IHvs v y0 hp H10).
-          assert (IHHE := IHHE (hv, y) y0).
-          (* NEED TO define i_subst on histories somehow? *)
-          admit.
-      }
-      assert (HL := HL l0 l h' h0 H6).
-      assumption.
-  - intros. (*Use HL above *).
-          
+  intros x ht HR.
+  induction HR.
+  - intros hs i Hx j HE.
+    inversion Hx; subst; clear Hx.
+    apply run_i_skip.
+    assumption.
+  - intros h' i Hx j HE.
+    inversion Hx; subst; clear Hx.
+    auto using run_i_sync.
+  - intros h' i' Hx j' HE.
+    inversion Hx; subst; clear Hx.
+    assert (IHHR1 := IHHR1 h' i eq_refl).
+    assert (IHHR2 := IHHR2 y j eq_refl).
+    eapply run_i_seq; eauto.
+  - intros h' i' Hx j' HE.
+    inversion Hx; subst; clear Hx.
+    assert (IHHR:=IHHR h' i eq_refl).
+    eapply run_i_ite_true; eauto.
+  - intros h' i' Hx j' HE.
+    inversion Hx; subst; clear Hx.
+    assert (IHHR:=IHHR h' j eq_refl).
+    eapply run_i_ite_false; eauto.
+  - intros h' i' Hx j' HE.
+    inversion Hx; subst; clear Hx.
+    assert (IHHR := IHHR h' (Loop v l i) eq_refl).
+    eapply run_i_for; eauto.
+  - intros h' i' Hx j' HE.
+    inversion Hx; subst; clear Hx.
+    assert (IHHR := IHHR h' i eq_refl).
+    eapply run_i_loop_nil; eauto.
+  - intros h' i' Hx j' HE.
+    inversion Hx; subst; clear Hx.
+    assert (IHHR1 := IHHR1 h' (i_subst v (NNum n) i) eq_refl).
+    assert (IHHR2 := IHHR2 y (Loop v l i) eq_refl).
+    eapply run_i_loop_cons; eauto.
+Qed.
+    
+
     
 
 Lemma equiv_star_run:
@@ -351,5 +610,396 @@ Proof.
   induction HE.
   - intros. assumption.
   - intros hs x HR.
+    apply IHHE in HR.
     destruct H as [Hyz | Hzy].
-    + apply IHHE in HR.
+    + eapply equiv_one_run_l; eauto.
+    + eapply equiv_one_run_r; eauto.
+Qed.
+
+
+Inductive Unsync : inst -> Prop :=
+| unsync_skip:
+    Unsync Skip
+| unsync_if:
+    forall b i j,
+      Unsync i ->
+      Unsync j ->
+      Unsync (If b i j)
+| unsync_hole:
+    Unsync Hole
+| unsync_seq:
+    forall i j, 
+      Unsync i ->
+      Unsync j ->
+  Unsync (Seq i j)
+| unsync_for:
+    forall v r i,
+      Unsync i ->
+      Unsync (For v r i)
+| unsync_loop:
+    forall v r i,
+      Unsync i ->
+      Unsync (Loop v r i).
+
+
+
+Inductive Normalised: inst -> (option inst * inst) -> Prop :=
+| norm_unsync:
+  forall i,
+  Unsync i -> 
+  Normalised i (None, i)
+| norm_sync:
+  Normalised Sync (Some Sync, Skip)
+| norm_seq_dual:
+  forall i i1 i2 j j1 j2,
+  Normalised i (Some i1, i2) ->
+  Normalised j (Some j1, j2) ->
+  Normalised (Seq i j) (Some (Seq i1 (Seq i2 j1)), j2)
+| norm_seq_r:
+  forall i j j1 j2,
+  Unsync i -> 
+  Normalised j (Some j1, j2) ->
+  Normalised (Seq i j) (Some (Seq i j1), j2)
+| norm_seq_l:
+  forall i i1 i2 j,
+  Unsync j -> 
+  Normalised i (Some i1, i2) ->
+  Normalised (Seq i j) (Some i1, Seq i2 j)
+| norm_for_step: 
+  forall v r i i1 i2,
+  Normalised i (Some i1, i2) ->
+  Normalised (For v r i) (Some (Seq i1 (For v r (Seq i2 i1))), i2) (* still needs to replace things here *)
+| norm_for_nop: 
+  forall v r i i1 i2,
+  Normalised i (Some i1, i2) ->
+  Normalised (For v r i) (None, Skip)
+| norm_loop_step: 
+  forall v r i i1 i2,
+  Normalised i (Some i1, i2) ->
+  Normalised (Loop v r i) (Some (Seq i1 (Loop v r (Seq i2 i1))), i2) (* still needs to replace things here *)
+| norm_loop_nop: 
+  forall v r i i1 i2,
+  Normalised i (Some i1, i2) ->
+  Normalised (Loop v r i) (None, Skip)
+.
+
+Theorem unsync_normalisable:
+  forall i,
+  Unsync i ->
+  Normalised i (None, i).
+Proof.
+intros.
+apply norm_unsync.
+assumption.
+Qed.
+
+
+Theorem none_normalisable_unsync:
+  forall i,
+  Normalised i (None, i) ->
+  Unsync i.
+Proof.
+intros.
+induction i; inversion H; assumption.
+Qed.
+
+
+Inductive In : inst -> inst -> Prop :=
+  | in_if_t:
+    forall b k i j,
+      In k i ->
+      In k (If b i j)
+| in_if_f:
+    forall b k i j,
+      In k j ->
+      In k (If b i j)
+| in_seq_l:
+    forall k i j,
+      In k i ->
+      In k (Seq i j)
+| in_seq_r:
+    forall k i j,
+      In k j ->
+      In k (Seq i j)
+| in_for:
+    forall k v r i,
+      In k i ->
+      In k (For v r i)
+| in_loop:
+    forall k v r i,
+      In k i ->
+      In k (Loop v r i)
+| in_refl:
+    forall x,
+      In x x.
+
+Theorem some_normalisable_in_sync:
+  forall i i1 i2,
+  Normalised i (Some i1, i2) ->
+  In Sync i.
+Proof.
+intros i.
+induction i; intros; inversion H; subst; auto using in_refl. 
+- apply IHi2 in H5. apply IHi1 in H3. 
+  auto using in_seq_l.
+- apply IHi2 in H5.
+  auto using in_seq_r.
+- apply IHi1 in H5. 
+  auto using in_seq_l.
+- apply IHi in H1.
+  auto using in_for.
+- apply IHi in H1.
+  auto using in_loop.
+Qed.
+
+
+
+Lemma unsync_insync:
+forall i,
+Unsync i \/ In Sync i.
+Proof.
+intro.
+induction i.
+- left.
+  apply unsync_skip.
+- right.
+  apply in_refl.
+- destruct IHi1; destruct IHi2.
+    + left.
+      apply unsync_if; assumption.
+    + right.
+      apply in_if_f; assumption.
+    + right.
+      apply in_if_t; assumption.
+    + right.
+      apply in_if_t; assumption.
+- left.
+  apply unsync_hole.
+- destruct IHi1; destruct IHi2.
+    + left.
+      apply unsync_seq; assumption.
+    + right.
+      apply in_seq_r; assumption.
+    + right.
+      apply in_seq_l; assumption.
+    + right. 
+      apply in_seq_l; assumption.
+- destruct IHi.
+  * left. 
+    apply unsync_for; assumption.
+  * right.
+    apply in_for; assumption.
+- destruct IHi.
+  * left. 
+    apply unsync_loop; assumption.
+  * right.
+    apply in_loop; assumption.
+Qed.
+
+
+
+Theorem sync_normalisable:
+  forall i,
+  In Sync i ->
+  exists i1 i2, 
+  Normalised i (Some i1, i2).
+Proof.
+intros i.
+induction i.
+  - assert (HA: ~In Sync Skip). 
+    { 
+      unfold not.
+      intro.
+      inversion H.
+    }
+    contradiction.
+  - intro. 
+    exists Sync.
+    exists Skip.
+    apply norm_sync.
+  - intros.
+    (* NEED TO FIGURE OUT WHAT TO DO HERE! *)
+  - assert (HA: ~In Sync If). 
+    { 
+      unfold not.
+      intro.
+      inversion H.
+    }
+    contradiction.
+  - intro.
+    assert (HA: ~In Sync Hole). 
+    { 
+      unfold not.
+      intro.
+      inversion H.
+    }
+    contradiction.
+  - intro.
+    inversion H; subst; clear H.
+    * apply IHi1 in H2. (*i |> i1 i2*)
+      assert (EX: Unsync i2 \/ In Sync i2). { apply unsync_insync. }
+      destruct EX.
+      + (* unsync i2 *)
+        inversion H2. inversion H0.
+        exists x. exists (Seq x0 i2).
+        auto using norm_seq_l.
+      + apply IHi2 in H. (* sync i2 *)
+        inversion H; clear H. inversion H0; clear H0.
+        inversion H2; clear H2. inversion H0; clear H0.
+        exists (Seq x1 (Seq x2 x)).
+        exists x0.
+        auto using norm_seq_dual.
+   * apply IHi2 in H2. (*j |> j1 j2*)
+     assert (EX: Unsync i1 \/ In Sync i1). { apply unsync_insync. }
+     destruct EX; destruct H2 as (x, (y, APH)).
+     + exists (Seq i1 x).
+       exists y.
+       auto using norm_seq_r.
+     + apply IHi1 in H.
+       destruct H as (x2, (y2, BPH)).
+       exists (Seq x2 (Seq y2 x)).
+       exists y.
+       auto using norm_seq_dual.
+  - intro. 
+    inversion H; subst; clear H.
+    apply IHi in H2.
+    destruct H2 as (x, (y, AH)).
+    exists (Seq x (For v r (Seq y x))). (*will need to inst here *)
+    exists y.
+    auto using norm_for_step.
+ - intro. 
+    inversion H; subst; clear H.
+    apply IHi in H2.
+    destruct H2 as (x, (y, AH)).
+    exists (Seq x (Loop v l (Seq y x))). (*will need to inst here *)
+    exists y.
+    auto using norm_loop_step.
+Qed.
+
+(* sync_normalisable and unsync_normalisable *)
+Theorem allnormalisable_or:
+  forall i,
+  (exists j1 j2, 
+  (Normalised i (Some j1, j2)))
+  \/ 
+  exists j, 
+  (Normalised i (None, j)).
+Proof.
+intros.
+assert (EX: Unsync i \/ In Sync i). { apply unsync_insync. }
+destruct EX.
+- right.
+  exists i.
+  auto using unsync_normalisable. 
+- left.
+  auto using sync_normalisable. 
+Qed.
+
+Theorem allnormalisable:
+  forall i,
+  (exists j1 j2, 
+  (Normalised i (j1, j2))).
+Proof.
+intro.
+assert (EX: Unsync i \/ In Sync i). { apply unsync_insync. }
+destruct EX.
+- exists None. exists i.
+  auto using unsync_normalisable. 
+- apply sync_normalisable in H.
+  eauto.
+  destruct H as (i1, (i2, H1)).
+  exists (Some i1).
+  exists i2.
+  assumption.
+Qed.
+
+Lemma in_sync_to_not_unsync:
+  forall i,
+  In Sync i ->
+  ~ Unsync i.
+Proof.
+  induction i; intros; intros N; inversion H; subst; clear H;
+    inversion N; subst; clear N.
+  - apply IHi1 in H2; contradiction.
+  - apply IHi2 in H2; contradiction.
+  - apply IHi in H2; contradiction.
+  - apply IHi in H2; contradiction.
+Qed.
+
+
+
+
+(* Normalisation is NOT a function in general! *)
+Lemma norm_fun_unsync:
+  forall i i2,
+  Unsync i ->
+  Normalised i (None, i2) ->
+  forall j2,
+  Normalised i (None, j2)  ->
+  (i2 = j2).
+Proof.
+intros i i2 HUS HN. 
+intros j2 HM.
+induction i; inversion HN; subst; inversion HM; auto; subst.
+- inversion HUS. 
+  apply some_normalisable_in_sync in H0.
+  apply in_sync_to_not_unsync in H0.
+  subst. contradict H0. assumption.
+- inversion HUS; subst.
+  apply some_normalisable_in_sync in H0.
+  apply in_sync_to_not_unsync in H0.
+  subst. contradict H0. assumption.
+- inversion HUS; subst.
+  apply some_normalisable_in_sync in H0.
+  apply in_sync_to_not_unsync in H0.
+  subst. contradict H0. assumption.
+- inversion HUS; subst.
+  apply some_normalisable_in_sync in H0.
+  apply in_sync_to_not_unsync in H0.
+  subst. contradict H0. assumption.
+Qed.
+
+
+Fixpoint Merge  (i: option inst) (j: inst) :=
+match i with
+| None => j
+| (Some n) => Seq n j
+end.
+
+
+Lemma unsync_src_norm:
+  forall i j,
+    Normalised i j->
+    forall i1 i2,
+      j = (i1, i2) ->
+      forall h x,
+        Run (h, i) x ->    
+        Run (h, Merge i1 i2) x.
+Proof.
+  intros i j HN.
+  induction HN; intros ih1 ih2 Hi hh xh HR; inversion Hi; subst; clear Hi; simpl.
+  - assumption.
+  - assert (HEQ: NSEquiv (Seq Sync Skip) Sync ). {
+      apply equiv_unit_l.
+      apply equiv_eq.
+    }
+    eapply equiv_one_run_r; eauto.
+  - inversion HR; subst; clear HR.
+    assert (IHHN1 := IHHN1 (Some i1) i2 eq_refl hh y H3).
+    assert (IHHN2 := IHHN2 (Some j1) ih2 eq_refl y xh H4).
+    simpl in *.
+    inversion IHHN1; subst; clear IHHN1.
+    inversion IHHN2; subst; clear IHHN2.
+    eauto using run_seq.
+  - inversion HR; subst; clear HR.
+    assert (IHHN := IHHN (Some j1) ih2 eq_refl y xh H5).
+    inversion IHHN; subst; clear IHHN.
+    simpl in *.
+    eauto using run_seq.
+  - inversion HR; subst; clear HR.
+    assert (IHHN := IHHN (Some i1) i2 eq_refl hh y H4).
+    inversion IHHN; subst; clear IHHN.
+    simpl in *.
+    eauto using run_seq.
+  - 
+     
