@@ -265,21 +265,225 @@ Proof.
 Qed.
 
 
-
-(*
-Lemma run_equiv_for:
-  forall h v l h' x y,
-  Run (h, Loop v l y) h' ->
-  NSEquiv x y -> 
-  Run (h, Loop v l x) h'.
+Lemma run_i_skip:
+  forall i hs,
+    NSEquiv i Skip ->
+    Run (hs, i) hs.
 Proof.
   intros.
-  induction l.
-  - inversion H; subst; clear H.
-    apply run_loop_nil.
-      
- *)
+  induction i.
+  - apply run_skip.
+  - inversion H.
+  - inversion H.
+  - inversion H.
+  - inversion H; subst.
+    + apply run_seq with (y:=hs).
+      * apply run_skip.
+      * apply IHi2 in H3. assumption.
+    + apply run_seq with (y:=hs).
+      * apply IHi1 in H3. assumption.
+      * apply run_skip.
+  - inversion H.
+  - inversion H.
+Qed.
+    
 
+Lemma run_i_sync:
+  forall j,
+    NSEquiv j Sync ->
+    forall h hs,
+      Run (hs, h, j) (h :: hs, []).
+Proof.
+  intro j.
+  induction j.
+  - intros HE h. inversion HE.
+  - intros. apply run_sync.
+  - intros HE h hs. inversion HE.
+  - intros HE h hs. inversion HE.
+  - intros HE h hs. inversion HE; subst.
+    + apply run_seq with (y:=(hs,h)).
+      * apply run_skip.
+      * eapply IHj2 in H2; eauto.
+    + apply run_seq with (y:=(h::hs, [])).
+      * eapply IHj1 in H2; eauto.
+      * apply run_skip.
+  - intros HE h hs. inversion HE.
+  - intros HE h hs. inversion HE.
+Qed.
+
+
+Lemma run_i_for:
+  forall j' v r i l,
+    NSEquiv j' (For v r i) ->
+    RStep r l ->
+    forall y h',
+    (forall j, NSEquiv j (Loop v l i) -> Run (h', j) y) ->
+    Run (h', Loop v l i) y ->
+    Run (h', j') y.
+Proof.
+  intros jh.
+  induction jh; intros vh rh ih lh HE; inversion HE; subst; clear HE.
+  - intros.
+    eapply IHjh2 in H2; eauto.
+    apply run_seq with (y:=h').
+    + apply run_i_skip. apply equiv_eq.
+    + assumption.
+  - intros.
+    eapply IHjh1 in H2; eauto.
+    + apply run_seq with (y:=y).
+      * assumption.
+      * apply run_i_skip. apply equiv_eq.
+  - intros.
+    eapply run_for; eauto.
+  - intros.
+    assert (HEQ: NSEquiv (Loop vh lh jh) (Loop vh lh ih)). {
+      apply equiv_loop.
+      assumption.
+    }
+    assert (H1 := H1 (Loop vh lh jh) HEQ).
+    eapply run_for; eauto.
+Qed.
+
+
+Lemma run_i_loop_nil:
+  forall j v i h' y,
+  NSEquiv j (Loop v [] i) ->
+  (forall j : inst, NSEquiv j i -> Run (h', j) y) ->
+  Run (h', i) y -> 
+  Run (h', j) y.
+Proof.
+  intros j.
+  induction j; intros vh ih hh yh HE;
+    inversion HE; subst; clear HE.
+  - intros.
+    eapply IHj2 in H2; eauto.
+    apply run_seq with (y:=hh).
+    + apply run_i_skip. apply equiv_eq.
+    + assumption.
+  - intros.
+    eapply IHj1 in H2; eauto.
+    apply run_seq with (y:=yh).
+    + assumption.
+    + apply run_i_skip.
+      apply equiv_eq.
+  - intros.
+    apply run_loop_nil.
+    assumption.
+  - intros.
+    apply run_loop_nil.
+    apply H in H0.
+    assumption.
+Qed.
+
+
+Lemma run_i_loop_cons:
+  forall k v n l i z h' y,
+  NSEquiv k (Loop v (n :: l) i) ->
+  Run (h', i_subst v (NNum n) i) y ->
+  Run (y, Loop v l i) z ->
+  (forall j : inst, NSEquiv j (i_subst v (NNum n) i) -> Run (h', j) y) ->
+  (forall j : inst, NSEquiv j (Loop v l i) -> Run (y, j) z) ->
+  Run (h', k) z.
+Proof.
+  intros k.
+  induction k;
+    intros vn nn ln i0 zn hn yn HE; inversion HE; subst; clear HE.
+  - intros.
+    eapply IHk2 in H1; eauto.
+    apply run_seq with (y:=hn).
+    + apply run_i_skip. apply equiv_eq.
+    + assumption.
+  - intros.
+    eapply IHk1 in H1; eauto.
+    apply run_seq with (y:=zn).
+    + assumption.
+    + apply run_i_skip. apply equiv_eq.
+  - intros.
+    eapply run_loop_cons; eauto.
+  - intros.
+    apply run_loop_cons with (y:=yn).
+    + assert (H2 := H2 (i_subst vn (NNum nn) k)).
+      assert (HEQ: NSEquiv (i_subst vn (NNum nn) k) (i_subst vn (NNum nn) i0)). {
+        apply i_subst_equiv.
+        assumption.
+      }
+      apply H2 in HEQ.
+      assumption.
+    + assert (H3 := H3 (Loop vn ln k)).
+      assert (HEQ: NSEquiv (Loop vn ln k) (Loop vn ln i0)). {
+        apply equiv_loop.
+        assumption.
+      }
+      apply H3 in HEQ.
+      assumption.
+Qed.
+
+Lemma run_i_seq:
+  forall k i j h' y z,
+  NSEquiv k (Seq i j) ->
+  Run (h', i) y ->
+  Run (y, j) z -> 
+  (forall j : inst, NSEquiv j i -> Run (h', j) y) ->
+  (forall j0 : inst, NSEquiv j0 j -> Run (y, j0) z) ->
+  Run (h', k) z.
+Proof.
+  intros k.
+  induction k;
+    intros ih jh hh yh zh HE; inversion HE; subst; clear HE.
+  - intros.
+    eapply IHk2 in H2; eauto.
+    apply run_seq with (y:=hh).
+    + apply run_i_skip. apply equiv_eq.
+    + assumption.
+  - intros.
+    eapply IHk1 in H2; eauto.
+    apply run_seq with (y:=zh).
+    + assumption.
+    + apply run_i_skip. apply equiv_eq.
+  - intros.
+      
+    
+    apply run_seq
+    
+
+      
+Lemma equiv_one_run_r:
+  forall x ht,
+    Run x ht ->
+    forall hs i,
+      x = (hs, i) ->
+      forall j,
+      NSEquiv j i ->
+      Run (hs, j) ht.
+Proof.
+  intros x ht HR.
+  induction HR.
+  - intros hs i Hx j HE.
+    inversion Hx; subst; clear Hx.
+    apply run_i_skip.
+    assumption.
+  - intros h' i Hx j HE.
+    inversion Hx; subst; clear Hx.
+    auto using run_i_sync.
+  - intros h' i' Hx j' HE.
+    inversion Hx; subst; clear Hx.
+    assert (IHHR1 := IHHR1 h' i eq_refl).
+    assert (IHHR2 := IHHR2 y j eq_refl).
+
+  - intros h' i' Hx j' HE.
+    inversion Hx; subst; clear Hx.
+    assert (IHHR := IHHR h' (Loop v l i) eq_refl).
+    eapply run_i_for; eauto.
+  - intros h' i' Hx j' HE.
+    inversion Hx; subst; clear Hx.
+    assert (IHHR := IHHR h' i eq_refl).
+    eapply run_i_loop_nil; eauto.
+  - intros h' i' Hx j' HE.
+    inversion Hx; subst; clear Hx.
+    assert (IHHR1 := IHHR1 h' (i_subst v (NNum n) i) eq_refl).
+    assert (IHHR2 := IHHR2 y (Loop v l i) eq_refl).
+    eapply run_i_loop_cons; eauto.
+    
 
 Lemma equiv_one_run_r:
   forall j i,
