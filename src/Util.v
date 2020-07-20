@@ -2,6 +2,37 @@ Require Import Coq.Lists.List.
 
 Import ListNotations.
 Section Ops.
+
+  Lemma app_neq_nil:
+    forall A l1 l2,
+    l1 <> [] ->
+    l2 <> [] ->
+    @app A l1 l2 <> [].
+  Proof.
+    intros.
+    destruct l1. {
+      contradiction.
+    }
+    destruct l2. {
+      contradiction.
+    }
+    intros N.
+    inversion N.
+  Qed.
+
+  Lemma list_eq_nil:
+    forall {A:Type} (l:list A),
+    l = [] \/ l <> [].
+  Proof.
+    intros.
+    destruct l; auto.
+    right.
+    intros N.
+    inversion N.
+  Qed.
+
+  (* ----------------------------- COUNT ------------------------- *)
+
   Fixpoint count n :=
   match n with
   | 0 => []
@@ -12,17 +43,6 @@ Section Ops.
 
   Definition prepend {A:Type} (l1:list A) (l2: list (list A)) : list (list A) :=
     List.fold_right (fun x accum => (l1 ++ x) :: accum) [] l2.  
-
-  (** Product of two lists. That is for each two elements x,y of lists l1 l2, yields
-      x ++ y *)
-
-  Definition prod {A:Type} (l1: list (list A)) (l2: list (list A)) : list (list A) :=
-    List.fold_right (fun x accum => prepend x l2 ++ accum) [] l1. 
-
-  Definition map2 {A B C:Type} (f:A->B->C) l1 l2 :=
-    List.map
-      (fun (p:A * B) => let (v1,v2) := p in f v1 v2)
-      (List.combine l1 l2).
 
   Lemma in_prepend:
     forall A ls (l1 l2:list A),
@@ -80,6 +100,79 @@ Section Ops.
       reflexivity.
   Qed.
 
+  Lemma prepend_assoc:
+    forall A ll l1 l2,
+    @prepend A l1 (prepend l2 ll) = prepend (l1 ++ l2) ll.
+  Proof.
+    induction ll; intros; simpl. {
+      reflexivity.
+    }
+    rewrite IHll.
+    rewrite app_assoc.
+    reflexivity.
+  Qed.
+
+  Lemma prepend_app_r:
+    forall A l ll1 ll2,
+    @prepend A l (ll1 ++ ll2) = prepend l ll1 ++ prepend l ll2.
+  Proof.
+    induction ll1; intros. {
+      reflexivity.
+    }
+    simpl.
+    rewrite IHll1.
+    reflexivity.
+  Qed.
+
+  Lemma prepend_nil:
+    forall A l,
+    @prepend A [] l = l.
+  Proof.
+    induction l; simpl.
+    - reflexivity.
+    - rewrite IHl.
+      reflexivity.
+  Qed.
+
+  Lemma prepend_inv_nil:
+    forall A l x,
+    @prepend A x l = [] ->
+    l = [].
+  Proof.
+    induction l; intros. {
+      reflexivity.
+    }
+    inversion H.
+  Qed.
+
+
+(*
+  Lemma in_prepend_inv:
+    forall A x l ls,
+    List.In x (@prepend A l ls) ->
+    exists y, l ++ y = x /\ List.In y ls.
+  Proof.
+    induction ls; unfold prepend; simpl; intros. {
+      contradiction.
+    }
+    destruct H. {
+      eauto.
+    }
+    apply IHls in H.
+    destruct H as (?, (?, ?)).
+    subst.
+    eauto.
+  Qed.
+*)
+
+  (* -------------------------- PRODUCT --------------------------- *)
+
+  (** Product of two lists. That is for each two elements x,y of lists l1 l2, yields
+      x ++ y *)
+
+  Definition prod {A:Type} (l1: list (list A)) (l2: list (list A)) : list (list A) :=
+    List.fold_right (fun x accum => prepend x l2 ++ accum) [] l1. 
+
   Lemma prod_nil_nil_l:
     forall A ll, 
     @prod A [[]] ll = ll.
@@ -119,70 +212,6 @@ Section Ops.
     reflexivity.
   Qed.
 
-  Lemma prepend_assoc:
-    forall A ll l1 l2,
-    @prepend A l1 (prepend l2 ll) = prepend (l1 ++ l2) ll.
-  Proof.
-    induction ll; intros; simpl. {
-      reflexivity.
-    }
-    rewrite IHll.
-    rewrite app_assoc.
-    reflexivity.
-  Qed.
-
-  Lemma prepend_prod:
-    forall {A:Type} (l:list A) ll1 ll2,
-    prepend l (prod ll1 ll2) = prod (prepend l ll1) ll2.
-  Proof.
-    induction ll1; intros; simpl. {
-      reflexivity.
-    }
-    rewrite prepend_app.
-    rewrite IHll1.
-    rewrite prepend_assoc.
-    reflexivity.
-  Qed.
-
-  Lemma prepend_app_r:
-    forall A l ll1 ll2,
-    @prepend A l (ll1 ++ ll2) = prepend l ll1 ++ prepend l ll2.
-  Proof.
-    induction ll1; intros. {
-      reflexivity.
-    }
-    simpl.
-    rewrite IHll1.
-    reflexivity.
-  Qed.
-
-  Lemma prepend_nil:
-    forall A l,
-    @prepend A [] l = l.
-  Proof.
-    induction l; simpl.
-    - reflexivity.
-    - rewrite IHl.
-      reflexivity.
-  Qed.
-(*
-  Lemma in_prepend_inv:
-    forall A x l ls,
-    List.In x (@prepend A l ls) ->
-    exists y, l ++ y = x /\ List.In y ls.
-  Proof.
-    induction ls; unfold prepend; simpl; intros. {
-      contradiction.
-    }
-    destruct H. {
-      eauto.
-    }
-    apply IHls in H.
-    destruct H as (?, (?, ?)).
-    subst.
-    eauto.
-  Qed.
-*)
   Lemma in_prod_inv:
     forall A x ls1 ls2,
     List.In x (@prod A ls1 ls2) ->
@@ -212,98 +241,6 @@ Section Ops.
       contradiction.
     }
     inversion H; subst; clear H; simpl; apply in_app_iff; auto.
-  Qed.
-
-  Lemma list_eq_nil:
-    forall {A:Type} (l:list A),
-    l = [] \/ l <> [].
-  Proof.
-    intros.
-    destruct l; auto.
-    right.
-    intros N.
-    inversion N.
-  Qed.
-
-  Lemma prepend_inv_nil:
-    forall A l x,
-    @prepend A x l = [] ->
-    l = [].
-  Proof.
-    induction l; intros. {
-      reflexivity.
-    }
-    inversion H.
-  Qed.
-
-
-  Lemma prod_assoc:
-    forall (A:Type) l1 l2 l3,
-    prod (@prod A l1 l2) l3 =
-    prod l1 (prod l2 l3).
-  Proof.
-    induction l1; intros. {
-      reflexivity.
-    }
-    simpl.
-    rewrite <- prod_app.
-    rewrite <- prepend_prod.
-    rewrite IHl1.
-    reflexivity.
-  Qed.
-
-  Definition prepend1 {A:Type} (a:A) ls :=
-     fold_right (fun x accum => (a::x) :: accum) [] ls.
-
-  Lemma prepend_cons:
-    forall A ls (a:A) l,
-    prepend (a :: l) ls = prepend1 a (prepend l ls).
-  Proof.
-    induction ls; intros. {
-      reflexivity.
-    }
-    simpl.
-    rewrite IHls.
-    reflexivity.
-  Qed.
-
-  Lemma prepend_rw:
-    forall (A:Type) lls l,
-    @prepend A l lls = prod [l] lls.
-  Proof.
-    induction lls; intros. {
-      simpl.
-      reflexivity.
-    }
-    simpl.
-    rewrite IHlls.
-    rewrite app_nil_r.
-    reflexivity.
-  Qed.
-
-  Definition interleave {A:Type} (p1 p2: list (list A) * list (list A)) :=
-    let (ll1, ll3) := p1 in
-    let (ll2, ll4) := p2 in
-    @prod A (prod ll1 ll2) (prod ll3 ll4).
-
-  Lemma prod_prepend_r:
-    forall (A:Type) (l:list A) lls1 lls2,
-    prod lls1 (prepend l lls2)
-    =
-    prod (prod (lls1) [l]) lls2.
-  Proof.
-    intros.
-    destruct l; intros. {
-      simpl.
-      rewrite prod_assoc.
-      simpl.
-      rewrite app_nil_r.
-      reflexivity.
-    }
-    rewrite prod_assoc.
-    simpl.
-    rewrite app_nil_r.
-    reflexivity.
   Qed.
 
   Lemma prod_nil_r:
@@ -342,22 +279,113 @@ Section Ops.
     inversion N.
   Qed.
 
-  Lemma app_neq_nil:
-    forall A l1 l2,
-    l1 <> [] ->
-    l2 <> [] ->
-    @app A l1 l2 <> [].
+  Lemma prod_inv_not_nil:
+    forall A m1 m2,
+    @prod A m1 m2 <> [] ->
+    m1 <> [] /\ m2 <> [].
   Proof.
     intros.
-    destruct l1. {
+    destruct m1. {
       contradiction.
     }
-    destruct l2. {
+    destruct m2. {
+      rewrite prod_nil_r in *.
       contradiction.
     }
-    intros N.
-    inversion N.
+    split; intros N; inversion N.
   Qed.
+
+  (* ---------------------- PREPEND + PROD -------------------------- *)
+
+  Definition prepend1 {A:Type} (a:A) ls :=
+     fold_right (fun x accum => (a::x) :: accum) [] ls.
+
+  Lemma prepend_prod:
+    forall {A:Type} (l:list A) ll1 ll2,
+    prepend l (prod ll1 ll2) = prod (prepend l ll1) ll2.
+  Proof.
+    induction ll1; intros; simpl. {
+      reflexivity.
+    }
+    rewrite prepend_app.
+    rewrite IHll1.
+    rewrite prepend_assoc.
+    reflexivity.
+  Qed.
+
+  Lemma prod_assoc:
+    forall (A:Type) l1 l2 l3,
+    prod (@prod A l1 l2) l3 =
+    prod l1 (prod l2 l3).
+  Proof.
+    induction l1; intros. {
+      reflexivity.
+    }
+    simpl.
+    rewrite <- prod_app.
+    rewrite <- prepend_prod.
+    rewrite IHl1.
+    reflexivity.
+  Qed.
+
+  Lemma prod_prepend_r:
+    forall (A:Type) (l:list A) lls1 lls2,
+    prod lls1 (prepend l lls2)
+    =
+    prod (prod (lls1) [l]) lls2.
+  Proof.
+    intros.
+    destruct l; intros. {
+      simpl.
+      rewrite prod_assoc.
+      simpl.
+      rewrite app_nil_r.
+      reflexivity.
+    }
+    rewrite prod_assoc.
+    simpl.
+    rewrite app_nil_r.
+    reflexivity.
+  Qed.
+
+  Lemma prepend_cons:
+    forall A ls (a:A) l,
+    prepend (a :: l) ls = prepend1 a (prepend l ls).
+  Proof.
+    induction ls; intros. {
+      reflexivity.
+    }
+    simpl.
+    rewrite IHls.
+    reflexivity.
+  Qed.
+
+  Lemma prepend_rw:
+    forall (A:Type) lls l,
+    @prepend A l lls = prod [l] lls.
+  Proof.
+    induction lls; intros. {
+      simpl.
+      reflexivity.
+    }
+    simpl.
+    rewrite IHlls.
+    rewrite app_nil_r.
+    reflexivity.
+  Qed.
+(*
+  Definition interleave {A:Type} (p1 p2: list (list A) * list (list A)) :=
+    let (ll1, ll3) := p1 in
+    let (ll2, ll4) := p2 in
+    @prod A (prod ll1 ll2) (prod ll3 ll4).
+*)
+
+  (* ------------------------------- MAP2 --------------------------- *)
+
+  Definition map2 {A B C:Type} (f:A->B->C) l1 l2 :=
+    List.map
+      (fun (p:A * B) => let (v1,v2) := p in f v1 v2)
+      (List.combine l1 l2).
 
   Lemma map2_nil_l:
     forall A B C f l,
@@ -399,6 +427,8 @@ Section Ops.
     rewrite IHl1; auto.
   Qed.
 
+  (* ----------------------------- EXISTS ----------------------------- *)
+
   Lemma Exists_app_or:
     forall A P l1 l2,
     @Exists A P (l1 ++ l2) ->
@@ -439,24 +469,93 @@ Section Ops.
     auto.
   Qed.
 
-  Lemma prod_inv_not_nil:
-    forall A m1 m2,
-    @prod A m1 m2 <> [] ->
-    m1 <> [] /\ m2 <> [].
+  (* ------------------------------- NODUP ------------------------------ *)
+
+  Lemma no_dup_inv_app_in:
+    forall A l1 l2,
+    @NoDup A (l1 ++ l2) ->
+    forall a,
+    List.In a (l1 ++ l2) ->
+    (List.In a l1 /\ ~ List.In a l2) \/
+    (~ List.In a l1 /\ List.In a l2).
   Proof.
-    intros.
-    destruct m1. {
+    induction l1; intros. {
+      simpl in *.
+      right.
+      auto.
+    }
+    simpl in *.
+    inversion H; subst; clear H.
+    destruct H0 as [?|Hi]. {
+      subst.
+      left.
+      split; auto.
+      intros N.
+      contradict H3.
+      apply in_app_iff.
+      auto.
+    }
+    apply IHl1 with (a:=a0) in H4; auto.
+    destruct H4 as [(Ha,Hb)|(Ha,Hb)]; auto.
+    right.
+    split. {
+      intros N.
+      destruct N as [N|N]. {
+        subst.
+        contradiction.
+      }
       contradiction.
     }
-    destruct m2. {
-      rewrite prod_nil_r in *.
-      contradiction.
-    }
-    split; intros N; inversion N.
+    assumption.
   Qed.
+
+  Lemma no_dup_app:
+    forall A l1 l2,
+    @NoDup A l1 ->
+    NoDup l2 ->
+    (forall x, List.In x l1 -> List.In x l2 -> False) ->
+    NoDup (l1 ++ l2). 
+  Proof.
+    induction l1; intros. {
+      simpl.
+      assumption.
+    }
+    simpl.
+    inversion H; subst; clear H.
+    apply IHl1 in H0; auto. {
+      apply NoDup_cons; auto.
+      intros N.
+      apply no_dup_inv_app_in in N; auto.
+      destruct N as [(N1,N2)|(N1,N2)]; try contradiction.
+      eapply H1; eauto using in_eq.
+    }
+    intros.
+    eapply H1; eauto using in_cons.
+  Qed.
+
+  Lemma no_dup_map_pair:
+    forall A B l n,
+    @NoDup B l ->
+    NoDup (map (@pair A B n) l).
+  Proof.
+    induction l; intros. {
+      apply NoDup_nil.
+    }
+    simpl.
+    inversion H; subst; clear H.
+    apply IHl with (n:=n) in H3.
+    apply NoDup_cons; auto.
+    intros N.
+    apply in_map_iff in N.
+    destruct N as (x, (R, Hi)).
+    inversion R; subst; clear R.
+    contradiction.
+  Qed.
+
 End Ops.
 
 Section filter.
+  (* ------------------------------- FILTER ----------------------- *)
   Lemma filter_app:
     forall {A:Type} f (l1:list A) l2,
     filter f (l1 ++ l2) = filter f l1 ++ filter f l2.

@@ -26,6 +26,7 @@ src/SymExecMExp.v
 src/SymExecMRun.v
 src/SymExecEq.v
 src/SymExecMap.v
+src/SymExec2DMap.v
 src/MultiHist.v
 src/MExp.v
 src/SHCompiler.v

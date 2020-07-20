@@ -1585,17 +1585,6 @@ Section Defs.
     - inversion H; subst; auto.
   Qed.
 
-  Lemma f_run_decl_map_2d_inner:
-    forall x y i n l,
-    Map (Iter2d x y i) (range_list_2d_inner n) l ->
-    FRun (Decl y (NNum 0, NNum n) (i_subst x (NNum n) i) Skip) (summation l).
-  Proof.
-    intros.
-    apply f_run_decl with (l:=range_list 0 n); auto using r_step_range_list.
-    unfold range_list_2d_inner in H.
-    auto using f_run_branch_map_2d_inner.
-  Qed.
-
   Lemma f_run_inv_decl_map_2d_inner:
     forall x y i n m,
     FRun (Decl y (NNum 0, NNum n) (i_subst x (NNum n) i) Skip) m ->
@@ -1611,6 +1600,18 @@ Section Defs.
     apply f_run_inv_branch_map_2d_inner in Hb;
       auto using range_list_no_dup.
   Qed.
+
+  Lemma f_run_decl_map_2d_inner:
+    forall x y i n l,
+    Map (Iter2d x y i) (range_list_2d_inner n) l ->
+    FRun (Decl y (NNum 0, NNum n) (i_subst x (NNum n) i) Skip) (summation l).
+  Proof.
+    intros.
+    apply f_run_decl with (l:=range_list 0 n); auto using r_step_range_list.
+    unfold range_list_2d_inner in H.
+    auto using f_run_branch_map_2d_inner.
+  Qed.
+
 
   Lemma f_run_branch_map_2d:
     forall ks x y i l,
@@ -1637,87 +1638,6 @@ Section Defs.
     - rewrite e_summation_app.
       reflexivity.
     - assumption.
-  Qed.
-
-  Lemma no_dup_inv_app_in:
-    forall A l1 l2,
-    @NoDup A (l1 ++ l2) ->
-    forall a,
-    List.In a (l1 ++ l2) ->
-    (List.In a l1 /\ ~ List.In a l2) \/
-    (~ List.In a l1 /\ List.In a l2).
-  Proof.
-    induction l1; intros. {
-      simpl in *.
-      right.
-      auto.
-    }
-    simpl in *.
-    inversion H; subst; clear H.
-    destruct H0 as [?|Hi]. {
-      subst.
-      left.
-      split; auto.
-      intros N.
-      contradict H3.
-      apply in_app_iff.
-      auto.
-    }
-    apply IHl1 with (a:=a0) in H4; auto.
-    destruct H4 as [(Ha,Hb)|(Ha,Hb)]; auto.
-    right.
-    split. {
-      intros N.
-      destruct N as [N|N]. {
-        subst.
-        contradiction.
-      }
-      contradiction.
-    }
-    assumption.
-  Qed.
-
-  Lemma no_dup_app:
-    forall A l1 l2,
-    @NoDup A l1 ->
-    NoDup l2 ->
-    (forall x, List.In x l1 -> List.In x l2 -> False) ->
-    NoDup (l1 ++ l2). 
-  Proof.
-    induction l1; intros. {
-      simpl.
-      assumption.
-    }
-    simpl.
-    inversion H; subst; clear H.
-    apply IHl1 in H0; auto. {
-      apply NoDup_cons; auto.
-      intros N.
-      apply no_dup_inv_app_in in N; auto.
-      destruct N as [(N1,N2)|(N1,N2)]; try contradiction.
-      eapply H1; eauto using in_eq.
-    }
-    intros.
-    eapply H1; eauto using in_cons.
-  Qed.
-
-  Lemma no_dup_map_pair:
-    forall A B l n,
-    @NoDup B l ->
-    NoDup (map (@pair A B n) l).
-  Proof.
-    induction l; intros. {
-      apply NoDup_nil.
-    }
-    simpl.
-    inversion H; subst; clear H.
-    apply IHl with (n:=n) in H3.
-    apply NoDup_cons; auto.
-    intros N.
-    apply in_map_iff in N.
-    destruct N as (x, (R, Hi)).
-    inversion R; subst; clear R.
-    contradiction.
   Qed.
 
   Lemma no_dup_flat_map_range_2d_inner:

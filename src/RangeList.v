@@ -612,6 +612,15 @@ Section Defs.
     apply range_list_cons; auto with *.
   Qed.
 
+  Lemma range_list_spec:
+    forall n1 n2,
+    RangeList n1 n2 (range_list n1 n2).
+  Proof.
+    intros.
+    apply range_list_to_prop.
+    reflexivity.
+  Qed.
+
 End Defs.
 
 

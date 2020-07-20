@@ -131,6 +131,15 @@ Section SO.
     P n1 n2 ->
     RPred P (e1, e2).
 
+  Lemma r_pred_eq:
+    forall (P: nat -> nat -> Prop) n1 n2,
+    P n1 n2 ->
+    RPred P (NNum n1, NNum n2).
+  Proof.
+    intros.
+    eapply r_pred_def; eauto using n_step_num.
+  Qed.
+
   Fixpoint n_subst x v e :=
   match e with
   | NBin o e1 e2 => NBin o (n_subst x v e1) (n_subst x v e2)

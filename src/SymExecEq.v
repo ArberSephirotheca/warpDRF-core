@@ -324,32 +324,6 @@ Section Defs.
     eapply f_run_decl in Hb; eauto.
   Qed.
 *)
-  Lemma f_run_inv_decl_nil:
-    forall x r i m,
-    RPred ge r ->
-    FRun (Decl x r i) m ->
-    EEq m (One []).
-  Proof.
-    intros.
-    inversion H; subst; clear H.
-    inversion H0; subst; clear H0;
-    assert (n1 = n0) by eauto using n_step_fun; subst;
-    assert (n3 = n2) by eauto using n_step_fun; subst.
-    + Import Omega.
-      omega.
-    + assumption.
-  Qed.
-
-  Lemma f_run_decl_r_pred_ge:
-    forall r m i x,
-    RPred ge r ->
-    m == One [] ->
-    FRun (Decl x r i) m.
-  Proof.
-    intros.
-    inversion H; subst; clear H.
-    eauto using f_run_decl_nil.
-  Qed.
 
   Lemma p_eq_branch_nil:
     forall x i r,
