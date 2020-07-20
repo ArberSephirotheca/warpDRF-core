@@ -518,22 +518,13 @@ Proof.
     apply run_i_skip.
     apply equiv_eq.
 Qed.
-(*
- H : BStep b false
-  h' : mhistory * history
-  IHHR : forall j0 : inst, NSEquiv j0 j -> Run (h', j0) y
-  HR : Run (h', j) y
-  j' : inst
-  HE : NSEquiv j' (If b i j)
-  ============================
-  Run (h', j') y
-*)
+
 
 Lemma run_i_ite_false:
   forall k b i j y h',
     NSEquiv k (If b i j) ->
     BStep b false ->
-    (forall j0 : inst, NSEquiv j0 i -> Run (h', j0) y) ->
+    (forall j0 : inst, NSEquiv j0 j -> Run (h', j0) y) ->
     Run (h', j) y ->
     Run (h', k) y.
 Proof.
@@ -542,11 +533,8 @@ Proof.
   - intros.
     eapply run_if_false; assumption.
   - intros.
-    apply H0 in H1.
-    apply run_if_false.
-    + assumption.
-    + apply H0 in H6.
-      assumption.
+    apply H0 in H6.
+    apply run_if_false; assumption.
   - intros.
     apply run_seq with (y:=hh).
     + apply run_i_skip.
@@ -592,7 +580,7 @@ Proof.
   - intros h' i' Hx j' HE.
     inversion Hx; subst; clear Hx.
     assert (IHHR:=IHHR h' j eq_refl).
-    
+    eapply run_i_ite_false; eauto.
   - intros h' i' Hx j' HE.
     inversion Hx; subst; clear Hx.
     assert (IHHR := IHHR h' (Loop v l i) eq_refl).
@@ -633,7 +621,10 @@ Inductive Unsync : inst -> Prop :=
 | unsync_skip:
     Unsync Skip
 | unsync_if:
-    Unsync If
+    forall b i j,
+      Unsync i ->
+      Unsync j ->
+      Unsync (If b i j)
 | unsync_hole:
     Unsync Hole
 | unsync_seq:
@@ -714,6 +705,14 @@ Qed.
 
 
 Inductive In : inst -> inst -> Prop :=
+  | in_if_t:
+    forall b k i j,
+      In k i ->
+      In k (If b i j)
+| in_if_f:
+    forall b k i j,
+      In k j ->
+      In k (If b i j)
 | in_seq_l:
     forall k i j,
       In k i ->
@@ -765,8 +764,15 @@ induction i.
   apply unsync_skip.
 - right.
   apply in_refl.
-- left.
-  apply unsync_if.
+- destruct IHi1; destruct IHi2.
+    + left.
+      apply unsync_if; assumption.
+    + right.
+      apply in_if_f; assumption.
+    + right.
+      apply in_if_t; assumption.
+    + right.
+      apply in_if_t; assumption.
 - left.
   apply unsync_hole.
 - destruct IHi1; destruct IHi2.
@@ -811,6 +817,8 @@ induction i.
     exists Sync.
     exists Skip.
     apply norm_sync.
+  - intros.
+    (* NEED TO FIGURE OUT WHAT TO DO HERE! *)
   - assert (HA: ~In Sync If). 
     { 
       unfold not.
