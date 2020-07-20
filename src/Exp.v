@@ -123,6 +123,14 @@ Section SO.
     RangeList n1 n2 l ->
     RStep (e1, e2) l.
 
+  Inductive RPred (P:nat -> nat -> Prop): range -> Prop :=
+  | r_pred_def:
+    forall e1 e2 n1 n2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    P n1 n2 ->
+    RPred P (e1, e2).
+
   Fixpoint n_subst x v e :=
   match e with
   | NBin o e1 e2 => NBin o (n_subst x v e1) (n_subst x v e2)

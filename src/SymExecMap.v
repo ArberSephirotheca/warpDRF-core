@@ -32,7 +32,211 @@ Section Defs.
 
   Transparent DeclMap.
 
+  Definition DeclRun x r i m :=
+    exists l ms,
+    RStep r l /\
+    BranchMap x i l ms /\
+    m == summation ms.
 
+  Lemma decl_run_def:
+    forall x r i m l ms,
+    RStep r l ->
+    BranchMap x i l ms ->
+    m == summation ms ->
+    DeclRun x r i m.
+  Proof.
+    unfold DeclRun; eauto.
+  Qed.
+
+  Lemma decl_run_eq:
+    forall x r i ms l,
+    RStep r l ->
+    BranchMap x i l ms ->
+    DeclRun x r i (summation ms).
+  Proof.
+    intros.
+    eapply decl_run_def; eauto.
+    reflexivity.
+  Qed.
+
+  Lemma decl_run_range:
+    forall x n1 n2 i ms m,
+    BranchMap x i (range_list n1 n2) ms ->
+    m == summation ms ->
+    DeclRun x (NNum n1, NNum n2) i m.
+  Proof.
+    intros.
+    eapply decl_run_def; eauto using r_step_range_list.
+  Qed.
+
+  Lemma decl_run_range_eq:
+    forall x n1 n2 i ms,
+    BranchMap x i (range_list n1 n2) ms ->
+    DeclRun x (NNum n1, NNum n2) i (summation ms).
+  Proof.
+    intros.
+    eapply decl_run_range; eauto.
+    reflexivity.
+  Qed.
+
+  Lemma branch_map_eq_list:
+    forall l x i ms ms',
+    EEqList ms' ms ->
+    BranchMap x i l ms' ->
+    BranchMap x i l ms.
+  Proof.
+    induction l; intros.
+    - inversion H0; subst; clear H0; auto.
+      inversion H; subst; clear H.
+      auto using map_nil.
+    - inversion H0; subst; clear H0.
+      inversion H; subst; clear H.
+      apply map_cons; eauto.
+      rewrite <- H2.
+      assumption.
+  Qed.
+
+  Lemma decl_run_inv_range:
+    forall x n1 n2 i m,
+    DeclRun x (NNum n1, NNum n2) i m ->
+    exists ms, m == summation ms /\ BranchMap x i (range_list n1 n2) ms.
+  Proof.
+    unfold DeclRun.
+    intros.
+    destruct H as (l', (ms', (Hr, (Hb, R)))).
+    apply r_step_to_range_list in Hr.
+    subst.
+    eauto.
+  Qed.
+
+  Lemma r_step_nil:
+    forall e1 e2 n1 n2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 >= n2 ->
+    RStep (e1, e2) [].
+  Proof.
+    intros.
+    eauto using r_step_def, range_list_nil.
+  Qed.
+
+  Lemma r_step_cons:
+    forall e1 e2 n1 n2 l,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    RStep (NNum (S n1), NNum n2) l ->
+    RStep (e1, e2) (n1 :: l).
+  Proof.
+    intros.
+    apply r_step_to_range_list in H2.
+    symmetry in H2.
+    assert (Hx := r_step_range_list n1 n2).
+    eapply r_step_def; eauto.
+    apply range_list_cons; auto.
+    rewrite <- H2.
+    apply range_list_to_prop.
+    reflexivity.
+  Qed.
+
+  Lemma decl_run_cons:
+    forall e1 e2 n1 n2 i x m1 m2 m3,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    FRun (i_subst x (NNum n1) i) m1 ->
+    DeclRun x (NNum (S n1), NNum n2) i m2 ->
+    m3 == m1 + m2 ->
+    DeclRun x (e1, e2) i m3.
+  Proof.
+    intros.
+    unfold DeclRun in *.
+    destruct H3 as (l, (ms, (Hr, (Hm, Hs)))).
+    exists (n1::l).
+    exists (m1::ms).
+    simpl.
+    split. { eauto using r_step_cons. }
+    split. {
+      apply map_cons; auto.
+      intros N.
+      apply r_step_to_range_list in Hr.
+      subst.
+      apply range_list_in_iff in N.
+      Import Omega.
+      omega.
+    }
+    repeat match goal with
+      H: _ == _ |- _ => rewrite H; clear H
+    end.
+    reflexivity.
+  Qed.
+
+  Lemma decl_run_nil:
+    forall e1 e2 n1 n2 m x i,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 >= n2 ->
+    m == One [] ->
+    DeclRun x (e1, e2) i m.
+  Proof.
+    unfold DeclRun.
+    intros.
+    exists [].
+    exists [].
+    split. { eauto using r_step_nil. }
+    split. { auto using map_nil. }
+    simpl.
+    assumption.
+  Qed.
+
+  Lemma f_run_to_decl_run:
+    forall x r i m,
+    FRun (Decl x r i) m ->
+    DeclRun x r i m.
+  Proof.
+    intros.
+    remember (Decl _ _ _) as j.
+    generalize dependent x.
+    generalize dependent r.
+    generalize dependent i.
+    induction H; intros; inversion Heqj; subst; clear Heqj.
+    - eauto using decl_run_cons.
+    - eauto using decl_run_nil.
+  Qed.
+
+  Lemma decl_run_to_f_run:
+    forall x r i m,
+    DeclRun x r i m ->
+    FRun (Decl x r i) m.
+  Proof.
+    unfold DeclRun; intros.
+    destruct H as (l, (ms, (Hr, (Hm, R)))).
+    generalize dependent m.
+    generalize dependent x.
+    generalize dependent ms.
+    generalize dependent i.
+    inversion Hr; subst; clear Hr.
+    generalize dependent e1.
+    generalize dependent e2.
+    induction H1; intros.
+    - inversion Hm; subst; clear Hm.
+      simpl in *.
+      eapply f_run_decl_nil; eauto.
+    - inversion Hm; subst; clear Hm.
+      simpl in *.
+      eapply f_run_decl_cons; eauto.
+      eapply IHRangeList; eauto using n_step_num.
+      reflexivity.
+  Qed.
+
+  Lemma decl_run_iff:
+    forall x r i m,
+    DeclRun x r i m <->
+    FRun (Decl x r i) m.
+  Proof.
+    split; intros; auto using decl_run_to_f_run, f_run_to_decl_run.
+  Qed.
+(*
   Lemma f_run_branch_map:
     forall l i x ml,
     BranchMap x i l ml ->
@@ -45,39 +249,25 @@ Section Defs.
       simpl.
       apply f_run_branch_cons_eq; auto.
   Qed.
-
+*)
   Lemma f_run_decl_map:
+     forall n1 n2 i x lm m,
+     DeclMap x i n1 n2 lm ->
+     m == summation lm ->
+     FRun (Decl x (NNum n1, NNum n2) i) m.
+  Proof.
+    intros.
+    apply decl_run_iff.
+    eauto using decl_run_range.
+  Qed.
+
+  Lemma f_run_decl_map_eq:
      forall n1 n2 i x lm,
      DeclMap x i n1 n2 lm ->
      FRun (Decl x (NNum n1, NNum n2) i) (summation lm).
   Proof.
-    eauto using f_run_branch_map, f_run_decl, r_step_range_list.
-  Qed.
-
-  Lemma f_run_branch_inv_map:
-    forall l i x m,
-    FRun (Branch x l i) m ->
-    NoDup l ->
-    exists lm,
-    EEq m (summation lm) /\
-    BranchMap x i l lm.
-  Proof.
-    induction l; intros. {
-      inversion H; subst; clear H.
-      exists [].
-      simpl.
-      auto using map_nil.
-    }
-    inversion H; subst; clear H.
-    inversion H0; subst; clear H0.
-    apply IHl in H7; auto; clear IHl.
-    destruct H7 as (lm, (R2,Hr)).
-    eexists. split. 2: {
-      apply map_cons; eauto.
-    }
-    simpl.
-    rewrite H8.
-    rewrite R2.
+    intros.
+    eapply f_run_decl_map; eauto.
     reflexivity.
   Qed.
 
@@ -89,10 +279,9 @@ Section Defs.
     DeclMap x i n1 n2 lm.
   Proof.
     intros.
-    inversion H; subst; clear H.
-    apply r_step_to_range_list in H4.
-    subst.
-    eauto using f_run_branch_inv_map, range_list_no_dup.
+    apply decl_run_iff in H.
+    apply decl_run_inv_range in H.
+    eauto.
   Qed.
 
   Lemma branch_map_inv_seq:
@@ -167,14 +356,26 @@ Section Defs.
   Qed.
 
   Lemma run_decl_seq:
+    forall x n1 n2 i j m1 m2 m3,
+    DeclMap x i n1 n2 m1 ->
+    DeclMap x j n1 n2 m2 ->
+    m3 == summation (map2 Prod m1 m2) ->
+    FRun (Decl x (NNum n1, NNum n2) (Seq i j)) m3.
+  Proof.
+    intros.
+    eapply f_run_decl_map; eauto.
+    apply decl_map_seq; auto.
+  Qed.
+
+  Lemma run_decl_seq_eq:
     forall x n1 n2 i j m1 m2,
     DeclMap x i n1 n2 m1 ->
     DeclMap x j n1 n2 m2 ->
     FRun (Decl x (NNum n1, NNum n2) (Seq i j)) (summation (map2 Prod m1 m2)).
   Proof.
     intros.
-    eapply f_run_decl_map; eauto.
-    apply decl_map_seq; auto.
+    eapply run_decl_seq; eauto.
+    reflexivity.
   Qed.
 
   Let i_subst_not_in_decl_rw:
@@ -279,14 +480,14 @@ Section Defs.
       simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
-      eapply f_run_decl_map; eauto.
+      eapply f_run_decl_map_eq; eauto.
       rewrite i_subst_not_in; auto.
     }
     apply map_cons.
     - simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
-      eapply f_run_decl_map; eauto.
+      eapply f_run_decl_map_eq; eauto.
       rewrite i_subst_not_in; auto.
     - assumption.
     - apply IHl; auto.
@@ -304,6 +505,158 @@ Section Defs.
   Proof.
     intros.
     apply branch_map_decl; auto using range_list_no_dup, range_list_not_nil.
+  Qed.
+
+
+
+(*
+  Lemma p_eq_branch_skip:
+    forall l,
+    NoDup l ->
+    forall x,
+    ProgEquiv (Branch x l Skip) Skip.
+  Proof.
+    intros.
+    apply prog_equiv_def; apply prog_impl_def; intros.
+    - generalize dependent m.
+      induction l; intros. {
+        inversion H0; subst; clear H0.
+        rewrite H4.
+        auto using f_run_skip_eq.
+      }
+      inversion H0; subst; clear H0.
+      inversion H; subst; clear H.
+      apply IHl in H7; auto.
+      inversion H7; subst; clear H7.
+      rewrite H in *.
+      rewrite e_plus_nil_r in H8.
+      rewrite H8 in *.
+      simpl in *.
+      assumption.
+    - inversion H0; subst; clear H0.
+      rewrite H1; clear H1.
+      clear m.
+      induction l; intros. {
+        apply f_run_branch_nil.
+        reflexivity.
+      }
+      inversion H; subst; clear H.
+      eapply f_run_branch_cons; eauto.
+      + simpl.
+        apply f_run_skip_eq.
+      + rewrite e_plus_nil_r.
+        reflexivity.
+  Qed.
+*)
+  Lemma map_inv_cons:
+    forall A B (P: A -> B -> Prop) ks vs v,
+    Map P ks (v :: vs) ->
+    exists k ks', ks = k :: ks' /\ ~ List.In k ks' /\ P k v /\ Map P ks' vs.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    exists k, ks0.
+    auto.
+  Qed.
+
+  Lemma decl_map_inv_cons:
+    forall x i n1 n2 m lm,
+    DeclMap x i n1 n2 (m :: lm) ->
+    Iter x i n1 m /\ 
+    DeclMap x i (S n1) n2 lm.
+  Proof.
+    intros.
+    unfold DeclMap in H.
+    remember (range_list n1 n2) as ks.
+    apply map_inv_cons in H.
+    destruct H as (k, (ks', (?, (Hn, (Hf, Hb))))).
+    subst.
+    apply range_list_to_prop in H.
+    inversion H; subst; clear H.
+    apply prop_to_range_list in H5.
+    subst.
+    auto.
+  Qed.
+
+  Lemma branch_map_not_in:
+    forall x i m l,
+    ~ In x i ->
+    FRun i m ->
+    NoDup l ->
+    BranchMap x i l (repeat m (length l)).
+  Proof.
+    induction l; intros.
+    - apply map_nil.
+    - intros.
+      inversion H1; subst; clear H1.
+      apply map_cons; auto.
+      rewrite i_subst_not_in; auto.
+  Qed.
+
+  Lemma branch_map_inv_not_in:
+    forall x i m l ms,
+    ~ In x i ->
+    FRun i m ->
+    BranchMap x i l ms ->
+    EEqList (repeat m (length l)) ms.
+  Proof.
+    induction l; intros.
+    - inversion H1; subst; clear H1.
+      simpl in *.
+      reflexivity.
+    - simpl in *.
+      inversion H1; subst; clear H1.
+      apply IHl in H7; auto with *.
+      simpl.
+      rewrite i_subst_not_in in H4; auto.
+      apply e_eq_list_cons; auto.
+      eauto using f_run_fun.
+  Qed.
+
+  Lemma f_run_decl_skip:
+    forall x n1 n2,
+    FRun (Decl x (NNum n1, NNum n2) Skip) (One []).
+  Proof.
+    intros.
+    eapply f_run_decl_map.
+    - apply branch_map_not_in.
+      + intros N.
+        inversion N.
+      + apply f_run_skip_eq.
+      + auto using range_list_no_dup.
+    - rewrite e_summation_repeat_nil.
+      reflexivity.
+  Qed.
+
+  Lemma f_run_inv_decl_skip:
+    forall x r m,
+    FRun (Decl x r Skip) m ->
+    m == One [].
+  Proof.
+    intros.
+    edestruct f_run_inv_decl_r_step as (l, Hr); eauto.
+    inversion Hr; subst; clear Hr.
+    eapply f_run_decl_1 in H; eauto.
+    apply f_run_inv_decl_map in H.
+    destruct H as (lm, (R, Hd)).
+    eapply branch_map_inv_not_in in Hd; eauto using f_run_skip_eq.
+    rewrite R.
+    apply eq_list_summation_rw in Hd.
+    rewrite <- Hd.
+    rewrite e_summation_repeat_nil.
+    reflexivity.
+  Qed.
+
+  Lemma p_eq_decl_skip:
+    forall n1 n2 x,
+    ProgEquiv (Decl x (NNum n1, NNum n2) Skip) Skip.
+  Proof.  
+    split; intros.
+    - apply f_run_inv_decl_skip in H.
+      auto using f_run_skip.
+    - inversion H; subst; clear H.
+      rewrite H0; clear H0 m.
+      apply f_run_decl_skip.
   Qed.
 
   (* -------------------------- Program Equivalence ------------------------- *)
@@ -358,11 +711,11 @@ Section Defs.
     - apply f_run_inv_decl_map in H0.
       destruct H0 as (lm, (R, Hr1)).
       rewrite R; clear R m.
-      eauto using p_eq_decl_map, f_run_decl_map. 
+      eauto using p_eq_decl_map, f_run_decl_map_eq.
     - apply f_run_inv_decl_map in H0.
       destruct H0 as (lm, (R, Hr1)).
       rewrite R; clear R m.
-      eapply p_eq_decl_map in Hr1; eauto using f_run_decl_map.
+      eapply p_eq_decl_map in Hr1; eauto using f_run_decl_map_eq.
       intros.
       rewrite H; auto.
       reflexivity.

@@ -171,8 +171,14 @@ Section Defs.
         assert (n3 = n2) by eauto using n_step_fun; subst.
         Import Omega.
         omega.
-    - inversion H2; subst; clear H2.
-      + 
+    - inversion H2; subst; clear H2;
+      assert (n0 = n1) by eauto using n_step_fun; subst;
+      assert (n3 = n2) by eauto using n_step_fun; subst
+      . {
+        Import Omega.
+        omega.
+      }
+      reflexivity.
   Qed.
 
   (* ------------------------------ FRun  ---------------------------- *)
@@ -204,27 +210,29 @@ Section Defs.
     access_inst_step e v ->
     m == One v ->
     FRun (MemAcc e) m
-  | f_run_decl:
-    forall r l i x m,
-    RStep r l ->
-    FRun (Branch x l i) m ->
-    FRun (Decl x r i) m
-  | f_run_branch_cons:
-    forall x n l i m1 m2 m3,
-    FRun (i_subst x (NNum n) i) m1 ->
-    FRun (Branch x l i) m2 ->
-    m3 == Plus m1 m2 ->
-    FRun (Branch x (n::l) i) m3
-  | f_run_branch_nil:
-    forall x i m,
-    m == One [] ->
-    FRun (Branch x [] i) m
   | f_run_fork:
     forall i j m1 m2 m3,
     FRun i m1 ->
     FRun j m2 ->
     m3 == Plus m1 m2 ->
     FRun (Fork i j) m3
+  | f_run_decl_cons:
+    forall e1 e2 n1 n2 i x m1 m2 m3,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    FRun (i_subst x (NNum n1) i) m1 ->
+    FRun (Decl x (NNum (S n1), NNum n2) i) m2 ->
+    m3 == Plus m1 m2 ->
+    FRun (Decl x (e1, e2) i) m3
+  | f_run_decl_nil:
+    forall x i e1 e2 n1 n2 m,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 >= n2 ->
+    m == One [] ->
+    FRun (Decl x (e1, e2) i) m
+
   .
 
   Lemma f_run_to_e_run:
@@ -247,23 +255,22 @@ Section Defs.
       exists m'.
       split; eauto using e_run_if_false.
     - eauto using e_run_access.
-    - destruct IHFRun as (m', (R, Hr)).
-      eauto using e_run_decl.
-    - destruct IHFRun1 as (m1', (R1, Hr1)).
-      destruct IHFRun2 as (m2', (R2, Hr2)).
-      eexists.
-      split. 2: { eauto using e_run_branch_cons. }
-      rewrite H1.
-      rewrite R1.
-      rewrite R2.
-      reflexivity.
-    - eauto using e_run_branch_nil.
     - destruct IHFRun1 as (m1', (R1, Hr1)).
       destruct IHFRun2 as (m2', (R2, Hr2)).
       eexists.
       rewrite H1. rewrite R1. rewrite R2.
       split. { reflexivity. }
       eauto using e_run_fork.
+    - destruct IHFRun1 as (m1', (R1, Hr1)).
+      destruct IHFRun2 as (m2', (R2, Hr2)).
+      eexists.
+      split. 2: { eauto using e_run_decl_cons. }
+      repeat match goal with
+        H: _ == _ |- _ => rewrite H; clear H
+      end.
+      reflexivity.
+    - exists (One []).
+      eauto using e_run_decl_nil.
   Qed.
 
   Infix "//" := FRun (at level 50).
@@ -281,18 +288,17 @@ Section Defs.
       f_run_skip,
       f_run_if_true,
       f_run_if_false,
-      f_run_decl,
-      f_run_branch_nil,
+      f_run_decl_nil,
       f_run_access.
     - eapply f_run_seq; eauto.
       + apply IHERun1; reflexivity.
       + apply IHERun2; reflexivity.
-    - eapply f_run_branch_cons; eauto.
+    - eapply f_run_fork; eauto.
       + apply IHERun1; auto.
         reflexivity.
       + apply IHERun2; auto.
         reflexivity.
-    - eapply f_run_fork; eauto.
+    - eapply f_run_decl_cons; eauto.
       + apply IHERun1; auto.
         reflexivity.
       + apply IHERun2; auto.
@@ -367,23 +373,29 @@ Section Defs.
     assumption.
   Qed.
 
-  Lemma f_run_branch_cons_eq:
-    forall x n l i m1 m2,
-    FRun (i_subst x (NNum n) i) m1 ->
-    FRun (Branch x l i) m2 ->
-    FRun (Branch x (n :: l) i) (m1 + m2).
+  Lemma f_run_decl_cons_eq:
+    forall x e1 e2 n1 n2 i m1 m2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    FRun (i_subst x (NNum n1) i) m1 ->
+    FRun (Decl x (NNum (S n1), NNum n2) i) m2 ->
+    FRun (Decl x (e1, e2) i) (m1 + m2).
   Proof.
     intros.
-    apply f_run_branch_cons with (m1:=m1) (m2:=m2); auto.
+    eapply f_run_decl_cons with (m1:=m1) (m2:=m2); eauto.
     reflexivity.
   Qed.
 
-  Lemma f_run_branch_nil_eq:
-    forall x i,
-    FRun (Branch x [] i) (One []).
+  Lemma f_run_decl_nil_eq:
+    forall x i e1 e2 n1 n2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 >= n2 ->
+    FRun (Decl x (e1, e2) i) (One []).
   Proof.
     intros.
-    apply f_run_branch_nil.
+    eapply f_run_decl_nil; eauto.
     reflexivity.
   Qed.
 
@@ -414,6 +426,32 @@ Section Defs.
   Proof.
     apply f_run_skip.
     reflexivity.
+  Qed.
+
+  Lemma f_run_inv_decl_r_step:
+    forall x r i m,
+    FRun (Decl x r i) m ->
+    exists l, RStep r l.
+  Proof.
+    intros.
+    inversion H; subst; clear H;
+      eauto using r_step_def, range_list_to_prop.
+  Qed.
+
+  Lemma f_run_decl_1:
+    forall x e1 e2 n1 n2 i m,
+    FRun (Decl x (e1, e2) i) m ->
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    FRun (Decl x (NNum n1, NNum n2) i) m.
+  Proof.
+    intros.
+    inversion H; subst; clear H;
+    assert (n0 = n1) by eauto using n_step_fun;
+    assert (n3 = n2) by eauto using n_step_fun;
+    subst.
+    + eapply f_run_decl_cons; eauto using n_step_num.
+    + eapply f_run_decl_nil; eauto using n_step_num.
   Qed.
 
 End Defs.

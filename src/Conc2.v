@@ -306,17 +306,15 @@ Section C1.
     n1 >= n2 ->
     Run n (For x (e1, e2) i) [].
 
-
   Inductive RunAll : nat -> inst -> history -> Prop :=
   | run_all_zero:
     forall i,
     RunAll 0 i []
   | run_all_succ:
     forall i n h1 h2,
-    Run n i h1 ->
+    Run n (i_subst TID (NNum n) i) h1 ->
     RunAll n i h2 ->
     RunAll (S n) i (h1 ++ h2).
-
 
   Lemma run_all_inv_in:
     forall n i h,
@@ -324,7 +322,7 @@ Section C1.
     forall x,
     List.In x h ->
     exists m h',
-    m < n /\ Run m i h' /\ incl h' h /\ List.In x h'.
+    m < n /\ Run m (i_subst TID (NNum m )i) h' /\ incl h' h /\ List.In x h'.
   Proof.
     intros n i h H.
     induction H; intros. { contradiction. }

@@ -566,11 +566,39 @@ Section Defs.
     auto using to_mem_not_nil.
   Qed.
 
+  (* --------------------------- SUMMATION -------------------------- *)
+
   Fixpoint summation (l:list mexp) :=
     match l with
     | [] => One []
     | x :: l => Plus x (summation l)
     end.
+
+  Lemma e_summation_repeat:
+    forall m n,
+    n > 0 ->
+    EEq (summation (repeat m n)) m.
+  Proof.
+    induction n; intros. { inversion H. }
+    simpl in *.
+    inversion H; subst; clear H.
+    + simpl.
+      apply e_plus_nil_r.
+    + rewrite IHn; auto with *.
+      apply e_plus_absorb_rw.
+  Qed.
+
+  Lemma e_summation_repeat_nil:
+    forall n,
+    EEq (summation (repeat (One []) n)) (One []).
+  Proof.
+    intros.
+    destruct n. {
+      reflexivity.
+    }
+    apply e_summation_repeat.
+    auto with *.
+  Qed.
 
   Lemma e_in_nil:
     forall x,

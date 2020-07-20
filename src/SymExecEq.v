@@ -324,17 +324,44 @@ Section Defs.
     eapply f_run_decl in Hb; eauto.
   Qed.
 *)
+  Lemma f_run_inv_decl_nil:
+    forall x r i m,
+    RPred ge r ->
+    FRun (Decl x r i) m ->
+    EEq m (One []).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0;
+    assert (n1 = n0) by eauto using n_step_fun; subst;
+    assert (n3 = n2) by eauto using n_step_fun; subst.
+    + Import Omega.
+      omega.
+    + assumption.
+  Qed.
+
+  Lemma f_run_decl_r_pred_ge:
+    forall r m i x,
+    RPred ge r ->
+    m == One [] ->
+    FRun (Decl x r i) m.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eauto using f_run_decl_nil.
+  Qed.
 
   Lemma p_eq_branch_nil:
-    forall x i,
-    ProgEquiv (Branch x [] i) Skip.
+    forall x i r,
+    RPred (ge) r -> 
+    ProgEquiv (Decl x r i) Skip.
   Proof.
     split; intros.
     - intros.
-      inversion H; subst; clear H.
-      eauto using f_run_skip.
-    - inversion H; subst; clear H.
-      auto using f_run_branch_nil.
+      apply f_run_inv_decl_nil in H0; auto.
+      auto using f_run_skip.
+    - inversion H0; subst; clear H0.
+      auto using f_run_decl_r_pred_ge.
   Qed.
 
   Import Morphisms.
@@ -416,6 +443,8 @@ Section Defs.
     transitivity j2; auto.
   Qed.
 
+  (* -------------------------------- FORK ----------------------- *)
+
   Lemma p_eq_fork:
     forall i i' j j' m,
     ProgEquiv i i' ->
@@ -441,87 +470,6 @@ Section Defs.
       eauto using p_eq_fork.
   Qed.
 
-  Lemma p_eq_seq_skip:
-    forall i,
-    ProgEquiv (Seq i Skip) i.
-  Proof.
-    split; intros.
-    - inversion H; subst; clear H.
-      rewrite H5.
-      inversion H3; subst; clear H3.
-      rewrite H in *.
-      rewrite e_prod_nil_r.
-      assumption.
-    - apply f_run_seq with (m1:=m) (m2:=One []); auto using f_run_skip_eq.
-      rewrite e_prod_nil_r.
-      reflexivity.
-  Qed.
-
-  Lemma p_eq_branch_skip:
-    forall l,
-    NoDup l ->
-    forall x,
-    ProgEquiv (Branch x l Skip) Skip.
-  Proof.
-    intros.
-    apply prog_equiv_def; apply prog_impl_def; intros.
-    - generalize dependent m.
-      induction l; intros. {
-        inversion H0; subst; clear H0.
-        rewrite H4.
-        auto using f_run_skip_eq.
-      }
-      inversion H0; subst; clear H0.
-      inversion H; subst; clear H.
-      apply IHl in H7; auto.
-      inversion H7; subst; clear H7.
-      rewrite H in *.
-      rewrite e_plus_nil_r in H8.
-      rewrite H8 in *.
-      simpl in *.
-      assumption.
-    - inversion H0; subst; clear H0.
-      rewrite H1; clear H1.
-      clear m.
-      induction l; intros. {
-        apply f_run_branch_nil.
-        reflexivity.
-      }
-      inversion H; subst; clear H.
-      eapply f_run_branch_cons; eauto.
-      + simpl.
-        apply f_run_skip_eq.
-      + rewrite e_plus_nil_r.
-        reflexivity.
-  Qed.
-
-  Lemma p_eq_decl_skip:
-    forall n1 n2 x,
-    ProgEquiv (Decl x (NNum n1, NNum n2) Skip) Skip.
-  Proof.  
-    intros.
-    apply prog_equiv_def; apply prog_impl_def; intros.
-    - inversion H; subst; clear H.
-      assert (NoDup l) by eauto using r_step_no_dup.
-      rewrite p_eq_branch_skip in H5; auto.
-    - apply f_run_decl with (l:=range_list n1 n2); auto using r_step_range_list.
-      inversion H; subst; clear H.
-      rewrite H0.
-      rewrite p_eq_branch_skip; auto using range_list_no_dup, f_run_skip_eq.
-  Qed.
-
-  Lemma p_eq_branch_cons:
-    forall x n l i,
-    ProgEquiv (Branch x (n::l) i)
-              (Fork (i_subst x (NNum n) i) (Branch x l i)).
-  Proof.
-    split; intros.
-    - inversion H; subst; clear H.
-      eapply f_run_fork; eauto.
-    - inversion H; subst; clear H.
-      eauto using f_run_branch_cons.
-  Qed.
-
   Lemma p_eq_fork_assoc:
     forall i j k,
     ProgEquiv (Fork i (Fork j k))
@@ -542,6 +490,21 @@ Section Defs.
       auto using f_run_fork_eq.
   Qed.
 
+  Lemma p_eq_fork_sym:
+    forall i j,
+    ProgEquiv (Fork i j) (Fork j i).
+  Proof.
+    split; intros.
+    - inversion H; subst; clear H.
+      rewrite H5; clear H5.
+      rewrite e_plus_sym.
+      auto using f_run_fork_eq.
+    - inversion H; subst; clear H.
+      rewrite H5; clear H5.
+      rewrite e_plus_sym.
+      auto using f_run_fork_eq.
+  Qed.
+
   Lemma p_eq_fork_skip_l:
     forall i,
     ProgEquiv (Fork Skip i) i.
@@ -558,6 +521,33 @@ Section Defs.
       reflexivity.
   Qed.
 
+  Lemma p_eq_fork_skip_r:
+    forall i,
+    ProgEquiv (Fork i Skip) i.
+  Proof.
+    intros.
+    rewrite p_eq_fork_sym.
+    rewrite p_eq_fork_skip_l.
+    reflexivity.
+  Qed.
+
+  (* ---------------------------- SEQ ---------------------------- *)
+
+  Lemma p_eq_seq_skip_l:
+    forall i,
+    ProgEquiv (Seq i Skip) i.
+  Proof.
+    split; intros.
+    - inversion H; subst; clear H.
+      rewrite H5.
+      inversion H3; subst; clear H3.
+      rewrite H in *.
+      rewrite e_prod_nil_r.
+      assumption.
+    - apply f_run_seq with (m1:=m) (m2:=One []); auto using f_run_skip_eq.
+      rewrite e_prod_nil_r.
+      reflexivity.
+  Qed.
 
   Lemma p_eq_seq_skip_r:
     forall i,
@@ -575,47 +565,23 @@ Section Defs.
       reflexivity.
   Qed.
 
-  Lemma p_eq_seq_skip_l:
-    forall i,
-    ProgEquiv (Seq i Skip) i.
+  (* ------------------------ DECL --------------------------- *)
+
+(*
+  Lemma p_eq_branch_cons:
+    forall x n l i,
+    RPred (lt) r ->
+    ProgEquiv (Decl x r i)
+              (Fork (i_subst x (NNum n) i) (Branch x l i)).
   Proof.
     split; intros.
     - inversion H; subst; clear H.
-      rewrite H5; clear H5.
-      inversion H3; subst; clear H3.
-      rewrite H; subst; clear H.
-      rewrite e_prod_nil_r.
-      assumption.
-    - eapply f_run_seq; eauto using f_run_skip_eq.
-      rewrite e_prod_nil_r.
-      reflexivity.
-  Qed.
-
-  Lemma p_eq_fork_sym:
-    forall i j,
-    ProgEquiv (Fork i j) (Fork j i).
-  Proof.
-    split; intros.
+      eapply f_run_fork; eauto.
     - inversion H; subst; clear H.
-      rewrite H5; clear H5.
-      rewrite e_plus_sym.
-      auto using f_run_fork_eq.
-    - inversion H; subst; clear H.
-      rewrite H5; clear H5.
-      rewrite e_plus_sym.
-      auto using f_run_fork_eq.
+      eauto using f_run_branch_cons.
   Qed.
-
-  Lemma p_eq_fork_skip_r:
-    forall i,
-    ProgEquiv (Fork i Skip) i.
-  Proof.
-    intros.
-    rewrite p_eq_fork_sym.
-    rewrite p_eq_fork_skip_l.
-    reflexivity.
-  Qed.
-
+*)
+(*
   Lemma p_eq_branch_app:
     forall x l1 l2 i,
     ProgEquiv (Branch x (l1 ++ l2) i)
@@ -733,5 +699,6 @@ Section Defs.
       subst.
       assumption.
   Qed.
+*)
 *)
 End Defs.
