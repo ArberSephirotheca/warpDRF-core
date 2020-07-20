@@ -28,7 +28,7 @@ Section C1.
   Inductive inst :=
   | Skip
   | Sync
-  | If
+  | If: bexp -> inst -> inst -> inst
   | Hole
   | Seq: inst -> inst -> inst
   | For : var -> range -> inst -> inst
@@ -40,7 +40,7 @@ Fixpoint i_subst x v i :=
   match i with
   | Skip => Skip
   | Sync => Sync
-  | If => If
+  | If b i j => If (b_subst x v b) (i_subst x v i) (i_subst x v j)
   | Hole => Hole
   | Seq i2 i3 => Seq (i_subst x v i2) (i_subst x v i3)
   | For y r i2 =>
@@ -74,6 +74,16 @@ Inductive Run: ((mhistory * history) * inst) -> (mhistory * history) -> Prop :=
       Run (x, i) y ->
       Run (y,j) z ->
       Run (x, Seq i j) z
+| run_if_true:
+    forall i j b x y,
+      BStep b true ->
+      Run (x, i) y ->
+      Run (x, If b i j) y
+| run_if_false:
+    forall i j b x y,
+      BStep b false ->
+      Run (x, j) y ->
+      Run (x, If b i j) y
 | run_for:
   forall r l v x y i,
     RStep r l ->
@@ -142,7 +152,13 @@ Inductive NSEquiv : inst -> inst -> Prop :=
 | equiv_loop:
     forall x y l r,
       NSEquiv x y ->
-      NSEquiv (Loop l r x) (Loop l r y).
+      NSEquiv (Loop l r x) (Loop l r y)
+| equiv_if:
+    forall b x y x' y',
+      NSEquiv x x' ->
+      NSEquiv y y' ->      
+      NSEquiv (If b x y) (If b x' y')
+.
 
 
 Notation nsequivstar := (clos_refl_sym_trans_n1 _ NSEquiv).
@@ -188,8 +204,12 @@ Proof.
     assert (IHHE:=IHHE v n).
     apply equiv_loop.
     destruct (Set_VAR.MF.eq_dec v l); assumption.
-Qed.
-        
+  - intros.
+    assert (IHHE1 := IHHE1 v n).
+    assert (IHHE2 := IHHE2 v n).
+    simpl.
+    apply equiv_if; assumption.
+Qed. 
 
   
 Lemma equiv_one_run_l:
@@ -240,6 +260,16 @@ Proof.
       eapply run_seq; eauto.
   - intros. inversion H0; subst; clear H0.
     inversion H1; subst; clear H1.
+    + apply run_if_true; assumption.
+    + assert (IHHR:=IHHR hs i eq_refl x' H5).
+      apply run_if_true; assumption.
+  - intros. inversion H0; subst; clear H0.
+    inversion H1; subst; clear H1.
+    + apply run_if_false; assumption.
+    + assert (IHHR:=IHHR hs j eq_refl y' H6).
+      apply run_if_false; assumption.
+  - intros. inversion H0; subst; clear H0.
+    inversion H1; subst; clear H1.
     + eapply run_for; eauto.
     + assert (HE: NSEquiv (Loop v l i) (Loop v l y0)) by auto using equiv_loop.
       assert (IHHR:=IHHR hs (Loop v l i) eq_refl (Loop v l y0) HE).
@@ -260,7 +290,8 @@ Proof.
         apply i_subst_equiv.
         assumption.
       }
-      assert (IHHR1 := IHHR1 hs (i_subst v (NNum n) i) eq_refl (i_subst v (NNum n) y0) HES).
+      assert (IHHR1 := IHHR1 hs (i_subst v (NNum n) i)
+                             eq_refl (i_subst v (NNum n) y0) HES).
       assumption.
 Qed.
 
