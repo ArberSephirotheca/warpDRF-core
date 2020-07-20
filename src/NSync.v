@@ -490,7 +490,76 @@ Proof.
     + apply H3 in H4. assumption.
 Qed.
     
-    
+Lemma run_i_ite_true:
+  forall k b i j y h',
+    NSEquiv k (If b i j) ->
+    BStep b true ->
+    (forall j : inst, NSEquiv j i -> Run (h', j) y) ->
+    Run (h', i) y ->
+    Run (h', k) y.
+Proof.
+  intro k.
+  induction k; intros bh ih jh yh hh HE; inversion HE; subst; clear HE.
+  - intros.
+    eapply run_if_true; assumption.
+  - intros.
+    apply run_if_true.
+    + assumption.
+    + apply H0 in H1.
+      assumption.
+  - intros.
+    apply run_seq with (y:=hh).
+    + apply run_i_skip.
+      apply equiv_eq.
+    + eapply IHk2 in H2; eauto.
+  - intros.
+    eapply IHk1 in H2; eauto.
+    eapply run_seq with (y:=yh); eauto.
+    apply run_i_skip.
+    apply equiv_eq.
+Qed.
+(*
+ H : BStep b false
+  h' : mhistory * history
+  IHHR : forall j0 : inst, NSEquiv j0 j -> Run (h', j0) y
+  HR : Run (h', j) y
+  j' : inst
+  HE : NSEquiv j' (If b i j)
+  ============================
+  Run (h', j') y
+*)
+
+Lemma run_i_ite_false:
+  forall k b i j y h',
+    NSEquiv k (If b i j) ->
+    BStep b false ->
+    (forall j0 : inst, NSEquiv j0 i -> Run (h', j0) y) ->
+    Run (h', j) y ->
+    Run (h', k) y.
+Proof.
+  intro k.
+  induction k; intros bh ih jh yh hh HE; inversion HE; subst; clear HE.
+  - intros.
+    eapply run_if_false; assumption.
+  - intros.
+    apply H0 in H1.
+    apply run_if_false.
+    + assumption.
+    + apply H0 in H6.
+      assumption.
+  - intros.
+    apply run_seq with (y:=hh).
+    + apply run_i_skip.
+      apply equiv_eq.
+    + eapply IHk2 in H2; eauto.
+  - intros.
+    eapply IHk1 in H2; eauto.
+    eapply run_seq with (y:=yh); eauto.
+    apply run_i_skip.
+    apply equiv_eq.
+Qed.
+
+
 
       
 Lemma equiv_one_run_r:
@@ -516,6 +585,14 @@ Proof.
     assert (IHHR1 := IHHR1 h' i eq_refl).
     assert (IHHR2 := IHHR2 y j eq_refl).
     eapply run_i_seq; eauto.
+  - intros h' i' Hx j' HE.
+    inversion Hx; subst; clear Hx.
+    assert (IHHR:=IHHR h' i eq_refl).
+    eapply run_i_ite_true; eauto.
+  - intros h' i' Hx j' HE.
+    inversion Hx; subst; clear Hx.
+    assert (IHHR:=IHHR h' j eq_refl).
+    
   - intros h' i' Hx j' HE.
     inversion Hx; subst; clear Hx.
     assert (IHHR := IHHR h' (Loop v l i) eq_refl).
