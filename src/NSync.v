@@ -501,63 +501,6 @@ Proof.
 Qed.
     
 
-Lemma equiv_one_run_r:
-  forall j i,
-  NSEquiv j i ->
-  forall x ht,
-    Run x ht ->
-    forall hs,
-      x = (hs, i) ->
-      Run (hs, j) ht.
-Proof.
-  intros j i HE.
-  induction HE.
-  -  intros x0 h0 HR h' Hx; inversion Hx; subst.
-     eapply IHHE in HR; eauto.
-     eapply run_seq; eauto.
-     apply run_skip.
-  -  intros x0 h0 HR h' Hx; inversion Hx; subst.
-     eapply IHHE in HR; eauto.
-     eapply run_seq; eauto.
-     apply run_skip.
-  -  intros x0 h0 HR h' Hx; inversion Hx; subst.
-     inversion HR; subst; clear HR.
-     inversion H4; subst; clear H4.
-     assert (IHHE1 := IHHE1 (h',x') y1 H6 h' eq_refl).
-     assert (IHHE2 := IHHE2 (y1,y') y0 H7 y1 eq_refl).
-     assert (IHHE3 := IHHE3 (y0,z') h0 H5 y0 eq_refl).
-     eapply run_seq; eauto.
-     eapply run_seq; eauto.
-  -  intros x0 h0 HR h' Hx; inversion Hx; subst.
-     assumption.
-  -  intros x0 h0 HR h' Hx; inversion Hx; subst.
-     inversion HR; subst; clear HR.
-     assert (IHHE1 := IHHE1 (h',x') y0 H4 h' eq_refl).
-     assert (IHHE2 := IHHE2 (y0,y') h0 H5 y0 eq_refl).
-     eapply run_seq; eauto.
-  - intros x0 h0 HR h' Hx; inversion Hx; subst.
-    inversion HR; subst; clear HR.
-    apply run_for with (l:=l0).
-    + assumption.
-    + assert  (HL: forall vs v hv hp, Run (hv, Loop v vs y) hp -> Run (hv, Loop v vs x) hp). {
-        intros vs.
-        induction vs.
-        * intros.
-          apply run_loop_nil.
-          inversion H0; subst.
-          assert (IHHE:=IHHE (hv, y) hp H7 hv eq_refl).
-          assumption.
-        * intros.
-          inversion H0; subst.
-          assert (IHvs := IHvs v y0 hp H10).
-          assert (IHHE := IHHE (hv, y) y0).
-          (* NEED TO define i_subst on histories somehow? *)
-          admit.
-      }
-      assert (HL := HL l0 l h' h0 H6).
-      assumption.
-  - intros. (*Use HL above *).
-          
     
 
 Lemma equiv_star_run:
@@ -571,5 +514,8 @@ Proof.
   induction HE.
   - intros. assumption.
   - intros hs x HR.
+    apply IHHE in HR.
     destruct H as [Hyz | Hzy].
-    + apply IHHE in HR.
+    + eapply equiv_one_run_l; eauto.
+    + eapply equiv_one_run_r; eauto.
+Qed.
