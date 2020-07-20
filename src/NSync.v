@@ -842,3 +842,48 @@ induction i; inversion HN; subst; inversion HM; auto; subst.
   apply in_sync_to_not_unsync in H0.
   subst. contradict H0. assumption.
 Qed.
+
+
+Fixpoint Merge  (i: option inst) (j: inst) :=
+match i with
+| None => j
+| (Some n) => Seq n j
+end.
+
+
+Lemma unsync_src_norm:
+  forall i j,
+    Normalised i j->
+    forall i1 i2,
+      j = (i1, i2) ->
+      forall h x,
+        Run (h, i) x ->    
+        Run (h, Merge i1 i2) x.
+Proof.
+  intros i j HN.
+  induction HN; intros ih1 ih2 Hi hh xh HR; inversion Hi; subst; clear Hi; simpl.
+  - assumption.
+  - assert (HEQ: NSEquiv (Seq Sync Skip) Sync ). {
+      apply equiv_unit_l.
+      apply equiv_eq.
+    }
+    eapply equiv_one_run_r; eauto.
+  - inversion HR; subst; clear HR.
+    assert (IHHN1 := IHHN1 (Some i1) i2 eq_refl hh y H3).
+    assert (IHHN2 := IHHN2 (Some j1) ih2 eq_refl y xh H4).
+    simpl in *.
+    inversion IHHN1; subst; clear IHHN1.
+    inversion IHHN2; subst; clear IHHN2.
+    eauto using run_seq.
+  - inversion HR; subst; clear HR.
+    assert (IHHN := IHHN (Some j1) ih2 eq_refl y xh H5).
+    inversion IHHN; subst; clear IHHN.
+    simpl in *.
+    eauto using run_seq.
+  - inversion HR; subst; clear HR.
+    assert (IHHN := IHHN (Some i1) i2 eq_refl hh y H4).
+    inversion IHHN; subst; clear IHHN.
+    simpl in *.
+    eauto using run_seq.
+  - 
+     
