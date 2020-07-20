@@ -17,7 +17,7 @@ Import MHistNotations.
 
 (* 
 
-  Abstraction to handle loops.
+  Abstraction to handle doubly-nested loops.
 
  *)
 
@@ -88,6 +88,50 @@ Section Defs.
     auto.
   Qed.
 
+  (* ----------------------- ITER2D ------------------------------ *)
+
+  Lemma iter_2d_seq:
+    forall x y i j p m1 m2 m3,
+    Iter2d x y i p m1 ->
+    Iter2d x y j p m2 ->
+    m3 == m1 * m2 ->
+    Iter2d x y (Seq i j) p m3.
+  Proof.
+    intros.
+    unfold Iter2d in *.
+    destruct p as (nx, ny).
+    simpl.
+    eapply f_run_seq; eauto.
+  Qed.
+
+  Lemma iter_2d_seq_eq:
+    forall x y i j p m1 m2,
+    Iter2d x y i p m1 ->
+    Iter2d x y j p m2 ->
+    Iter2d x y (Seq i j) p (m1 * m2).
+  Proof.
+    intros.
+    eapply iter_2d_seq; eauto.
+    reflexivity.
+  Qed.
+
+  Lemma map_iter2d_map2_prod:
+    forall ks vs1 vs2 x y i j,
+    Map (Iter2d x y i) ks vs1 ->
+    Map (Iter2d x y j) ks vs2 ->
+    Map (Iter2d x y (Seq i j)) ks (map2 Prod vs1 vs2).
+  Proof.
+    induction ks; intros. {
+      inversion H; subst.
+      rewrite map2_nil_l.
+      apply map_nil.
+    }
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0.
+    apply IHks with (vs1:=vs) (i:=i) in H8; eauto.
+    apply map_cons; auto using iter_2d_seq_eq.
+  Qed.
+
   (* ----------------------- INNER INVERSION --------------------- *)
 
   Lemma iter_2d_inv_seq:
@@ -139,7 +183,7 @@ Section Defs.
     auto using map_cons.
   Qed.
 
-  Lemma f_run_inv_decl_map_2d_inner_0:
+  Let f_run_inv_decl_map_2d_inner_0:
     forall ks x y i n m n1 n2,
     RangeList n1 n2 ks ->
     FRun
@@ -195,7 +239,7 @@ Section Defs.
     eapply f_run_inv_decl_map_2d_inner_0 in H; eauto.
   Qed.
 
-  Lemma f_run_inv_decl_map_2d_0:
+  Let f_run_inv_decl_map_2d_0:
     forall ks x y i n1 n2 m,
     RangeList n1 n2 ks ->
     x <> y ->
@@ -260,7 +304,7 @@ Section Defs.
 
   (* ----------------------- INNER CONSTRUCTION --------------------- *)
 
-  Lemma f_run_branch_map_2d_inner:
+  Let f_run_decl_map_2d_inner_0:
     forall ks vs x y i n n1 n2,
     RangeList n1 n2 ks ->
     Map (Iter2d x y i) (map (pair n) ks) vs ->
@@ -282,88 +326,44 @@ Section Defs.
     reflexivity.
   Qed.
 
-  Lemma f_run_decl_map_2d_inner:
+  Let f_run_decl_map_2d_inner:
     forall x y i n l,
     Map (Iter2d x y i) (range_list_2d_inner n) l ->
     FRun (Decl y (NNum 0, NNum n) (i_subst x (NNum n) i)) (summation l).
   Proof.
     intros.
-    eapply f_run_branch_map_2d_inner; eauto using range_list_spec.
+    eapply f_run_decl_map_2d_inner_0; eauto using range_list_spec.
   Qed.
 
-  Lemma f_run_inv_branch_map_2d:
-    forall ks x y i m,
-    FRun (Branch x ks (Decl y (NNum 0, NVar x) i)) m ->
-    x <> y ->
-    NoDup ks ->
-    exists l,
-    EEq m (summation l) /\
-    Map (Iter2d x y i) (flat_map range_list_2d_inner ks) l.
-  Proof.
-    induction ks; intros; inversion H; subst; clear H. {
-      exists [].
-      rewrite H5.
-      split. { reflexivity. }
-      simpl.
-      apply map_nil.
-    }
-    inversion H1; subst; clear H1.
-    apply IHks in H8; auto; clear IHks.
-    destruct H8 as (lm2, (R2, Hm2)).
-    simpl in H7.
-    destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
-    destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
-    apply f_run_inv_decl_map_2d_inner in H7.
-    destruct H7 as (lm1, (R3, Hm1)).
-    exists (lm1 ++ lm2).
-    split. {
-      repeat match goal with
-        H: _ == _ |- _ => rewrite H; clear H
-      end.
-      rewrite e_summation_app.
-      reflexivity.
-    }
-    remember (flat_map range_list_2d_inner (a :: ks)) as fl.
-    rewrite Heqfl.
-    simpl.
-    apply map_app; auto.
-    assert (R: range_list_2d_inner a ++ flat_map range_list_2d_inner ks
-      = fl). {
-      subst.
-      reflexivity.
-    }
-    rewrite R.
-    rewrite Heqfl.
-    auto using no_dup_flat_map_range_2d_inner, NoDup_cons.
-  Qed.
-
-  (* -------------------------- ... --------------------- *)
-
-  Lemma f_run_branch_map_2d:
-    forall ks x y i l,
+  Let f_run_decl_map_2d_0:
+    forall ks n1 n2 x y i l,
+    RangeList n1 n2 ks ->
     Map (Iter2d x y i) (flat_map range_list_2d_inner ks) l ->
     x <> y ->
-    FRun (Branch x ks (Decl y (NNum 0, NVar x) i)) (summation l).
+    x <> y ->
+    FRun (Decl x (NNum n1, NNum n2) (Decl y (NNum 0, NVar x) i))
+       (summation l).
   Proof.
     induction ks; intros. {
       simpl in *.
       inversion H; subst; clear H.
-      apply f_run_branch_nil.
+      eapply f_run_decl_nil; eauto using r_pred_eq, n_step_num.
+      inversion H0; subst; clear H0.
       reflexivity.
     }
     simpl in *.
-    apply map_inv_app in H.
-    destruct H as (l1', (l2', (?, (Hm1, Hm2)))).
+    apply map_inv_app in H0.
+    destruct H0 as (l1', (l2', (?, (Hm1, Hm2)))).
     subst.
-    apply IHks in Hm2.
-    eapply f_run_branch_cons; eauto.
+    inversion H; subst; clear H.
+    eapply IHks in Hm2; eauto.
+    eapply f_run_decl_cons with (m1:=summation l1'); eauto using n_step_num.
     - simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
-      apply f_run_decl_map_2d_inner; eauto.
+      auto using f_run_decl_map_2d_inner.
     - rewrite e_summation_app.
       reflexivity.
-    - assumption.
   Qed.
 
   Lemma f_run_decl_map_2d:
@@ -374,54 +374,7 @@ Section Defs.
       (summation l).
   Proof.
     intros.
-    apply f_run_decl with (l0:=range_list n1 n2).
-    - auto using r_step_range_list.
-    - unfold range_list_2d in H.
-      auto using f_run_branch_map_2d.
-  Qed.
-
-
-  Lemma iter_2d_seq:
-    forall x y i j p m1 m2 m3,
-    Iter2d x y i p m1 ->
-    Iter2d x y j p m2 ->
-    m3 == m1 * m2 ->
-    Iter2d x y (Seq i j) p m3.
-  Proof.
-    intros.
-    unfold Iter2d in *.
-    destruct p as (nx, ny).
-    simpl.
-    eapply f_run_seq; eauto.
-  Qed.
-
-  Lemma iter_2d_seq_eq:
-    forall x y i j p m1 m2,
-    Iter2d x y i p m1 ->
-    Iter2d x y j p m2 ->
-    Iter2d x y (Seq i j) p (m1 * m2).
-  Proof.
-    intros.
-    eapply iter_2d_seq; eauto.
-    reflexivity.
-  Qed.
-
-
-  Lemma map_iter2d_map2_prod:
-    forall ks vs1 vs2 x y i j,
-    Map (Iter2d x y i) ks vs1 ->
-    Map (Iter2d x y j) ks vs2 ->
-    Map (Iter2d x y (Seq i j)) ks (map2 Prod vs1 vs2).
-  Proof.
-    induction ks; intros. {
-      inversion H; subst.
-      rewrite map2_nil_l.
-      apply map_nil.
-    }
-    inversion H; subst; clear H.
-    inversion H0; subst; clear H0.
-    apply IHks with (vs1:=vs) (i:=i) in H8; eauto.
-    apply map_cons; auto using iter_2d_seq_eq.
+    eapply f_run_decl_map_2d_0; eauto using range_list_spec.
   Qed.
 
 End Defs.
