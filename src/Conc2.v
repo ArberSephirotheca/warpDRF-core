@@ -28,7 +28,6 @@ Section C1.
   | Seq: inst -> inst -> inst
   | MemAcc: access_exp -> inst
   | For : var -> range -> inst -> inst
-  (*| Loop : var -> list nat -> inst -> inst*)
   .
 
   Fixpoint i_subst x v i :=
@@ -40,9 +39,6 @@ Section C1.
   | For y r i =>
     let i' := if VAR.eq_dec x y then i else i_subst x v i in
     For y (r_subst x v r) i'
-(*  | Loop y r i =>
-    let i' := if VAR.eq_dec x y then i else i_subst x v i in
-    Loop y r i'*)
   end.
 
   Import Hist.
@@ -56,7 +52,6 @@ Section C1.
   | If b i j => BIn x b \/ In x i \/ In x j
   | Seq i j => In x i \/ In x j
   | For y r i => x = y \/ RIn x r \/ In x i
-  (*| Loop y l i => x = y \/ In x i*)
   end.
 
   Fixpoint Var x i :=
@@ -71,54 +66,8 @@ Section C1.
   | Skip | MemAcc _ => False
   | If _ i j | Seq i j => InRange x i \/ InRange x j
   | For _ r i => RIn x r \/ InRange x i
-(*  | Loop _ _ i => InRange x i*)
   end.
-(*
-  Lemma var_not_in_loop:
-    forall x y l i,
-    ~ Var x (Loop y l i) ->
-    x <> y /\ ~ Var x i.
-  Proof.
-    intros.
-    repeat split; intros N; subst; contradict H; simpl; auto.
-  Qed.
 
-  Lemma var_loop_to_for:
-    forall x y i l r,
-    Var x (Loop y l i) ->
-    Var x (For y r i).
-  Proof.
-    intros.
-    inversion H; subst; clear H; simpl; auto.
-  Qed.
-
-  Lemma in_loop_to_for:
-    forall x y i l r,
-    In x (Loop y l i) ->
-    In x (For y r i).
-  Proof.
-    intros.
-    inversion H; subst; clear H; simpl; auto.
-  Qed.
-
-  Lemma in_range_loop_to_for:
-    forall x y i l r,
-    InRange x (Loop y l i) ->
-    InRange x (For y r i).
-  Proof.
-    intros.
-    simpl in *; auto.
-  Qed.
-
-  Lemma var_loop_cons:
-    forall x y l i n,
-    Var x (Loop y l i) ->
-    Var x (Loop y (n :: l) i).
-  Proof.
-    intros.
-    inversion H; subst; clear H; simpl; auto.
-  Qed.
-*)
   Infix ";;" := Seq (at level 50).
 
   Lemma i_subst_seq:
@@ -149,11 +98,6 @@ Section C1.
       rewrite IHi.
       rewrite r_subst_subst_eq.
       reflexivity.
-(*    - destruct (Set_VAR.MF.eq_dec x v). {
-        reflexivity.
-      }
-      rewrite IHi.
-      reflexivity.*)
   Qed.
 
   Lemma i_subst_subst_neq:
@@ -183,20 +127,6 @@ Section C1.
       }
       rewrite IHi; auto.
       rewrite r_subst_subst_neq; auto.
-      (*
-    - destruct (Set_VAR.MF.eq_dec y v). {
-        destruct (Set_VAR.MF.eq_dec x v). {
-          subst.
-          contradiction.
-        }
-        subst.
-        reflexivity.
-      }
-      destruct (Set_VAR.MF.eq_dec x v). {
-        subst.
-        auto.
-      }
-      rewrite IHi; auto.*)
   Qed.
 
   Lemma var_subst_inv_1:
@@ -206,7 +136,6 @@ Section C1.
   Proof.
     induction i; simpl; intros; auto; destruct H; auto.
     - destruct (Set_VAR.MF.eq_dec x v); auto.
-(*    - destruct (Set_VAR.MF.eq_dec x v); auto.*)
   Qed.
 
   Lemma in_range_subst_inv_1:
@@ -219,18 +148,8 @@ Section C1.
       intros N.
       inversion N.
     - destruct (Set_VAR.MF.eq_dec x v); auto.
-(*    - destruct (Set_VAR.MF.eq_dec x v); auto.*)
   Qed.
-(*
-  Lemma in_range_loop_cons:
-    forall x y l i n,
-    InRange x (Loop y l i) ->
-    InRange x (Loop y (n :: l) i).
-  Proof.
-    intros.
-    auto.
-  Qed.
-*)
+
   Lemma in_subst_inv_1:
     forall y x n i,
     In y (i_subst x (NNum n) i) ->
@@ -249,23 +168,8 @@ Section C1.
         intros N.
         inversion N.
       + destruct (Set_VAR.MF.eq_dec x v); auto.
-(*    - destruct (Set_VAR.MF.eq_dec x v); auto.*)
   Qed.
-(*
-  Lemma var_iter_loop:
-    forall x y n i1 i2 l,
-    Var y (seq (i_subst x (NNum n) i1) i2) ->
-    Var y (Loop x l i1 i2).
-  Proof.
-    intros.
-    apply var_seq_inv in H.
-    destruct H as [N|N]. {
-      apply var_subst_inv_1 in N.
-      auto using var_loop_2.
-    }
-    auto using var_loop_3.
-  Qed.
-*)
+
   (** Parallelize an access for [n] tasks. *)
 
   Context `{T:Tasks}.
@@ -316,6 +220,37 @@ Section C1.
     RunAll n i h2 ->
     RunAll (S n) i (h1 ++ h2).
 
+  Inductive Run2 (n1 n2:nat): inst -> history -> history -> Prop :=
+  | run2_skip:
+    Run2 n1 n2 Skip [] []
+
+  | run2_access:
+    forall e v1 v2,
+    access_step (access_subst TID (NNum n1) e, NNum n1) v1 ->
+    access_step (access_subst TID (NNum n2) e, NNum n2) v2 ->
+    Run2 n1 n2 (MemAcc e) v1 v2
+
+  | run2_seq:
+    forall i j hi1 hj1 hi2 hj2,
+    Run2 n1 n2 i hi1 hi2 ->
+    Run2 n1 n2 j hj1 hj2 ->
+    Run2 n1 n2 (Seq i j) (hi1 ++ hj1) (hi2 ++ hj2)
+
+  | run2_if:
+    forall i j b b1 b2 hi1 hi2 hj1 hj2,
+    BStep (b_subst TID (NNum n1) b) b1 ->
+    BStep (b_subst TID (NNum n2) b) b2 ->
+    Run2 n1 n2 i hi1 hi2 ->
+    Run2 n1 n2 j hj1 hj2 ->
+    Run2 n1 n2 (If b i j) (if b1 then hi1 else hj1) (if b2 then hi2 else hj2)
+
+  | run2_for:
+    forall e1 e2 i x h1 h2,
+    Run2 n1 n2 (If (NRel NLt e1 e2)
+      (Seq (i_subst x e1 i) (For x (NBin NPlus (NNum 1) e1, e2) i))
+      Skip) h1 h2 ->
+    Run2 n1 n2 (For x (e1, e2) i) h1 h2.
+
   Lemma run_all_inv_in:
     forall n i h,
     RunAll n i h ->
@@ -337,53 +272,4 @@ Section C1.
       auto using incl_appr with *.
   Qed.
 
-(*
-  Inductive Value: state -> Prop :=
-  | value_def:
-    forall h,
-    Value (h, Skip).
-
-
-  Definition Safe (s:state) := let (h, _) := s in Hist.Safe h.
-*)
-(*
-  Lemma run_inv_loop:
-    forall x l i1 i2 h,
-    Run (Loop x l i1 i2) h ->
-    exists h1 h2, Run (Loop x l i1 Skip) h1 /\ Run i2 h2 /\ h = h1 ++ h2. 
-  Proof.
-    intros.
-    remember (Loop _ _ _ _).
-    generalize dependent x.
-    generalize dependent i1.
-    generalize dependent i2.
-    generalize dependent l.
-    induction H; intros; try inversion Heqi; subst; try clear Heqi. {
-      destruct (IHRun2 _ _ _ _ eq_refl) as (h3, (h4, (?, (?,?)))).
-      subst.
-      exists (h1 ++ h3).
-      exists h4.
-      rewrite app_assoc.
-      repeat split; auto.
-      constructor; auto.
-    }
-    exists [].
-    exists h.
-    split; auto.
-    constructor.
-    constructor.
-  Qed.
-
-  Lemma in_loop_cons:
-    forall x y l i j n,
-    In x (Loop y l i j) ->
-    In x (Loop y (n::l) i j).
-  Proof.
-    intros.
-    inversion H; subst; clear H.
-    - auto using in_loop_1.
-    - auto using in_loop_2.
-    - auto using in_loop_3.
-  Qed.
-  *)
 End C1.
