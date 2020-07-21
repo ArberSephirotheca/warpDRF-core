@@ -299,8 +299,6 @@ Section Defs.
     as e_eq_setoid.
 
 
-  Import Morphisms.
-
   Lemma e_in_to_e_pair_in:
     forall x m,
     EIn x m ->
@@ -352,6 +350,17 @@ Section Defs.
     auto.
   Qed.
 
+  Lemma e_in_nil:
+    forall x,
+    ~ EIn x (One []).
+  Proof.
+    unfold EIn.
+    intros.
+    simpl.
+    intros N.
+    assumption.
+  Qed.
+
   Lemma e_in_rw_eq:
     forall m1 m2,
     EEq m1 m2 ->
@@ -364,6 +373,28 @@ Section Defs.
     apply H in H0.
     eauto using e_pair_in_to_e_in_l.
   Qed.
+
+  Lemma one_of_sym:
+    forall p m1 m2,
+    one_of p m1 m2 ->
+    one_of p m2 m1.
+  Proof.
+    destruct p as (x, y).
+    induction m1; intros; simpl in *; intuition.
+  Qed.
+
+  Lemma to_mem_eq_rw:
+    forall m1 m2,
+    to_mem m1 = to_mem m2 ->
+    EEq m1 m2.
+  Proof.
+    intros.
+    apply e_eq_iff_m_equiv.
+    rewrite H.
+    reflexivity.
+  Qed.
+
+  Import Morphisms.
 
   Global Instance m_in_proper_1: Proper (eq ==> EEq ==> iff) EIn.
   Proof.
@@ -399,76 +430,7 @@ Section Defs.
     apply mem_equiv_prod; auto using to_mem_not_nil.
   Qed.
 
-  Lemma e_prod_plus_l:
-    forall e1 e2 e3,
-    EEq (Plus (Prod e1 e3) (Prod e2 e3)) (Prod (Plus e1 e2) e3).
-  Proof.
-    intros.
-    apply e_eq_iff_m_equiv.
-    simpl.
-    rewrite prod_app.
-    reflexivity.
-  Qed.
-
-  Lemma e_prod_one_plus_l:
-    forall l e1 e2,
-    EEq (Prod (One l) (Plus e1 e2)) (Plus (Prod (One l) e1) (Prod (One l) e2)).
-  Proof.
-    intros.
-    apply e_eq_iff_m_equiv.
-    simpl.
-    repeat rewrite app_nil_r.
-    rewrite prepend_app.
-    reflexivity.
-  Qed.
-
-  Lemma e_prod_plus_r:
-    forall e1 e2 e3,
-    EEq (Plus (Prod e1 e2) (Prod e1 e3)) (Prod e1 (Plus e2 e3)).
-  Proof.
-    split; intros.
-    - (* Because this is computational, p is the only thing that
-         is making evaluation stuck. Destruct it and evaluate it. *)
-      destruct p as (x, y); simpl in *.
-      (* If this is provable, then intuition can handle it. *)
-      intuition.
-    - destruct p as (x, y); simpl in *.
-      intuition.
-  Qed.
-
-  Lemma e_prod_nil_l:
-    forall m,
-    EEq (Prod (One []) m) m.
-  Proof.
-    intros.
-    apply e_eq_iff_m_equiv.
-    simpl.
-    rewrite app_nil_r.
-    rewrite prepend_nil_l.
-    reflexivity.
-  Qed.
-
-  Lemma e_prod_nil_r:
-    forall m,
-    EEq (Prod m (One [])) m.
-  Proof.
-    intros.
-    apply e_eq_iff_m_equiv.
-    simpl.
-    rewrite prod_nil_nil_r.
-    reflexivity.
-  Qed.
-
-  Lemma e_prod_assoc:
-    forall m1 m2 m3,
-    EEq (Prod (Prod m1 m2) m3) (Prod m1 (Prod m2 m3)).
-  Proof.
-    intros.
-    apply e_eq_iff_m_equiv.
-    simpl.
-    rewrite prod_assoc.
-    reflexivity.
-  Qed.
+  (* ----------------------- PLUS ---------------------------- *)
 
   Lemma e_plus_assoc:
     forall m1 m2 m3,
@@ -513,13 +475,73 @@ Section Defs.
     apply mem_equiv_app_sym.
   Qed.
 
-  Lemma one_of_sym:
-    forall p m1 m2,
-    one_of p m1 m2 ->
-    one_of p m2 m1.
+  Lemma e_plus_inv_nil:
+    forall e1 e2,
+    EEq (Plus e1 e2) (One []) ->
+    EEq e1 (One []) /\ EEq e2 (One []).
   Proof.
-    destruct p as (x, y).
-    induction m1; intros; simpl in *; intuition.
+    intros.
+    unfold EEq in *.
+    split. {
+      split; intros.
+      - apply H.
+        simpl; auto.
+      - simpl in *.
+        apply par_not_in_nil in H0.
+        contradiction.
+    }
+    split; intros.
+    - apply H.
+      simpl; auto.
+    - simpl in *.
+      apply par_not_in_nil in H0.
+      contradiction.
+  Qed.
+
+  Lemma e_plus_absorb_rw:
+    forall m,
+    EEq (Plus m m) m.
+  Proof.
+    intros.
+    apply e_eq_iff_m_equiv.
+    simpl.
+    apply mem_equiv_app_refl_rw.
+  Qed.
+
+  (* ----------------------- PROD ---------------------------- *)
+
+  Lemma e_prod_nil_l:
+    forall m,
+    EEq (Prod (One []) m) m.
+  Proof.
+    intros.
+    apply e_eq_iff_m_equiv.
+    simpl.
+    rewrite app_nil_r.
+    rewrite prepend_nil_l.
+    reflexivity.
+  Qed.
+
+  Lemma e_prod_nil_r:
+    forall m,
+    EEq (Prod m (One [])) m.
+  Proof.
+    intros.
+    apply e_eq_iff_m_equiv.
+    simpl.
+    rewrite prod_nil_nil_r.
+    reflexivity.
+  Qed.
+
+  Lemma e_prod_assoc:
+    forall m1 m2 m3,
+    EEq (Prod (Prod m1 m2) m3) (Prod m1 (Prod m2 m3)).
+  Proof.
+    intros.
+    apply e_eq_iff_m_equiv.
+    simpl.
+    rewrite prod_assoc.
+    reflexivity.
   Qed.
 
   Lemma e_prod_sym:
@@ -534,25 +556,43 @@ Section Defs.
       auto.
   Qed.
 
-  Lemma e_plus_absorb_rw:
-    forall m,
-    EEq (Plus m m) m.
+  (* ----------------------- PROD PLUS ----------------------- *)
+
+  Lemma e_prod_plus_l:
+    forall e1 e2 e3,
+    EEq (Plus (Prod e1 e3) (Prod e2 e3)) (Prod (Plus e1 e2) e3).
   Proof.
     intros.
     apply e_eq_iff_m_equiv.
     simpl.
-    apply mem_equiv_app_refl_rw.
+    rewrite prod_app.
+    reflexivity.
   Qed.
 
-  Lemma to_mem_eq_rw:
-    forall m1 m2,
-    to_mem m1 = to_mem m2 ->
-    EEq m1 m2.
+  Lemma e_prod_one_plus_l:
+    forall l e1 e2,
+    EEq (Prod (One l) (Plus e1 e2)) (Plus (Prod (One l) e1) (Prod (One l) e2)).
   Proof.
     intros.
     apply e_eq_iff_m_equiv.
-    rewrite H.
+    simpl.
+    repeat rewrite app_nil_r.
+    rewrite prepend_app.
     reflexivity.
+  Qed.
+
+  Lemma e_prod_plus_r:
+    forall e1 e2 e3,
+    EEq (Plus (Prod e1 e2) (Prod e1 e3)) (Prod e1 (Plus e2 e3)).
+  Proof.
+    split; intros.
+    - (* Because this is computational, p is the only thing that
+         is making evaluation stuck. Destruct it and evaluate it. *)
+      destruct p as (x, y); simpl in *.
+      (* If this is provable, then intuition can handle it. *)
+      intuition.
+    - destruct p as (x, y); simpl in *.
+      intuition.
   Qed.
 
   Lemma e_prod_plus_absorb_rw:
@@ -573,6 +613,28 @@ Section Defs.
     | [] => One []
     | x :: l => Plus x (summation l)
     end.
+
+  Lemma e_summation_nil_l:
+    forall vs1 vs2,
+    length vs1 = length vs2 ->
+    EEq (summation vs1) (One []) ->
+    EEq (summation (map2 Prod vs1 vs2)) (summation vs2).
+  Proof.
+    induction vs1; intros; destruct vs2; try (inversion H; fail). {
+      reflexivity.
+    }
+    inversion H; subst; clear H.
+    simpl in H0.
+    apply e_plus_inv_nil in H0.
+    destruct H0 as (Ha, Hb).
+    eapply IHvs1 in Hb; eauto.
+    rewrite map2_cons_rw.
+    simpl.
+    rewrite Hb.
+    rewrite Ha.
+    rewrite e_prod_nil_l.
+    reflexivity.
+  Qed.
 
   Lemma e_summation_repeat:
     forall m n,
@@ -599,17 +661,8 @@ Section Defs.
     apply e_summation_repeat.
     auto with *.
   Qed.
-
-  Lemma e_in_nil:
-    forall x,
-    ~ EIn x (One []).
-  Proof.
-    unfold EIn.
-    intros.
-    simpl.
-    intros N.
-    assumption.
-  Qed.
+  
+  (* -------------------- SUMMATION MEMBERSHIP ------------------- *)
 
   Lemma e_in_summation_map2_prod_or:
     forall x l1 l2,
@@ -721,29 +774,6 @@ Section Defs.
     split; auto using e_in_summation_map2_plus_or, e_in_summation_map2_plus_or_rev.
   Qed.
 
-  Lemma e_plus_inv_nil:
-    forall e1 e2,
-    EEq (Plus e1 e2) (One []) ->
-    EEq e1 (One []) /\ EEq e2 (One []).
-  Proof.
-    intros.
-    unfold EEq in *.
-    split. {
-      split; intros.
-      - apply H.
-        simpl; auto.
-      - simpl in *.
-        apply par_not_in_nil in H0.
-        contradiction.
-    }
-    split; intros.
-    - apply H.
-      simpl; auto.
-    - simpl in *.
-      apply par_not_in_nil in H0.
-      contradiction.
-  Qed.
-  
   (* ------------------- EEqList ----------------------------- *)
 
   Inductive EEqList : list mexp -> list mexp -> Prop :=
