@@ -1,11 +1,5 @@
 Require Import Coq.Lists.List.
-Require Import Coq.Strings.String.
-Require Import Coq.Relations.Relation_Definitions.
-Require Import Coq.Relations.Relation_Operators.
-Require Import Coq.Relations.Operators_Properties.
-Require Import Coq.funind.Recdef.
 
-Require Coq.Sets.Ensembles.
 Require Coq.omega.Omega.
 
 Require Conc2.
@@ -17,12 +11,14 @@ Require Import Exp.
 Require Import AccExp.
 Require Import Util.
 Require Import SymExec2.
+Require Import SymExecMRun.
 Require Import RangeList.
 Require Import SHCompiler2.
 Require Import Tasks.
 Require Import SetTh.
 Require Import InUtil.
 Require Import PairInUtil.
+Require Import MExp.
 Import ListNotations.
 Require SymHist.
 
@@ -286,16 +282,20 @@ Section Compiler.
 *)
 
   Lemma soundness_2:
-    forall i m x y h_x h_y nx ny,
-    Run (translate i) m ->
-    List.In x h_x ->
-    List.In y h_y ->
+    forall i hx hy nx ny,
+    Conc2.Run2 nx ny i hx hy ->
+    forall m x y,
+    FRun (translate i) m ->
+    List.In x hx ->
+    List.In y hy ->
     nx < TID_COUNT ->
     ny < TID_COUNT ->
-    Conc2.Run nx i h_x ->
-    Conc2.Run ny i h_y ->
-    MPairIn (x, y) m.
+    e_pair_in (x, y) m.
   Proof.
+    intros i hx hy nx ny H.
+    induction H; intros.
+    - contradiction.
+    - 
     induction i; intros.
     - inversion H4; subst; clear H4.
       contradiction.
