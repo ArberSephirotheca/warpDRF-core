@@ -33,16 +33,12 @@ Section Defs.
     ERun i m1 ->
     ERun j m2 ->
     ERun (Seq i j) (Prod m1 m2)
-  | e_run_if_true:
-    forall i j m b,
-    BStep b true ->
-    ERun i m ->
-    ERun (If b i j) m
-  | e_run_if_false:
-    forall i j m b,
-    BStep b false ->
-    ERun j m ->
-    ERun (If b i j) m
+  | e_run_if:
+    forall i j mi mj e b,
+    BStep e b ->
+    ERun i mi ->
+    ERun j mj ->
+    ERun (If e i j) (if b then mi else mj)
   | e_run_access:
     forall e v,
     access_inst_step e v ->
@@ -68,6 +64,30 @@ Section Defs.
     ERun (Decl x (e1, e2) i) (One [])
   .
 
+  Lemma e_run_if_true:
+    forall i j mi mj e,
+    BStep e true ->
+    ERun i mi ->
+    ERun j mj ->
+    ERun (If e i j) mi.
+  Proof.
+    intros.
+    eapply e_run_if with (i:=i) (j:=j) in H1; eauto.
+    assumption.
+  Qed.
+
+  Lemma e_run_if_false:
+    forall i j mi mj e,
+    BStep e false ->
+    ERun i mi ->
+    ERun j mj ->
+    ERun (If e i j) mj.
+  Proof.
+    intros.
+    eapply e_run_if with (i:=i) (j:=j) in H1; eauto.
+    assumption.
+  Qed.
+
   Lemma e_run_1:
     forall i e,
     ERun i e ->
@@ -78,12 +98,11 @@ Section Defs.
       eauto using
         run_skip,
         run_seq,
-        run_if_true,
-        run_if_false,
         run_access,
         run_decl_cons,
         run_decl_nil,
         run_fork.
+    destruct b; eauto using run_if_true, run_if_false.
   Qed.
 
 
@@ -105,10 +124,9 @@ Section Defs.
       split; eauto using e_run_seq.
       simpl.
       apply mem_equiv_prod; eauto using run_not_nil, to_mem_not_nil.
-    - destruct IHRun as (m, (Hr, R)).
-      eauto using e_run_if_true.
-    - destruct IHRun as (m, (Hr, R)).
-      eauto using e_run_if_false.
+    - destruct IHRun1 as (ei, (Hri, Ri)).
+      destruct IHRun2 as (ej, (Hrj, Rj)).
+      destruct b; eauto using e_run_if_true, e_run_if_false.
     - exists (One v).
       split; auto using e_run_access.
       reflexivity.
@@ -147,14 +165,12 @@ Section Defs.
     - inversion H1; subst; clear H1.
       erewrite IHERun1; eauto.
       erewrite IHERun2; eauto.
-    - erewrite IHERun; eauto.
-      inversion H1; subst; clear H1; auto.
-      assert (N: true = false) by eauto using b_step_fun.
-      inversion N.
-    - erewrite IHERun; eauto.
-      inversion H1; subst; clear H1; auto.
-      assert (N: true = false) by eauto using b_step_fun.
-      inversion N.
+    - inversion H2; subst; clear H2.
+      erewrite IHERun1; eauto.
+      erewrite IHERun2; eauto.
+      assert (b0 = b) by eauto using b_step_fun.
+      subst.
+      reflexivity.
     - inversion H0; subst; clear H0.
       assert (v0 = v) by eauto using access_inst_step_fun.
       subst.
@@ -195,16 +211,12 @@ Section Defs.
     FRun j m2 ->
     m3 == Prod m1 m2 ->
     FRun (Seq i j) m3
-  | f_run_if_true:
-    forall i j m b,
-    BStep b true ->
-    FRun i m ->
-    FRun (If b i j) m
-  | f_run_if_false:
-    forall i j m b,
-    BStep b false ->
-    FRun j m ->
-    FRun (If b i j) m
+  | f_run_if:
+    forall i j mi mj e b,
+    BStep e b ->
+    FRun i mi ->
+    FRun j mj ->
+    FRun (If e i j) (if b then mi else mj)
   | f_run_access:
     forall e v m,
     access_inst_step e v ->
@@ -232,8 +244,31 @@ Section Defs.
     n1 >= n2 ->
     m == One [] ->
     FRun (Decl x (e1, e2) i) m
-
   .
+
+  Lemma f_run_if_true:
+    forall i j mi mj e,
+    BStep e true ->
+    FRun i mi ->
+    FRun j mj ->
+    FRun (If e i j) mi.
+  Proof.
+    intros.
+    eapply f_run_if with (i:=i) (j:=j) in H1; eauto.
+    assumption.
+  Qed.
+
+  Lemma f_run_if_false:
+    forall i j mi mj e,
+    BStep e false ->
+    FRun i mi ->
+    FRun j mj ->
+    FRun (If e i j) mj.
+  Proof.
+    intros.
+    eapply f_run_if with (i:=i) (j:=j) in H1; eauto.
+    assumption.
+  Qed.
 
   Lemma f_run_to_e_run:
     forall i m,
@@ -248,12 +283,11 @@ Section Defs.
       rewrite H1; rewrite R1; rewrite R2.
       split. { reflexivity. }
       eauto using e_run_seq.
-    - destruct IHFRun as (m', (R, Hr)).
-      exists m'.
-      split; eauto using e_run_if_true.
-    - destruct IHFRun as (m', (R, Hr)).
-      exists m'.
-      split; eauto using e_run_if_false.
+    - destruct IHFRun1 as (mi', (Ri', Hri)).
+      destruct IHFRun2 as (mj', (Rj', Hrj)).
+      exists (if b then mi' else mj').
+      split; auto using e_run_if.
+      destruct b; auto.
     - eauto using e_run_access.
     - destruct IHFRun1 as (m1', (R1, Hr1)).
       destruct IHFRun2 as (m2', (R2, Hr2)).
@@ -286,13 +320,18 @@ Section Defs.
     induction H; intros;
     eauto using
       f_run_skip,
-      f_run_if_true,
-      f_run_if_false,
       f_run_decl_nil,
       f_run_access.
     - eapply f_run_seq; eauto.
       + apply IHERun1; reflexivity.
       + apply IHERun2; reflexivity.
+    - destruct b.
+      + eapply f_run_if_true; eauto.
+        eapply IHERun2; eauto.
+        reflexivity.
+      + eapply f_run_if_false; eauto.
+        eapply IHERun1; eauto.
+        reflexivity.
     - eapply f_run_fork; eauto.
       + apply IHERun1; auto.
         reflexivity.

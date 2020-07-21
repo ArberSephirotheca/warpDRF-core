@@ -14,7 +14,6 @@ Require Import Loc.
 Require Import Exp.
 Require Import AccExp.
 Require Import Util.
-Require Aniceto.Graphs.Graph.
 Require Conc.
 Require Import RangeList.
 Require Import SetTh.
@@ -79,7 +78,6 @@ Section Defs.
   | If: bexp -> inst -> inst -> inst
   | MemAcc: access_inst_type -> inst
   | Decl : var -> range -> inst -> inst
-(*  | Branch : var -> list nat -> inst -> inst*)
   | Fork : inst -> inst -> inst
   .
 
@@ -92,9 +90,6 @@ Section Defs.
     | Decl y r i =>
       let i' := if VAR.eq_dec x y then i else i_subst x v i in
       Decl y (r_subst x v r) i'
-(*    | Branch y r i =>
-      let i' := if VAR.eq_dec x y then i else i_subst x v i in
-      Branch y r i'*)
     | Fork i j => Fork (i_subst x v i) (i_subst x v j)
     end
   .
@@ -111,16 +106,12 @@ Section Defs.
     Run i hs1 ->
     Run j hs2 ->
     Run (Seq i j) (prod hs1 hs2)
-  | run_if_true:
-    forall b i j hs,
-    BStep b true ->
-    Run i hs ->
-    Run (If b i j) hs
-  | run_if_false:
-    forall b i j hs,
-    BStep b false ->
-    Run j hs ->
-    Run (If b i j) hs
+  | run_if:
+    forall e b i j hsi hsj,
+    BStep e b ->
+    Run i hsi ->
+    Run j hsj ->
+    Run (If e i j) (if b then hsi else hsj)
   | run_access:
     forall e v,
     access_inst_step e v ->
@@ -146,15 +137,28 @@ Section Defs.
     Run (Decl x (e1, e2) i) [[]]
   .
 
-  Lemma prod_inv_nil:
-    forall A hs1 hs2,
-    @prod A hs1 hs2 = [] ->
-    hs1 = [] \/ hs2 = [].
+  Lemma run_if_true:
+    forall e i j hi hj,
+    BStep e true ->
+    Run i hi ->
+    Run j hj ->
+    Run (If e i j) hi.
   Proof.
     intros.
-    destruct hs1. { auto. }
-    destruct hs2. { auto. }
-    inversion H.
+    eapply run_if with (i:=i) (j:=j) in H1; eauto.
+    assumption.
+  Qed.
+
+  Lemma run_if_false:
+    forall e i j hi hj,
+    BStep e false ->
+    Run i hi ->
+    Run j hj ->
+    Run (If e i j) hj.
+  Proof.
+    intros.
+    eapply run_if with (i:=i) (j:=j) in H1; eauto.
+    assumption.
   Qed.
 
   Lemma run_inv_nil:
@@ -168,8 +172,7 @@ Section Defs.
     - inversion Heql.
     - apply prod_inv_nil in Heql.
       destruct Heql; auto.
-    - contradiction.
-    - contradiction.
+    - destruct b; auto.
     - inversion Heql.
     - destruct hs1. { contradiction. }
       destruct hs2. { contradiction. }
@@ -178,10 +181,6 @@ Section Defs.
       destruct hs2. { contradiction. }
       inversion Heql.
     - inversion Heql.
-    (*
-    - destruct hs1. { contradiction. }
-      destruct hs2. { contradiction. }
-      inversion Heql.*)
   Qed.
 
   Lemma run_not_nil:
@@ -703,13 +702,6 @@ Section Defs.
       rewrite IHi; auto.
       rewrite r_subst_subst_eq.
       reflexivity.
-      (*
-    - destruct (Set_VAR.MF.eq_dec x v). {
-        subst.
-        reflexivity.
-      }
-      rewrite IHi.
-      reflexivity.*)
   Qed.
 
   Lemma i_subst_subst_neq:
@@ -739,15 +731,6 @@ Section Defs.
       }
       rewrite r_subst_subst_neq; auto.
       rewrite IHi; auto.
-      (*
-    - destruct (Set_VAR.MF.eq_dec y v). {
-        destruct (Set_VAR.MF.eq_dec x v); subst; reflexivity.
-      }
-      destruct (Set_VAR.MF.eq_dec x v). {
-        subst.
-        auto.
-      }
-      rewrite IHi; auto.*)
   Qed.
 
   Lemma i_subst_subst_neq_2:
@@ -776,16 +759,6 @@ Section Defs.
         reflexivity.
       }
       rewrite IHi; auto.
-      (*
-    - destruct (Set_VAR.MF.eq_dec x v). {
-        subst.
-        auto.
-      }
-      destruct (Set_VAR.MF.eq_dec z v). {
-        subst.
-        auto.
-      }
-      rewrite IHi; auto. *)
   Qed.
 
   (* ------------------------------- In ----------------------------- *)
@@ -797,7 +770,6 @@ Section Defs.
   | Seq i j => In x i \/ In x j
   | If b i j => BIn x b \/ In x i \/ In x j
   | Decl y r i => x = y \/ RIn x r \/ In x i 
-(*  | Branch y l i => x = y \/ In x i*)
   | Fork i j => In x i \/ In x j
   end.
 
@@ -818,35 +790,6 @@ Section Defs.
     intros.
     repeat split; intros N; contradict H; subst; simpl; auto.
   Qed.
-(*
-  Lemma not_in_branch:
-    forall x y r i,
-    ~ In x (Branch y r i) ->
-    x <> y /\ ~ In x i.
-  Proof.
-    intros.
-    repeat split; intros N; contradict H; subst; simpl; auto.
-  Qed.
-
-
-  Lemma in_branch_to_decl:
-    forall x y i l r,
-    In x (Branch y l i) ->
-    In x (Decl y r i).
-  Proof.
-    intros.
-    inversion H; subst; clear H; simpl; auto.
-  Qed.
-
-  Lemma in_branch_cons:
-    forall x y l i n,
-    In x (Branch y l i) ->
-    In x (Branch y (n::l) i).
-  Proof.
-    intros.
-    simpl; auto.
-  Qed.
-*)
 
   (* ------------------ i_subst + In ------------------------------ *)
 
@@ -890,11 +833,6 @@ Section Defs.
       }
       rewrite r_subst_not_in; auto.
       rewrite IHi; auto.
-      (*
-    - apply not_in_branch in H; auto.
-      destruct H as (H, H1).
-      destruct (Set_VAR.MF.eq_dec x v); try contradiction.
-      rewrite IHi; auto. *)
     - apply not_in_fork in H.
       destruct H.
       rewrite IHi1; auto.
@@ -926,15 +864,6 @@ Section Defs.
         rewrite i_subst_not_in; auto.
       }
       rewrite IHi; auto.
-      (*
-    - apply not_in_branch in H; auto.
-      destruct H as (H, H1).
-      destruct (Set_VAR.MF.eq_dec x v); try contradiction.
-      destruct (Set_VAR.MF.eq_dec y v). {
-        subst.
-        rewrite i_subst_not_in; auto.
-      }
-      rewrite IHi; auto. *)
     - apply not_in_fork in H.
       destruct H.
       rewrite IHi1; auto.
@@ -962,13 +891,6 @@ Section Defs.
           auto.
         }
         eauto.
-        (*
-    - destruct H as [H|H]; auto.
-      destruct (Set_VAR.MF.eq_dec y v). {
-        subst.
-        auto.
-      }
-      eauto.*)
     - destruct H; eauto.
   Qed.
 
@@ -1007,8 +929,6 @@ Section Defs.
         intros N.
         inversion N.
       + destruct (Set_VAR.MF.eq_dec x v); auto.
-(*    - destruct H; auto.
-      destruct (Set_VAR.MF.eq_dec x v); auto.*)
     - destruct H; auto.
   Qed.
 
@@ -1021,16 +941,6 @@ Section Defs.
   | Decl y _ i (* | Branch y _ i*) => x = y \/ Var x i
   end.
 
-(*
-  Lemma var_not_in_branch:
-    forall x y l i,
-    ~ Var x (Branch y l i) ->
-    x <> y /\ ~ Var x i.
-  Proof.
-    intros.
-    repeat split; intros N; subst; contradict H; simpl; auto.
-  Qed. *)
-
   Lemma var_not_in_fork:
     forall x i j,
     ~ Var x (Fork i j) ->
@@ -1042,24 +952,6 @@ Section Defs.
     contradict H;
     simpl; auto.
   Qed.
-(*
-  Lemma var_branch_to_decl:
-    forall x y i l r,
-    Var x (Branch y l i) ->
-    Var x (Decl y r i).
-  Proof.
-    intros.
-    inversion H; subst; clear H; simpl; auto.
-  Qed.
-
-  Lemma var_branch_cons:
-    forall x y l i n,
-    Var x (Branch y l i) ->
-    Var x (Branch y (n :: l) i).
-  Proof.
-    intros.
-    simpl in *; auto.
-  Qed.*)
 
   Lemma var_subst_inv_1:
     forall y x n i,
@@ -1071,21 +963,6 @@ Section Defs.
     destruct (Set_VAR.MF.eq_dec x v); auto.
   Qed.
 
-  (*
-  Lemma var_iter_branch:
-    forall x y n i1 i2 l,
-    Var y (seq (i_subst x (NNum n) i1) i2) ->
-    Var y (Branch x l i1 i2).
-  Proof.
-    intros.
-    apply var_seq_inv in H.
-    destruct H as [N|N]. {
-      apply var_subst_inv_1 in N.
-      auto using var_branch_l.
-    }
-    auto using var_branch_r.
-  Qed.
-  *)
   (* -------------------------------- InRange -------------------------- *)
 
   Fixpoint InRange x i :=
@@ -1093,18 +970,8 @@ Section Defs.
   | Skip | MemAcc _ => False
   | If _ i j | Seq i j | Fork i j => InRange x i \/ InRange x j
   | Decl _ r i => RIn x r \/ InRange x i
-(*  | Branch _ _ i => InRange x i *)
   end.
-(*
-  Lemma in_range_branch_to_decl:
-    forall x y i l r,
-    InRange x (Branch y l i) ->
-    InRange x (Decl y r i).
-  Proof.
-    intros.
-    simpl; auto.
-  Qed.
-*)
+
   Lemma in_range_inv_subst_1:
     forall y x n i,
     InRange y (i_subst x (NNum n) i) ->
@@ -1116,18 +983,7 @@ Section Defs.
       inversion N.
     - destruct (Set_VAR.MF.eq_dec x v);
       auto.
-(*    - destruct (Set_VAR.MF.eq_dec x v);
-      auto. *)
   Qed.
-(*
-  Lemma in_range_branch_cons:
-    forall x y l i n,
-    InRange x (Branch y l i) ->
-    InRange x (Branch y (n :: l) i).
-  Proof.
-    intros.
-    simpl; auto.
-  Qed.*)
 
   Lemma not_in_range_fork:
     forall x i j,

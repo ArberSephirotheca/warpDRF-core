@@ -185,16 +185,12 @@ Section C1.
     Run n i h1 ->
     Run n j h2 ->
     Run n (Seq i j) (h1 ++ h2)
-  | run_if_true:
-    forall i j b h,
-    BStep b true ->
-    Run n i h ->
-    Run n (If b i j) h
-  | run_if_false:
-    forall i j b h,
-    BStep b false ->
-    Run n j h ->
-    Run n (If b i j) h
+  | run_if:
+    forall i j e b hi hj,
+    BStep e b ->
+    Run n i hi ->
+    Run n j hj ->
+    Run n (If e i j) (if b then hi else hj)
   | run_for_cons:
     forall e1 e2 n1 n2 i x h1 h2,
     NStep e1 n1 ->
@@ -209,6 +205,30 @@ Section C1.
     NStep e2 n2 ->
     n1 >= n2 ->
     Run n (For x (e1, e2) i) [].
+
+  Lemma run_if_true:
+    forall e n i j hi hj,
+    BStep e true ->
+    Run n i hi ->
+    Run n j hj ->
+    Run n (If e i j) hi.
+  Proof.
+    intros.
+    eapply run_if with (i:=i) (j:=j) in H1; eauto.
+    assumption.
+  Qed.
+
+  Lemma run_if_false:
+    forall e n i j hi hj,
+    BStep e false ->
+    Run n i hi ->
+    Run n j hj ->
+    Run n (If e i j) hj.
+  Proof.
+    intros.
+    eapply run_if with (i:=i) (j:=j) in H1; eauto.
+    assumption.
+  Qed.
 
   Inductive RunAll : nat -> inst -> history -> Prop :=
   | run_all_zero:
