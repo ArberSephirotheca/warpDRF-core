@@ -6,11 +6,9 @@ Require Import RangeList.
 Require Import AccExp.
 Require Import Exp.
 Require Import MExp.
-Require Import MultiHist.
 Require Import SymExec2.
 Require Import SymExecMRun.
-Require Import SymExecEq.
-Require Import SymExecMap.
+
 Import ListNotations.
 Import MHistNotations.
 
