@@ -279,6 +279,17 @@ Section Ops.
     inversion N.
   Qed.
 
+  Lemma prod_inv_nil:
+    forall A hs1 hs2,
+    @prod A hs1 hs2 = [] ->
+    hs1 = [] \/ hs2 = [].
+  Proof.
+    intros.
+    destruct hs1. { auto. }
+    destruct hs2. { auto. }
+    inversion H.
+  Qed.
+
   Lemma prod_inv_not_nil:
     forall A m1 m2,
     @prod A m1 m2 <> [] ->

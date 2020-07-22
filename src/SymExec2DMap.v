@@ -4,7 +4,8 @@ Require Import Var.
 Require Import Util.
 Require Import RangeList.
 Require Import AccExp.
-Require Import Exp.
+Require Import NExp.
+Require Import BExp.
 Require Import MExp.
 Require Import SymExec2.
 Require Import SymExecMRun.

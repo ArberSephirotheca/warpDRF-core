@@ -1,4 +1,5 @@
-Require Import Exp.
+Require Import NExp.
+Require Import BExp.
 Require Import Coq.Lists.List.
 Require Import AccExp.
 Require Import Loc.
@@ -154,7 +155,7 @@ Module OneDim.
   Proof.
     intros.
     unfold subst.
-    apply Exp.n_subst_subst_eq.
+    apply NExp.n_subst_subst_eq.
   Qed.
 
   Lemma subst_subst_neq:
@@ -165,7 +166,7 @@ Module OneDim.
   Proof.
     unfold subst.
     intros.
-    auto using Exp.n_subst_subst_neq.
+    auto using NExp.n_subst_subst_neq.
   Qed.
 
   Lemma subst_subst_neq_2:
@@ -178,7 +179,7 @@ Module OneDim.
   Proof.
     unfold subst.
     intros.
-    auto using Exp.n_subst_subst_neq_2.
+    auto using NExp.n_subst_subst_neq_2.
   Qed.
   (*
     forall x n b,

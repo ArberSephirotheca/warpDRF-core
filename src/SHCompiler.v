@@ -10,7 +10,8 @@ Require Omega.
 Require Import Var.
 Require Import Tid.
 Require Import Loc.
-Require Import Exp.
+Require Import NExp.
+Require Import BExp.
 Require Import AccExp.
 Require Import Util.
 Require Aniceto.Graphs.Graph.

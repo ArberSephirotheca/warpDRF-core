@@ -11,10 +11,10 @@ Require Omega.
 Require Import Var.
 Require Import Tid.
 Require Import Loc.
-Require Import Exp.
+Require Import NExp.
+Require Import BExp.
 Require Import AccExp.
 Require Import Util.
-Require Aniceto.Graphs.Graph.
 Require Import Tasks.
 Require Hist.
 
@@ -191,6 +191,18 @@ Section C1.
     Run n i hi ->
     Run n j hj ->
     Run n (If e i j) (if b then hi else hj)
+  
+  | run_for:
+    forall x e1 e2 i h,
+    Run n
+      (If
+        (NRel NLt e1 e2)
+        (Seq
+          (i_subst x e1 i)
+          (For x (NBin NPlus (NNum 1) e1, e2) i))
+        Skip) h ->
+    Run n (For x (e1, e2) i) h
+(*
   | run_for_cons:
     forall e1 e2 n1 n2 i x h1 h2,
     NStep e1 n1 ->
@@ -204,7 +216,9 @@ Section C1.
     NStep e1 n1 ->
     NStep e2 n2 ->
     n1 >= n2 ->
-    Run n (For x (e1, e2) i) [].
+    Run n (For x (e1, e2) i) []
+    *)
+  .
 
   Lemma run_if_true:
     forall e n i j hi hj,
@@ -230,6 +244,58 @@ Section C1.
     assumption.
   Qed.
 
+  Definition REq i1 i2 :=
+   forall n h,
+   Run n i1 h <-> Run n i2 h.
+
+  Lemma r_eq_proper_1:
+    forall e n v v' x h,
+    NEq v v' ->
+    Run n (i_subst x v e) h ->
+    Run n (i_subst x v' e) h.
+  Proof.
+    induction e; simpl; intros.
+    - assumption.
+    - inversion H0; subst; clear H0.
+      rewrite H in H4.
+      eauto using run_if.
+    - inversion H0; subst; clear H0; eauto using run_seq.
+    - inversion H0; subst; clear H0.
+  Qed.
+
+  Import Morphisms.
+  Global Instance r_eq_proper_1: Proper (eq ==> NEq ==> eq ==> REq) i_subst.
+  Proof.
+    unfold Proper, respectful.
+    split; intros; subst.
+    + rename x0 into v.
+      rename y0 into v'.
+  Qed.
+
+  Lemma run_for_cons:
+    forall n e1 e2 n1 n2 i x h1 h2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    Run n (i_subst x (NNum n1) i) h1 ->
+    Run n (For x (NNum (S n1), NNum n2) i) h2 ->
+    Run n (For x (e1, e2) i) (h1 ++ h2).
+  Proof.
+    intros.
+    apply run_for.
+    eapply run_if_true; eauto using run_skip.
+    - eapply b_step_lt; eauto.
+    - apply run_seq.
+      + clear H1 H3. clear H0. 
+  Qed.
+(*
+  | run_for_nil:
+    forall x i e1 e2 n1 n2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 >= n2 ->
+    Run n (For x (e1, e2) i) []
+*)
   Inductive RunAll : nat -> inst -> history -> Prop :=
   | run_all_zero:
     forall i,

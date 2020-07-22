@@ -1,7 +1,8 @@
 Require Import Coq.Lists.List.
 
 Require Import AccExp.
-Require Import Exp.
+Require Import NExp.
+Require Import BExp.
 Require Import InUtil.
 Require Import PairInUtil.
 Require Import Util.

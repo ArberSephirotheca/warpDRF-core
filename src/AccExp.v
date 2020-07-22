@@ -1,6 +1,7 @@
 Require Import Coq.Lists.List.
 
-Require Import Exp.
+Require Import NExp.
+Require Import BExp.
 Require Import Var.
 
 Class Access := {

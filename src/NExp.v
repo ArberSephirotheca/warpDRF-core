@@ -18,36 +18,6 @@ Section Defs.
   | NVar : var -> nexp
   | NBin : nbin ->  nexp -> nexp -> nexp.
 
-  Definition add := NBin NPlus.
-  Definition sub := NBin NMinus.
-  Definition mul := NBin NMult.
-  Definition div := NBin NDiv.
-  Definition mod := NBin NMod.
-
-  Inductive nrel := NEq | NLe | NLt.
-
-  Inductive brel := BOr | BAnd.
-
-  Inductive bexp :=
-  | BBool: bool -> bexp
-  | NRel : nrel -> nexp -> nexp -> bexp
-  | BRel : brel -> bexp -> bexp -> bexp
-  | BNot : bexp -> bexp.
-
-  Definition b_and := BRel BAnd.
-  Definition b_or := BRel BOr.
-  Definition n_lt := NRel NLt.
-  Definition n_le := NRel NLe.
-  Definition n_eq := NRel NEq.
-
-  Inductive mode := R | W.
-
-  Definition mode_eqb m1 m2 :=
-  match m1, m2 with
-  | R, R | W, W => true
-  | _, _ => false
-  end.
-
   Definition range := (nexp * nexp) % type.
 
 End Defs.
@@ -73,48 +43,6 @@ Section SO.
     NStep e2 n2 ->
     NStep (NBin o e1 e2) (eval_nbin o n1 n2). 
 
-  Inductive IStep: list nexp -> list nat -> Prop :=
-  | i_step_nil:
-    IStep [] []
-  | i_step_cons:
-    forall i l e n,
-    IStep i l ->
-    NStep e n ->
-    IStep (e::i) (n::l).
-
-  Definition eval_nrel (o:nrel) :=
-  match o with
-  | NEq => Nat.eqb
-  | NLt => Nat.ltb
-  | NLe => Nat.leb
-  end.
-
-  Definition eval_brel (o:brel) :=
-  match o with
-  | BOr => orb
-  | BAnd => andb
-  end.
-
-  Inductive BStep: bexp -> bool -> Prop :=
-  | b_step_bool:
-    forall b,
-    BStep (BBool b) b
-  | b_step_nrel:
-    forall e1 e2 n1 n2 o,
-    NStep e1 n1 ->
-    NStep e2 n2 ->
-    BStep (NRel o e1 e2) (eval_nrel o n1 n2)
-  | b_step_brel:
-    forall e1 e2 b1 b2 o,
-    BStep e1 b1 ->
-    BStep e2 b2 ->
-    BStep (BRel o e1 e2) (eval_brel o b1 b2)
-  | b_step_not:
-    forall e b,
-    BStep e b ->
-    BStep (BNot e) (negb b).
-
-
   Inductive RStep: range -> list nat -> Prop :=
   | r_step_def:
     forall e1 e2 n1 n2 l,
@@ -122,23 +50,6 @@ Section SO.
     NStep e2 n2 ->
     RangeList n1 n2 l ->
     RStep (e1, e2) l.
-
-  Inductive RPred (P:nat -> nat -> Prop): range -> Prop :=
-  | r_pred_def:
-    forall e1 e2 n1 n2,
-    NStep e1 n1 ->
-    NStep e2 n2 ->
-    P n1 n2 ->
-    RPred P (e1, e2).
-
-  Lemma r_pred_eq:
-    forall (P: nat -> nat -> Prop) n1 n2,
-    P n1 n2 ->
-    RPred P (NNum n1, NNum n2).
-  Proof.
-    intros.
-    eapply r_pred_def; eauto using n_step_num.
-  Qed.
 
   Fixpoint n_subst x v e :=
   match e with
@@ -170,47 +81,6 @@ Section SO.
       exists (eval_nbin n ma1 ma2).
       constructor; auto.
   Qed.
-
-  Fixpoint b_subst x v e :=
-  match e with
-  | NRel o e1 e2 => NRel o (n_subst x v e1) (n_subst x v e2)
-  | BRel o e1 e2 => BRel o (b_subst x v e1) (b_subst x v e2)
-  | BNot b => BNot (b_subst x v b)
-  | BBool b => BBool b
-  end.
-
-  Lemma b_step_subst_next:
-    forall x e n b1,
-    BStep (b_subst x (NNum n) e) b1 ->
-    forall m, exists b2, BStep (b_subst x (NNum m) e) b2.
-  Proof.
-    induction e; intros; inversion H; subst; clear H; simpl.
-    - exists b1.
-      constructor.
-    - apply n_step_subst_next with (m1:=m) in H4.
-      apply n_step_subst_next with (m1:=m) in H5.
-      destruct H4 as (ma, Ha).
-      destruct H5 as (mb, Hb).
-      exists (eval_nrel n ma mb).
-      constructor; auto.
-    - apply IHe1 with (m:=m) in H4.
-      apply IHe2 with (m:=m) in H5.
-      destruct H4 as (ba, Ha).
-      destruct H5 as (bb, Hb).
-      exists (eval_brel b ba bb).
-      constructor; auto.
-    - apply IHe with (m:=m) in H1.
-      destruct H1 as (b1, Hb).
-      exists (negb b1).
-      constructor.
-      assumption.
-  Qed.
-
-  Fixpoint i_subst x v l :=
-  match l with
-  | [] => []
-  | n :: l => n_subst x v n :: i_subst x v l
-  end.
 
   Definition r_subst x v (r:range) :=
   let (n1, n2) := r in
@@ -319,70 +189,6 @@ Section SO.
     reflexivity.
   Qed.
 
-  Fixpoint b_step (e:bexp) :=
-  match e with
-  | BBool b => Some b
-  | NRel o e1 e2 =>
-    match n_step e1, n_step e2 with
-    | Some n1, Some n2 => Some (eval_nrel o n1 n2)
-    | _, _ => None
-    end
-  | BRel o e1 e2 =>
-    match b_step e1, b_step e2 with
-    | Some b1, Some b2 => Some (eval_brel o b1 b2)
-    | _, _ => None
-    end
-  | BNot e =>
-    match b_step e with
-    | Some b => Some (negb b)
-    | None => None
-    end
-  end.
-
-  Lemma b_step_to_prop:
-    forall e b,
-    b_step e = Some b ->
-    BStep e b.
-  Proof.
-    induction e; intros; simpl in *.
-    - inversion H; subst; clear H.
-      auto using b_step_bool.
-    - destruct (n_step n0) eqn:He1. {
-        destruct (n_step n1) eqn:He2; inversion H; subst; clear H.
-        auto using n_step_to_prop, b_step_nrel.
-      }
-      inversion H.
-    - destruct (b_step e1) eqn:He1. {
-        destruct (b_step e2) eqn:He2; inversion H; subst; clear H.
-        auto using b_step_brel.
-      }
-      inversion H.
-    - destruct (b_step e) eqn:He1; inversion H.
-      auto using b_step_not.
-  Qed.
-
-  Lemma prop_to_b_step:
-    forall e b,
-    BStep e b ->
-    b_step e = Some b.
-  Proof.
-    induction e; intros; inversion H; subst; clear H; simpl.
-    - reflexivity.
-    - apply prop_to_n_step in H4.
-      apply prop_to_n_step in H5.
-      rewrite H4.
-      rewrite H5.
-      reflexivity.
-    - apply IHe1 in H4.
-      apply IHe2 in H5.
-      rewrite H4.
-      rewrite H5.
-      reflexivity.
-    - apply IHe in H1.
-      rewrite H1.
-      reflexivity.
-  Qed.
-
   Lemma r_step_fun:
     forall r n1 n2,
     RStep r n1 ->
@@ -473,7 +279,7 @@ Section SO.
   Qed.
 
   Lemma add_inv_n_0:
-    forall n1 n2, NStep (add (NNum n1) (NNum 0)) n2 ->
+    forall n1 n2, NStep (NBin NPlus (NNum n1) (NNum 0)) n2 ->
     n1 = n2.
   Proof.
     intros.
@@ -501,7 +307,7 @@ Section SO.
     forall n1 n2 e1 e2,
     NStep e1 n1 ->
     NStep e2 n2 ->
-    NStep (add e1 e2) (n1 + n2).
+    NStep (NBin NPlus e1 e2) (n1 + n2).
   Proof.
     apply n_step_plus.
   Qed.
@@ -527,7 +333,7 @@ Section SO.
 
   Lemma n_step_add_num:
     forall n1 n2,
-    NStep (add (NNum n1) (NNum n2)) (n1 + n2).
+    NStep (NBin NPlus (NNum n1) (NNum n2)) (n1 + n2).
   Proof.
     apply n_step_plus_num.
   Qed.
@@ -547,14 +353,14 @@ Section SO.
 
   Lemma n_step_inv_add_num:
     forall n1 n2 n3,
-    NStep (add (NNum n1) (NNum n2)) n3 ->
+    NStep (NBin NPlus (NNum n1) (NNum n2)) n3 ->
     n3 = n1 + n2.
   Proof.
     auto using n_step_inv_plus_num. 
   Qed.
 
   Lemma n_step_add_n_0:
-    forall n, NStep (add (NNum n) (NNum 0)) n.
+    forall n, NStep (NBin NPlus (NNum n) (NNum 0)) n.
   Proof.
     intros.
     rewrite <- PeanoNat.Nat.add_0_r.
@@ -563,7 +369,7 @@ Section SO.
 
   Lemma n_step_inv_add_n_0:
     forall n1 n2,
-    NStep (add (NNum n1) (NNum 0)) n2 ->
+    NStep (NBin NPlus (NNum n1) (NNum 0)) n2 ->
     n1 = n2.
   Proof.
     intros.
@@ -573,32 +379,18 @@ Section SO.
 
   Lemma n_step_add_0_n:
     forall e1 e2 n,
-    NStep (add e1 e2) n ->
-    NStep (add e1 (add (NNum 0) e2)) n.
+    NStep (NBin NPlus e1 e2) n ->
+    NStep (NBin NPlus e1 (NBin NPlus (NNum 0) e2)) n.
   Proof.
     intros.
     inversion H; subst.
     simpl in *.
     apply n_step_add; auto.
-    assert (NStep (add (NNum 0) e2) (0 + n2)). {
+    assert (NStep (NBin NPlus (NNum 0) e2) (0 + n2)). {
       apply n_step_add; auto using n_step_num.
     }
     simpl in *.
     assumption.
-  Qed.
-
-  Lemma b_step_fun:
-    forall e b1 b2,
-    BStep e b1 ->
-    BStep e b2 ->
-    b1 = b2.
-  Proof.
-    intros.
-    apply prop_to_b_step in H.
-    apply prop_to_b_step in H0.
-    rewrite H in *.
-    inversion H0.
-    reflexivity.
   Qed.
 
   Inductive NIn (x: var): nexp -> Prop :=
@@ -613,27 +405,6 @@ Section SO.
     NIn x n2 ->
     NIn x (NBin o n1 n2).
 
-  Inductive BIn (x: var): bexp -> Prop :=
-  | b_in_n_rel_l:
-    forall o n1 n2,
-    NIn x n1 ->
-    BIn x (NRel o n1 n2)
-  | b_in_n_rel_r:
-    forall o n1 n2,
-    NIn x n2 ->
-    BIn x (NRel o n1 n2)
-  | b_in_b_rel_l:
-    forall o b1 b2,
-    BIn x b1 ->
-    BIn x (BRel o b1 b2)
-  | b_in_b_rel_r:
-    forall o b1 b2,
-    BIn x b2 ->
-    BIn x (BRel o b1 b2)
-  | b_in_not:
-    forall b,
-    BIn x b ->
-    BIn x (BNot b).
 
   Lemma not_n_in_bin_l:
     forall x o n1 n2,
@@ -695,52 +466,6 @@ Section SO.
       rewrite Ha.
       rewrite Hb.
       reflexivity.
-  Qed.
-
-  Lemma not_in_n_rel:
-    forall x o n1 n2,
-    ~ BIn x (NRel o n1 n2) ->
-    ~ NIn x n1 /\ ~ NIn x n2.
-  Proof.
-    intros.
-    split; intros N; contradict H; auto using b_in_n_rel_l, b_in_n_rel_r.
-  Qed.
-
-  Lemma not_in_b_rel:
-    forall x o b1 b2,
-    ~ BIn x (BRel o b1 b2) ->
-    ~ BIn x b1 /\ ~ BIn x b2.
-  Proof.
-    intros.
-    repeat split; intros N; contradict H; auto using b_in_b_rel_l, b_in_b_rel_r.
-  Qed.
-
-  Lemma not_in_not:
-    forall x b,
-    ~ BIn x (BNot b) ->
-    ~ BIn x b.
-  Proof.
-    intros.
-    intros N; contradict H; auto using b_in_not.
-  Qed.
-
-  Lemma b_subst_not_in:
-    forall x v b,
-    ~ BIn x b ->
-    b_subst x v b = b.
-  Proof.
-    induction b; simpl; intros.
-    - reflexivity.
-    - apply not_in_n_rel in H.
-      destruct H.
-      rewrite n_subst_not_in; auto.
-      rewrite n_subst_not_in; auto.
-    - apply not_in_b_rel in H.
-      destruct H.
-      rewrite IHb1; auto.
-      rewrite IHb2; auto.
-    - apply not_in_not in H.
-      rewrite IHb; auto.
   Qed.
 
   Lemma n_subst_to_not_in:
@@ -816,23 +541,6 @@ Section SO.
     - simpl.
       rewrite IHe1; auto.
       rewrite IHe2; auto.
-  Qed.
-
-  Lemma b_subst_subst_neq_2:
-    forall x y z n e,
-    y <> z ->
-    x <> z ->
-    b_subst x (NVar y) (b_subst z (NNum n) e)
-    =
-    b_subst z (NNum n) (b_subst x (NVar y) e).
-  Proof.
-    induction e; intros; simpl.
-    - reflexivity.
-    - rewrite n_subst_subst_neq_2; auto.
-      rewrite n_subst_subst_neq_2; auto.
-    - rewrite IHe1; auto.
-      rewrite IHe2; auto.
-    - rewrite IHe; auto.
   Qed.
 
   Lemma r_subst_subst_neq_2:
@@ -1001,96 +709,6 @@ Section SO.
       + apply IHe2 in H2; auto using n_in_bin_r.
   Qed.
 
-  Lemma in_b_subst_neq:
-    forall e x y v,
-    BIn x (b_subst y v e) ->
-    ~ NIn x v ->
-    BIn x e.
-  Proof.
-    induction e; simpl; intros; inversion H; subst; rename H into N.
-    - apply in_n_subst_neq in H2; auto using b_in_n_rel_l.
-    - apply in_n_subst_neq in H2; auto using b_in_n_rel_r.
-    - apply IHe1 in H2; auto using b_in_b_rel_l.
-    - apply IHe2 in H2; auto using b_in_b_rel_r.
-    - apply IHe in H2; auto using b_in_not.
-  Qed.
-
-  Lemma not_in_n_bin_n_rel:
-    forall o n1 n2 x,
-    ~ BIn x (NRel o n1 n2) ->
-    ~ NIn x n1 /\ ~ NIn x n2.
-  Proof.
-    intros.
-    split; contradict H; auto using b_in_n_rel_l, b_in_n_rel_r.
-  Qed.
-
-  Lemma not_in_n_bin_b_rel:
-    forall o b1 b2 x,
-    ~ BIn x (BRel o b1 b2) ->
-    ~ BIn x b1 /\ ~ BIn x b2.
-  Proof.
-    intros.
-    split; contradict H; auto using b_in_b_rel_l, b_in_b_rel_r.
-  Qed.
-
-  Lemma b_subst_subst_trans:
-    forall e x v y,
-    ~ BIn x e ->
-    b_subst x v (b_subst y (NVar x) e) = b_subst y v e.
-  Proof.
-    induction e; simpl; intros.
-    - reflexivity.
-    - apply not_in_n_bin_n_rel in H.
-      destruct H.
-      rewrite n_subst_subst_trans; auto.
-      rewrite n_subst_subst_trans; auto.
-    - apply not_in_n_bin_b_rel in H.
-      destruct H.
-      rewrite IHe1; auto.
-      rewrite IHe2; auto.
-    - apply not_in_not in H.
-      rewrite IHe; auto.
-  Qed.
-
-  Lemma b_subst_subst_eq:
-    forall x n1 n2 b,
-    b_subst x (NNum n1) (b_subst x (NNum n2) b) = b_subst x (NNum n2) b.
-  Proof.
-    induction b; simpl.
-    - reflexivity.
-    - repeat rewrite n_subst_subst_eq.
-      reflexivity.
-    - rewrite IHb2.
-      rewrite IHb1.
-      reflexivity.
-    - rewrite IHb.
-      reflexivity.
-  Qed.
-
-  Lemma b_subst_subst_neq:
-    forall x y n1 n2 b,
-    x <> y ->
-    b_subst x (NNum n1) (b_subst y (NNum n2) b) =
-    b_subst y (NNum n2) (b_subst x (NNum n1) b).
-  Proof.
-    induction b; simpl; intros.
-    - reflexivity.
-    - remember (n_subst x _ _) as a.
-      symmetry in Heqa.
-      remember (n_subst y _ (n_subst _ _ n3)) as b.
-      symmetry in Heqb.
-      rewrite n_subst_subst_neq in Heqa; auto.
-      rewrite n_subst_subst_neq in Heqb; auto.
-      subst.
-      reflexivity.
-    - assert (IHb1 := IHb1 H).
-      assert (IHb2 := IHb2 H).
-      rewrite IHb1.
-      rewrite IHb2.
-      reflexivity.
-    - rewrite IHb; auto.
-  Qed.
-
   Lemma r_subst_subst_eq:
     forall x n1 n2 r,
     r_subst x (NNum n1) (r_subst x (NNum n2) r) = r_subst x (NNum n2) r.
@@ -1234,75 +852,108 @@ Section SO.
     - apply n_in_subst_eq in H2; auto using r_in_r.
   Qed.
 
-  Definition BEq b1 b2 :=
-    forall b,
-    BStep b1 b <-> BStep b2 b.
+  Inductive IStep: list nexp -> list nat -> Prop :=
+  | i_step_nil:
+    IStep [] []
+  | i_step_cons:
+    forall i l e n,
+    IStep i l ->
+    NStep e n ->
+    IStep (e::i) (n::l).
+  (* ------------------------------ EQUIVALENCE ------------------ *)
 
-  Lemma b_eq_refl:
-    forall b,
-    BEq b b.
+  Definition NEq e1 e2 :=
+    forall n,
+    NStep e1 n <-> NStep e2 n.
+
+  Lemma n_eq_refl:
+    forall e,
+    NEq e e.
   Proof.
-    unfold BEq; tauto.
+    unfold NEq; tauto.
   Qed.
 
-  Lemma b_eq_sym:
-    forall b1 b2,
-    BEq b1 b2 ->
-    BEq b2 b1.
+  Lemma n_eq_sym:
+    forall e1 e2,
+    NEq e1 e2 ->
+    NEq e2 e1.
   Proof.
-    unfold BEq; intros.
+    unfold NEq; intros.
     rewrite H.
     reflexivity.
   Qed.
 
-  Lemma b_eq_trans:
-    forall b1 b2 b3,
-    BEq b1 b2 ->
-    BEq b2 b3 ->
-    BEq b1 b3.
+  Lemma n_eq_trans:
+    forall e1 e2 e3,
+    NEq e1 e2 ->
+    NEq e2 e3 ->
+    NEq e1 e3.
   Proof.
-    unfold BEq.
+    unfold NEq.
     intros.
     rewrite H.
     rewrite H0.
     reflexivity.
   Qed.
 
-  (** Register [BEq] in Coq's tactics. *)
-  Global Add Parametric Relation : _ BEq
-    reflexivity proved by b_eq_refl
-    symmetry proved by b_eq_sym
-    transitivity proved by b_eq_trans
+  (** Register [NEq] in Coq's tactics. *)
+  Global Add Parametric Relation : _ NEq
+    reflexivity proved by n_eq_refl
+    symmetry proved by n_eq_sym
+    transitivity proved by n_eq_trans
     as b_eq_setoid.
   Import Morphisms.
 
-  Lemma b_eq_rel_1:
-    forall b b1 b1' b2 b2' o,
-    BEq b1 b1' ->
-    BEq b2 b2' ->
-    BStep (BRel o b1 b2) b ->
-    BStep (BRel o b1' b2') b.
+  Lemma n_eq_to_n_step:
+    forall e n,
+    NEq e (NNum n) ->
+    NStep e n.
+  Proof.
+    intros.
+    apply H.
+    auto using n_step_num.
+  Qed.
+
+  Lemma n_step_to_n_eq:
+    forall e n,
+    NStep e n ->
+    NEq e (NNum n).
+  Proof.
+    split; intros.
+    - assert (n0 = n) by eauto using n_step_fun.
+      subst.
+      auto using n_step_num.
+    - inversion H0; subst; clear H0.
+      assumption.
+  Qed.
+
+  Lemma n_eq_bin_1:
+    forall n e1 e1' e2 e2' o,
+    NEq e1 e1' ->
+    NEq e2 e2' ->
+    NStep (NBin o e1 e2) n ->
+    NStep (NBin o e1' e2') n.
   Proof.
     intros.
     inversion H1; subst; clear H1.
     apply H in H6.
     apply H0 in H7.
-    apply b_step_brel; auto.
+    apply n_step_bin; auto.
   Qed.
 
-  Global Instance b_eq_proper_1: Proper (eq ==> BEq ==> BEq ==> BEq) BRel.
+  Global Instance n_eq_proper_1: Proper (eq ==> NEq ==> NEq ==> NEq) NBin.
   Proof.
     unfold Proper, respectful.
     intros.
     subst.
     split; intros; subst.
-    - eauto using b_eq_rel_1.
+    - eauto using n_eq_bin_1.
     - symmetry in H0.
       symmetry in H1.
-      eauto using b_eq_rel_1.
+      eauto using n_eq_bin_1.
   Qed.
 
-  Global Instance b_eq_proper_2: Proper (BEq ==> eq ==> iff) BStep.
+  Global Instance n_eq_proper_2: Proper (NEq ==> eq ==> iff) NStep.
   Proof.
     unfold Proper, respectful.
     split; intros; subst.
@@ -1312,70 +963,52 @@ Section SO.
       assumption.
   Qed.
 
-  Lemma b_eq_and_true:
-    forall b,
-    BEq (BRel BAnd b (BBool true)) b.
-  Proof.
-    split; intros.
-    - inversion H; subst; clear H.
-      inversion H5; subst; clear H5.
-      simpl.
-      rewrite Bool.andb_true_r.
-      assumption.
-    - assert (R: b0 = eval_brel BAnd b0 true). {
-        simpl.
-        rewrite Bool.andb_true_r.
-        reflexivity.
-      }
-      rewrite R.
-      apply b_step_brel; auto using b_step_bool.
-  Qed.
-
-  Lemma eval_brel_sym:
-    forall o b1 b2,
-    eval_brel o b1 b2 = eval_brel o b2 b1.
+  Lemma n_step_inv_subst_var_eq:
+    forall x v y n,
+    NStep (n_subst x v (NVar y)) n ->
+    x = y.
   Proof.
     intros.
-    destruct o; simpl.
-    - destruct b1, b2; auto.
-    - destruct b1, b2; auto.
+    simpl in H.
+    destruct (Set_VAR.MF.eq_dec x y); auto.
+    inversion H.
   Qed.
 
-  Lemma b_eq_brel_sym:
-    forall o b1 b2,
-    BEq (BRel o b1 b2) (BRel o b2 b1).
+  Lemma n_subst_eq_rw:
+    forall x v,
+    n_subst x v (NVar x) = v.
   Proof.
-    split; intros.
-    - inversion H; subst; clear H.
-      rewrite eval_brel_sym.
-      apply b_step_brel; auto.
-    - inversion H; subst; clear H.
-      rewrite eval_brel_sym.
-      apply b_step_brel; auto.
+    intros.
+    simpl.
+    destruct (Set_VAR.MF.eq_dec x x); auto.
+    contradiction.
   Qed.
 
-  Lemma b_eq_and_false:
-    forall b b',
-    BStep b b' ->
-    BEq (BRel BAnd b (BBool false)) (BBool false).
+  Lemma eq_n_step_n_subst_proper:
+    forall x v v' e n, 
+    NEq v v' ->
+    NStep (n_subst x v e) n ->
+    NStep (n_subst x v' e) n.
   Proof.
-    split; intros.
-    - inversion H0; subst; clear H0.
-      inversion H6; subst; clear H6.
-      simpl.
-      rewrite Bool.andb_false_r.
-      auto using b_step_bool.
-    - inversion H0; subst; clear H0.
-      assert (R: false = eval_brel BAnd b' false). {
-        simpl.
-        rewrite Bool.andb_false_r.
-        reflexivity.
-      }
-      rewrite R.
-      apply b_step_brel; auto using b_step_bool.
-      simpl in *.
-      rewrite Bool.andb_false_r.
-      auto using b_step_bool.
+    induction e; intros.
+    - simpl in *.
+      assumption.
+    - simpl in *.
+      destruct (Set_VAR.MF.eq_dec x v0); auto.
+      subst.
+      apply H; auto.
+    - simpl in *.
+      inversion H0; subst; clear H0.
+      eauto using n_step_bin.
+  Qed.
+
+  Global Instance n_eq_proper_3: Proper (eq ==> NEq ==> eq ==> NEq) n_subst.
+  Proof.
+    unfold Proper, respectful.
+    split; intros; subst.
+    - eapply eq_n_step_n_subst_proper; eauto.
+    - symmetry in H0.
+      eapply eq_n_step_n_subst_proper; eauto.
   Qed.
 
 End SO.

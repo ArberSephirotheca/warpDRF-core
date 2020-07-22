@@ -9,7 +9,8 @@ Require Coq.omega.Omega.
 
 Require Import Var.
 Require Import Loc.
-Require Import Exp.
+Require Import NExp.
+Require Import BExp.
 Require Import AccExp.
 Require Import Util.
 Require Import InUtil.
