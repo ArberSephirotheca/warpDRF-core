@@ -1,13 +1,8 @@
 Require Import Coq.Lists.List.
-Require Import Coq.Strings.String.
-Require Import Coq.Relations.Relation_Definitions.
-Require Import Coq.Relations.Relation_Operators.
-Require Import Coq.Relations.Operators_Properties.
+Require Import Coq.Classes.RelationPairs.
 Require Import Coq.Arith.PeanoNat.
 Require Import Coq.Arith.Compare_dec.
 Require Coq.omega.Omega.
-Require Import Recdef.
-Require Omega.
 Require Import Var.
 Require Import Tid.
 Require Import Loc.
@@ -98,6 +93,22 @@ Section C1.
       rewrite IHi.
       rewrite r_subst_subst_eq.
       reflexivity.
+  Qed.
+
+  Lemma i_subst_subst_eq_2
+     : forall (x : var) i (v e : nexp),
+       ~ NIn x v -> i_subst x e (i_subst x v i) = i_subst x v i.
+  Proof.
+    induction i; intros; simpl.
+    - reflexivity.
+    - rewrite b_subst_subst_eq_2; auto.
+      rewrite IHi1; auto.
+      rewrite IHi2; auto.
+    - rewrite IHi1; auto; rewrite IHi2; auto.
+    - rewrite access_subst_subst_eq_2; auto.
+    - rewrite r_subst_subst_eq_2; auto.
+      destruct (Set_VAR.MF.eq_dec x v). { reflexivity. }
+      rewrite IHi; auto.
   Qed.
 
   Lemma i_subst_subst_neq:
