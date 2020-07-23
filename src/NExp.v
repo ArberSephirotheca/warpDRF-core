@@ -557,6 +557,7 @@ Section SO.
     repeat rewrite n_subst_subst_neq_2; auto.
   Qed.
 
+  (* TODO: remove me and replace it by n_subst_subst_eq_2 *)
   Lemma n_subst_subst_eq:
     forall x n n1 n2,
     n_subst x (NNum n1) (n_subst x (NNum n2) n) = n_subst x (NNum n2) n.
@@ -578,6 +579,24 @@ Section SO.
       assert (IHn2 := IHn2 n0 n4).
       rewrite IHn2.
       reflexivity.
+  Qed.
+
+  Lemma n_subst_subst_eq_2:
+    forall x n v e,
+    ~ NIn x v ->
+    n_subst x e (n_subst x v n) = n_subst x v n.
+  Proof.
+    induction n; intros; simpl.
+    - reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        rewrite n_subst_not_in; auto.
+      }
+      simpl.
+      destruct (Set_VAR.MF.eq_dec x v). { contradiction. }
+      reflexivity.
+    - rewrite IHn1; auto.
+      rewrite IHn2; auto.
   Qed.
 
   Lemma n_subst_subst_neq:
@@ -709,6 +728,32 @@ Section SO.
       + apply IHe2 in H2; auto using n_in_bin_r.
   Qed.
 
+  Lemma n_step_inv_subst:
+    forall x v e n,
+    NStep (n_subst x v e) n ->
+    ~ NIn x e \/ exists n', NStep v n'.
+  Proof.
+    induction e; intros; simpl in *.
+    - left.
+      intros N.
+      inversion N.
+    - destruct (Set_VAR.MF.eq_dec x v0). {
+        eauto.
+      }
+      inversion H.
+    - inversion H; subst; clear H.
+      apply IHe1 in H4.
+      apply IHe2 in H5.
+      destruct H4, H5; auto.
+      left.
+      intros N.
+      inversion N; subst; clear N; contradiction.
+  Qed.
+
+
+
+  (* -------------------------------- RANGE ------------------------- *)
+
   Lemma r_subst_subst_eq:
     forall x n1 n2 r,
     r_subst x (NNum n1) (r_subst x (NNum n2) r) = r_subst x (NNum n2) r.
@@ -732,6 +777,18 @@ Section SO.
     rewrite n_subst_subst_neq in Heqa; auto.
     subst.
     reflexivity.
+  Qed.
+
+  Lemma r_subst_subst_eq_2:
+    forall x r v e,
+    ~ NIn x v ->
+    r_subst x e (r_subst x v r) = r_subst x v r.
+  Proof.
+    intros.
+    destruct r.
+    simpl in *.
+    rewrite n_subst_subst_eq_2; auto.
+    rewrite n_subst_subst_eq_2; auto.
   Qed.
 
   Inductive RIn x : range -> Prop :=
@@ -1011,5 +1068,31 @@ Section SO.
       eapply eq_n_step_n_subst_proper; eauto.
   Qed.
 
+  Lemma n_eq_subst_subst:
+    forall x v e v' n,
+    NEq v v' ->
+    NStep (n_subst x v e) n ->
+    NEq (n_subst x v' (n_subst x v e)) (n_subst x v' e).
+  Proof.
+    intros.
+    split; intros.
+    - edestruct n_step_inv_subst as [Hx|(n', Hx)]; eauto. {
+        rewrite n_subst_not_in in H1; auto.
+        rewrite <- H.
+        assumption.
+      }
+      rewrite <- H in Hx.
+      rewrite n_subst_subst_eq_2 in H1; eauto using n_step_to_not_in.
+      rewrite <- H.
+      assumption.
+    - rewrite <- H in H1.
+      assert (n0 = n) by eauto using n_step_fun.
+      subst.
+      edestruct n_step_inv_subst as [Hx|(n', Hx)]; eauto. {
+        rewrite n_subst_not_in;
+        eauto using n_step_to_not_in.
+      }
+      rewrite n_subst_subst_eq_2; eauto using n_step_to_not_in.
+  Qed.
 End SO.
 

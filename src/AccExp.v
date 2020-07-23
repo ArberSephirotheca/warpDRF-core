@@ -1,4 +1,6 @@
 Require Import Coq.Lists.List.
+Require Import Coq.Classes.Morphisms.
+Require Import Coq.Classes.RelationPairs.
 
 Require Import NExp.
 Require Import BExp.
@@ -13,6 +15,8 @@ Class Access := {
   access_eval1: (access_exp * nexp) -> option (list access_val);
   access_safe: access_val -> access_val -> Prop;
   access_tid: access_val -> nat;
+  access_eq : access_exp -> access_exp -> Prop;
+
   access_safe_eq_tid:
     forall v1 v2,
     access_tid v1 = access_tid v2 ->
@@ -54,6 +58,11 @@ Class Access := {
     access_subst x (NNum n1) (access_subst x (NNum n2) a) =
     access_subst x (NNum n2) a;
 
+  access_subst_subst_eq_2:
+    forall x n v e,
+    ~ NIn x v ->
+    access_subst x e (access_subst x v n) = access_subst x v n;
+
   access_subst_subst_neq:
     forall x y n1 n2 a,
     x <> y ->
@@ -84,10 +93,66 @@ Class Access := {
     ~ NIn x v ->
     access_in x e;
 
+  (* Make sure the equivalence relation is properly specified. *)
+  access_eq_refl: forall x, access_eq x x;
+  access_eq_sym: forall x y, access_eq x y -> access_eq y x;
+  access_eq_trans: forall x y z, access_eq x y -> access_eq y z -> access_eq x z;
+
+  (* Allow rewriting nexp under an access substitution. *)
+  access_step_proper:
+    forall e' e n n' h, 
+    access_eq e e' ->
+    NEq n n' ->
+    access_step (e, n) h ->
+    access_step (e', n') h;
+
+  access_subst_proper:
+    forall x v v' e,
+    NEq v v' ->
+    access_eq (access_subst x v e) (access_subst x v' e);
 }.
 
 Section Defs.
   Context `{A:Access}.
+
+  Global Add Parametric Relation : _ access_eq
+    reflexivity proved by access_eq_refl
+    symmetry proved by access_eq_sym
+    transitivity proved by access_eq_trans
+    as access_eq_setoid.
+
+  Global Instance access_proper_1: Proper (eq ==> NEq ==> eq ==> access_eq) access_subst.
+  Proof.
+    unfold Proper, respectful.
+    intros.
+    subst.
+    auto using access_subst_proper.
+  Qed.
+
+  (* Allow rewriting under access_step with NEq and access_eq. *)
+
+  Global Instance access_proper_2: Proper (access_eq * NEq ==> eq ==> iff) access_step.
+  Proof.
+    unfold Proper, respectful.
+    intros.
+    split; intros.
+    + subst.
+      destruct x as (a1, e1).
+      destruct y as (a2, e2).
+      destruct H as (Ha, Hb).
+      unfold RelCompFun in *.
+      simpl in *.
+      eapply access_step_proper; eauto.
+    + subst.
+      destruct x as (a1, e1).
+      destruct y as (a2, e2).
+      destruct H as (Ha, Hb).
+      unfold RelCompFun in *.
+      simpl in *.
+      symmetry in Ha.
+      symmetry in Hb.
+      eapply access_step_proper; eauto.
+  Qed.
 
   Definition cond_access := (access_exp * bexp) % type.
 

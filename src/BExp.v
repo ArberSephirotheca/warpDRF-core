@@ -368,6 +368,20 @@ Section SO.
       reflexivity.
   Qed.
 
+  Lemma b_subst_subst_eq_2:
+    forall x b v e,
+    ~ NIn x v ->
+    b_subst x e (b_subst x v b) = b_subst x v b.
+  Proof.
+    induction b; intros; simpl.
+    - reflexivity.
+    - rewrite n_subst_subst_eq_2; auto.
+      rewrite n_subst_subst_eq_2; auto.
+    - rewrite IHb1; auto.
+      rewrite IHb2; auto.
+    - rewrite IHb; auto.
+  Qed.
+
   Lemma b_subst_subst_neq:
     forall x y n1 n2 b,
     x <> y ->
