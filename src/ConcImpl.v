@@ -201,7 +201,7 @@ Module Examples.
      } *)
 
   Let x := variable "x".
-  Let i1 := MemAcc (add (NVar TID) (NVar x), BBool true) Skip.
+  Let i1 := MemAcc (NBin NPlus (NVar TID) (NVar x), BBool true) Skip.
 
   Definition BAD :=
     For x (NNum 0, NNum 2) i1 Skip.
@@ -221,7 +221,7 @@ Module Examples.
     }
    *)
 
-  Infix "==" :=  (NRel NEq)  (at level 50, left associativity).
+  Infix "==" :=  (NRel NEquals)  (at level 50, left associativity).
   Notation "'Var' x" := (NVar (variable x)) (at level 30).
   Coercion NNum: nat >-> nexp.
   Coercion variable: string >-> var.

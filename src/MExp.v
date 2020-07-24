@@ -35,7 +35,7 @@ Section Defs.
     | Plus e1 e2 => EIn x e1 \/ EIn x e2
     end.
 
-  Fixpoint one_of (p:access_val*access_val) e1 e2 :=
+  Definition one_of (p:access_val*access_val) e1 e2 :=
     let (v1, v2) := p in
     (EIn v1 e1 /\ EIn v2 e2)
     \/

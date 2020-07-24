@@ -20,3 +20,4 @@
 *.vos
 *.vok
 /.Makefile.d
+*.lia.cache

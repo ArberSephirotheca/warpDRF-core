@@ -7,7 +7,8 @@ Require Conc2.
 Require Import Var.
 Require Import Tid.
 Require Import Loc.
-Require Import Exp.
+Require Import NExp.
+Require Import BExp.
 Require Import AccExp.
 Require Import Util.
 Require Import SymExec2.
@@ -280,30 +281,45 @@ Section Compiler.
     eapply in_branch_inv in H6; eauto.
   Qed.
 *)
-
+(*
+  Lemma translate_proper:
+    forall e e' m,
+    Conc2.REq e e' ->
+    FRun (translate e) m ->
+    FRun (translate e') m.
+  Proof.
+    induction e; intros.
+    - 
+  Qed.
+*)
   Lemma soundness_2:
-    forall i hx hy nx ny,
-    Conc2.Run2 nx ny i hx hy ->
-    forall m x y,
-    FRun (translate i) m ->
-    List.In x hx ->
-    List.In y hy ->
+    forall i nx a1,
+    Conc2.AccIn nx a1 i ->
+    forall ny a2,
+    Conc2.AccIn ny a2 i ->
     nx < TID_COUNT ->
     ny < TID_COUNT ->
-    e_pair_in (x, y) m.
+    TPairIn (a1,a2) i.
   Proof.
-    intros i hx hy nx ny H.
-    induction H; intros.
-    - contradiction.
-    - 
     induction i; intros.
-    - inversion H4; subst; clear H4.
-      contradiction.
+    - inversion H.
+    - inversion H; subst; clear H.
+      + inversion H0; subst; clear H0.
+        * eapply t_pair_in_true_true; eauto.
+          -- admit.
+          -- admit.
+        * 
+      (*
+      apply translate_inv_access in H3.
+      destruct H3 as (vs1, (vs2, (R, (Hl, (Hm1, Hm2))))).
+      apply R.
+      admit.*)
+    - inversion H1; subst; clear H1.
+      + apply IHAccIn in H8; auto.
+        admit.
+      + 
     - admit.
-    - admit.
-    - admit.
-    - inversion H4; subst; clear H4.
-      inversion H5; subst; clear H5.
+    - 
   Qed.
 
   Theorem soundness_1

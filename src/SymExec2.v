@@ -20,6 +20,7 @@ Require Import RangeList.
 Require Import SetTh.
 Require Import MultiHist.
 Require Import InUtil.
+Require Import PairInUtil.
 Require Import MExp.
 Import ListNotations.
 Import MHistNotations.
@@ -995,6 +996,266 @@ Section Defs.
     split;
     intros N;
     contradict H; simpl; auto.
+  Qed.
+
+  (* --------------------- PAIR-IN INSTRUCTION ---------------------- *)
+
+  Inductive IIn (a:access_val) : inst -> Prop :=
+  | i_in_access:
+    forall e v,
+    access_inst_step e v ->
+    List.In a v ->
+    IIn a (MemAcc e)
+  | i_in_seq_l:
+    forall i j,
+    IIn a i ->
+    IIn a (Seq i j)
+  | i_in_seq_r:
+    forall i j,
+    IIn a j ->
+    IIn a (Seq i j)
+  | i_in_if_true:
+    forall b i j,
+    BStep b true ->
+    IIn a i ->
+    IIn a (If b i j)
+  | i_in_if_false:
+    forall b i j,
+    BStep b false ->
+    IIn a j ->
+    IIn a (If b i j)
+  | i_in_fork_l:
+    forall i j,
+    IIn a i ->
+    IIn a (Fork i j)
+  | i_in_fork_r:
+    forall i j,
+    IIn a j ->
+    IIn a (Fork i j)
+  | i_in_decl_l:
+    forall e1 e2 n1 n2 x i,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    IIn a (i_subst x (NNum n1) i) ->
+    IIn a (Decl x (e1, e2) i)
+  | i_in_decl_r:
+    forall e1 e2 n1 n2 x i,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    IIn a (Decl x (NNum (S n1), NNum n2) i) ->
+    IIn a (Decl x (e1, e2) i)
+  .
+
+  Lemma run_m_in_to_i_in:
+    forall i h,
+    Run i h ->
+    forall a,
+    MIn a h ->
+    IIn a i.
+  Proof.
+    intros i h Hr.
+    induction Hr; intros a Hi.
+    - apply m_in_nil_nil in Hi.
+      contradiction.
+    - apply m_in_prod_inv in Hi.
+      destruct Hi; auto using i_in_seq_l, i_in_seq_r.
+    - destruct b. {
+        eauto using i_in_if_true.
+      }
+      eauto using i_in_if_false.
+    - apply m_in_inv_cons_nil in Hi.
+      eapply i_in_access; eauto.
+    - apply m_in_inv_app in Hi.
+      destruct Hi; auto using i_in_fork_l, i_in_fork_r.
+    - apply m_in_inv_app in Hi.
+      destruct Hi as [Hi|Hi]. {
+        eapply i_in_decl_l; eauto.
+      }
+      eapply i_in_decl_r; eauto.
+    - apply m_in_nil_nil in Hi.
+      contradiction.
+  Qed.
+
+  Lemma run_i_in_to_m_in:
+    forall i h,
+    Run i h ->
+    forall a,
+    IIn a i ->
+    MIn a h.
+  Proof.
+    intros i h Hr.
+    induction Hr; intros a Hi; inversion Hi; subst; clear Hi.
+    - apply m_in_prod_l; eauto using run_not_nil.
+    - apply m_in_prod_r; eauto using run_not_nil.
+    - assert (b = true) by eauto using b_step_fun; eauto.
+      subst.
+      eauto.
+    - assert (b = false) by eauto using b_step_fun; eauto.
+      subst.
+      eauto.
+    - assert (v0 = v) by eauto using access_inst_step_fun.
+      subst.
+      auto using m_in_eq.
+    - auto using m_in_app_l.
+    - auto using m_in_app_r.
+    - assert (n0 = n1) by eauto using n_step_fun; subst.
+      assert (n2 = n3) by eauto using n_step_fun; subst.
+      subst.
+      auto using m_in_app_l.
+    - assert (n0 = n1) by eauto using n_step_fun; subst.
+      assert (n2 = n3) by eauto using n_step_fun; subst.
+      subst.
+      auto using m_in_app_r.
+    - assert (n0 = n1) by eauto using n_step_fun; subst.
+      assert (n2 = n3) by eauto using n_step_fun; subst.
+      subst.
+      Import Omega.
+      omega.
+    - assert (n0 = n1) by eauto using n_step_fun; subst.
+      assert (n2 = n3) by eauto using n_step_fun; subst.
+      subst.
+      Import Omega.
+      omega.
+  Qed.
+
+  Lemma i_in_iff:
+    forall i h,
+    Run i h ->
+    forall a,
+    IIn a i <-> MIn a h.
+  Proof.
+    intros.
+    split; eauto using run_m_in_to_i_in, run_i_in_to_m_in.
+  Qed.
+
+  Definition IOneOf (p:access_val*access_val) i j :=
+    let (v1, v2) := p in
+    (IIn v1 i /\ IIn v2 j)
+    \/
+    (IIn v2 i /\ IIn v1 j).
+
+  Inductive IPairIn p : inst -> Prop :=
+  | i_pair_in_access e v:
+    access_inst_step e v ->
+    PairIn p v ->
+    IPairIn p (MemAcc e)
+  | i_pair_in_seq_l i j:
+    IPairIn p i ->
+    IPairIn p (Seq i j)
+  | i_pair_in_seq_r i j:
+    IPairIn p j ->
+    IPairIn p (Seq i j)
+  | i_pair_in_seq_both i j:
+    IOneOf p i j ->
+    IPairIn p (Seq i j)
+  | i_pair_in_if_true b i j:
+    BStep b true ->
+    IPairIn p i ->
+    IPairIn p (If b i j)
+  | i_pair_in_if_false b i j:
+    BStep b false ->
+    IPairIn p j ->
+    IPairIn p (If b i j)
+  | i_pair_in_fork_l i j:
+    IPairIn p i ->
+    IPairIn p (Fork i j)
+  | i_pair_in_fork_r i j:
+    IPairIn p j ->
+    IPairIn p (Fork i j)
+  | i_pair_in_decl_l e1 e2 n1 n2 i x:
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    IPairIn p (i_subst x (NNum n1) i) ->
+    IPairIn p (Decl x (e1, e2) i)
+  | i_pair_in_decl_r e1 e2 n1 n2 i x:
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    IPairIn p (Decl x (NNum (S n1), NNum n2) i) ->
+    IPairIn p (Decl x (e1, e2) i).
+
+  Lemma run_i_pair_in_to_m_pair_in:
+    forall i h,
+    Run i h ->
+    forall p,
+    IPairIn p i ->
+    MPairIn p h.
+  Proof.
+    intros i h Hr.
+    induction Hr; intros p Hi;
+      inversion Hi; subst; clear Hi.
+    - eauto using m_pair_in_prod_l, run_not_nil.
+    - eauto using m_pair_in_prod_r, run_not_nil.
+    - destruct p as (v1, v2).
+      destruct H0 as [(Ha,Hb)|(Ha,Hb)];
+        eapply run_i_in_to_m_in in Ha; eauto;
+        eapply run_i_in_to_m_in in Hb;
+        eauto using m_pair_in_prod_2, m_pair_in_prod_1.
+    - assert (b = true) by eauto using b_step_fun; subst.
+      eauto.
+    - assert (b = false) by eauto using b_step_fun; subst; eauto.
+    - assert (v0 = v) by eauto using access_inst_step_fun; subst.
+      auto using m_pair_in_eq.
+    - auto using m_pair_in_app_l.
+    - auto using m_pair_in_app_r.
+    - assert (n0 = n1) by eauto using n_step_fun.
+      subst.
+      eauto using m_pair_in_app_l.
+    - assert (n0 = n1) by eauto using n_step_fun.
+      assert (n2 = n3) by eauto using n_step_fun.
+      subst.
+      eauto using m_pair_in_app_r.
+    - assert (n0 = n1) by eauto using n_step_fun.
+      assert (n2 = n3) by eauto using n_step_fun.
+      subst.
+      omega.
+    - assert (n0 = n1) by eauto using n_step_fun.
+      assert (n2 = n3) by eauto using n_step_fun.
+      subst.
+      omega.
+  Qed.
+
+  Lemma run_m_pair_in_to_i_pair_in:
+    forall i h,
+    Run i h ->
+    forall p,
+    MPairIn p h ->
+    IPairIn p i.
+  Proof.
+    intros i h Hr.
+    induction Hr; intros p Hi.
+    - apply m_pair_in_nil_nil in Hi.
+      contradiction.
+    - apply m_pair_in_inv_prod in Hi.
+      destruct Hi as [Hi|[Hi|[(Ha,Hb)|(Ha,Hb)]]];
+        auto using i_pair_in_seq_l, i_pair_in_seq_r;
+        apply i_pair_in_seq_both;
+        destruct p as (v1, v2);
+        simpl in *;
+        eapply run_m_in_to_i_in in Ha; eauto;
+        eapply run_m_in_to_i_in in Hb; eauto.
+    - destruct b. {
+        apply i_pair_in_if_true; auto.
+      }
+      apply i_pair_in_if_false; auto.
+    - apply m_pair_in_inv in Hi.
+      destruct Hi. {
+        eauto using i_pair_in_access.
+      }
+      apply m_pair_in_nil in H0.
+      contradiction.
+    - apply m_pair_in_app_or in Hi.
+      destruct Hi; auto using i_pair_in_fork_l, i_pair_in_fork_r.
+    - apply m_pair_in_app_or in Hi.
+      destruct Hi as [Hi|Hi]. {
+        eapply i_pair_in_decl_l; eauto.
+      }
+      eapply i_pair_in_decl_r; eauto.
+    - apply m_pair_in_nil_nil in Hi.
+      contradiction.
   Qed.
 
 End Defs.

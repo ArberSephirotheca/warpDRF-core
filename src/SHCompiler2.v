@@ -24,6 +24,7 @@ Require Import SymExecMap.
 Require Import SymExec2DMap.
 Require Import SymExecEq.
 Require Import MExp.
+Require Import PairInUtil.
 
 Section Defs.
   Context {A:Access}.
@@ -44,6 +45,141 @@ Section Defs.
     Decl T1 (NNum 1, NNum TID_COUNT)
       (Decl T2 (NNum 0, NVar T1)
         (Seq (do_proj T1 c) (do_proj T2 c))).
+
+  Inductive TIn (a:access_val) : Conc2.inst -> Prop :=
+  | t_in_mem_acc:
+    forall e l,
+    access_step (access_subst TID (NNum (access_tid a)) e, NNum (access_tid a)) l -> 
+    List.In a l ->
+    TIn a (Conc2.MemAcc e)
+  | t_in_seq_l:
+    forall i j,
+    TIn a i ->
+    TIn a (Conc2.Seq i j)
+  | t_in_seq_r:
+    forall i j,
+    TIn a j ->
+    TIn a (Conc2.Seq i j)
+  | t_in_if_true:
+    forall b i j,
+    BData (access_tid a) b true ->
+    TIn a i ->
+    TIn a (Conc2.If b i j)
+  | t_in_if_false:
+    forall b i j,
+    BData (access_tid a) b false ->
+    TIn a j ->
+    TIn a (Conc2.If b i j)
+  | t_in_decl_l:
+    forall e1 e2 n1 n2 x i,
+    NData (access_tid a) e1 n1 ->
+    NData (access_tid a) e2 n2 ->
+    n1 < n2 ->
+    TIn a (Conc2.i_subst x (NNum n1) i) ->
+    TIn a (Conc2.For x (e1, e2) i)
+  | t_in_decl_r:
+    forall e1 e2 n1 n2 x i,
+    NData (access_tid a) e1 n1 ->
+    NData (access_tid a) e2 n2 ->
+    n1 < n2 ->
+    TIn a (Conc2.For x (NNum (S n1), NNum n2) i) ->
+    TIn a (Conc2.For x (e1, e2) i)
+  .
+
+
+  Definition TOneOf (p:access_val*access_val) i j :=
+    let (v1, v2) := p in
+    (TIn v1 i /\ TIn v2 j)
+    \/
+    (TIn v2 i /\ TIn v1 j).
+
+  Inductive TPairIn : (access_val * access_val) -> Conc2.inst -> Prop :=
+  | t_pair_in_mem_acc:
+    forall v1 v2 e l1 l2,
+    access_step (access_subst TID (NNum (access_tid v1)) e, NNum (access_tid v1)) l1 -> 
+    access_step (access_subst TID (NNum (access_tid v2)) e, NNum (access_tid v2)) l2 ->
+    List.In v1 l1 ->
+    List.In v2 l2 ->
+    TPairIn (v1,v2) (Conc2.MemAcc e)
+  | t_pair_in_seq_l:
+    forall p i j,
+    TPairIn p i ->
+    TPairIn p (Conc2.Seq i j)
+  | t_pair_in_seq_r:
+    forall p i j,
+    TPairIn p j ->
+    TPairIn p (Conc2.Seq i j)
+  | t_pair_in_seq_one_of:
+    forall p i j,
+    TOneOf p i j ->
+    TPairIn p (Conc2.Seq i j)
+  | t_pair_in_true_true:
+    forall v1 v2 b i j,
+    BData (access_tid v1) b true ->
+    BData (access_tid v2) b true ->
+    TPairIn (v1,v2) i -> 
+    TPairIn (v1,v2) (Conc2.If b i j)
+  | t_pair_in_false_false:
+    forall v1 v2 b i j,
+    BData (access_tid v1) b false ->
+    BData (access_tid v2) b false ->
+    TPairIn (v1,v2) i -> 
+    TPairIn (v1,v2) (Conc2.If b i j)
+  | t_pair_in_true_false:
+    forall v1 v2 b i j,
+    BData (access_tid v1) b true ->
+    BData (access_tid v2) b false ->
+    TIn v1 i -> 
+    TIn v2 j -> 
+    TPairIn (v1,v2) (Conc2.If b i j)
+  | t_pair_in_false_true:
+    forall v1 v2 b i j,
+    BData (access_tid v1) b false ->
+    BData (access_tid v2) b true ->
+    TIn v1 j -> 
+    TIn v2 i -> 
+    TPairIn (v1,v2) (Conc2.If b i j)
+  .
+(*
+  Lemma i_in_pair_in_translate_if_true:
+    forall v1 v2 b c1 c2,
+    BData (access_tid v1) b true ->
+    BData (access_tid v2) b true ->
+    IPairIn (v1, v2) (translate c1) ->
+    IPairIn (v1, v2) (translate (Conc2.If b c1 c2)).
+  Proof.
+    unfold translate, do_proj.
+    intros.
+    inversion H1; subst; clear H1;
+      simpl in *;
+      remove_eq T1 T1;
+      remove_eq T1 T2.
+    - inversion H6; subst; clear H6.
+      inversion H7; subst; clear H7.
+      eapply i_pair_decl_l; eauto using n_step_num.
+      inversion H9; subst; clear H9; simpl in *.
+      + remove_eq T1 T1.
+        remove_eq T1 T2.
+        inversion H5; subst; clear H5.
+        inversion H6; subst; clear H6.
+        eapply i_pair_decl_l; eauto using n_step_num.
+        simpl.
+        inversion H10; subst; clear H10.
+        * apply i_pair_in_seq_1; auto.
+  Qed.
+
+  Lemma i_pair_in_to_pair_in:
+    forall c p, 
+(*    Run (translate c) hs ->*)
+    TPairIn p c ->
+    IPairIn p (translate c).
+(*    MPairIn p hs. *)
+  Proof.
+    induction c; intros.
+    - inversion H.
+    - inversion H; subst; clear H.
+      + apply IHc1 in H6.
+  Qed.*)
 
   Lemma in_proj_to_in:
     forall x i,

@@ -1,5 +1,8 @@
 Require Import Var.
 Require Import Omega.
+Require Import NExp.
+Require Import BExp.
+Require Import AccExp.
 Class Tasks := {
   TID_COUNT: nat;
   TID : var;
@@ -52,6 +55,49 @@ Section Defs.
     }
     exists m.
     omega.
+  Qed.
+
+  Definition NData t (e:nexp) n :=
+    NStep (n_subst TID (NNum t) e) n.
+  Transparent NData.
+
+  Definition BData t (e:bexp) b :=
+    BStep (b_subst TID (NNum t) e) b.
+  Transparent BData.
+
+  Definition RData t (r:range) (v:nat*nat) :=
+    let (e1, e2) := r in
+    let (n1, n2) := v in
+    NData t e1 n1 /\ NData t e2 n2.
+
+  Context `{A:Access}.
+
+  Definition AIn a e : Prop :=
+    (
+    exists l,
+    access_step (access_subst TID (NNum (access_tid a)) e, NNum (access_tid a)) l
+    /\
+    List.In a l
+    ).
+
+  Lemma b_data_fun:
+    forall n e b b',
+    BData n e b ->
+    BData n e b' ->
+    b' = b.
+  Proof.
+    intros.
+    eauto using b_step_fun.
+  Qed.
+
+  Lemma n_data_fun:
+    forall n e m m',
+    NData n e m ->
+    NData n e m' ->
+    m' = m.
+  Proof.
+    intros.
+    eauto using n_step_fun.
   Qed.
 
 End Defs.

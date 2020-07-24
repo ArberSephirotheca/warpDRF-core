@@ -7,6 +7,7 @@ Require Import AccExp.
 Require Import NExp.
 Require Import BExp.
 Require Import MExp.
+Require Import PairInUtil.
 Require Import MultiHist.
 Require Import SymExec2.
 
@@ -538,4 +539,6 @@ Section Defs.
     + Import Omega.
       omega.
   Qed.
+
+
 End Defs.

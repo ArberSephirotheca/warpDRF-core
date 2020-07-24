@@ -154,6 +154,30 @@ Section Defs.
       eapply access_step_proper; eauto.
   Qed.
 
+  Lemma access_step_inv_in:
+    forall e n v en,
+    NStep en n ->
+    access_step (e, en) v ->
+    forall a,
+    List.In a v ->
+    access_tid a = n.
+  Proof.
+    intros e n v en Hn Hs.
+    eapply access_step_inv_tid in Hs; eauto.
+    rewrite Forall_forall in Hs.
+    auto.
+  Qed.
+
+  Lemma access_step_inv_in_eq:
+    forall e n v,
+    access_step (e, NNum n) v ->
+    forall a,
+    List.In a v ->
+    access_tid a = n.
+  Proof.
+    eauto using access_step_inv_in, n_step_num.
+  Qed.
+
   Definition cond_access := (access_exp * bexp) % type.
 
   Definition cond_access_subst x v (p:cond_access) :=

@@ -61,14 +61,6 @@ Section SO.
     BStep e b ->
     BStep (BNot e) (negb b).
 
-  Inductive RStep: range -> list nat -> Prop :=
-  | r_step_def:
-    forall e1 e2 n1 n2 l,
-    NStep e1 n1 ->
-    NStep e2 n2 ->
-    RangeList n1 n2 l ->
-    RStep (e1, e2) l.
-
   Inductive RPred (P:nat -> nat -> Prop): range -> Prop :=
   | r_pred_def:
     forall e1 e2 n1 n2,
