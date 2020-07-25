@@ -316,7 +316,78 @@ Section Defs.
     inversion X.
   Qed.
 
+  Lemma i_in_translate_to_t_in:
+    forall i,
+    ~ Conc2.Var TID i ->
+    ~ Conc2.In T1 i ->
+    ~ Conc2.In T2 i ->
+    forall a,
+    access_tid a < TID_COUNT -> (* needed for the second branch, can we prove this? *)
+    IIn a (translate i) ->
+    TIn a i.
+  Proof.
+    intros i Hv t1_nin t2_nin a a_lt_tc Hi.
+    unfold translate in Hi.
+    inversion Hi; subst; clear Hi.
 
+    (* Useful results *)
+    assert (t1_nin_p: ~ In T1 (proj i)). {
+      intros N.
+      apply in_proj_to_in in N; auto using t1_neq_tid.
+    }
+    assert (t2_nin_p: ~ In T2 (proj i)). {
+      intros N.
+      apply in_proj_to_in in N; auto using t2_neq_tid.
+    }
+
+
+    (* Remove temporary variables introduced in NStep *)
+    assert (n1 = 1) by eauto using n_step_fun, n_step_num.
+    assert (n2 = TID_COUNT) by eauto using n_step_fun, n_step_num.
+    subst.
+    repeat match goal with (* remove unneeded assumptions *)
+      H: NStep (NNum _) _ |- _ => clear H
+    end.
+    match goal with
+      H: _ <= ?n < _ |- _ => rename n into t1
+    end.
+
+    (* Rename assumption (IIn a ...) *)
+    match goal with
+      H: IIn _ _ |- _ => rename H into Hi
+    end.
+
+    (* Do inversion and then clean up *)
+    simpl in Hi.
+    remove_eq T1 T2.
+    remove_eq T1 T1.
+    inversion Hi; subst; clear Hi.
+    assert (n1 = 0) by eauto using n_step_fun, n_step_num.
+    assert (n2 = t1) by eauto using n_step_fun, n_step_num.
+    subst.
+    repeat match goal with (* remove unneeded assumptions *)
+      H: NStep (NNum _) _ |- _ => clear H
+    end.
+    match goal with
+      H: 0 <= ?n < _ |- _ => rename n into t2
+    end.
+
+    match goal with
+      H: IIn _ _ |- _ => rename H into Hi
+    end.
+    simpl in Hi.
+    (* Is a in T1 or in T2? *)
+    inversion Hi; subst; clear Hi;
+    match goal with
+      H: IIn _ _ |- _ => rename H into Hi
+    end.
+    - (* a is in T1 *)
+      rewrite i_subst_not_in in Hi. {
+        unfold do_proj in *.
+        rewrite i_subst_subst_trans in Hi; auto.
+      }
+    - (* a is in T2 *)
+  Qed.
   (* ---------------------- PAIR IN TRANSLATION ------------------- *)
 
   Definition TOneOf (p:access_val*access_val) i j :=
