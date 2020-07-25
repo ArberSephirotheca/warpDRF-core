@@ -112,6 +112,7 @@ Section Defs.
     + destruct H1; auto.
   Qed.
 
+
   (* ----------------------------- IN TRANSLATION ------------------ *)
 
 
@@ -223,17 +224,41 @@ Section Defs.
       eapply t_in_for; eauto.
   Qed.
 
-  Lemma run_i_pair_in_to_m_pair_in:
-    forall i a,
+  Lemma t_in_to_i_in_translate:
+    forall i,
+    ~ Conc2.Var TID i ->
+    ~ Conc2.In T1 i ->
+    ~ Conc2.In T2 i ->
+    forall a,
+    access_tid a < TID_COUNT -> (* needed for the second branch, can we prove this? *)
     TIn a i ->
     IIn a (translate i).
   Proof.
-    intros i a Hi.
+    intros i Hv t1_nin t2_nin a a_lt_tc Hi.
     unfold translate.
     assert (Hx: access_tid a = 0 \/ access_tid a > 0). {
       destruct (access_tid a); auto with *.
     }
+    assert (t1_nin_p: ~ In T1 (proj i)). {
+      intros N.
+      apply in_proj_to_in in N; auto using t1_neq_tid.
+    }
+    assert (t2_nin_p: ~ In T2 (proj i)). {
+      intros N.
+      apply in_proj_to_in in N; auto using t2_neq_tid.
+    }
     destruct Hx as [Hx|Hx]. {
+      (*
+         We have that access_tid a = 0.
+         We show that a is produced by T2, because
+         only T2 can be assigned to 0 (as T1 starts at 1).
+
+         We can pick any value of T1, because the rule of sequence says we
+         can pick any branch and we pick the branch of the projection set
+         to T2.
+
+         Thus, we pick T1 = 1 and T2 = 0.
+      *)
       apply i_in_decl with (n:=1) (n1:=1) (n2:=TID_COUNT); auto using n_step_num. {
         auto using tid_count_1_lt with *.
       }
@@ -245,31 +270,50 @@ Section Defs.
       simpl.
       apply i_in_seq_r.
       rewrite i_subst_subst_neq; auto using t1_neq_t2.
-      rewrite i_subst_subst_trans. {
-        rewrite i_subst_not_in. {
-          rewrite <- Hx.
-          
-        }
+      rewrite i_subst_subst_trans; auto.
+      rewrite i_subst_not_in. {
+        rewrite <- Hx.
+        apply t_in_to_i_in; auto.
       }
+      intros N.
+      apply in_i_subst_neq in N; auto using t1_neq_tid. 
+      intros M.
+      inversion M.
     }
-    induction Hi.
-    - unfold translate.
-    remember (translate _) as j.
-    generalize dependent i.
-    induction Hi; intros.
-    - destruct i; inversion Heqj.
-    - destruct i0; inversion Heqj.
-    - destruct i0; inversion Heqj.
-    - destruct i0; inversion Heqj.
-    - destruct i0; inversion Heqj.
-    - destruct i0; inversion Heqj.
-    - destruct i0; inversion Heqj.
-    - destruct i0; inversion Heqj; subst; clear Heqj; simpl in *;
-      remove_eq T1 T2; remove_eq T1 T1.
-      + inversion Hi; subst; clear Hi.
-      
-      remove_eq T1 T2.
-      remove_eq T1 T1.
+    (*
+       We have that access_tid a > 0.
+       We do not know what the value actually is, but we know that
+       it cannot be *0*.
+
+       Thus, `access_tid a` cannot be T2 (as it _may_ be assigned to 0).
+
+       We, therefore, set T1 = access_tid a and must pick some value for
+       T2. We can pick `T2 = 0`. 
+
+       Thus, we pick `T1 = access_tid a` and `T2 = 0`.
+    *)
+    apply i_in_decl with (n:=access_tid a) (n1:=1) (n2:=TID_COUNT); auto using n_step_num.
+    unfold do_proj.
+    simpl.
+    remove_eq T1 T1.
+    remove_eq T1 T2.
+    apply i_in_decl with (n:=0) (n1:=0) (n2:=access_tid a); auto using n_step_num.
+    simpl.
+    apply i_in_seq_l.
+    rewrite i_subst_not_in. {
+      rewrite i_subst_subst_trans; auto.
+      apply t_in_to_i_in; auto.
+    }
+    intros N.
+    apply in_i_subst_neq in N; auto using t1_neq_t2. {
+      apply in_i_subst_neq in N; auto using t2_neq_tid.
+      intros X.
+      inversion X.
+      contradict H0.
+      auto using t1_neq_t2.
+    }
+    intros X.
+    inversion X.
   Qed.
 
 
