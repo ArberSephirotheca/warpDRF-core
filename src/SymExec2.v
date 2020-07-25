@@ -1,31 +1,15 @@
 Require Import Coq.Lists.List.
-Require Import Coq.Strings.String.
-Require Import Coq.Relations.Relation_Definitions.
-Require Import Coq.Relations.Relation_Operators.
-Require Import Coq.Relations.Operators_Properties.
-Require Coq.Arith.PeanoNat.
-Require Coq.Sets.Ensembles.
-Require Coq.omega.Omega.
-Require Import Recdef.
-Require Omega.
+
 Require Import Var.
-Require Import Tid.
-Require Import Loc.
 Require Import NExp.
 Require Import BExp.
 Require Import AccExp.
 Require Import Util.
-Require Conc.
-Require Import RangeList.
-Require Import SetTh.
 Require Import MultiHist.
 Require Import InUtil.
 Require Import PairInUtil.
-Require Import MExp.
-Require Coq.Program.Wf.
 
 Import ListNotations.
-Import MHistNotations.
 
 Section Defs.
   Context {A:Access}.
@@ -1001,34 +985,6 @@ Section Defs.
   Qed.
 
   (* --------------------- PAIR-IN INSTRUCTION ---------------------- *)
-
-  Fixpoint size (i:inst) :=
-  match i with
-  | Skip | MemAcc _ => 0
-  | Seq i j | If _ i j | Fork i j => S (size i + size j)
-  | Decl _ _ i =>  S (size i)
-  end.
-
-  Lemma size_subst:
-    forall x v i,
-    size (i_subst x v i) = size i.
-  Proof.
-    intros.
-    induction i; intros; simpl; auto.
-    destruct (Set_VAR.MF.eq_dec x v0). { reflexivity. }
-    rewrite IHi.
-    auto.
-  Qed.
-(*
-  Fixpoint i_in a l i : Prop :=
-  match i with
-  | Skip => False
-  | MemAcc e => exists v, access_inst_step e v /\ List.In a v
-  | Seq i j | Fork i j => i_in a l i \/ i_in a l j
-  | If e i j => exists b, BStep e b /\ if b then i_in a l i else i_in a l j 
-  | Decl x (e1,e2) i => exists n n1 n2, n1 <= n < n2 /\ NStep e1 n1 /\ NStep e2 n2 /\ i_in a ((x, (NNum n))::l) i  
-  end.
-*)
 
   Inductive IIn (a:access_val) : inst -> Prop :=
   | i_in_access:
