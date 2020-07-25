@@ -46,6 +46,75 @@ Section Defs.
       (Decl T2 (NNum 0, NVar T1)
         (Seq (do_proj T1 c) (do_proj T2 c))).
 
+
+
+  (* ----------------------- SUBSTITUTION --------------------------- *)
+
+(*
+  Lemma i_subst_proj_rw_eq:
+    forall i n,
+    proj (Conc2.i_subst TID (NNum n) i) = i_subst TID (NNum n) (proj i).
+  Proof.
+    induction i; intros; simpl;
+      try (rewrite IHi1; auto);
+      try (rewrite IHi2; auto);
+      try (rewrite IHi; auto);
+      auto
+    .
+    - destruct (Set_VAR.MF.eq_dec TID TID). {
+        
+      }
+    - .
+      rewrite IHi2; auto.
+    - rewrite IHi1; auto.
+      rewrite IHi2; auto.
+    - reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        auto.
+      }
+      rewrite IHi; auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        auto.
+      }
+      rewrite IHi; auto.
+  Qed.
+*)
+  Lemma i_subst_proj_rw:
+    forall x i n,
+    x <> TID ->
+    proj (Conc2.i_subst x (NNum n) i) = i_subst x (NNum n) (proj i).
+  Proof.
+    induction i; simpl; intros; destruct (Set_VAR.MF.eq_dec x TID); try contradiction.
+    - reflexivity.
+    - rewrite IHi1; auto.
+      rewrite IHi2; auto.
+    - rewrite IHi1; auto.
+      rewrite IHi2; auto.
+    - reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        auto.
+      }
+      rewrite IHi; auto.
+  Qed.
+
+  (* ---------------------------- IN PROJECTION -------------------- *)
+
+  Lemma in_proj_to_in:
+    forall x i,
+    x <> TID ->
+    In x (proj i) ->
+    Conc2.In x i.
+  Proof.
+    induction i; simpl; intros; inversion H0; subst; clear H0; auto.
+    + destruct H1; auto.
+    + inversion H1; subst; clear H1.
+      contradiction.
+    + destruct H1; auto.
+  Qed.
+
+  (* ----------------------------- IN TRANSLATION ------------------ *)
+
+
   Inductive TIn (a:access_val) : Conc2.inst -> Prop :=
   | t_in_mem_acc:
     forall e l,
@@ -86,6 +155,81 @@ Section Defs.
     TIn a (Conc2.For x (e1, e2) i)
   .
 
+  Lemma t_in_to_i_in:
+    forall i,
+    ~ Conc2.Var TID i ->
+    forall a,
+    TIn a i ->
+    IIn a (i_subst TID (NNum (access_tid a)) (proj i)).
+  Proof.
+    intros i Hv a Hi.
+    generalize dependent Hv.
+    induction Hi; simpl in *; intros.
+    - remove_eq TID TID.
+      eapply i_in_access; eauto.
+    - apply i_in_seq_l; eauto.
+    - apply i_in_seq_r; eauto.
+    - apply i_in_if_true; eauto.
+    - apply i_in_if_false; eauto.
+    - assert (TID <> x) by auto.
+      remove_eq TID x.
+      eapply i_in_decl; eauto.
+      rewrite i_subst_subst_neq; auto.
+      rewrite <- i_subst_proj_rw; auto.
+      apply IHHi.
+  Qed.
+
+  Lemma run_i_pair_in_to_m_pair_in:
+    forall i a,
+    TIn a i ->
+    IIn a (translate i).
+  Proof.
+    intros i a Hi.
+    unfold translate.
+    assert (Hx: access_tid a = 0 \/ access_tid a > 0). {
+      destruct (access_tid a); auto with *.
+    }
+    destruct Hx as [Hx|Hx]. {
+      apply i_in_decl with (n:=1) (n1:=1) (n2:=TID_COUNT); auto using n_step_num. {
+        auto using tid_count_1_lt with *.
+      }
+      unfold do_proj.
+      simpl.
+      remove_eq T1 T1.
+      remove_eq T1 T2.
+      apply i_in_decl with (n:=0) (n1:=0) (n2:=1); auto using n_step_num.
+      simpl.
+      apply i_in_seq_r.
+      rewrite i_subst_subst_neq; auto using t1_neq_t2.
+      rewrite i_subst_subst_trans. {
+        rewrite i_subst_not_in. {
+          rewrite <- Hx.
+          
+        }
+      }
+    }
+    induction Hi.
+    - unfold translate.
+    remember (translate _) as j.
+    generalize dependent i.
+    induction Hi; intros.
+    - destruct i; inversion Heqj.
+    - destruct i0; inversion Heqj.
+    - destruct i0; inversion Heqj.
+    - destruct i0; inversion Heqj.
+    - destruct i0; inversion Heqj.
+    - destruct i0; inversion Heqj.
+    - destruct i0; inversion Heqj.
+    - destruct i0; inversion Heqj; subst; clear Heqj; simpl in *;
+      remove_eq T1 T2; remove_eq T1 T1.
+      + inversion Hi; subst; clear Hi.
+      
+      remove_eq T1 T2.
+      remove_eq T1 T1.
+  Qed.
+
+
+  (* ---------------------- PAIR IN TRANSLATION ------------------- *)
 
   Definition TOneOf (p:access_val*access_val) i j :=
     let (v1, v2) := p in
@@ -181,64 +325,7 @@ Section Defs.
       + apply IHc1 in H6.
   Qed.*)
 
-  Lemma in_proj_to_in:
-    forall x i,
-    x <> TID ->
-    In x (proj i) ->
-    Conc2.In x i.
-  Proof.
-    induction i; simpl; intros; inversion H0; subst; clear H0; auto.
-    + destruct H1; auto.
-    + inversion H1; subst; clear H1.
-      contradiction.
-    + destruct H1; auto.
-  Qed.
-(*
-  Lemma i_subst_proj_rw_eq:
-    forall i n,
-    proj (Conc2.i_subst TID (NNum n) i) = i_subst TID (NNum n) (proj i).
-  Proof.
-    induction i; intros; simpl;
-      try (rewrite IHi1; auto);
-      try (rewrite IHi2; auto);
-      try (rewrite IHi; auto);
-      auto
-    .
-    - destruct (Set_VAR.MF.eq_dec TID TID). {
-        
-      }
-    - .
-      rewrite IHi2; auto.
-    - rewrite IHi1; auto.
-      rewrite IHi2; auto.
-    - reflexivity.
-    - destruct (Set_VAR.MF.eq_dec x v). {
-        auto.
-      }
-      rewrite IHi; auto.
-    - destruct (Set_VAR.MF.eq_dec x v). {
-        auto.
-      }
-      rewrite IHi; auto.
-  Qed.
-*)
-  Lemma i_subst_proj_rw:
-    forall x i n,
-    x <> TID ->
-    proj (Conc2.i_subst x (NNum n) i) = i_subst x (NNum n) (proj i).
-  Proof.
-    induction i; simpl; intros; destruct (Set_VAR.MF.eq_dec x TID); try contradiction.
-    - reflexivity.
-    - rewrite IHi1; auto.
-      rewrite IHi2; auto.
-    - rewrite IHi1; auto.
-      rewrite IHi2; auto.
-    - reflexivity.
-    - destruct (Set_VAR.MF.eq_dec x v). {
-        auto.
-      }
-      rewrite IHi; auto.
-  Qed.
+  (* ---------------------- TRANSLATE + RUN -------------------- *)
 
   Lemma translate_def:
     forall i vs1 vs2,
