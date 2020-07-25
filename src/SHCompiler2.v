@@ -149,6 +149,170 @@ Section Defs.
     TIn a (Conc2.For x (e1, e2) i)
   .
 
+
+  Inductive PIn a n: Conc2.inst -> Prop :=
+  | p_in_access:
+    forall e l,
+    access_step (access_subst TID (NNum n) e, NNum n) l -> 
+    List.In a l ->
+    PIn a n (Conc2.MemAcc e)
+  | p_in_seq_l:
+    forall i j,
+    PIn a n i ->
+    PIn a n (Conc2.Seq i j)
+  | p_in_seq_r:
+    forall i j,
+    PIn a n j ->
+    PIn a n (Conc2.Seq i j)
+  | p_in_if_true:
+    forall b i j,
+    BData n b true ->
+    PIn a n i ->
+    PIn a n (Conc2.If b i j)
+  | p_in_if_false:
+    forall b i j,
+    BData n b false ->
+    PIn a n j ->
+    PIn a n (Conc2.If b i j)
+  | p_in_for:
+    forall e1 e2 n' n1 n2 x i,
+    NData n e1 n1 ->
+    NData n e2 n2 ->
+    n1 <= n' < n2 ->
+    PIn a n (Conc2.i_subst x (NNum n') i) ->
+    PIn a n (Conc2.For x (e1, e2) i)
+  .
+
+
+  Lemma s_in_to_p_in:
+    forall a n i,
+    ~ Conc2.Var TID i ->
+    SIn a n (proj i) ->
+    PIn a n i.
+  Proof.
+    intros a n i Hv Hi.
+    remember (proj i) as j.
+    generalize dependent i.
+    induction Hi; intros i' Hv Heq.
+    - destruct i'; inversion Heq; subst; clear Heq.
+      simpl in *.
+      remove_eq TID TID.
+      eapply p_in_access; eauto.
+    - destruct i'; inversion Heq; subst; clear Heq.
+      simpl in *.
+      apply p_in_seq_l; auto.
+    - destruct i'; inversion Heq; subst; clear Heq.
+      simpl in *.
+      apply p_in_seq_r; auto.
+    - destruct i'; inversion Heq; subst; clear Heq.
+      simpl in *.
+      apply p_in_if_true; auto.
+    - destruct i'; inversion Heq; subst; clear Heq.
+      simpl in *.
+      apply p_in_if_false; auto.
+    - destruct i'; inversion Heq; subst; clear Heq.
+    - destruct i'; inversion Heq; subst; clear Heq.
+    - destruct i'; inversion Heq; subst; clear Heq.
+      eapply p_in_for; eauto.
+      simpl in *.
+      assert (TID <> v) by auto.
+      apply IHHi.
+      + intros N.
+        apply Conc2.var_subst_inv_1 in N.
+        auto.
+      + rewrite i_subst_proj_rw; auto.
+  Qed.
+
+  Lemma p_in_to_s_in:
+    forall a n i,
+    ~ Conc2.Var TID i ->
+    PIn a n i ->
+    SIn a n (proj i).
+  Proof.
+    intros a n i Hv Hi.
+    generalize dependent Hv.
+    induction Hi; intros Hv; simpl.
+    - eapply s_in_access; eauto.
+      simpl.
+      remove_eq TID TID.
+      assumption.
+    - simpl in *.
+      apply s_in_seq_l; auto.
+    - simpl in *.
+      apply s_in_seq_r; auto.
+    - simpl in *.
+      apply s_in_if_true; auto.
+    - simpl in *.
+      apply s_in_if_false; auto.
+    - simpl in *.
+      assert (TID <> x) by auto.
+      eapply s_in_decl; eauto.
+      rewrite <- i_subst_proj_rw; auto.
+      apply IHHi.
+      intros N.
+      apply Conc2.var_subst_inv_1 in N.
+      auto.
+  Qed.
+
+  Lemma t_in_to_p_in:
+    forall a i,
+    TIn a i ->
+    PIn a (access_tid a) i.
+  Proof.
+    intros a i Hi.
+    induction Hi; intros;
+      eauto using p_in_access,
+        p_in_seq_l, p_in_seq_r,
+        p_in_if_true, p_in_if_false, p_in_for.
+  Qed.
+
+  Lemma p_in_inv_access_tid:
+    forall a n i,
+    PIn a n i ->
+    access_tid a = n.
+  Proof.
+    intros.
+    induction H; intros; auto.
+    eauto using access_step_inv_in_eq.
+  Qed.
+
+  Lemma p_in_to_t_in:
+    forall a n i,
+    PIn a n i ->
+    TIn a i.
+  Proof.
+    intros.
+    assert (Heq: access_tid a = n) by eauto using p_in_inv_access_tid.
+    generalize dependent Heq.
+    induction H; intros; auto using t_in_seq_l, t_in_seq_r.
+    - rewrite <- Heq in *.
+      eauto using t_in_access.
+    - apply t_in_if_true; auto.
+      rewrite Heq.
+      assumption.
+    - apply t_in_if_false; auto.
+      rewrite Heq.
+      assumption.
+    - eapply t_in_for; eauto.
+      + rewrite Heq.
+        assumption.
+      + rewrite Heq.
+        assumption.
+  Qed.
+
+  Lemma var_proj_rw:
+    forall x i,
+    Var x (proj i) ->
+    Conc2.Var x i.
+  Proof.
+    induction i; simpl; intros.
+    - assumption.
+    - destruct H; auto.
+    - destruct H; auto.
+    - assumption.
+    - destruct H; auto.
+  Qed.
+
   Lemma t_in_to_i_in:
     forall i,
     ~ Conc2.Var TID i ->
@@ -156,24 +320,14 @@ Section Defs.
     TIn a i ->
     IIn a (i_subst TID (NNum (access_tid a)) (proj i)).
   Proof.
-    intros i Hv a Hi.
-    generalize dependent Hv.
-    induction Hi; simpl in *; intros.
-    - remove_eq TID TID.
-      eapply i_in_access; eauto.
-    - apply i_in_seq_l; eauto.
-    - apply i_in_seq_r; eauto.
-    - apply i_in_if_true; eauto.
-    - apply i_in_if_false; eauto.
-    - assert (TID <> x) by auto.
-      remove_eq TID x.
-      eapply i_in_decl; eauto.
-      rewrite i_subst_subst_neq; auto.
-      rewrite <- i_subst_proj_rw; auto.
-      apply IHHi.
+    intros.
+    apply s_in_to_i_in. {
       intros N.
-      apply Conc2.var_subst_inv_1 in N.
+      apply var_proj_rw in N.
       auto.
+    }
+    apply p_in_to_s_in; auto.
+    apply t_in_to_p_in; auto.
   Qed.
 
   Lemma i_in_to_t_in:
@@ -184,44 +338,29 @@ Section Defs.
     TIn a i.
   Proof.
     intros i Hv a Hi.
-    remember (i_subst _ _ _) as j.
-    generalize dependent i.
-    induction Hi; intros i' Hv Heq.
-    - destruct i'; inversion Heq; subst; clear Heq.
-      remove_eq TID TID.
-      eapply t_in_access; eauto.
-    - destruct i'; inversion Heq; subst; clear Heq.
-      simpl in *.
-      apply t_in_seq_l.
+    eapply p_in_to_t_in; eauto.
+    apply s_in_to_p_in; eauto.
+    apply i_in_to_s_in; eauto.
+    intros N.
+    apply var_proj_rw in N.
+    auto.
+  Qed.
+
+  Lemma i_in_inv_access_tid:
+    forall a t i,
+    ~ Conc2.Var TID i ->
+    IIn a (i_subst TID (NNum t) (proj i)) ->
+    t = access_tid a.
+  Proof.
+    intros a t i Hv Hi.
+    apply i_in_to_s_in in Hi. {
+      apply s_in_to_p_in in Hi; auto.
+      apply p_in_inv_access_tid in Hi.
       auto.
-    - destruct i'; inversion Heq; subst; clear Heq.
-      simpl in *.
-      apply t_in_seq_r.
-      auto.
-    - destruct i'; inversion Heq; subst; clear Heq.
-      simpl in *.
-      apply t_in_if_true; auto.
-    - destruct i'; inversion Heq; subst; clear Heq.
-      simpl in *.
-      apply t_in_if_false; auto.
-    - destruct i'; inversion Heq; subst; clear Heq.
-    - destruct i'; inversion Heq; subst; clear Heq.
-    - destruct i'; inversion Heq; subst; clear Heq.
-      simpl in *.
-      destruct r as (r1, r2).
-      inversion H4; subst; clear H4.
-      assert (TID <> v) by auto.
-      remove_eq TID v.
-      assert (Hv': ~ Conc2.Var TID (Conc2.i_subst v (NNum n) i')). {
-        intros N.
-        apply Conc2.var_subst_inv_1 in N.
-        auto.
-      }
-      assert (IHHi := IHHi _ Hv').
-      rewrite i_subst_subst_neq in IHHi; auto.
-      rewrite <- i_subst_proj_rw in IHHi; auto.
-      assert (IHHi := IHHi eq_refl).
-      eapply t_in_for; eauto.
+    }
+    intros N.
+    apply var_proj_rw in N.
+    auto.
   Qed.
 
   Lemma t_in_to_i_in_translate:
@@ -377,17 +516,34 @@ Section Defs.
     end.
     simpl in Hi.
     (* Is a in T1 or in T2? *)
+    unfold do_proj in *.
     inversion Hi; subst; clear Hi;
     match goal with
       H: IIn _ _ |- _ => rename H into Hi
     end.
     - (* a is in T1 *)
       rewrite i_subst_not_in in Hi. {
-        unfold do_proj in *.
         rewrite i_subst_subst_trans in Hi; auto.
+        assert (R:  t1 = access_tid a) by eauto using i_in_inv_access_tid.
+        rewrite R in Hi.
+        auto using i_in_to_t_in.
       }
+      intros N.
+      apply in_inv_subst_1 in N; auto.
+      apply in_inv_subst_in in N; auto using t1_neq_t2, t2_neq_tid.
     - (* a is in T2 *)
+      rewrite i_subst_subst_neq in Hi; auto using t1_neq_t2.
+      rewrite i_subst_not_in in Hi. {
+        rewrite i_subst_subst_trans in Hi; auto.
+        assert (R: t2 = access_tid a) by eauto using i_in_inv_access_tid.
+        rewrite R in Hi.
+        auto using i_in_to_t_in.
+      }
+      intros N.
+      apply in_inv_subst_1 in N; auto.
+      apply in_inv_subst_in in N; auto using t1_neq_t2, t1_neq_tid.
   Qed.
+
   (* ---------------------- PAIR IN TRANSLATION ------------------- *)
 
   Definition TOneOf (p:access_val*access_val) i j :=
