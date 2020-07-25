@@ -112,43 +112,20 @@ Section Defs.
     + destruct H1; auto.
   Qed.
 
+  Lemma var_proj_rw:
+    forall x i,
+    Var x (proj i) ->
+    Conc2.Var x i.
+  Proof.
+    induction i; simpl; intros.
+    - assumption.
+    - destruct H; auto.
+    - destruct H; auto.
+    - assumption.
+    - destruct H; auto.
+  Qed.
 
-  (* ----------------------------- IN TRANSLATION ------------------ *)
-
-
-  Inductive TIn (a:access_val) : Conc2.inst -> Prop :=
-  | t_in_access:
-    forall e l,
-    access_step (access_subst TID (NNum (access_tid a)) e, NNum (access_tid a)) l -> 
-    List.In a l ->
-    TIn a (Conc2.MemAcc e)
-  | t_in_seq_l:
-    forall i j,
-    TIn a i ->
-    TIn a (Conc2.Seq i j)
-  | t_in_seq_r:
-    forall i j,
-    TIn a j ->
-    TIn a (Conc2.Seq i j)
-  | t_in_if_true:
-    forall b i j,
-    BData (access_tid a) b true ->
-    TIn a i ->
-    TIn a (Conc2.If b i j)
-  | t_in_if_false:
-    forall b i j,
-    BData (access_tid a) b false ->
-    TIn a j ->
-    TIn a (Conc2.If b i j)
-  | t_in_for:
-    forall e1 e2 n n1 n2 x i,
-    NData (access_tid a) e1 n1 ->
-    NData (access_tid a) e2 n2 ->
-    n1 <= n < n2 ->
-    TIn a (Conc2.i_subst x (NNum n) i) ->
-    TIn a (Conc2.For x (e1, e2) i)
-  .
-
+  (* ------------------------- IN PROJECTION ----------------------- *)
 
   Inductive PIn a n: Conc2.inst -> Prop :=
   | p_in_access:
@@ -254,6 +231,54 @@ Section Defs.
       auto.
   Qed.
 
+  Lemma p_in_inv_access_tid:
+    forall a n i,
+    PIn a n i ->
+    access_tid a = n.
+  Proof.
+    intros.
+    induction H; intros; auto.
+    eauto using access_step_inv_in_eq.
+  Qed.
+
+
+  (* ----------------------------- IN TRANSLATION ------------------ *)
+
+
+  Inductive TIn (a:access_val) : Conc2.inst -> Prop :=
+  | t_in_access:
+    forall e l,
+    access_step (access_subst TID (NNum (access_tid a)) e, NNum (access_tid a)) l -> 
+    List.In a l ->
+    TIn a (Conc2.MemAcc e)
+  | t_in_seq_l:
+    forall i j,
+    TIn a i ->
+    TIn a (Conc2.Seq i j)
+  | t_in_seq_r:
+    forall i j,
+    TIn a j ->
+    TIn a (Conc2.Seq i j)
+  | t_in_if_true:
+    forall b i j,
+    BData (access_tid a) b true ->
+    TIn a i ->
+    TIn a (Conc2.If b i j)
+  | t_in_if_false:
+    forall b i j,
+    BData (access_tid a) b false ->
+    TIn a j ->
+    TIn a (Conc2.If b i j)
+  | t_in_for:
+    forall e1 e2 n n1 n2 x i,
+    NData (access_tid a) e1 n1 ->
+    NData (access_tid a) e2 n2 ->
+    n1 <= n < n2 ->
+    TIn a (Conc2.i_subst x (NNum n) i) ->
+    TIn a (Conc2.For x (e1, e2) i)
+  .
+
+
   Lemma t_in_to_p_in:
     forall a i,
     TIn a i ->
@@ -264,16 +289,6 @@ Section Defs.
       eauto using p_in_access,
         p_in_seq_l, p_in_seq_r,
         p_in_if_true, p_in_if_false, p_in_for.
-  Qed.
-
-  Lemma p_in_inv_access_tid:
-    forall a n i,
-    PIn a n i ->
-    access_tid a = n.
-  Proof.
-    intros.
-    induction H; intros; auto.
-    eauto using access_step_inv_in_eq.
   Qed.
 
   Lemma p_in_to_t_in:
@@ -300,18 +315,7 @@ Section Defs.
         assumption.
   Qed.
 
-  Lemma var_proj_rw:
-    forall x i,
-    Var x (proj i) ->
-    Conc2.Var x i.
-  Proof.
-    induction i; simpl; intros.
-    - assumption.
-    - destruct H; auto.
-    - destruct H; auto.
-    - assumption.
-    - destruct H; auto.
-  Qed.
+  (* ------------------------- TIN ------------------------ *)
 
   Lemma t_in_to_i_in:
     forall i,
@@ -599,46 +603,7 @@ Section Defs.
     TIn v2 i -> 
     TPairIn (v1,v2) (Conc2.If b i j)
   .
-(*
-  Lemma i_in_pair_in_translate_if_true:
-    forall v1 v2 b c1 c2,
-    BData (access_tid v1) b true ->
-    BData (access_tid v2) b true ->
-    IPairIn (v1, v2) (translate c1) ->
-    IPairIn (v1, v2) (translate (Conc2.If b c1 c2)).
-  Proof.
-    unfold translate, do_proj.
-    intros.
-    inversion H1; subst; clear H1;
-      simpl in *;
-      remove_eq T1 T1;
-      remove_eq T1 T2.
-    - inversion H6; subst; clear H6.
-      inversion H7; subst; clear H7.
-      eapply i_pair_decl_l; eauto using n_step_num.
-      inversion H9; subst; clear H9; simpl in *.
-      + remove_eq T1 T1.
-        remove_eq T1 T2.
-        inversion H5; subst; clear H5.
-        inversion H6; subst; clear H6.
-        eapply i_pair_decl_l; eauto using n_step_num.
-        simpl.
-        inversion H10; subst; clear H10.
-        * apply i_pair_in_seq_1; auto.
-  Qed.
 
-  Lemma i_pair_in_to_pair_in:
-    forall c p, 
-(*    Run (translate c) hs ->*)
-    TPairIn p c ->
-    IPairIn p (translate c).
-(*    MPairIn p hs. *)
-  Proof.
-    induction c; intros.
-    - inversion H.
-    - inversion H; subst; clear H.
-      + apply IHc1 in H6.
-  Qed.*)
 
   (* ---------------------- TRANSLATE + RUN -------------------- *)
 
