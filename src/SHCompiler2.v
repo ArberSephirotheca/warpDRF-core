@@ -116,7 +116,7 @@ Section Defs.
 
 
   Inductive TIn (a:access_val) : Conc2.inst -> Prop :=
-  | t_in_mem_acc:
+  | t_in_access:
     forall e l,
     access_step (access_subst TID (NNum (access_tid a)) e, NNum (access_tid a)) l -> 
     List.In a l ->
@@ -139,19 +139,12 @@ Section Defs.
     BData (access_tid a) b false ->
     TIn a j ->
     TIn a (Conc2.If b i j)
-  | t_in_decl_l:
-    forall e1 e2 n1 n2 x i,
+  | t_in_for:
+    forall e1 e2 n n1 n2 x i,
     NData (access_tid a) e1 n1 ->
     NData (access_tid a) e2 n2 ->
-    n1 < n2 ->
-    TIn a (Conc2.i_subst x (NNum n1) i) ->
-    TIn a (Conc2.For x (e1, e2) i)
-  | t_in_decl_r:
-    forall e1 e2 n1 n2 x i,
-    NData (access_tid a) e1 n1 ->
-    NData (access_tid a) e2 n2 ->
-    n1 < n2 ->
-    TIn a (Conc2.For x (NNum (S n1), NNum n2) i) ->
+    n1 <= n < n2 ->
+    TIn a (Conc2.i_subst x (NNum n) i) ->
     TIn a (Conc2.For x (e1, e2) i)
   .
 
@@ -177,6 +170,57 @@ Section Defs.
       rewrite i_subst_subst_neq; auto.
       rewrite <- i_subst_proj_rw; auto.
       apply IHHi.
+      intros N.
+      apply Conc2.var_subst_inv_1 in N.
+      auto.
+  Qed.
+
+  Lemma i_in_to_t_in:
+    forall i,
+    ~ Conc2.Var TID i ->
+    forall a,
+    IIn a (i_subst TID (NNum (access_tid a)) (proj i)) ->
+    TIn a i.
+  Proof.
+    intros i Hv a Hi.
+    remember (i_subst _ _ _) as j.
+    generalize dependent i.
+    induction Hi; intros i' Hv Heq.
+    - destruct i'; inversion Heq; subst; clear Heq.
+      remove_eq TID TID.
+      eapply t_in_access; eauto.
+    - destruct i'; inversion Heq; subst; clear Heq.
+      simpl in *.
+      apply t_in_seq_l.
+      auto.
+    - destruct i'; inversion Heq; subst; clear Heq.
+      simpl in *.
+      apply t_in_seq_r.
+      auto.
+    - destruct i'; inversion Heq; subst; clear Heq.
+      simpl in *.
+      apply t_in_if_true; auto.
+    - destruct i'; inversion Heq; subst; clear Heq.
+      simpl in *.
+      apply t_in_if_false; auto.
+    - destruct i'; inversion Heq; subst; clear Heq.
+    - destruct i'; inversion Heq; subst; clear Heq.
+    - destruct i'; inversion Heq; subst; clear Heq.
+      simpl in *.
+      destruct r as (r1, r2).
+      inversion H4; subst; clear H4.
+      assert (TID <> v) by auto.
+      remove_eq TID v.
+      assert (Hv': ~ Conc2.Var TID (Conc2.i_subst v (NNum n) i')). {
+        intros N.
+        apply Conc2.var_subst_inv_1 in N.
+        auto.
+      }
+      assert (IHHi := IHHi _ Hv').
+      rewrite i_subst_subst_neq in IHHi; auto.
+      rewrite <- i_subst_proj_rw in IHHi; auto.
+      assert (IHHi := IHHi eq_refl).
+      eapply t_in_for; eauto.
   Qed.
 
   Lemma run_i_pair_in_to_m_pair_in:
