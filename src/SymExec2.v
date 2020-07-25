@@ -22,6 +22,8 @@ Require Import MultiHist.
 Require Import InUtil.
 Require Import PairInUtil.
 Require Import MExp.
+Require Coq.Program.Wf.
+
 Import ListNotations.
 Import MHistNotations.
 
@@ -1000,6 +1002,34 @@ Section Defs.
 
   (* --------------------- PAIR-IN INSTRUCTION ---------------------- *)
 
+  Fixpoint size (i:inst) :=
+  match i with
+  | Skip | MemAcc _ => 0
+  | Seq i j | If _ i j | Fork i j => S (size i + size j)
+  | Decl _ _ i =>  S (size i)
+  end.
+
+  Lemma size_subst:
+    forall x v i,
+    size (i_subst x v i) = size i.
+  Proof.
+    intros.
+    induction i; intros; simpl; auto.
+    destruct (Set_VAR.MF.eq_dec x v0). { reflexivity. }
+    rewrite IHi.
+    auto.
+  Qed.
+(*
+  Fixpoint i_in a l i : Prop :=
+  match i with
+  | Skip => False
+  | MemAcc e => exists v, access_inst_step e v /\ List.In a v
+  | Seq i j | Fork i j => i_in a l i \/ i_in a l j
+  | If e i j => exists b, BStep e b /\ if b then i_in a l i else i_in a l j 
+  | Decl x (e1,e2) i => exists n n1 n2, n1 <= n < n2 /\ NStep e1 n1 /\ NStep e2 n2 /\ i_in a ((x, (NNum n))::l) i  
+  end.
+*)
+
   Inductive IIn (a:access_val) : inst -> Prop :=
   | i_in_access:
     forall e v,
@@ -1032,19 +1062,12 @@ Section Defs.
     forall i j,
     IIn a j ->
     IIn a (Fork i j)
-  | i_in_decl_l:
-    forall e1 e2 n1 n2 x i,
+  | i_in_decl:
+    forall e1 e2 n1 n n2 x i,
     NStep e1 n1 ->
     NStep e2 n2 ->
-    n1 < n2 ->
-    IIn a (i_subst x (NNum n1) i) ->
-    IIn a (Decl x (e1, e2) i)
-  | i_in_decl_r:
-    forall e1 e2 n1 n2 x i,
-    NStep e1 n1 ->
-    NStep e2 n2 ->
-    n1 < n2 ->
-    IIn a (Decl x (NNum (S n1), NNum n2) i) ->
+    n1 <= n < n2 ->
+    IIn a (i_subst x (NNum n) i) ->
     IIn a (Decl x (e1, e2) i)
   .
 
@@ -1071,9 +1094,15 @@ Section Defs.
       destruct Hi; auto using i_in_fork_l, i_in_fork_r.
     - apply m_in_inv_app in Hi.
       destruct Hi as [Hi|Hi]. {
-        eapply i_in_decl_l; eauto.
+        eapply i_in_decl; eauto.
       }
-      eapply i_in_decl_r; eauto.
+      apply IHHr2 in Hi.
+      inversion Hi; subst; clear Hi.
+      assert (S n1 = n0) by eauto using n_step_fun, n_step_num.
+      assert (n3 = n2) by eauto using n_step_fun, n_step_num.
+      subst.
+      eapply i_in_decl with (n:=n); eauto.
+      auto with *.
     - apply m_in_nil_nil in Hi.
       contradiction.
   Qed.
@@ -1100,19 +1129,18 @@ Section Defs.
       auto using m_in_eq.
     - auto using m_in_app_l.
     - auto using m_in_app_r.
-    - assert (n0 = n1) by eauto using n_step_fun; subst.
-      assert (n2 = n3) by eauto using n_step_fun; subst.
+    - assert (n0 = n1) by eauto using n_step_fun.
+      assert (n3 = n2) by eauto using n_step_fun.
       subst.
-      auto using m_in_app_l.
-    - assert (n0 = n1) by eauto using n_step_fun; subst.
-      assert (n2 = n3) by eauto using n_step_fun; subst.
-      subst.
-      auto using m_in_app_r.
-    - assert (n0 = n1) by eauto using n_step_fun; subst.
-      assert (n2 = n3) by eauto using n_step_fun; subst.
-      subst.
-      Import Omega.
-      omega.
+      assert (Hn: n1 = n \/ n1 < n). {
+        assert (Hn: n1 <= n) by auto with *.
+        inversion Hn; subst; clear Hn; auto with *.
+      }
+      destruct Hn. { subst. apply m_in_app_l. eauto. }
+      apply m_in_app_r.
+      apply IHHr2.
+      eapply i_in_decl with (n1:=S n1) (n2:=n2); eauto using n_step_num.
+      auto with *.
     - assert (n0 = n1) by eauto using n_step_fun; subst.
       assert (n2 = n3) by eauto using n_step_fun; subst.
       subst.
@@ -1164,17 +1192,12 @@ Section Defs.
   | i_pair_in_fork_r i j:
     IPairIn p j ->
     IPairIn p (Fork i j)
-  | i_pair_in_decl_l e1 e2 n1 n2 i x:
+  | i_pair_in_decl:
+    forall n e1 e2 n1 n2 i x,
     NStep e1 n1 ->
     NStep e2 n2 ->
-    n1 < n2 ->
-    IPairIn p (i_subst x (NNum n1) i) ->
-    IPairIn p (Decl x (e1, e2) i)
-  | i_pair_in_decl_r e1 e2 n1 n2 i x:
-    NStep e1 n1 ->
-    NStep e2 n2 ->
-    n1 < n2 ->
-    IPairIn p (Decl x (NNum (S n1), NNum n2) i) ->
+    n1 <= n < n2 ->
+    IPairIn p (i_subst x (NNum n) i) ->
     IPairIn p (Decl x (e1, e2) i).
 
   Lemma run_i_pair_in_to_m_pair_in:
@@ -1202,16 +1225,17 @@ Section Defs.
     - auto using m_pair_in_app_l.
     - auto using m_pair_in_app_r.
     - assert (n0 = n1) by eauto using n_step_fun.
+      assert (n3 = n2) by eauto using n_step_fun.
       subst.
-      eauto using m_pair_in_app_l.
-    - assert (n0 = n1) by eauto using n_step_fun.
-      assert (n2 = n3) by eauto using n_step_fun.
-      subst.
-      eauto using m_pair_in_app_r.
-    - assert (n0 = n1) by eauto using n_step_fun.
-      assert (n2 = n3) by eauto using n_step_fun.
-      subst.
-      omega.
+      assert (Hn: n1 = n \/ n1 < n). {
+        assert (Hn: n1 <= n) by auto with *.
+        inversion Hn; subst; clear Hn; auto with *.
+      }
+      destruct Hn. { subst. apply m_pair_in_app_l. eauto. }
+      apply m_pair_in_app_r.
+      apply IHHr2.
+      eapply i_pair_in_decl with (n1:=S n1) (n2:=n2); eauto using n_step_num.
+      auto with *.
     - assert (n0 = n1) by eauto using n_step_fun.
       assert (n2 = n3) by eauto using n_step_fun.
       subst.
@@ -1251,12 +1275,99 @@ Section Defs.
       destruct Hi; auto using i_pair_in_fork_l, i_pair_in_fork_r.
     - apply m_pair_in_app_or in Hi.
       destruct Hi as [Hi|Hi]. {
-        eapply i_pair_in_decl_l; eauto.
+        eapply i_pair_in_decl; eauto.
       }
-      eapply i_pair_in_decl_r; eauto.
+      apply IHHr2 in Hi.
+      inversion Hi; subst; clear Hi.
+      assert (S n1 = n0) by eauto using n_step_fun, n_step_num.
+      assert (n3 = n2) by eauto using n_step_fun, n_step_num.
+      subst.
+      eapply i_pair_in_decl with (n:=n); eauto.
+      auto with *.
     - apply m_pair_in_nil_nil in Hi.
       contradiction.
   Qed.
+(*
+  Lemma i_in_decl_seq_l:
+    forall x r i a,
+    IIn a (Decl x r i) ->
+    forall j,
+    IIn a (Decl x r (Seq i j)).
+  Proof.
+    intros x r i a Hi.
+    remember (Decl _ _ _) as k.
+    generalize dependent r.
+    generalize dependent i.
+    generalize dependent x.
+    induction Hi; intros; inversion Heqk; subst; clear Heqk.
+    - eapply i_in_decl_l; eauto.
+      simpl.
+      eauto using i_in_seq_l.
+    - eapply i_in_decl_r; eauto.
+  Qed.
 
+  Lemma i_in_decl_seq_r:
+    forall x r j a,
+    IIn a (Decl x r j) ->
+    forall i,
+    IIn a (Decl x r (Seq i j)).
+  Proof.
+    intros x r i a Hi.
+    remember (Decl _ _ _) as k.
+    generalize dependent r.
+    generalize dependent i.
+    generalize dependent x.
+    induction Hi; intros; inversion Heqk; subst; clear Heqk.
+    - eapply i_in_decl_l; eauto.
+      simpl.
+      eauto using i_in_seq_r.
+    - eapply i_in_decl_r; eauto.
+  Qed.
+
+  Lemma i_in_decl_if_true:
+    forall n1 n n2 b i j x a,
+    n1 <= n < n2 ->
+    BStep (b_subst x (NNum n) b) true ->
+    IIn a (Decl x (NNum n1, NNum n2) i) ->
+    IIn a (Decl x (NNum n1, NNum n2) (If b i j)).
+  Proof.
+    intros.
+    remember (Decl _ _ _) as k.
+    generalize dependent b.
+    generalize dependent n1.
+    generalize dependent n2.
+    generalize dependent n.
+    generalize dependent x.
+    generalize dependent i.
+    generalize dependent j.
+    induction H1; intros; inversion Heqk; subst; clear Heqk.
+    - assert (n3 = n1) by eauto using n_step_fun, n_step_num.
+      assert (n0 = n2) by eauto using n_step_fun, n_step_num.
+      subst.
+      eapply IHIIn in H4; eauto.
+    assert (NStep (NNum n3) n3) by eauto using n_step_num.
+      
+  Qed.
+
+  Lemma i_in_decl_eq:
+    forall i x a n n1 n2,
+    n1 <= n < n2 ->
+    IIn a (i_subst x (NNum n) i) ->
+    IIn a (Decl x (NNum n1, NNum n2) i).
+  Proof.
+    induction i; intros.
+    - simpl in *.
+      inversion H0.
+    - simpl in *.
+      inversion H0; subst; clear H0.
+      + apply i_in_decl_seq_l; eauto.
+      + apply i_in_decl_seq_r; eauto.
+    - inversion H0; subst; clear H0.
+      + eapply IHi1 in H5; eauto.
+      eapply IHi1; eauto.
+      inversion H0; subst; clear H0.
+      + 
+  Qed.
+  *)
 End Defs.
 
