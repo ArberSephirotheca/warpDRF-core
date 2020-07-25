@@ -315,7 +315,7 @@ Section Defs.
         assumption.
   Qed.
 
-  (* ------------------------- TIN ------------------------ *)
+  (* ------------------------- TIN TO IIN ------------------------ *)
 
   Lemma t_in_to_i_in:
     forall i,
@@ -556,8 +556,58 @@ Section Defs.
     \/
     (TIn v2 i /\ TIn v1 j).
 
+  Definition TPairIn (p:access_val * access_val) i : Prop :=
+    let (v1, v2) := p in
+    TIn v1 i /\ TIn v2 i.
+(*
+  Lemma i_pair_in_to_t_pair_in:
+    forall i p,
+    IPairIn p (translate i) ->
+    TPairIn p i.
+  Proof.
+    unfold translate.
+    intros.
+    inversion H; subst; clear H.
+    inversion H4; subst; clear H4.
+    inversion H5; subst; clear H5.
+    match goal with
+      _: 1 <= ?n < TID_COUNT |- _ => rename n into t1
+    end.
+    simpl in *.
+    remove_eq T1 T1.
+    remove_eq T1 T2.
+    inversion H7; subst; clear H7.
+    inversion H3; subst; clear H3.
+    assert (n2 = t1) by eauto using n_step_fun, n_step_num.
+    subst.
+    clear H4.
+    simpl in *.
+    match goal with
+      _: 0 <= ?n < t1 |- _ => rename n into t2
+    end.
+    unfold do_proj in *.
+    inversion H8; subst; clear H8.
+    - admit.
+    - admit.
+    - unfold IOneOf in *.
+      destruct p as (v1, v2).
+      destruct H0 as [(Hi, Hj)|(Hj, Hi)].
+      + admit.
+      + admit.
+  Admitted.
+
+  Lemma t_pair_in_to_i_pair_in:
+    forall i p,
+    TPairIn p i ->
+    IPairIn p (translate i).
+  Proof.
+    intros.
+  Qed.
+  *)
+
+(*
   Inductive TPairIn : (access_val * access_val) -> Conc2.inst -> Prop :=
-  | t_pair_in_mem_acc:
+  | t_pair_in_access:
     forall v1 v2 e l1 l2,
     access_step (access_subst TID (NNum (access_tid v1)) e, NNum (access_tid v1)) l1 -> 
     access_step (access_subst TID (NNum (access_tid v2)) e, NNum (access_tid v2)) l2 ->
@@ -576,34 +626,44 @@ Section Defs.
     forall p i j,
     TOneOf p i j ->
     TPairIn p (Conc2.Seq i j)
-  | t_pair_in_true_true:
+  | t_pair_in_if_true_true:
     forall v1 v2 b i j,
     BData (access_tid v1) b true ->
     BData (access_tid v2) b true ->
     TPairIn (v1,v2) i -> 
     TPairIn (v1,v2) (Conc2.If b i j)
-  | t_pair_in_false_false:
+  | t_pair_in_if_false_false:
     forall v1 v2 b i j,
     BData (access_tid v1) b false ->
     BData (access_tid v2) b false ->
     TPairIn (v1,v2) i -> 
     TPairIn (v1,v2) (Conc2.If b i j)
-  | t_pair_in_true_false:
+  | t_pair_in_if_true_false:
     forall v1 v2 b i j,
     BData (access_tid v1) b true ->
     BData (access_tid v2) b false ->
     TIn v1 i -> 
     TIn v2 j -> 
     TPairIn (v1,v2) (Conc2.If b i j)
-  | t_pair_in_false_true:
+  | t_pair_in_if_false_true:
     forall v1 v2 b i j,
     BData (access_tid v1) b false ->
     BData (access_tid v2) b true ->
     TIn v1 j -> 
     TIn v2 i -> 
     TPairIn (v1,v2) (Conc2.If b i j)
+  | t_pair_in_for:
+    forall p e1 e2 n n1_1 n2_1 n1_2 n2_2 x i,
+    NData v1 e1 n1_1 ->
+    NData v1 e2 n2_1 ->
+    NData v2 e1 n1_2 ->
+    NData v2 e2 n2_2 ->
+    n1_1 <= n < n2_1 ->
+    n1_2 <= n < n2_2 ->
+    TPairIn (v1,v2) (Conc2.i_subst x (NNum n) i) ->
+    TPairIn (v1,v2) (Conc2.For x (e1, e2) i)
   .
-
+*)
 
   (* ---------------------- TRANSLATE + RUN -------------------- *)
 

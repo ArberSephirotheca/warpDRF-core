@@ -292,34 +292,47 @@ Section Compiler.
     - 
   Qed.
 *)
+  Lemma i_in_to_t_in:
+    forall a i,
+    Conc2.IIn a i ->
+    TIn a i.
+  Proof.
+    intros a i Hi.
+    induction Hi;
+    auto using t_in_if_true, t_in_if_false, t_in_seq_l, t_in_seq_r.
+    - destruct H as (l, (Hi, Hj)).
+      eapply t_in_access; eauto.
+    - destruct r as (e1, e2).
+      destruct H as (Ha, Hb).
+      eapply t_in_for; eauto.
+  Qed.
+
+  Lemma t_in_to_i_in:
+    forall a i,
+    TIn a i ->
+    Conc2.IIn a i.
+  Proof.
+    intros a i Hi.
+    induction Hi; auto using Conc2.i_in_seq_l, Conc2.i_in_seq_r, Conc2.i_in_if_true, Conc2.i_in_if_false.
+    - apply Conc2.i_in_access.
+      unfold AIn.
+      eauto.
+    - eapply Conc2.i_in_for; eauto.
+      split; auto.
+  Qed.
+
   Lemma soundness_2:
-    forall i nx a1,
-    Conc2.AccIn nx a1 i ->
-    forall ny a2,
-    Conc2.AccIn ny a2 i ->
-    nx < TID_COUNT ->
-    ny < TID_COUNT ->
+    forall i a1,
+    Conc2.IIn a1 i ->
+    forall a2,
+    Conc2.IIn a2 i ->
     TPairIn (a1,a2) i.
   Proof.
-    induction i; intros.
-    - inversion H.
-    - inversion H; subst; clear H.
-      + inversion H0; subst; clear H0.
-        * eapply t_pair_in_true_true; eauto.
-          -- admit.
-          -- admit.
-        * 
-      (*
-      apply translate_inv_access in H3.
-      destruct H3 as (vs1, (vs2, (R, (Hl, (Hm1, Hm2))))).
-      apply R.
-      admit.*)
-    - inversion H1; subst; clear H1.
-      + apply IHAccIn in H8; auto.
-        admit.
-      + 
-    - admit.
-    - 
+    intros.
+    apply i_in_to_t_in in H.
+    apply i_in_to_t_in in H0.
+    unfold TPairIn.
+    auto.
   Qed.
 
   Theorem soundness_1

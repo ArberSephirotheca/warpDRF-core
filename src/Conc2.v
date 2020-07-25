@@ -503,7 +503,7 @@ Section C1.
     RunAll (S n) i (h1 ++ h2).
 
   Inductive IIn (a:access_val) : inst -> Prop :=
-  | i_in_mem_acc:
+  | i_in_access:
     forall e,
     AIn a e ->
     IIn a (MemAcc e)
@@ -525,18 +525,13 @@ Section C1.
     forall i j,
     IIn a j ->
     IIn a (Seq i j)
-  | i_in_for_l:
-    forall i r x n1 n2,
+  | i_in_for:
+    forall i r x n1 n n2,
     RData (access_tid a) r (n1, n2) ->
-    n1 < n2 ->
-    IIn a (i_subst x (NNum n1) i) ->
+    n1 <= n < n2 ->
+    IIn a (i_subst x (NNum n) i) ->
     IIn a (For x r i)
-  | i_in_for_r:
-    forall i r x n1 n2,
-    RData (access_tid a) r (n1, n2) ->
-    n1 < n2 ->
-    IIn a (For x (NNum (S n1), NNum n2) i) ->
-    IIn a (For x r i).
+  .
 
   Inductive Run2 (n1 n2:nat): inst -> history -> history -> Prop :=
   | run2_skip:
@@ -804,7 +799,7 @@ Section C1.
     intros m i h Hr.
     induction Hr; intros a Hi.
     - contradiction.
-    - apply i_in_mem_acc.
+    - apply i_in_access.
       unfold AIn.
       exists v.
       erewrite access_step_inv_in_eq; eauto.
@@ -819,12 +814,21 @@ Section C1.
         erewrite s_run_access_tid with (i:=j); eauto.
     - apply in_app_iff in Hi.
       destruct Hi.
-      + eapply i_in_for_l; eauto.
-        unfold RData.
-        erewrite s_run_access_tid with (i:= (i_subst x (NNum n1) i)); eauto.
-      + eapply i_in_for_r; eauto.
-        unfold RData.
-        erewrite s_run_access_tid with (i:=(For x (NNum (S n1), NNum n2) i)); eauto.
+      + apply i_in_for with (n1:=n1) (n2:=n2) (n:=n1); auto.
+        assert (R: access_tid a = m). { eauto using s_run_access_tid. }
+        rewrite R.
+        split; auto.
+      + assert (Hi := H2).
+        apply IHHr2 in H2.
+        inversion H2; subst; clear H2.
+        destruct H6 as (Ha, Hb).
+        assert (n0 = S n1) by eauto using n_step_fun, n_step_num.
+        assert (n3 = n2) by eauto using n_step_fun, n_step_num.
+        subst.
+        apply i_in_for with (n1:=n1) (n:=n) (n2:=n2); auto with *.
+        assert (R: access_tid a = m). { eauto using s_run_access_tid. }
+        rewrite R.
+        split; auto.
     - contradiction.
   Qed.
 
@@ -871,19 +875,13 @@ Section C1.
       assert (n0 = n1) by eauto using n_step_fun.
       assert (n3 = n2) by eauto using n_step_fun.
       subst.
-      eauto.
-    - apply in_app_iff.
-      destruct H5 as (Hn1, Hn2).
-      assert (n0 = n1) by eauto using n_step_fun.
-      assert (n3 = n2) by eauto using n_step_fun.
-      subst.
-      eauto.
-    - destruct H5 as (Hn1, Hn2).
-      assert (n0 = n1) by eauto using n_step_fun.
-      assert (n3 = n2) by eauto using n_step_fun.
-      subst.
-      Import Omega.
-      omega.
+      assert (Hn: n1 = n \/ n1 < n). {
+        assert (Hn: n1 <= n) by auto with *.
+        inversion Hn; subst; clear Hn; auto with *.
+      }
+      destruct Hn. { subst. eauto. }
+      apply i_in_for with (r:=(NNum (S n1), NNum n2)) (n1:=S n1) (n2:=n2) in H7; auto with *.
+      split; apply n_step_num.
     - destruct H5 as (Hn1, Hn2).
       assert (n0 = n1) by eauto using n_step_fun.
       assert (n3 = n2) by eauto using n_step_fun.
