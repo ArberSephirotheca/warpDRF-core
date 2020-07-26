@@ -335,140 +335,8 @@ Section Compiler.
     auto.
   Qed.
 
-  Theorem soundness_1
-      (i:Conc2.inst)
-      (*
-      (T1_nin_i: ~ In T1 i)
-      (T2_nin_i: ~ In T2 i)
-      (TID_nvar_i: ~ Var TID i)
-      *)
-    :
-    forall m_c,
-    Conc2.RunAll TID_COUNT i m_c ->
-    forall m_h,
-    (* (forall x, MIn x m_l -> access_tid x < TID_COUNT) -> *)
-    Run (translate i) m_h ->
-    Hist.PairInclMPair m_c m_h.
-  Proof.
-    intros.
-    unfold Hist.PairInclMPair.
-    intros x y Hx Hy.
-    assert (Hi := Hx).
-    eapply Conc2.run_all_inv_in in Hi; eauto.
-    destruct Hi as (nx, (h_x, (?, (Hrx, (Hjx, Hix))))).
-    assert (Hi := Hy).
-    eapply Conc2.run_all_inv_in in Hi; eauto.
-    destruct Hi as (ny, (h_y, (?, (Hry, (Hjy, Hiy))))).
-    clear Hjy H Hjx.
-    apply run_inv_decl in H1.
-    destruct H1 as (n1, (n2, (Hn1, (Hn2, Hx)))).
-    inversion Hn1; subst; clear Hn1.
-    assert (n2 = TID_COUNT). {
-      inversion Hn2; subst; clear Hn2.
-      reflexivity.
-    }
-    subst.
-    clear Hn2.
-    destruct Hx as [(N,Hx)|(hss, (?, Hx))]. {
-      assert (1 < TID_COUNT) by auto using tid_count_1_lt.
-      Import Omega.
-      omega.
-    }
-    subst.
-    (* We simplified our assumption [SymHist.Run (translate i) m_h]
-       as [Hx]. *)  
-    assert (x_lt_tc: access_tid x < TID_COUNT) by eauto.
-    assert (y_lt_tc: access_tid y < TID_COUNT) by eauto.
-    (* Check the tids of both accesses. *)
-    assert (Ht: access_tid x = access_tid y \/ access_tid x < access_tid y \/ access_tid x > access_tid y)
-      by omega.
-    destruct Ht as [Ht | [Ht|Ht]].
-    - (* x = y *)
-      omega.
-    - (* x < y *)
-      (* Satisfy outer-forall and unpax the existential in Hx *)
-      assert (Ha : 1 <= access_tid y < TID_COUNT) by omega.
-      assert (Hx := Hx (access_tid y) Ha).
-      destruct Hx as (hs, (Hx,Hy)).
-      apply SymExec.run_inv_seq in Hx.
-      destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
-      inversion Hr2; subst; clear Hr2.
-      rewrite prod_nil_nil_r in *.
-      simpl in *.
-      destruct (Set_VAR.MF.eq_dec T1 T1) as [_| N]; try contradiction.
-      apply SymExec.run_inv_decl in Hr1.
-      destruct Hr1 as (n1, (n2, (Hn1, (Hn2, [(N, Hr1)|(Hss, (?, Hx))])))). {
-        inversion Hn1; subst; clear Hn1.
-        inversion Hn2; subst; clear Hn2.
-        (* tid(y) = 0 /\ tid(y) > 0 *)
-        omega.
-      }
-      inversion Hn1; subst; clear Hn1.
-      inversion Hn2; subst; clear Hn2.
-      (* Satisfy the outer forall and unpax the existential in Hx *)
-      assert (Hb : 0 <= access_tid x < access_tid y) by omega.
-      assert (Hx := Hx (access_tid x) Hb).
-      destruct Hx as (hs, (Hx,Hz)).
-      remove_eq T1 T2.
-      (* Now we want to handle the seq in Hx *)
-      apply SymExec.run_inv_seq in Hx.
-      destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
-      inversion Hr2; subst; clear Hr2.
-      rewrite prod_nil_nil_r in *.
-      eapply run_do_proj_do_proj in Hr1; eauto.
-      subst.
-      eapply m_pair_in_concat; eauto.
-      eapply m_pair_in_concat; eauto.
-      apply m_pair_in_prod_2.
-      + auto using Hist.in_m_proj.
-      + auto using Hist.in_m_proj.
-    - (* y < x *)
-      Import Omega.
-      (* Satisfy outer-forall and unpax the existential in Hx *)
-      assert (Ha : 1 <= access_tid x < TID_COUNT) by omega.
-      assert (Hx := Hx (access_tid x) Ha).
-      destruct Hx as (hs, (Hx,Hy)).
-      apply SymExec.run_inv_seq in Hx.
-      destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
-      inversion Hr2; subst; clear Hr2.
-      rewrite prod_nil_nil_r in *.
-      simpl in *.
-      remove_eq T1 T1.
-      apply SymExec.run_inv_decl in Hr1.
-      destruct Hr1 as (n1, (n2, (Hn1, (Hn2, [(N, Hr1)|(Hss, (?, Hx))])))). {
-        inversion Hn1; subst; clear Hn1.
-        inversion Hn2; subst; clear Hn2.
-        (* tid(y) = 0 /\ tid(y) > 0 *)
-        omega.
-      }
-      inversion Hn1; subst; clear Hn1.
-      inversion Hn2; subst; clear Hn2.
-      (* Satisfy the outer forall and unpax the existential in Hx *)
-      assert (Hb : 0 <= access_tid y < access_tid x) by omega.
-      assert (Hx := Hx (access_tid y) Hb).
-      destruct Hx as (hs, (Hx,Hz)).
-      remove_eq T1 T2.
-      (* Now we want to handle the seq in Hx *)
-      apply SymExec.run_inv_seq in Hx.
-      destruct Hx as (hx1, (hx2, (?, (Hr1, Hr2)))).
-      inversion Hr2; subst; clear Hr2.
-      rewrite prod_nil_nil_r in *.
-      eapply run_do_proj_do_proj in Hr1; eauto.
-      subst.
-      eapply m_pair_in_concat; eauto.
-      eapply m_pair_in_concat; eauto.
-      apply m_pair_in_prod_1.
-      + auto using Hist.in_m_proj.
-      + auto using Hist.in_m_proj.
-  Qed.
-*)
-  (**
-    Top-level soundness theorem.
-    *)
-
   Corollary soundness:
     forall m_c m_h i,
-    (*(forall x, MIn x m_l -> access_tid x < TID_COUNT) ->*)
     ~ Conc2.In T1 i ->
     ~ Conc2.In T2 i ->
     ~ Conc2.Var TID i ->
@@ -477,10 +345,126 @@ Section Compiler.
     Run (translate i) m_h ->
     Hist.Safe m_c.
   Proof.
-    intros.
-    eapply Hist.m_safe_strong_to_safe in H2; eauto.
-    + eapply Hist.msafe_to_safe in H2; eauto.
-    eapply soundness_1; eauto.
+    intros m_c m_h i nin_t1 nin_t2 Hv Hs1 Hrc Hrh.
+    unfold Hist.MSafeStrong in *.
+    unfold Hist.Safe.
+    intros x y Hix' Hiy'.
+
+    (* Simplify the goal *)
+    destruct (PeanoNat.Nat.eq_dec (access_tid x) (access_tid y)). {
+      auto using access_safe_eq_tid.
+    }
+    apply Hs1; auto; clear Hs1.
+    eapply run_i_pair_in_to_m_pair_in; eauto.
+
+    (* Simplify the assumption of run for t1 *)
+    assert (Hrx := Hrc).
+    eapply Conc2.run_all_inv_in with (x0:=x) in Hrx; eauto.
+    destruct Hrx as (nx, (h_x, (?, (Hrx, (_, Hix))))).
+    assert (nx = access_tid x). {
+      symmetry.
+      eapply Conc2.run_access_tid; eauto.
+    }
+    subst.
+    eapply Conc2.in_to_i_in in Hix; eauto.
+    clear Hrx Hix'.
+
+    (* Simplify the assumption of run for t2 *)
+    assert (Hry := Hrc).
+    eapply Conc2.run_all_inv_in with (x0:=y) in Hry; eauto.
+    destruct Hry as (ny, (h_y, (?, (Hry, (_, Hiy))))).
+    assert (ny = access_tid y). {
+      symmetry.
+      eapply Conc2.run_access_tid; eauto.
+    }
+    subst.
+    eapply Conc2.in_to_i_in in Hiy; eauto.
+    clear Hry Hiy'.
+
+    (* We no longer need run all *)
+    clear Hrc.
+
+    (* Now we will find the right pair *)
+    unfold translate, do_proj.
+
+    (* Useful results *)
+    assert (t1_nin_p: ~ In T1 (proj i)). {
+      intros N.
+      apply in_proj_to_in in N; auto using t1_neq_tid.
+    }
+    assert (t2_nin_p: ~ In T2 (proj i)). {
+      intros N.
+      apply in_proj_to_in in N; auto using t2_neq_tid.
+    }
+
+    apply i_in_to_t_in in Hix.
+    apply i_in_to_t_in in Hiy.
+
+    assert (X: access_tid x < access_tid y \/ access_tid y < access_tid x). {
+      Import Omega.
+      omega.
+    }
+    destruct X as [Hlt|Hlt]. {
+      (* We know that x < y, thus T1 = y and T2 = x *)
+      apply i_pair_in_decl with (n0:=access_tid y) (n1:=1) (n2:=TID_COUNT);
+        auto using n_step_num with *.
+      simpl.
+      (* clean up goal *)
+      remove_eq T1 T1.
+      remove_eq T1 T2.
+      rewrite i_subst_subst_trans; auto.
+      assert (~ In T1 (i_subst TID (NVar T2) (proj i))). {
+        intros N.
+        apply in_inv_subst_in in N; auto using t1_neq_t2, t1_neq_tid.
+      }
+      rewrite i_subst_not_in with (x0:=T1); auto.
+      (* fix the second biding *)
+      apply i_pair_in_decl with (n0:=access_tid x) (n1:=0) (n2:=access_tid y);
+        auto using n_step_num with *.
+      simpl.
+      rewrite i_subst_subst_trans; auto.
+      apply i_pair_in_seq_both.
+      simpl.
+      right.
+      split. {
+        rewrite i_subst_not_in. {
+          apply SHCompiler2.t_in_to_i_in; auto.
+        }
+        intros N.
+        apply in_inv_subst_1 in N; auto.
+      }
+      apply SHCompiler2.t_in_to_i_in; auto.
+    }
+      (* We know that y < x, thus T1 = x and T2 = y *)
+      apply i_pair_in_decl with (n0:=access_tid x) (n1:=1) (n2:=TID_COUNT);
+        auto using n_step_num with *.
+      simpl.
+      (* clean up goal *)
+      remove_eq T1 T1.
+      remove_eq T1 T2.
+      rewrite i_subst_subst_trans; auto.
+      assert (~ In T1 (i_subst TID (NVar T2) (proj i))). {
+        intros N.
+        apply in_inv_subst_in in N; auto using t1_neq_t2, t1_neq_tid.
+      }
+      rewrite i_subst_not_in with (x0:=T1); auto.
+      (* fix the second biding *)
+      apply i_pair_in_decl with (n0:=access_tid y) (n1:=0) (n2:=access_tid x);
+        auto using n_step_num with *.
+      simpl.
+      rewrite i_subst_subst_trans; auto.
+      apply i_pair_in_seq_both.
+      simpl.
+      left.
+      split. {
+        rewrite i_subst_not_in. {
+          apply SHCompiler2.t_in_to_i_in; auto.
+        }
+        intros N.
+        apply in_inv_subst_1 in N; auto.
+      }
+      apply SHCompiler2.t_in_to_i_in; auto.
   Qed.
+
 End Defs.
 End Compiler.

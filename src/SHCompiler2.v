@@ -548,52 +548,74 @@ Section Defs.
       apply in_inv_subst_in in N; auto using t1_neq_t2, t1_neq_tid.
   Qed.
 
-  (* ---------------------- PAIR IN TRANSLATION ------------------- *)
 
+  (* ---------------------- PAIR IN TRANSLATION ------------------- *)
+(*
   Definition TOneOf (p:access_val*access_val) i j :=
     let (v1, v2) := p in
     (TIn v1 i /\ TIn v2 j)
     \/
     (TIn v2 i /\ TIn v1 j).
-
+*)
   Definition TPairIn (p:access_val * access_val) i : Prop :=
     let (v1, v2) := p in
     TIn v1 i /\ TIn v2 i.
 (*
   Lemma i_pair_in_to_t_pair_in:
     forall i p,
+    ~ Conc2.Var TID i ->
+    ~ Conc2.In T1 i ->
+    ~ Conc2.In T2 i ->
     IPairIn p (translate i) ->
     TPairIn p i.
   Proof.
     unfold translate.
-    intros.
-    inversion H; subst; clear H.
-    inversion H4; subst; clear H4.
-    inversion H5; subst; clear H5.
+    intros i p Hv t1_nin t2_nin Hi.
+    (* Useful results *)
+    assert (t1_nin_p: ~ In T1 (proj i)). {
+      intros N.
+      apply in_proj_to_in in N; auto using t1_neq_tid.
+    }
+    assert (t2_nin_p: ~ In T2 (proj i)). {
+      intros N.
+      apply in_proj_to_in in N; auto using t2_neq_tid.
+    }
+
+    inversion Hi; subst; clear Hi.
+    repeat match goal with
+      H: NStep (NNum _) _ |- _ => inversion H; subst; clear H
+    end.
     match goal with
       _: 1 <= ?n < TID_COUNT |- _ => rename n into t1
     end.
     simpl in *.
     remove_eq T1 T1.
     remove_eq T1 T2.
-    inversion H7; subst; clear H7.
-    inversion H3; subst; clear H3.
-    assert (n2 = t1) by eauto using n_step_fun, n_step_num.
-    subst.
-    clear H4.
-    simpl in *.
-    match goal with
-      _: 0 <= ?n < t1 |- _ => rename n into t2
-    end.
     unfold do_proj in *.
-    inversion H8; subst; clear H8.
+
+    (* remove the extra i_subst in IPairIn *)
+    match goal with
+      H: IPairIn _ _ |- _ => rename H into Hi
+    end.
+    rewrite i_subst_subst_trans in Hi; auto.
+    assert (~ In T1 (i_subst TID (NVar T2) (proj i))). {
+      intros N.
+      apply in_inv_subst_in in N; auto using t1_neq_t2, t1_neq_tid.
+    }
+    rewrite i_subst_not_in with (x:=T1) in Hi; auto. 
+
+    (* Now simplify the InPairIn to remove the Decl *)
+    inversion Hi; subst; clear Hi.
+    match goal with
+      H: IPairIn _ _ |- _ => rename H into Hi
+    end.
+    inversion Hi; subst; clear Hi.
     - admit.
     - admit.
     - unfold IOneOf in *.
       destruct p as (v1, v2).
-      destruct H0 as [(Hi, Hj)|(Hj, Hi)].
-      + admit.
-      + admit.
+      destruct H1 as [(Hi, Hj)|(Hj, Hi)].
+      admit.
   Admitted.
 
   Lemma t_pair_in_to_i_pair_in:

@@ -1367,6 +1367,37 @@ Section Defs.
     - apply m_pair_in_nil_nil in Hi.
       contradiction.
   Qed.
+
+
+  Lemma i_pair_in_to_i_in:
+    forall v1 v2 i,
+    IPairIn (v1, v2) i ->
+    IIn v1 i /\ IIn v2 i.
+  Proof.
+    intros v1 v2 i Hi.
+    remember (v1, v2) as p.
+    generalize dependent v1.
+    generalize dependent v2.
+    induction Hi; intros; subst.
+    - inversion H0; subst; clear H0.
+      eauto using i_in_access.
+    - edestruct IHHi; eauto.
+      auto using i_in_seq_l.
+    - edestruct IHHi; eauto.
+      auto using i_in_seq_r.
+    - destruct H as [(?,?)|(?,?)]; auto using i_in_seq_l, i_in_seq_r.
+    - edestruct IHHi; eauto.
+      auto using i_in_if_true.
+    - edestruct IHHi; eauto.
+      auto using i_in_if_false.
+    - edestruct IHHi; eauto.
+      auto using i_in_fork_l.
+    - edestruct IHHi; eauto.
+      auto using i_in_fork_r.
+    - edestruct IHHi; eauto.
+      eauto using i_in_decl.
+  Qed.
+
 (*
   Lemma i_in_decl_seq_l:
     forall x r i a,
