@@ -33,4 +33,5 @@ src/MExp.v
 src/SHCompiler.v
 src/SHCompiler2.v
 src/SHSound.v
+src/SHSound2.v
 src/SHComplete.v

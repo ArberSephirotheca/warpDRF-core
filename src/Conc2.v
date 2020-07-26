@@ -532,7 +532,7 @@ Section C1.
     IIn a (i_subst x (NNum n) i) ->
     IIn a (For x r i)
   .
-
+(*
   Inductive Run2 (n1 n2:nat): inst -> history -> history -> Prop :=
   | run2_skip:
     Run2 n1 n2 Skip [] []
@@ -617,7 +617,7 @@ Section C1.
     forall r i x,
     IsDone n1 n2 r ->
     PRun2 n1 n2 p (For x r i) [] [].
-
+*)
   Lemma run_all_inv_in:
     forall n i h,
     RunAll n i h ->
@@ -637,6 +637,29 @@ Section C1.
       exists m.
       exists h.
       auto using incl_appr with *.
+  Qed.
+
+  Lemma run_all_inv_run:
+    forall n i h,
+    RunAll n i h ->
+    forall m,
+    m < n ->
+    exists h',
+    Run m (i_subst TID (NNum m )i) h' /\ incl h' h.
+  Proof.
+    intros n i h H.
+    induction H; intros m Hl. { inversion Hl. }
+    inversion Hl; subst; clear Hl. {
+      exists h1.
+      split; auto.
+      apply InUtil.incl_app_refl_l.
+    }
+    apply IHRunAll in H2.
+    destruct H2 as (h', (Hr, Hi)).
+    exists h'.
+    split; auto.
+    apply incl_tran with (m:= h2); auto.
+    apply InUtil.incl_app_refl_r.
   Qed.
 
   Inductive SRun n: inst -> history -> Prop :=
@@ -899,6 +922,24 @@ Section C1.
   Proof.
     intros.
     split; eauto using s_run_i_in_to_in, s_run_i_in.
+  Qed.
+
+  Lemma run_all_i_in_to_in:
+    forall i,
+    ~ Var TID i ->
+    forall n h,
+    RunAll n i h ->
+    forall a,
+    access_tid a < n ->
+    IIn a i ->
+    List.In a h.
+  Proof.
+    intros i Hv n h Hr a Hlt Hi.
+    eapply run_all_inv_run in Hr; eauto.
+    destruct Hr as (h', (Hr, Hinc)).
+    apply Hinc; clear Hinc.
+    apply s_run_iff in Hr; auto.
+    eapply s_run_i_in_to_in; eauto.
   Qed.
 
 End C1.

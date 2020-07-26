@@ -465,12 +465,12 @@ Section Defs.
     ~ Conc2.In T1 i ->
     ~ Conc2.In T2 i ->
     forall a,
-    access_tid a < TID_COUNT -> (* needed for the second branch, can we prove this? *)
     IIn a (translate i) ->
-    TIn a i.
+    TIn a i /\ access_tid a < TID_COUNT.
   Proof.
-    intros i Hv t1_nin t2_nin a a_lt_tc Hi.
+    intros i Hv t1_nin t2_nin a Hi.
     unfold translate in Hi.
+
     inversion Hi; subst; clear Hi.
 
     (* Useful results *)
@@ -530,7 +530,7 @@ Section Defs.
         rewrite i_subst_subst_trans in Hi; auto.
         assert (R:  t1 = access_tid a) by eauto using i_in_inv_access_tid.
         rewrite R in Hi.
-        auto using i_in_to_t_in.
+        auto using i_in_to_t_in with *.
       }
       intros N.
       apply in_inv_subst_1 in N; auto.
@@ -541,7 +541,7 @@ Section Defs.
         rewrite i_subst_subst_trans in Hi; auto.
         assert (R: t2 = access_tid a) by eauto using i_in_inv_access_tid.
         rewrite R in Hi.
-        auto using i_in_to_t_in.
+        auto using i_in_to_t_in with *.
       }
       intros N.
       apply in_inv_subst_1 in N; auto.
@@ -550,16 +550,42 @@ Section Defs.
 
 
   (* ---------------------- PAIR IN TRANSLATION ------------------- *)
+
+  Lemma c_i_in_to_t_in:
+    forall a i,
+    Conc2.IIn a i ->
+    TIn a i.
+  Proof.
+    intros a i Hi.
+    induction Hi;
+    auto using t_in_if_true, t_in_if_false, t_in_seq_l, t_in_seq_r.
+    - destruct H as (l, (Hi, Hj)).
+      eapply t_in_access; eauto.
+    - destruct r as (e1, e2).
+      destruct H as (Ha, Hb).
+      eapply t_in_for; eauto.
+  Qed.
+
+  Lemma t_in_to_c_i_in:
+    forall a i,
+    TIn a i ->
+    Conc2.IIn a i.
+  Proof.
+    intros a i Hi.
+    induction Hi; auto using Conc2.i_in_seq_l, Conc2.i_in_seq_r, Conc2.i_in_if_true, Conc2.i_in_if_false.
+    - apply Conc2.i_in_access.
+      unfold AIn.
+      eauto.
+    - eapply Conc2.i_in_for; eauto.
+      split; auto.
+  Qed.
+
 (*
-  Definition TOneOf (p:access_val*access_val) i j :=
-    let (v1, v2) := p in
-    (TIn v1 i /\ TIn v2 j)
-    \/
-    (TIn v2 i /\ TIn v1 j).
-*)
   Definition TPairIn (p:access_val * access_val) i : Prop :=
     let (v1, v2) := p in
     TIn v1 i /\ TIn v2 i.
+*)
+
 (*
   Lemma i_pair_in_to_t_pair_in:
     forall i p,
