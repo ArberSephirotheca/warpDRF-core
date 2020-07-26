@@ -1,31 +1,21 @@
 Require Import Coq.Lists.List.
-Require Import Coq.Strings.String.
-Require Import Coq.Relations.Relation_Definitions.
-Require Import Coq.Relations.Relation_Operators.
-Require Import Coq.Relations.Operators_Properties.
-Require Coq.Arith.PeanoNat.
-Require Coq.Sets.Ensembles.
+
 Require Coq.omega.Omega.
-Require Import Recdef.
-Require Omega.
+
+Require Import Util.
+Require Import InUtil.
+
 Require Import Var.
 Require Import Tid.
-Require Import Loc.
 Require Import NExp.
 Require Import BExp.
 Require Import AccExp.
-Require Import Util.
-Require Aniceto.Graphs.Graph.
-Require Conc.
-Require Import RangeList.
-Require Import SetTh.
-Require Import MultiHist.
-Require Import InUtil.
-Require Import MExp.
-Import ListNotations.
-Import MHistNotations.
+
 Require Import SymExec2.
 Require Conc2.
+
+Import ListNotations.
+
 Section Defs.
   Context {A:Access}.
 
@@ -163,184 +153,6 @@ Section Defs.
     + apply incl_refl.
     + apply all_incl_nil.
   Qed.
-(*
-  Lemma run_to_all_incl:
-    forall i h,
-    Conc2.Run CurTask i h ->
-    forall hs,
-    Run (translate i) hs ->
-    AllIncl hs h.
-  Proof.
-    intros i h H; induction H; intros.
-    - inversion H; subst; clear H.
-      auto using all_incl_nil_nil.
-    - inversion H0; subst; clear H0.
-      assert (v0 = v) by eauto using access_step_fun; subst.
-      apply all_incl_eq.
-    - inversion H1; subst; clear H1.
-      apply IHRun1 in H4.
-      apply IHRun2 in H6.
-      auto using all_incl_prod, all_incl_appl, all_incl_appr.
-    - inversion H1; subst; clear H1; auto.
-      assert (N: true = false) by eauto using b_step_fun.
-      inversion N.
-    - inversion H1; subst; clear H1; auto.
-      assert (N: true = false) by eauto using b_step_fun.
-      inversion N.
-    - inversion H1; subst; clear H1.
-      simpl in IHRun.
-      assert (l0 = l) by eauto using r_step_fun; subst.
-      apply IHRun in H7.
-      assumption.
-    - simpl in *.
-      inversion H1; subst; clear H1.
-      rewrite i_subst_translate_rw in *.
-      auto using all_incl_app, all_incl_appl, all_incl_appr.
-    - simpl in *.
-      inversion H; subst; clear H.
-      apply all_incl_nil_nil.
-  Qed.
-
-  Theorem completeness:
-    forall i h,
-    Conc2.Run CurTask i h ->
-    forall hs,
-    Run (translate i) hs ->
-    Hist.Safe h ->
-    Hist.MSafe hs.
-  Proof.
-    intros.
-    assert (AllIncl hs h) by eauto using run_to_all_incl.
-    eauto using Hist.safe_to_msafe.
-  Qed.
-
-  Lemma incl_all_eq:
-    forall A v,
-    @InclAll A v [v].
-  Proof.
-    unfold InclAll, Ensembles.Included, Ensembles.In; intros.
-    auto using m_in_eq.
-  Qed.
-
-  Lemma run_to_incl_all:
-    forall i h,
-    Conc2.Run CurTask i h ->
-    forall hs,
-    Run (translate i) hs ->
-    InclAll h hs.
-  Proof.
-    intros i h H; induction H; intros; simpl in *.
-    - apply incl_all_nil.
-    - inversion H0; subst; clear H0.
-      simpl in *.
-      assert (v0 = v) by eauto using access_step_fun.
-      subst.
-      apply incl_all_eq.
-    - inversion H1; subst; clear H1.
-      apply incl_all_app.
-      + apply incl_all_prod_l; eauto using SymExec2.run_not_nil.
-      + apply incl_all_prod_r; eauto using SymExec2.run_not_nil.
-    - inversion H1; subst; clear H1; eauto using SymExec2.run_not_nil.
-      assert (N: false = true) by eauto using b_step_fun.
-      inversion N.
-    - inversion H1; subst; clear H1; eauto using SymExec2.run_not_nil.
-      assert (N: false = true) by eauto using b_step_fun.
-      inversion N.
-    - inversion H1; subst; clear H1.
-      assert (l0 = l) by eauto using r_step_fun; subst.
-      auto.
-    - inversion H1; subst; clear H1.
-      rewrite i_subst_translate_rw in *.
-      apply IHRun1 in H7; auto; clear IHRun1.
-      apply IHRun2 in H8; auto; clear IHRun2.
-      apply incl_all_app.
-      + apply incl_all_app_l; eauto using SymExec2.run_not_nil.
-      + apply incl_all_app_r; eauto using SymExec2.run_not_nil.
-    - apply incl_all_nil.
-  Qed.
-
-  Theorem soundness:
-    forall i h,
-    Conc2.Run CurTask i h ->
-    forall hs,
-    Run (translate i) hs ->
-    Hist.MSafe hs ->
-    Hist.Safe h.
-  Proof.
-    intros.
-    assert (InclAll h hs) by eauto using run_to_incl_all.
-    eauto using Hist.m_safe_to_safe.
-  Qed.
-
-  Corollary correctness:
-    forall i h hs,
-    Conc2.Run CurTask i h ->
-    Run (translate i) hs ->
-    Hist.MSafe hs <-> Hist.Safe h.
-  Proof.
-    intros.
-    split; eauto using completeness, soundness.
-  Qed.
-(*
-  Lemma run_inv_branch_1:
-    forall x l i j m,
-    Run (Branch x l i j) m ->
-    exists m', Run j m'.
-  Proof.
-    induction l; intros.
-    - inversion H; subst; clear H.
-      eauto.
-    - inversion H; subst; clear H.
-      eauto.
-  Qed.
-
-  Lemma run_conc_to_loopfree:
-    forall i h,
-    Conc.Run i h ->
-    exists m, Run (translate i) m.
-  Proof.
-    intros.
-    induction H; intros.
-    - exists [[]].
-      apply run_skip.
-    - destruct IHRun as (m, Hr).
-      eexists.
-      simpl.
-      apply run_access; eauto.
-      simpl.
-      unfold LStep.
-      eauto.
-    - destruct IHRun as (m, Hl).
-      simpl.
-      eauto using run_decl.
-    - destruct IHRun1 as (m, Hr1).
-      destruct IHRun2 as (m2, Hr2).
-      assert (Hx: exists m', Run (translate i2) m') by eauto using run_inv_branch_1.
-      destruct Hx as (m_i2, Hr_i2).
-      assert (Run (seq (i_subst x n (translate i1)) (translate i2)) (prod m m_i2)). {
-        apply run_seq; auto.
-        rewrite i_subst_translate_rw.
-        assumption.
-      }
-      eauto using run_branch_cons.
-    - destruct IHRun as (m, Hr).
-      eauto using run_branch_nil.
-  Qed.
-
-  Corollary correctness_ext:
-    forall i h,
-    Conc.Run i h ->
-    exists m, Run (translate i) m /\
-    (Hist.MSafe m <-> Hist.Safe h).
-  Proof.
-    intros.
-    destruct (run_conc_to_loopfree i h) as (m, Hr); auto.
-    exists m.
-    split; auto.
-    eauto using correctness.
-  Qed.
-*)
-*)
 
 End Defs.
 

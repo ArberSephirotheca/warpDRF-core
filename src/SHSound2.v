@@ -2,27 +2,19 @@ Require Import Coq.Lists.List.
 
 Require Coq.omega.Omega.
 
-Require Conc2.
-
 Require Import Var.
-Require Import Tid.
-Require Import Loc.
 Require Import NExp.
 Require Import BExp.
 Require Import AccExp.
-Require Import Util.
-Require Import SymExec2.
-Require Import SymExecMRun.
-Require Import RangeList.
-Require Import SHCompiler2.
-Require Import Tasks.
-Require Import SetTh.
-Require Import InUtil.
-Require Import PairInUtil.
-Require Import MExp.
-Import ListNotations.
-Require SymHist.
 
+Require Import Tasks.
+
+Require Import SymExec2.
+Require Import SHCompiler2.
+
+Require Conc2.
+
+Import ListNotations.
 
 Section Compiler.
   Import SHCompiler2.
