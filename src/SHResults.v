@@ -9,26 +9,26 @@ Require Import AccExp.
 
 Require Import Tasks.
 
-Require Import SymExec2.
-Require Import SHCompiler2.
+Require Import SymExec.
+Require Import SHCompiler.
 
-Require Conc2.
+Require Conc.
 
 Import ListNotations.
 
 Section Compiler.
-  Import SHCompiler2.
+  Import SHCompiler.
   Section Defs.
   Context {A:Access}.
   Context {T:Tasks}.
 
   Corollary soundness:
     forall m_c m_h i,
-    ~ Conc2.In T1 i ->
-    ~ Conc2.In T2 i ->
-    ~ Conc2.Var TID i ->
+    ~ Conc.In T1 i ->
+    ~ Conc.In T2 i ->
+    ~ Conc.Var TID i ->
     Hist.MSafeStrong m_h ->
-    Conc2.RunAll TID_COUNT i m_c ->
+    Conc.RunAll TID_COUNT i m_c ->
     Run (translate i) m_h ->
     Hist.Safe m_c.
   Proof.
@@ -46,26 +46,26 @@ Section Compiler.
 
     (* Simplify the assumption of run for t1 *)
     assert (Hrx := Hrc).
-    eapply Conc2.run_all_inv_in with (x0:=x) in Hrx; eauto.
+    eapply Conc.run_all_inv_in with (x0:=x) in Hrx; eauto.
     destruct Hrx as (nx, (h_x, (?, (Hrx, (_, Hix))))).
     assert (nx = access_tid x). {
       symmetry.
-      eapply Conc2.run_access_tid; eauto.
+      eapply Conc.run_access_tid; eauto.
     }
     subst.
-    eapply Conc2.in_to_i_in in Hix; eauto.
+    eapply Conc.in_to_i_in in Hix; eauto.
     clear Hrx Hix'.
 
     (* Simplify the assumption of run for t2 *)
     assert (Hry := Hrc).
-    eapply Conc2.run_all_inv_in with (x0:=y) in Hry; eauto.
+    eapply Conc.run_all_inv_in with (x0:=y) in Hry; eauto.
     destruct Hry as (ny, (h_y, (?, (Hry, (_, Hiy))))).
     assert (ny = access_tid y). {
       symmetry.
-      eapply Conc2.run_access_tid; eauto.
+      eapply Conc.run_access_tid; eauto.
     }
     subst.
-    eapply Conc2.in_to_i_in in Hiy; eauto.
+    eapply Conc.in_to_i_in in Hiy; eauto.
     clear Hry Hiy'.
 
     (* We no longer need run all *)
@@ -115,12 +115,12 @@ Section Compiler.
       right.
       split. {
         rewrite i_subst_not_in. {
-          apply SHCompiler2.t_in_to_i_in; auto.
+          apply SHCompiler.t_in_to_i_in; auto.
         }
         intros N.
         apply in_inv_subst_1 in N; auto.
       }
-      apply SHCompiler2.t_in_to_i_in; auto.
+      apply SHCompiler.t_in_to_i_in; auto.
     }
     (* We know that y < x, thus T1 = x and T2 = y *)
     apply i_pair_in_decl with (n0:=access_tid x) (n1:=1) (n2:=TID_COUNT);
@@ -145,21 +145,21 @@ Section Compiler.
     left.
     split. {
       rewrite i_subst_not_in. {
-        apply SHCompiler2.t_in_to_i_in; auto.
+        apply SHCompiler.t_in_to_i_in; auto.
       }
       intros N.
       apply in_inv_subst_1 in N; auto.
     }
-    apply SHCompiler2.t_in_to_i_in; auto.
+    apply SHCompiler.t_in_to_i_in; auto.
   Qed.
 
   Corollary completeness:
     forall m_c m_h i,
-    ~ Conc2.In T1 i ->
-    ~ Conc2.In T2 i ->
-    ~ Conc2.Var TID i ->
+    ~ Conc.In T1 i ->
+    ~ Conc.In T2 i ->
+    ~ Conc.Var TID i ->
     Hist.Safe m_c ->
-    Conc2.RunAll TID_COUNT i m_c ->
+    Conc.RunAll TID_COUNT i m_c ->
     Run (translate i) m_h ->
     Hist.MSafeStrong m_h.
   Proof.
@@ -167,7 +167,7 @@ Section Compiler.
     unfold Hist.MSafeStrong in *.
     unfold Hist.Safe in *.
     intros x y Hneq Hp.
-    eapply SymExec2.run_m_pair_in_to_i_pair_in in Hp; eauto.
+    eapply SymExec.run_m_pair_in_to_i_pair_in in Hp; eauto.
     apply i_pair_in_to_i_in in Hp.
     destruct Hp as (Hxi, Hyi).
     apply i_in_translate_to_t_in in Hxi; auto.
@@ -177,8 +177,8 @@ Section Compiler.
     apply t_in_to_c_i_in in Hxi.
     apply t_in_to_c_i_in in Hyi.
     apply Hs1; auto; clear Hs1.
-    - eapply Conc2.run_all_i_in_to_in in Hxi; eauto.
-    - eapply Conc2.run_all_i_in_to_in in Hyi; eauto.
+    - eapply Conc.run_all_i_in_to_in in Hxi; eauto.
+    - eapply Conc.run_all_i_in_to_in in Hyi; eauto.
   Qed.
 End Defs.
 End Compiler.

@@ -11,8 +11,8 @@ Require Import NExp.
 Require Import BExp.
 Require Import AccExp.
 
-Require Import SymExec2.
-Require Conc2.
+Require Import SymExec.
+Require Conc.
 
 Import ListNotations.
 
@@ -114,20 +114,19 @@ Section Defs.
     access_inst_in_subst_neq := s_in_subst_neq;
   }.
   Variable CurTask : nat.
-  Fixpoint translate (i:Conc2.inst) : SymExec2.inst (I:=SymAcc) :=
+  Fixpoint translate (i:Conc.inst) : SymExec.inst (I:=SymAcc) :=
     match i with
-    | Conc2.Skip => SymExec2.Skip
-    | Conc2.Seq i j => SymExec2.Seq (translate i) (translate j)
-    | Conc2.If b i j => SymExec2.If b (translate i) (translate j)
-    | Conc2.MemAcc e => SymExec2.MemAcc (I:=SymAcc) (e, NNum CurTask)
-    | Conc2.For x r i => SymExec2.Decl x r (translate i)
-(*    | Conc2.Loop x l i => SymExec2.Branch x l (translate i)*)
+    | Conc.Skip => SymExec.Skip
+    | Conc.Seq i j => SymExec.Seq (translate i) (translate j)
+    | Conc.If b i j => SymExec.If b (translate i) (translate j)
+    | Conc.MemAcc e => SymExec.MemAcc (I:=SymAcc) (e, NNum CurTask)
+    | Conc.For x r i => SymExec.Decl x r (translate i)
     end.
 
   Lemma i_subst_translate_rw:
     forall i x n,
     i_subst x n (translate i) =
-    translate (Conc2.i_subst x n i).
+    translate (Conc.i_subst x n i).
   Proof.
     induction i; simpl; intros.
     - reflexivity.

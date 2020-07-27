@@ -1,42 +1,30 @@
 Require Import Coq.Lists.List.
-Require Import Coq.Relations.Relation_Definitions.
-Require Import Coq.Relations.Relation_Operators.
-Require Import Coq.Relations.Operators_Properties.
-Require Coq.Sets.Ensembles.
 Require Coq.omega.Omega.
-Require Import Recdef.
-Require Omega.
+
+Require Import Util.
+
 Require Import Var.
-Require Import Tid.
-Require Import Loc.
 Require Import NExp.
 Require Import BExp.
 Require Import AccExp.
-Require Import Util.
-Require Import SetTh.
-Import ListNotations.
-Require Import RangeList.
 Require Import Tasks.
-Require Import SymExec2.
-Require SymHist2.
-Require Import SymExecMRun.
-Require Import SymExecMap.
-Require Import SymExec2DMap.
-Require Import SymExecEq.
-Require Import MExp.
-Require Import PairInUtil.
+
+Require Import SymExec.
+Require SymHist.
+
+Import ListNotations.
 
 Section Defs.
   Context {A:Access}.
   Context {T:Tasks}.
 
-  Fixpoint proj (c:Conc2.inst) : inst (I:=SymHist2.SymAcc) :=
+  Fixpoint proj (c:Conc.inst) : inst (I:=SymHist.SymAcc) :=
     match c with
-    | Conc2.Skip => Skip
-    | Conc2.Seq i j => Seq (proj i) (proj j)
-    | Conc2.If b i j => If b (proj i) (proj j)
-    | Conc2.MemAcc a => MemAcc (I:=SymHist2.SymAcc) (a, NVar TID)
-    | Conc2.For x r i => Decl x r (proj i)
+    | Conc.Skip => Skip
+    | Conc.Seq i j => Seq (proj i) (proj j)
+    | Conc.If b i j => If b (proj i) (proj j)
+    | Conc.MemAcc a => MemAcc (I:=SymHist.SymAcc) (a, NVar TID)
+    | Conc.For x r i => Decl x r (proj i)
     end.
 
   Definition do_proj x i := i_subst TID (NVar x) (proj i).
@@ -53,7 +41,7 @@ Section Defs.
   Lemma i_subst_proj_rw:
     forall x i n,
     x <> TID ->
-    proj (Conc2.i_subst x (NNum n) i) = i_subst x (NNum n) (proj i).
+    proj (Conc.i_subst x (NNum n) i) = i_subst x (NNum n) (proj i).
   Proof.
     induction i; simpl; intros; destruct (Set_VAR.MF.eq_dec x TID); try contradiction.
     - reflexivity.
@@ -74,7 +62,7 @@ Section Defs.
     forall x i,
     x <> TID ->
     In x (proj i) ->
-    Conc2.In x i.
+    Conc.In x i.
   Proof.
     induction i; simpl; intros; inversion H0; subst; clear H0; auto.
     + destruct H1; auto.
@@ -86,7 +74,7 @@ Section Defs.
   Lemma var_proj_rw:
     forall x i,
     Var x (proj i) ->
-    Conc2.Var x i.
+    Conc.Var x i.
   Proof.
     induction i; simpl; intros.
     - assumption.
@@ -98,43 +86,43 @@ Section Defs.
 
   (* ------------------------- IN PROJECTION ----------------------- *)
 
-  Inductive PIn a n: Conc2.inst -> Prop :=
+  Inductive PIn a n: Conc.inst -> Prop :=
   | p_in_access:
     forall e l,
     access_step (access_subst TID (NNum n) e, NNum n) l -> 
     List.In a l ->
-    PIn a n (Conc2.MemAcc e)
+    PIn a n (Conc.MemAcc e)
   | p_in_seq_l:
     forall i j,
     PIn a n i ->
-    PIn a n (Conc2.Seq i j)
+    PIn a n (Conc.Seq i j)
   | p_in_seq_r:
     forall i j,
     PIn a n j ->
-    PIn a n (Conc2.Seq i j)
+    PIn a n (Conc.Seq i j)
   | p_in_if_true:
     forall b i j,
     BData n b true ->
     PIn a n i ->
-    PIn a n (Conc2.If b i j)
+    PIn a n (Conc.If b i j)
   | p_in_if_false:
     forall b i j,
     BData n b false ->
     PIn a n j ->
-    PIn a n (Conc2.If b i j)
+    PIn a n (Conc.If b i j)
   | p_in_for:
     forall e1 e2 n' n1 n2 x i,
     NData n e1 n1 ->
     NData n e2 n2 ->
     n1 <= n' < n2 ->
-    PIn a n (Conc2.i_subst x (NNum n') i) ->
-    PIn a n (Conc2.For x (e1, e2) i)
+    PIn a n (Conc.i_subst x (NNum n') i) ->
+    PIn a n (Conc.For x (e1, e2) i)
   .
 
 
   Lemma s_in_to_p_in:
     forall a n i,
-    ~ Conc2.Var TID i ->
+    ~ Conc.Var TID i ->
     SIn a n (proj i) ->
     PIn a n i.
   Proof.
@@ -166,14 +154,14 @@ Section Defs.
       assert (TID <> v) by auto.
       apply IHHi.
       + intros N.
-        apply Conc2.var_subst_inv_1 in N.
+        apply Conc.var_subst_inv_1 in N.
         auto.
       + rewrite i_subst_proj_rw; auto.
   Qed.
 
   Lemma p_in_to_s_in:
     forall a n i,
-    ~ Conc2.Var TID i ->
+    ~ Conc.Var TID i ->
     PIn a n i ->
     SIn a n (proj i).
   Proof.
@@ -198,7 +186,7 @@ Section Defs.
       rewrite <- i_subst_proj_rw; auto.
       apply IHHi.
       intros N.
-      apply Conc2.var_subst_inv_1 in N.
+      apply Conc.var_subst_inv_1 in N.
       auto.
   Qed.
 
@@ -216,37 +204,37 @@ Section Defs.
   (* ----------------------------- IN TRANSLATION ------------------ *)
 
 
-  Inductive TIn (a:access_val) : Conc2.inst -> Prop :=
+  Inductive TIn (a:access_val) : Conc.inst -> Prop :=
   | t_in_access:
     forall e l,
     access_step (access_subst TID (NNum (access_tid a)) e, NNum (access_tid a)) l -> 
     List.In a l ->
-    TIn a (Conc2.MemAcc e)
+    TIn a (Conc.MemAcc e)
   | t_in_seq_l:
     forall i j,
     TIn a i ->
-    TIn a (Conc2.Seq i j)
+    TIn a (Conc.Seq i j)
   | t_in_seq_r:
     forall i j,
     TIn a j ->
-    TIn a (Conc2.Seq i j)
+    TIn a (Conc.Seq i j)
   | t_in_if_true:
     forall b i j,
     BData (access_tid a) b true ->
     TIn a i ->
-    TIn a (Conc2.If b i j)
+    TIn a (Conc.If b i j)
   | t_in_if_false:
     forall b i j,
     BData (access_tid a) b false ->
     TIn a j ->
-    TIn a (Conc2.If b i j)
+    TIn a (Conc.If b i j)
   | t_in_for:
     forall e1 e2 n n1 n2 x i,
     NData (access_tid a) e1 n1 ->
     NData (access_tid a) e2 n2 ->
     n1 <= n < n2 ->
-    TIn a (Conc2.i_subst x (NNum n) i) ->
-    TIn a (Conc2.For x (e1, e2) i)
+    TIn a (Conc.i_subst x (NNum n) i) ->
+    TIn a (Conc.For x (e1, e2) i)
   .
 
 
@@ -290,7 +278,7 @@ Section Defs.
 
   Lemma t_in_to_i_in:
     forall i,
-    ~ Conc2.Var TID i ->
+    ~ Conc.Var TID i ->
     forall a,
     TIn a i ->
     IIn a (i_subst TID (NNum (access_tid a)) (proj i)).
@@ -307,7 +295,7 @@ Section Defs.
 
   Lemma i_in_to_t_in:
     forall i,
-    ~ Conc2.Var TID i ->
+    ~ Conc.Var TID i ->
     forall a,
     IIn a (i_subst TID (NNum (access_tid a)) (proj i)) ->
     TIn a i.
@@ -323,7 +311,7 @@ Section Defs.
 
   Lemma i_in_inv_access_tid:
     forall a t i,
-    ~ Conc2.Var TID i ->
+    ~ Conc.Var TID i ->
     IIn a (i_subst TID (NNum t) (proj i)) ->
     t = access_tid a.
   Proof.
@@ -340,9 +328,9 @@ Section Defs.
 
   Lemma t_in_to_i_in_translate:
     forall i,
-    ~ Conc2.Var TID i ->
-    ~ Conc2.In T1 i ->
-    ~ Conc2.In T2 i ->
+    ~ Conc.Var TID i ->
+    ~ Conc.In T1 i ->
+    ~ Conc.In T2 i ->
     forall a,
     access_tid a < TID_COUNT -> (* needed for the second branch, can we prove this? *)
     TIn a i ->
@@ -432,9 +420,9 @@ Section Defs.
 
   Lemma i_in_translate_to_t_in:
     forall i,
-    ~ Conc2.Var TID i ->
-    ~ Conc2.In T1 i ->
-    ~ Conc2.In T2 i ->
+    ~ Conc.Var TID i ->
+    ~ Conc.In T1 i ->
+    ~ Conc.In T2 i ->
     forall a,
     IIn a (translate i) ->
     TIn a i /\ access_tid a < TID_COUNT.
@@ -524,7 +512,7 @@ Section Defs.
 
   Lemma c_i_in_to_t_in:
     forall a i,
-    Conc2.IIn a i ->
+    Conc.IIn a i ->
     TIn a i.
   Proof.
     intros a i Hi.
@@ -540,14 +528,14 @@ Section Defs.
   Lemma t_in_to_c_i_in:
     forall a i,
     TIn a i ->
-    Conc2.IIn a i.
+    Conc.IIn a i.
   Proof.
     intros a i Hi.
-    induction Hi; auto using Conc2.i_in_seq_l, Conc2.i_in_seq_r, Conc2.i_in_if_true, Conc2.i_in_if_false.
-    - apply Conc2.i_in_access.
+    induction Hi; auto using Conc.i_in_seq_l, Conc.i_in_seq_r, Conc.i_in_if_true, Conc.i_in_if_false.
+    - apply Conc.i_in_access.
       unfold AIn.
       eauto.
-    - eapply Conc2.i_in_for; eauto.
+    - eapply Conc.i_in_for; eauto.
       split; auto.
   Qed.
 
