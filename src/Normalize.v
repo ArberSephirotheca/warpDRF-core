@@ -1,6 +1,12 @@
+Require Import AccExp.
+Require Import Tasks.
 Require Import NSync.
 
 Section Defs.
+
+  Context {A:Access}.
+  Context `{T:Tasks}.
+ 
 Inductive Unsync : inst -> Prop :=
 | unsync_skip:
     Unsync Skip
@@ -8,9 +14,10 @@ Inductive Unsync : inst -> Prop :=
     forall b i j,
       Unsync i ->
       Unsync j ->
-      Unsync (If b i j)
+      Unsync (If b i)
 | unsync_hole:
-    Unsync Hole
+    forall c,
+    Unsync (Block c)
 | unsync_seq:
     forall i j, 
       Unsync i ->
@@ -24,6 +31,7 @@ Inductive Unsync : inst -> Prop :=
     forall v r i,
       Unsync i ->
       Unsync (Loop v r i).
+
 
 
 
