@@ -13,27 +13,27 @@ Require Import Tasks.
 Require Import Lia.
 
 Import ListNotations.
-
+Require Conc.
 
 Section C1.
   Context {A:Access}.
   Inductive inst :=
   | Skip
   | Sync
-  | If: bexp -> inst -> inst -> inst
-  | Hole
+  | If: bexp -> inst -> inst
+  | Block: Conc.inst -> inst
   | Seq: inst -> inst -> inst
   | For : var -> range -> inst -> inst
   | Loop : var -> list nat -> inst -> inst.
 
 
-  
+
 Fixpoint i_subst x v i :=
   match i with
   | Skip => Skip
   | Sync => Sync
-  | If b i j => If (b_subst x v b) (i_subst x v i) (i_subst x v j)
-  | Hole => Hole
+  | Block c => Block (Conc.i_subst x v c)
+  | If b i => If (b_subst x v b) (i_subst x v i)
   | Seq i2 i3 => Seq (i_subst x v i2) (i_subst x v i3)
   | For y r i2 =>
     let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
@@ -48,34 +48,36 @@ Notation history := (list access_val).
 
 Notation mhistory := (list history).
 
-(* Why can't I use this in the sig of Run? *)
-Notation histpair := (mhistory * history).
+Notation histpair := (mhistory * history) % type.
 
 Context `{T:Tasks}.
 
 
-Inductive Run: ((mhistory * history) * inst) -> (mhistory * history) -> Prop :=
+Inductive Run: (histpair * inst) -> histpair -> Prop :=
 | run_skip:
     forall x,
     Run (x, Skip) x
 | run_sync:
   forall h hs,
     Run ((hs, h), Sync) (h::hs, [])
+| run_block:
+  forall c h1 h2 m,
+  Conc.RunAll TID_COUNT c h1 ->
+  Run ((m, h2), Block c) (m, h1 ++ h2) 
 | run_seq:
     forall i j x y z,
       Run (x, i) y ->
       Run (y,j) z ->
       Run (x, Seq i j) z
 | run_if_true:
-    forall i j b x y,
+    forall i b x y,
       BStep b true ->
       Run (x, i) y ->
-      Run (x, If b i j) y
+      Run (x, If b i) y
 | run_if_false:
-    forall i j b x y,
+    forall i b x,
       BStep b false ->
-      Run (x, j) y ->
-      Run (x, If b i j) y
+      Run (x, If b i) x
 | run_for:
   forall r l v x y i,
     RStep r l ->
@@ -113,7 +115,7 @@ Proof.
 Qed.
 
 
-
+(*
 Inductive NSEquiv : inst -> inst -> Prop :=
 | equiv_unit_r:
     forall i j,
@@ -607,4 +609,5 @@ Proof.
     + eapply equiv_one_run_l; eauto.
     + eapply equiv_one_run_r; eauto.
 Qed.
+*)
 End C1.
