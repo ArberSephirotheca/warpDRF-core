@@ -52,6 +52,117 @@ Notation histpair := (mhistory * history) % type.
 
 Context `{T:Tasks}.
 
+Inductive phaseset :=
+| ph_one: history -> phaseset
+| ph_many: history -> mhistory -> history -> phaseset.
+
+
+Definition merge (p1 p2:phaseset): phaseset :=
+match p1, p2 with
+| ph_one h1, ph_one h2 => ph_one (h1 ++ h2)
+| ph_one h1, ph_many h2 m2 t2 => ph_many (h1 ++ h2) m2 t2
+| ph_many h1 m1 t1, ph_one h2 => ph_many h1 m1 (h1 ++ h2)
+| ph_many h1 m1 t1, ph_many h2 m2 t2 =>
+  ph_many h1 (m1 ++ (t1 ++ h1) :: m2) t2
+end.
+
+Definition phase_to_list (p:phaseset) : mhistory :=
+match p with
+| ph_one h => [h]
+| ph_many h m t => h::m ++ [t]
+end.
+
+Inductive Run2: inst -> phaseset -> Prop :=
+| run2_skip:
+  Run2 Skip (ph_one [])
+| run2_sync:
+  Run2 Sync (ph_many [] [] [])
+| run2_block:
+  forall c h,
+  Conc.RunAll TID_COUNT c h ->
+  Run2 (Block c) (ph_one h)
+| run2_seq: forall i j mh_i mh_j mh,
+  Run2 i mh_i ->
+  Run2 j mh_j ->
+  merge mh_i mh_j = mh ->
+  Run2 (Seq i j) mh
+| run2_if_true: forall b i mh,
+  BStep b true ->
+  Run2 i mh ->
+  Run2 (If b i) mh
+| run2_if_false: forall b i,
+  BStep b false ->
+  Run2 (If b i) (ph_one [])
+| run2_for_cons:
+  forall e1 e2 n1 n2 i x h1 h2 h3,
+  NStep e1 n1 ->
+  NStep e2 n2 ->
+  n1 < n2 ->
+  Run2 (i_subst x (NNum n1) i) h1 ->
+  Run2 (For x (NNum (S n1), NNum n2) i) h2 ->
+  merge h1 h2 = h3 ->
+  Run2 (For x (e1, e2) i) h3
+| run2_for_nil:
+  forall x i e1 e2 n1 n2,
+  NStep e1 n1 ->
+  NStep e2 n2 ->
+  n1 >= n2 ->
+  Run2 (For x (e1, e2) i) (ph_one []).
+
+Inductive IIn (a:access_val) : inst -> Prop :=
+| i_block: forall i,
+  Conc.IIn a i ->
+  IIn a (Block i)
+| i_seq_l: forall i j,
+  IIn a i ->
+  IIn a (Seq i j)
+| i_seq_r: forall i j,
+  IIn a j ->
+  IIn a (Seq i j)
+| i_if: forall b i,
+  BStep b true ->
+  IIn a i ->
+  IIn a (If b i)
+ | i_for: forall e1 e2 i n1 n2 n x,
+  NStep e1 n1 ->
+  NStep e2 n2 ->
+  n1 <= n < n2 ->
+  IIn a (i_subst x (NNum n) i) ->
+  IIn a (For x (e1,e2) i)
+  .
+(*
+Definition to_list (x:(option mhistory) * history) : mhistory :=
+  match x with
+  | (Some m, h) => m ++ [h]
+  | (None, h) => [h]
+  end.
+*)
+Goal Run2 (Seq Sync Skip) (ph_many [] [] []).
+Proof.
+  eapply run2_seq.
+  + apply run2_sync.
+  + apply run2_skip.
+  + reflexivity.
+Qed.
+
+Goal Run2 (Seq Sync Sync) (ph_many [] [[]] []).
+Proof.
+  eapply run2_seq.
+  + apply run2_sync.
+  + apply run2_sync.
+  + reflexivity.
+Qed.
+
+Goal Run2 (Seq (Seq Sync Sync) Sync) (ph_many [] [[]; []] []).
+Proof.
+  eapply run2_seq.
+  - eapply run2_seq.
+    + apply run2_sync.
+    + apply run2_sync.
+    + reflexivity.
+  - apply run2_sync.
+  - reflexivity.
+Qed.
 
 Inductive Run: (histpair * inst) -> histpair -> Prop :=
 | run_skip:
