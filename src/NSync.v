@@ -9,6 +9,7 @@ Require Import NExp.
 Require Import BExp.
 Require Import AccExp.
 Require Import Tasks.
+Require Import InUtil.
 
 Require Import Lia.
 
@@ -52,6 +53,8 @@ Notation histpair := (mhistory * history) % type.
 
 Context `{T:Tasks}.
 
+(* ----------------------- PHASESET ------------------- *)
+
 Inductive phaseset :=
 | ph_one: history -> phaseset
 | ph_many: history -> mhistory -> history -> phaseset.
@@ -63,7 +66,7 @@ match p1, p2 with
 | ph_one h1, ph_many h2 m2 t2 => ph_many (h1 ++ h2) m2 t2
 | ph_many h1 m1 t1, ph_one h2 => ph_many h1 m1 (h1 ++ h2)
 | ph_many h1 m1 t1, ph_many h2 m2 t2 =>
-  ph_many h1 (m1 ++ (t1 ++ h1) :: m2) t2
+  ph_many h1 (m1 ++ (t1 ++ h2) :: m2) t2
 end.
 
 Definition phase_to_list (p:phaseset) : mhistory :=
@@ -71,6 +74,23 @@ match p with
 | ph_one h => [h]
 | ph_many h m t => h::m ++ [t]
 end.
+
+Inductive PIn a : phaseset -> Prop :=
+| p_in_one: forall h,
+  List.In a h ->
+  PIn a (ph_one h)
+| p_in_head: forall h m t,
+  List.In a h ->
+  PIn a (ph_many h m t)
+| p_in_mid: forall h m t,
+  MIn a m ->
+  PIn a (ph_many h m t)
+| p_in_tail: forall h m t,
+  List.In a t ->
+  PIn a (ph_many h m t)
+  .
+
+(* -------------------- RUN --------------------------- *)
 
 Inductive Run2: inst -> phaseset -> Prop :=
 | run2_skip:
@@ -110,33 +130,27 @@ Inductive Run2: inst -> phaseset -> Prop :=
   Run2 (For x (e1, e2) i) (ph_one []).
 
 Inductive IIn (a:access_val) : inst -> Prop :=
-| i_block: forall i,
+| i_in_block: forall i,
   Conc.IIn a i ->
   IIn a (Block i)
-| i_seq_l: forall i j,
+| i_in_seq_l: forall i j,
   IIn a i ->
   IIn a (Seq i j)
-| i_seq_r: forall i j,
+| i_in_seq_r: forall i j,
   IIn a j ->
   IIn a (Seq i j)
-| i_if: forall b i,
+| i_in_if: forall b i,
   BStep b true ->
   IIn a i ->
   IIn a (If b i)
- | i_for: forall e1 e2 i n1 n2 n x,
+ | i_in_for: forall e1 e2 i n1 n2 n x,
   NStep e1 n1 ->
   NStep e2 n2 ->
   n1 <= n < n2 ->
   IIn a (i_subst x (NNum n) i) ->
   IIn a (For x (e1,e2) i)
   .
-(*
-Definition to_list (x:(option mhistory) * history) : mhistory :=
-  match x with
-  | (Some m, h) => m ++ [h]
-  | (None, h) => [h]
-  end.
-*)
+
 Goal Run2 (Seq Sync Skip) (ph_many [] [] []).
 Proof.
   eapply run2_seq.
@@ -225,7 +239,93 @@ Proof.
   apply run_skip.
 Qed.
 
+  Lemma p_in_inv_one: forall a h,
+    PIn a (ph_one h) ->
+    List.In a h.
+  Proof.
+    intros.
+    inversion H; subst; auto.
+  Qed.
 
+  Lemma p_in_inv_many: forall a h m t,
+    PIn a (ph_many h m t) ->
+    List.In a h \/ MIn a m \/ List.In a t.
+  Proof.
+    intros.
+    inversion H; subst; auto.
+  Qed.
+
+  Lemma p_in_inv_merge:
+    forall a p1 p2,
+    PIn a (merge p1 p2) ->
+    PIn a p1 \/ PIn a p2.
+  Proof.
+    intros.
+    destruct p1, p2; simpl in *.
+    - apply p_in_inv_one in H.
+      apply in_app_iff in H.
+      destruct H; auto using p_in_one.
+    - apply p_in_inv_many in H.
+      destruct H as [H|[H|H]].
+      + apply in_app_iff in H.
+        destruct H; auto using p_in_one, p_in_head.
+      + auto using p_in_mid.
+      + auto using p_in_tail.
+    - apply p_in_inv_many in H.
+      destruct H as [H|[H|H]]; auto using p_in_head, p_in_mid.
+      apply in_app_iff in H.
+      destruct H; auto using p_in_head, p_in_one.
+    - apply p_in_inv_many in H.
+      destruct H as [H|[H|H]]; auto using p_in_head, p_in_tail.
+      apply m_in_inv_app in H.
+      destruct H; auto using p_in_mid.
+      assert (R: (l1 ++ l2) :: l3 = [l1++l2] ++ l3) by auto.
+      rewrite R in H.
+      apply m_in_inv_app in H.
+      destruct H as [H|H]; auto using p_in_mid.
+      apply m_in_inv_cons_nil in H.
+      apply in_app_iff in H.
+      destruct H; auto using p_in_tail, p_in_head.
+  Qed.
+
+  Lemma run_p_in_to_i_in:
+    forall i h,
+    Run2 i h ->
+    forall a,
+    PIn a h ->
+    IIn a i.
+  Proof.
+    intros i h H.
+    induction H; intros.
+    - apply p_in_inv_one in H.
+      contradiction.
+    - apply p_in_inv_many in H.
+      destruct H as [H|[H|H]]; try contradiction.
+      apply m_in_nil in H.
+      contradiction.
+    - apply p_in_inv_one in H0.
+      apply i_in_block.
+      admit.
+    - subst.
+      apply p_in_inv_merge in H2.
+      destruct H2; auto using i_in_seq_l, i_in_seq_r.
+    - auto using i_in_if.
+    - apply p_in_inv_one in H0.
+      contradiction.
+    - subst.
+      apply p_in_inv_merge in H5.
+      destruct H5 as [Hi|Hi].
+      + eauto using i_in_for.
+      + apply IHRun2_2 in Hi.
+        inversion Hi; subst; clear Hi.
+        eapply i_in_for with (n:=n); eauto.
+        assert (n0 = S n1) by eauto using n_step_fun, n_step_num.
+        assert (n3 = n2) by eauto using n_step_fun, n_step_num.
+        subst.
+        lia.
+    - apply p_in_inv_one in H2.
+      contradiction.
+  Admitted.
 (*
 Inductive NSEquiv : inst -> inst -> Prop :=
 | equiv_unit_r:
