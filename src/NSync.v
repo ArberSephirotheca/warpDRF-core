@@ -99,6 +99,7 @@ Inductive Run2: inst -> phaseset -> Prop :=
   Run2 Sync (ph_many [] [] [])
 | run2_block:
   forall c h,
+  ~ Conc.Var TID c -> (* This is a well-formedness property; assume we have it *)
   Conc.RunAll TID_COUNT c h ->
   Run2 (Block c) (ph_one h)
 | run2_seq: forall i j mh_i mh_j mh,
@@ -303,9 +304,9 @@ Qed.
       destruct H as [H|[H|H]]; try contradiction.
       apply m_in_nil in H.
       contradiction.
-    - apply p_in_inv_one in H0.
+    - apply p_in_inv_one in H1.
       apply i_in_block.
-      admit.
+      eapply Conc.run_all_to_i_in in H; eauto.
     - subst.
       apply p_in_inv_merge in H2.
       destruct H2; auto using i_in_seq_l, i_in_seq_r.
@@ -325,7 +326,7 @@ Qed.
         lia.
     - apply p_in_inv_one in H2.
       contradiction.
-  Admitted.
+  Qed.
 (*
 Inductive NSEquiv : inst -> inst -> Prop :=
 | equiv_unit_r:

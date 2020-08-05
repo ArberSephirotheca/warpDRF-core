@@ -533,6 +533,22 @@ Section C1.
     - contradiction.
   Qed.
 
+  Lemma run_all_to_i_in:
+    forall i,
+    ~ Var TID i ->
+    forall n h,
+    RunAll n i h ->
+    forall a,
+    List.In a h ->
+    IIn a i.
+  Proof.
+    intros.
+    eapply run_all_inv_in in H0; eauto.
+    destruct H0 as (m, (h', (Hi, (Hm, (Hinc,Hj))))).
+    apply run_to_s_run in Hm; auto.
+    eauto using s_run_i_in.
+  Qed.
+
   Lemma in_to_i_in:
     forall i,
     ~ Var TID i ->
