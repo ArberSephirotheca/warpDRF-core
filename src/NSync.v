@@ -64,7 +64,7 @@ Definition merge (p1 p2:phaseset): phaseset :=
 match p1, p2 with
 | ph_one h1, ph_one h2 => ph_one (h1 ++ h2)
 | ph_one h1, ph_many h2 m2 t2 => ph_many (h1 ++ h2) m2 t2
-| ph_many h1 m1 t1, ph_one h2 => ph_many h1 m1 (h1 ++ h2)
+| ph_many h1 m1 t1, ph_one h2 => ph_many h1 m1 (t1 ++ h2)
 | ph_many h1 m1 t1, ph_many h2 m2 t2 =>
   ph_many h1 (m1 ++ (t1 ++ h2) :: m2) t2
 end.
@@ -89,6 +89,123 @@ Inductive PIn a : phaseset -> Prop :=
   List.In a t ->
   PIn a (ph_many h m t)
   .
+
+
+  Lemma p_in_inv_one: forall a h,
+    PIn a (ph_one h) ->
+    List.In a h.
+  Proof.
+    intros.
+    inversion H; subst; auto.
+  Qed.
+
+  Lemma p_in_inv_many: forall a h m t,
+    PIn a (ph_many h m t) ->
+    List.In a h \/ MIn a m \/ List.In a t.
+  Proof.
+    intros.
+    inversion H; subst; auto.
+  Qed.
+
+  (* XXX: move to InUtil *)
+  Lemma m_in_inv_cons:
+    forall A a h m,
+    @MIn A a (h :: m) ->
+    In a h \/ MIn a m.
+  Proof.
+    intros.
+    assert (R: h ::m = [h] ++m) by auto.
+    rewrite R in H.
+    apply m_in_inv_app in H.
+    destruct H as [H|H]; auto.
+    apply m_in_inv_cons_nil in H.
+    auto.
+  Qed.
+
+  Lemma p_in_inv_merge:
+    forall a p1 p2,
+    PIn a (merge p1 p2) ->
+    PIn a p1 \/ PIn a p2.
+  Proof.
+    intros.
+    destruct p1, p2; simpl in *.
+    - apply p_in_inv_one in H.
+      apply in_app_iff in H.
+      destruct H; auto using p_in_one.
+    - apply p_in_inv_many in H.
+      destruct H as [H|[H|H]].
+      + apply in_app_iff in H.
+        destruct H; auto using p_in_one, p_in_head.
+      + auto using p_in_mid.
+      + auto using p_in_tail.
+    - apply p_in_inv_many in H.
+      destruct H as [H|[H|H]]; auto using p_in_head, p_in_mid.
+      apply in_app_iff in H.
+      destruct H; auto using p_in_tail, p_in_one.
+    - apply p_in_inv_many in H.
+      destruct H as [H|[H|H]]; auto using p_in_head, p_in_tail.
+      apply m_in_inv_app in H.
+      destruct H; auto using p_in_mid.
+      apply m_in_inv_cons in H.
+      destruct H as [H|H]; auto using p_in_mid.
+      apply in_app_iff in H.
+      destruct H; auto using p_in_tail, p_in_head.
+  Qed.
+
+  Lemma p_in_merge_l:
+    forall a p1 p2,
+    PIn a p1 ->
+    PIn a (merge p1 p2).
+  Proof.
+    intros a p1 p2 Hi.
+    inversion Hi; subst; clear Hi; simpl.
+    - destruct p2.
+      + apply p_in_one.
+        apply in_app_iff.
+        auto.
+      + apply p_in_head.
+        apply in_app_iff.
+        auto.
+    - destruct p2; auto using p_in_one, p_in_head.
+    - destruct p2; apply p_in_mid; auto.
+      auto using m_in_app_l.
+    - destruct p2.
+      + apply p_in_tail; apply in_app_iff; auto.
+      + apply p_in_mid.
+        apply m_in_app_r.
+        apply m_in_eq.
+        apply in_app_iff.
+        auto.
+  Qed.
+
+  Lemma p_in_merge_r:
+    forall a p1 p2,
+    PIn a p2 ->
+    PIn a (merge p1 p2).
+  Proof.
+    intros a p1 p2 Hi.
+    inversion Hi; subst; clear Hi; simpl; destruct p1; simpl;
+      try apply p_in_one.
+    - apply in_app_iff; auto.
+    - apply p_in_tail.
+      apply in_app_iff; auto.
+    - apply p_in_head.
+      apply in_app_iff; auto.
+    - apply p_in_mid.
+      apply m_in_app_r.
+      apply m_in_eq.
+      apply in_app_iff; auto.
+    - apply p_in_mid.
+      assumption.
+    - apply p_in_mid.
+      apply m_in_app_r.
+      apply m_in_cons.
+      assumption.
+    - apply p_in_tail.
+      assumption.
+    - apply p_in_tail.
+      assumption.
+  Qed.
 
 (* -------------------- RUN --------------------------- *)
 
@@ -129,28 +246,6 @@ Inductive Run2: inst -> phaseset -> Prop :=
   n1 >= n2 ->
   Run2 (For x (e1, e2) i) (ph_one []).
 
-Inductive IIn (a:access_val) : inst -> Prop :=
-| i_in_block: forall i,
-  Conc.IIn a i ->
-  IIn a (Block i)
-| i_in_seq_l: forall i j,
-  IIn a i ->
-  IIn a (Seq i j)
-| i_in_seq_r: forall i j,
-  IIn a j ->
-  IIn a (Seq i j)
-| i_in_if: forall b i,
-  BStep b true ->
-  IIn a i ->
-  IIn a (If b i)
- | i_in_for: forall e1 e2 i n1 n2 n x,
-  NStep e1 n1 ->
-  NStep e2 n2 ->
-  n1 <= n < n2 ->
-  IIn a (i_subst x (NNum n) i) ->
-  IIn a (For x (e1,e2) i)
-  .
-
 Goal Run2 (Seq Sync Skip) (ph_many [] [] []).
 Proof.
   eapply run2_seq.
@@ -178,7 +273,7 @@ Proof.
   - reflexivity.
 Qed.
 
-(* ------------------------------ IIN -------------------------- *)
+(* ------------------------------ VAR -------------------------- *)
   Fixpoint Var x i :=
   match i with
   | Skip | Sync | Loop _ _ _ => False
@@ -200,54 +295,29 @@ Qed.
       destruct (Set_VAR.MF.eq_dec x v); auto.
   Qed.
 
-  Lemma p_in_inv_one: forall a h,
-    PIn a (ph_one h) ->
-    List.In a h.
-  Proof.
-    intros.
-    inversion H; subst; auto.
-  Qed.
+(* ------------------------------ IIN -------------------------- *)
+Inductive IIn (a:access_val) : inst -> Prop :=
+| i_in_block: forall i,
+  Conc.IIn a i ->
+  IIn a (Block i)
+| i_in_seq_l: forall i j,
+  IIn a i ->
+  IIn a (Seq i j)
+| i_in_seq_r: forall i j,
+  IIn a j ->
+  IIn a (Seq i j)
+| i_in_if: forall b i,
+  BStep b true ->
+  IIn a i ->
+  IIn a (If b i)
+ | i_in_for: forall e1 e2 i n1 n2 n x,
+  NStep e1 n1 ->
+  NStep e2 n2 ->
+  n1 <= n < n2 ->
+  IIn a (i_subst x (NNum n) i) ->
+  IIn a (For x (e1,e2) i)
+  .
 
-  Lemma p_in_inv_many: forall a h m t,
-    PIn a (ph_many h m t) ->
-    List.In a h \/ MIn a m \/ List.In a t.
-  Proof.
-    intros.
-    inversion H; subst; auto.
-  Qed.
-
-  Lemma p_in_inv_merge:
-    forall a p1 p2,
-    PIn a (merge p1 p2) ->
-    PIn a p1 \/ PIn a p2.
-  Proof.
-    intros.
-    destruct p1, p2; simpl in *.
-    - apply p_in_inv_one in H.
-      apply in_app_iff in H.
-      destruct H; auto using p_in_one.
-    - apply p_in_inv_many in H.
-      destruct H as [H|[H|H]].
-      + apply in_app_iff in H.
-        destruct H; auto using p_in_one, p_in_head.
-      + auto using p_in_mid.
-      + auto using p_in_tail.
-    - apply p_in_inv_many in H.
-      destruct H as [H|[H|H]]; auto using p_in_head, p_in_mid.
-      apply in_app_iff in H.
-      destruct H; auto using p_in_head, p_in_one.
-    - apply p_in_inv_many in H.
-      destruct H as [H|[H|H]]; auto using p_in_head, p_in_tail.
-      apply m_in_inv_app in H.
-      destruct H; auto using p_in_mid.
-      assert (R: (l1 ++ l2) :: l3 = [l1++l2] ++ l3) by auto.
-      rewrite R in H.
-      apply m_in_inv_app in H.
-      destruct H as [H|H]; auto using p_in_mid.
-      apply m_in_inv_cons_nil in H.
-      apply in_app_iff in H.
-      destruct H; auto using p_in_tail, p_in_head.
-  Qed.
 
   Lemma run_p_in_to_i_in:
     forall i h,
@@ -295,6 +365,53 @@ Qed.
         lia.
     - apply p_in_inv_one in Hi.
       contradiction.
+  Qed.
+
+  Lemma run_i_in_to_p_in:
+    forall i h,
+    Run2 i h ->
+    ~ Var TID i ->
+    forall a,
+    access_tid a < TID_COUNT ->
+    IIn a i ->
+    PIn a h.
+  Proof.
+    intros i h H.
+    induction H;
+      intros Hwf a Hlt Hi;
+      simpl in Hwf;
+      inversion Hi;
+      subst;
+      clear Hi.
+    - apply p_in_one.
+      eapply Conc.run_all_i_in_to_in; eauto.
+    - apply p_in_merge_l.
+      auto.
+    - apply p_in_merge_r.
+      auto.
+    - auto.
+    - assert (N: true = false) by eauto using b_step_fun.
+      inversion N.
+    - assert (n0 = n1) by eauto using n_step_fun.
+      assert (n3 = n2) by eauto using n_step_fun.
+      subst.
+      assert (X: n1 = n \/ n1 < n) by lia.
+      destruct X. {
+        subst.
+        apply p_in_merge_l.
+        apply IHRun2_1; auto.
+        intros N.
+        apply var_subst_inv_1 in N.
+        auto.
+      }
+      apply p_in_merge_r.
+      apply IHRun2_2; auto.
+      apply i_in_for with (n1:=S n1) (n2:=n2) (n:=n); auto using n_step_num.
+      lia.
+    - assert (n0 = n1) by eauto using n_step_fun.
+      assert (n3 = n2) by eauto using n_step_fun.
+      subst.
+      lia.
   Qed.
 
 (* ------------------------------ RUN -------------------------- *)
