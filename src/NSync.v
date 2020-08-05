@@ -99,7 +99,6 @@ Inductive Run2: inst -> phaseset -> Prop :=
   Run2 Sync (ph_many [] [] [])
 | run2_block:
   forall c h,
-  ~ Conc.Var TID c -> (* This is a well-formedness property; assume we have it *)
   Conc.RunAll TID_COUNT c h ->
   Run2 (Block c) (ph_one h)
 | run2_seq: forall i j mh_i mh_j mh,
@@ -179,6 +178,127 @@ Proof.
   - reflexivity.
 Qed.
 
+(* ------------------------------ IIN -------------------------- *)
+  Fixpoint Var x i :=
+  match i with
+  | Skip | Sync | Loop _ _ _ => False
+  | Block c => Conc.Var x c
+  | Seq i j => Var x i \/ Var x j
+  | For y _ i => x = y \/ Var x i
+  | If _ i => Var x i
+  end.
+
+  Lemma var_subst_inv_1:
+    forall y x n i,
+    Var y (i_subst x (NNum n) i) ->
+    Var y i.
+  Proof.
+    induction i; simpl; intros; auto.
+    - eauto using Conc.var_subst_inv_1.
+    - destruct H; auto.
+    - destruct H; auto.
+      destruct (Set_VAR.MF.eq_dec x v); auto.
+  Qed.
+
+  Lemma p_in_inv_one: forall a h,
+    PIn a (ph_one h) ->
+    List.In a h.
+  Proof.
+    intros.
+    inversion H; subst; auto.
+  Qed.
+
+  Lemma p_in_inv_many: forall a h m t,
+    PIn a (ph_many h m t) ->
+    List.In a h \/ MIn a m \/ List.In a t.
+  Proof.
+    intros.
+    inversion H; subst; auto.
+  Qed.
+
+  Lemma p_in_inv_merge:
+    forall a p1 p2,
+    PIn a (merge p1 p2) ->
+    PIn a p1 \/ PIn a p2.
+  Proof.
+    intros.
+    destruct p1, p2; simpl in *.
+    - apply p_in_inv_one in H.
+      apply in_app_iff in H.
+      destruct H; auto using p_in_one.
+    - apply p_in_inv_many in H.
+      destruct H as [H|[H|H]].
+      + apply in_app_iff in H.
+        destruct H; auto using p_in_one, p_in_head.
+      + auto using p_in_mid.
+      + auto using p_in_tail.
+    - apply p_in_inv_many in H.
+      destruct H as [H|[H|H]]; auto using p_in_head, p_in_mid.
+      apply in_app_iff in H.
+      destruct H; auto using p_in_head, p_in_one.
+    - apply p_in_inv_many in H.
+      destruct H as [H|[H|H]]; auto using p_in_head, p_in_tail.
+      apply m_in_inv_app in H.
+      destruct H; auto using p_in_mid.
+      assert (R: (l1 ++ l2) :: l3 = [l1++l2] ++ l3) by auto.
+      rewrite R in H.
+      apply m_in_inv_app in H.
+      destruct H as [H|H]; auto using p_in_mid.
+      apply m_in_inv_cons_nil in H.
+      apply in_app_iff in H.
+      destruct H; auto using p_in_tail, p_in_head.
+  Qed.
+
+  Lemma run_p_in_to_i_in:
+    forall i h,
+    Run2 i h ->
+    ~ Var TID i ->
+    forall a,
+    PIn a h ->
+    IIn a i.
+  Proof.
+    intros i h H.
+    induction H; intros Hwf a Hi.
+    - apply p_in_inv_one in Hi.
+      contradiction.
+    - apply p_in_inv_many in Hi.
+      destruct Hi as [Hi|[Hi|Hi]]; try contradiction.
+      apply m_in_nil in Hi.
+      contradiction.
+    - apply p_in_inv_one in Hi.
+      apply i_in_block.
+      eapply Conc.run_all_to_i_in in H; eauto.
+    - subst.
+      apply p_in_inv_merge in Hi.
+      simpl in Hwf.
+      destruct Hi.
+      + apply i_in_seq_l; auto.
+      + apply i_in_seq_r; auto.
+    - auto using i_in_if.
+    - apply p_in_inv_one in Hi.
+      contradiction.
+    - subst.
+      apply p_in_inv_merge in Hi.
+      simpl in Hwf.
+      destruct Hi as [Hi|Hi].
+      + eapply i_in_for; eauto.
+        apply IHRun2_1; auto.
+        intros N.
+        apply var_subst_inv_1 in N.
+        auto.
+      + apply IHRun2_2 in Hi; auto.
+        inversion Hi; subst; clear Hi.
+        eapply i_in_for with (n:=n); eauto.
+        assert (n0 = S n1) by eauto using n_step_fun, n_step_num.
+        assert (n3 = n2) by eauto using n_step_fun, n_step_num.
+        subst.
+        lia.
+    - apply p_in_inv_one in Hi.
+      contradiction.
+  Qed.
+
+(* ------------------------------ RUN -------------------------- *)
+
 Inductive Run: (histpair * inst) -> histpair -> Prop :=
 | run_skip:
     forall x,
@@ -239,94 +359,6 @@ Proof.
   eapply run_seq; eauto.
   apply run_skip.
 Qed.
-
-  Lemma p_in_inv_one: forall a h,
-    PIn a (ph_one h) ->
-    List.In a h.
-  Proof.
-    intros.
-    inversion H; subst; auto.
-  Qed.
-
-  Lemma p_in_inv_many: forall a h m t,
-    PIn a (ph_many h m t) ->
-    List.In a h \/ MIn a m \/ List.In a t.
-  Proof.
-    intros.
-    inversion H; subst; auto.
-  Qed.
-
-  Lemma p_in_inv_merge:
-    forall a p1 p2,
-    PIn a (merge p1 p2) ->
-    PIn a p1 \/ PIn a p2.
-  Proof.
-    intros.
-    destruct p1, p2; simpl in *.
-    - apply p_in_inv_one in H.
-      apply in_app_iff in H.
-      destruct H; auto using p_in_one.
-    - apply p_in_inv_many in H.
-      destruct H as [H|[H|H]].
-      + apply in_app_iff in H.
-        destruct H; auto using p_in_one, p_in_head.
-      + auto using p_in_mid.
-      + auto using p_in_tail.
-    - apply p_in_inv_many in H.
-      destruct H as [H|[H|H]]; auto using p_in_head, p_in_mid.
-      apply in_app_iff in H.
-      destruct H; auto using p_in_head, p_in_one.
-    - apply p_in_inv_many in H.
-      destruct H as [H|[H|H]]; auto using p_in_head, p_in_tail.
-      apply m_in_inv_app in H.
-      destruct H; auto using p_in_mid.
-      assert (R: (l1 ++ l2) :: l3 = [l1++l2] ++ l3) by auto.
-      rewrite R in H.
-      apply m_in_inv_app in H.
-      destruct H as [H|H]; auto using p_in_mid.
-      apply m_in_inv_cons_nil in H.
-      apply in_app_iff in H.
-      destruct H; auto using p_in_tail, p_in_head.
-  Qed.
-
-  Lemma run_p_in_to_i_in:
-    forall i h,
-    Run2 i h ->
-    forall a,
-    PIn a h ->
-    IIn a i.
-  Proof.
-    intros i h H.
-    induction H; intros.
-    - apply p_in_inv_one in H.
-      contradiction.
-    - apply p_in_inv_many in H.
-      destruct H as [H|[H|H]]; try contradiction.
-      apply m_in_nil in H.
-      contradiction.
-    - apply p_in_inv_one in H1.
-      apply i_in_block.
-      eapply Conc.run_all_to_i_in in H; eauto.
-    - subst.
-      apply p_in_inv_merge in H2.
-      destruct H2; auto using i_in_seq_l, i_in_seq_r.
-    - auto using i_in_if.
-    - apply p_in_inv_one in H0.
-      contradiction.
-    - subst.
-      apply p_in_inv_merge in H5.
-      destruct H5 as [Hi|Hi].
-      + eauto using i_in_for.
-      + apply IHRun2_2 in Hi.
-        inversion Hi; subst; clear Hi.
-        eapply i_in_for with (n:=n); eauto.
-        assert (n0 = S n1) by eauto using n_step_fun, n_step_num.
-        assert (n3 = n2) by eauto using n_step_fun, n_step_num.
-        subst.
-        lia.
-    - apply p_in_inv_one in H2.
-      contradiction.
-  Qed.
 (*
 Inductive NSEquiv : inst -> inst -> Prop :=
 | equiv_unit_r:
