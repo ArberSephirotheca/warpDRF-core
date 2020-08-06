@@ -56,13 +56,13 @@ end.
 
 Definition ph_skip := ph_one [].
 Definition ph_block h := ph_one h.
-Fixpoint ph_suffix (p:phaseset) (h:history) :=
+Fixpoint app_last (p:phaseset) (h:history) :=
 match p with
 | ph_one h' => ph_one (h' ++ h)
-| ph_cons h' p => ph_cons h' (ph_suffix p h)
+| ph_cons h' p => ph_cons h' (app_last p h)
 end.
 
-Definition ph_prefix h p :=
+Definition app_first h p :=
 match p with
 | ph_one h' => ph_one (h ++ h')
 | ph_cons h' p => ph_cons (h ++ h') p
@@ -70,7 +70,7 @@ end.
 
 Fixpoint ph_seq p1 p2 :=
   match p1 with
-  | ph_one h1 => ph_prefix h1 p2 
+  | ph_one h1 => app_first h1 p2 
   | ph_cons h1 p1 => ph_cons h1 (ph_seq p1 p2)
   end.
 
@@ -282,7 +282,7 @@ Inductive PIn a : phaseset -> phaseloc -> Prop :=
 
   Lemma p_in_as_inv_prefix:
     forall a h p m,
-    PInAs a (ph_prefix h p) m ->
+    PInAs a (app_first h p) m ->
     List.In a h \/
     PInAs a p m.
   Proof.
