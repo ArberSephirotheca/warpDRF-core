@@ -204,14 +204,49 @@ Inductive PIn a : phaseset -> phaseloc -> Prop :=
     auto.
   Qed.
 
+  Lemma p_in_first_to_p_in:
+    forall a p,
+    PInFirst a p ->
+    PIn a p.
+  Proof.
+    intros.
+    destruct p; simpl in *; auto.
+    contradiction.
+  Qed.
+
+  Lemma p_in_last_to_p_in:
+    forall a p,
+    PInLast a p ->
+    PIn a p.
+  Proof.
+    intros.
+    induction p; intros; simpl in *; auto.
+  Qed.
+
+  Lemma p_in_as_to_p_in:
+    forall a p m,
+    PInAs a p m ->
+    PIn a p.
+  Proof.
+    intros.
+    destruct m; simpl in *.
+    - apply p_in_first_to_p_in.
+      assumption.
+    - apply p_in_mid_to_p_in.
+      assumption.
+    - apply p_in_last_to_p_in.
+      assumption.
+  Qed.
+
   Lemma p_in_as_nil:
     forall a m,
     ~ PInAs a (ph_one []) m.
   Proof.
     intros.
     intros N.
-    apply p_in_inv_one in N.
-    contradiction.
+    apply p_in_as_to_p_in in N.
+    apply p_in_nil in N.
+    assumption.
   Qed.
 
   Lemma p_in_as_inv_cons:
@@ -370,67 +405,67 @@ Inductive PIn a : phaseset -> phaseloc -> Prop :=
 *)
 (* -------------------- RUN --------------------------- *)
 
-Inductive Run2: inst -> phaseset -> Prop :=
-| run2_skip:
-  Run2 Skip (ph_one [])
-| run2_sync:
-  Run2 Sync (ph_cons [] (ph_one []))
-| run2_block:
+Inductive Run: inst -> phaseset -> Prop :=
+| run_skip:
+  Run Skip (ph_one [])
+| run_sync:
+  Run Sync (ph_cons [] (ph_one []))
+| run_block:
   forall c h,
   Conc.RunAll TID_COUNT c h ->
-  Run2 (Block c) (ph_one h)
-| run2_seq: forall i j mh_i mh_j mh,
-  Run2 i mh_i ->
-  Run2 j mh_j ->
+  Run (Block c) (ph_one h)
+| run_seq: forall i j mh_i mh_j mh,
+  Run i mh_i ->
+  Run j mh_j ->
   ph_seq mh_i mh_j = mh ->
-  Run2 (Seq i j) mh
-| run2_if_true: forall b i mh,
+  Run (Seq i j) mh
+| run_if_true: forall b i mh,
   BStep b true ->
-  Run2 i mh ->
-  Run2 (If b i) mh
-| run2_if_false: forall b i,
+  Run i mh ->
+  Run (If b i) mh
+| run_if_false: forall b i,
   BStep b false ->
-  Run2 (If b i) (ph_one [])
-| run2_for_cons:
+  Run (If b i) (ph_one [])
+| run_for_cons:
   forall e1 e2 n1 n2 i x h1 h2 h3,
   NStep e1 n1 ->
   NStep e2 n2 ->
   n1 < n2 ->
-  Run2 (i_subst x (NNum n1) i) h1 ->
-  Run2 (For x (NNum (S n1), NNum n2) i) h2 ->
+  Run (i_subst x (NNum n1) i) h1 ->
+  Run (For x (NNum (S n1), NNum n2) i) h2 ->
   ph_seq h1 h2 = h3 ->
-  Run2 (For x (e1, e2) i) h3
-| run2_for_nil:
+  Run (For x (e1, e2) i) h3
+| run_for_nil:
   forall x i e1 e2 n1 n2,
   NStep e1 n1 ->
   NStep e2 n2 ->
   n1 >= n2 ->
-  Run2 (For x (e1, e2) i) (ph_one []).
+  Run (For x (e1, e2) i) (ph_one []).
 
-Goal Run2 (Seq Sync Skip) (ph_cons [] (ph_one [])).
+Goal Run (Seq Sync Skip) (ph_cons [] (ph_one [])).
 Proof.
-  eapply run2_seq.
-  + apply run2_sync.
-  + apply run2_skip.
+  eapply run_seq.
+  + apply run_sync.
+  + apply run_skip.
   + reflexivity.
 Qed.
 
-Goal Run2 (Seq Sync Sync) (ph_cons [] (ph_cons [] (ph_one []))).
+Goal Run (Seq Sync Sync) (ph_cons [] (ph_cons [] (ph_one []))).
 Proof.
-  eapply run2_seq.
-  + apply run2_sync.
-  + apply run2_sync.
+  eapply run_seq.
+  + apply run_sync.
+  + apply run_sync.
   + reflexivity.
 Qed.
 
-Goal Run2 (Seq (Seq Sync Sync) Sync) (ph_cons [] (ph_cons [] (ph_cons [] (ph_one [])))).
+Goal Run (Seq (Seq Sync Sync) Sync) (ph_cons [] (ph_cons [] (ph_cons [] (ph_one [])))).
 Proof.
-  eapply run2_seq.
-  - eapply run2_seq.
-    + apply run2_sync.
-    + apply run2_sync.
+  eapply run_seq.
+  - eapply run_seq.
+    + apply run_sync.
+    + apply run_sync.
     + reflexivity.
-  - apply run2_sync.
+  - apply run_sync.
   - reflexivity.
 Qed.
 
@@ -458,8 +493,8 @@ Qed.
 
 (* ------------------------------ IIN -------------------------- *)
 
-Fixpoint has_sync p :=
-  match p with
+Fixpoint has_sync (i:inst) :=
+  match i with
   | Skip | Block _ => false
   | Sync => true
   | For _ _ i | If _ i => has_sync i
@@ -533,10 +568,22 @@ Inductive IIn (a:access_val) : inst -> phaseloc -> Prop :=
   IIn a (For x (e1,e2) i) MidPhase
   .
 
-
+(*
+  Lemma run_to_unsync:
+    forall i h,
+    Run i (ph_one h) ->
+    has_sync i = false.
+  Proof.
+    induction i; intros; simpl; auto.
+    - inversion H.
+    - inversion H; subst; clear H.
+      + eauto.
+      + 
+  Qed.
+*)
   Lemma run_p_in_to_i_in:
     forall i h,
-    Run2 i h ->
+    Run i h ->
     ~ Var TID i ->
     forall a m,
     PInAs a h m ->
@@ -555,7 +602,18 @@ Inductive IIn (a:access_val) : inst -> phaseloc -> Prop :=
       eapply Conc.run_all_to_i_in in H; eauto.
     - subst.
       destruct mh_i as [h|h]; simpl in Hi.
-      + apply p_in_as_inv_prefix in Hi.
+      + destruct mh_j; simpl in Hi.
+        * apply p_in_as_inv_one in Hi.
+          destruct Hi as (?, Hi).
+          subst.
+          apply in_app_iff in Hi.
+          simpl in Hwf.
+          destruct Hi as [Hi|Hi]. {
+            apply i_in_seq_l_eq.
+            - apply IHRun1; auto.
+            - 
+              simpl in 
+        apply p_in_as_inv_prefix in Hi.
         destruct Hi as [Hi|Hi].
         * 
       apply p_in_inv_merge in Hi.
