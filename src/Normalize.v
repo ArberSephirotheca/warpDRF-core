@@ -52,10 +52,13 @@ Inductive Normalised: inst -> (option inst * inst) -> Prop :=
       Normalised i (Some i1, i2) ->
       Normalised (Seq i j) (Some i1, Seq i2 j)
 | norm_for_step: 
-    forall v r i i1 i2,
+    forall v r i i1 i2 n m j1 k1 j2,
       Normalised i (Some i1, i2) ->
-      (*j1 = If (BExp.BBool true) i1 -> *)
-      Normalised (For v r i) (Some (Seq i1 (For v r (Seq i2 i1))), i2)
+      r = (n,m) ->
+      j1 = If (BExp.NRel BExp.NLe n m) (i_subst v n i1) ->
+      j2 = If (BExp.NRel BExp.NLe n m) (i_subst v (NExp.NBin NExp.NMinus m (NExp.NNum 1)) i2) ->
+      k1 = (i_subst v (NExp.NBin NExp.NPlus v (NExp.NNum 1)) i1)
+      Normalised (For v r i) (Some (Seq j1 (For v r (Seq i2 k1))), j2)
 | norm_if_true:
     forall i b i1 i2,
       Normalised i (Some i1, i2) ->
