@@ -24,9 +24,7 @@ Section C1.
   | If: bexp -> inst -> inst
   | Block: Conc.inst -> inst
   | Seq: inst -> inst -> inst
-  | For : var -> range -> inst -> inst
-  | Loop : var -> list nat -> inst -> inst.
-
+  | For : var -> range -> inst -> inst.
 
 
 Fixpoint i_subst x v i :=
@@ -39,9 +37,6 @@ Fixpoint i_subst x v i :=
   | For y r i2 =>
     let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
     For y (r_subst x v r) i2'
-  | Loop y r i2 =>
-    let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
-    Loop y r i2'
   end.
 
 
