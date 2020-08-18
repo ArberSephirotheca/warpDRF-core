@@ -442,6 +442,31 @@ Inductive Run: inst -> phaseset -> Prop :=
   n1 >= n2 ->
   Run (For x (e1, e2) i) (ph_one []).
 
+
+(* [h1;h2; h3] seq [h4; h5; h6] = [h1; h2; h3++h4; h5; h6] *)
+
+Goal
+  (* Block c1 ; Block c2 where c1 produces h1 and c2 produces h2 *)
+  forall h1 h2,
+  ph_seq (ph_one h1) (ph_one h2) = ph_one (h1 ++ h2).
+Proof.
+  reflexivity.
+Qed.
+
+Goal 
+  (* Block c1 ; SYNC; Block c2 where c1 produces h1 and c2 produces h2 *)
+  forall h1 h2,
+  let ph_sync := (ph_cons [] (ph_one [])) in
+  ph_seq (ph_seq (ph_one h1) ph_sync) (ph_one h2) =
+  ph_cons h1 (ph_one h2).
+Proof.
+  intros.
+  simpl.
+  rewrite app_nil_r.
+  reflexivity.
+Qed.
+
+
 Goal Run (Seq Sync Skip) (ph_cons [] (ph_one [])).
 Proof.
   eapply run_seq.
@@ -493,14 +518,89 @@ Qed.
 
 (* ------------------------------ IIN -------------------------- *)
 
-Fixpoint has_sync (i:inst) :=
-  match i with
-  | Skip | Block _ => false
-  | Sync => true
-  | For _ _ i | If _ i => has_sync i
-  | Seq i j => orb (has_sync i) (has_sync j)
-  | Loop _ _ _ => false
-  end.
+Inductive HasSync: inst -> Prop :=
+| has_sync_sync:
+  HasSync Sync
+| has_sync_if:
+  forall i b,
+  BStep b true ->
+  HasSync i ->
+  HasSync (If b i)
+| has_sync_seq_l:
+| has_sync_seq_r:
+| has_sync_for:
+  forall e1 e2 x i n1 n2 n,
+  NStep e1 n1 ->
+  NStep e2 n2 ->
+  n1 <= n < n2 ->
+  HasSync (i_subst x (NNum n) i) ->
+  HasSync (For x (e1, e2) i).
+
+Inductive IInFirst (a:access_val) : inst -> Prop :=
+| i_in_first_seq_l:
+  forall i j,
+  IInFirst a i ->
+  IIn a (Seq i j) p
+| i_in_first_seq_r:
+  forall i j,
+  IInFirst a j ->
+  ~ HasSync i ->
+  IIn a (Seq i j) p
+
+| i_in_seq_l_last:
+  forall i j,
+  IIn a i LastPhase ->
+  has_sync j = true ->
+  IIn a (Seq i j) MidPhase
+
+| i_in_seq_r_eq:
+  forall i j p,
+  p = MidPhase \/ p = LastPhase \/ has_sync i = false ->
+  IIn a j p ->
+  IIn a (Seq i j) p
+| i_in_seq_r_first:
+  forall i j,
+  IIn a j FirstPhase ->
+  has_sync i = true ->
+  IIn a (Seq i j) MidPhase
+  
+| i_in_if: forall b i p,
+  BStep b true ->
+  IIn a i p ->
+  IIn a (If b i) p
+
+ | i_in_for_unsync:
+  forall e1 e2 i n1 n2 n x,
+  has_sync i = true ->
+  NStep e1 n1 ->
+  NStep e2 n2 ->
+  n1 <= n < n2 ->
+  IIn a (i_subst x (NNum n) i) LastPhase ->
+  IIn a (For x (e1,e2) i) LastPhase
+
+ | i_in_for_first:
+  forall e1 e2 i n1 n2 x,
+  NStep e1 n1 ->
+  NStep e2 n2 ->
+  n1 < n2 ->
+  IIn a (i_subst x (NNum n1) i) FirstPhase ->
+  IIn a (For x (e1,e2) i) FirstPhase
+
+ | i_in_for_last:
+  forall e1 e2 i n1 n2 x,
+  NStep e1 n1 ->
+  NStep e2 (S n2) ->
+  IIn a (i_subst x (NNum n2) i) LastPhase ->
+  IIn a (For x (e1,e2) i) LastPhase
+
+ | i_in_for_mid:
+  forall e1 e2 i n1 n2 n x m,
+  NStep e1 n1 ->
+  NStep e2 n2 ->
+  n1 <= n < n2 ->
+  IIn a (i_subst x (NNum n) i) m ->
+  IIn a (For x (e1,e2) i) MidPhase
+  .
 
 Inductive IIn (a:access_val) : inst -> phaseloc -> Prop :=
 | i_in_block: forall i,
