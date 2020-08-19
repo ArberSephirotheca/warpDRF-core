@@ -56,13 +56,13 @@ end.
 
 Definition ph_skip := ph_one [].
 Definition ph_block h := ph_one h.
-Fixpoint app_last (p:phaseset) (h:history) :=
+Fixpoint ph_suffix (p:phaseset) (h:history) :=
 match p with
 | ph_one h' => ph_one (h' ++ h)
-| ph_cons h' p => ph_cons h' (app_last p h)
+| ph_cons h' p => ph_cons h' (ph_suffix p h)
 end.
 
-Definition app_first h p :=
+Definition ph_prefix h p :=
 match p with
 | ph_one h' => ph_one (h ++ h')
 | ph_cons h' p => ph_cons (h ++ h') p
@@ -70,7 +70,7 @@ end.
 
 Fixpoint ph_seq p1 p2 :=
   match p1 with
-  | ph_one h1 => app_first h1 p2 
+  | ph_one h1 => ph_prefix h1 p2 
   | ph_cons h1 p1 => ph_cons h1 (ph_seq p1 p2)
   end.
 
@@ -203,51 +203,16 @@ Inductive PIn a : phaseset -> phaseloc -> Prop :=
     simpl.
     auto.
   Qed.
-
-  Lemma p_in_first_to_p_in:
-    forall a p,
-    PInFirst a p ->
-    PIn a p.
-  Proof.
-    intros.
-    destruct p; simpl in *; auto.
-    contradiction.
-  Qed.
-
-  Lemma p_in_last_to_p_in:
-    forall a p,
-    PInLast a p ->
-    PIn a p.
-  Proof.
-    intros.
-    induction p; intros; simpl in *; auto.
-  Qed.
-
-  Lemma p_in_as_to_p_in:
-    forall a p m,
-    PInAs a p m ->
-    PIn a p.
-  Proof.
-    intros.
-    destruct m; simpl in *.
-    - apply p_in_first_to_p_in.
-      assumption.
-    - apply p_in_mid_to_p_in.
-      assumption.
-    - apply p_in_last_to_p_in.
-      assumption.
-  Qed.
-
+(*
   Lemma p_in_as_nil:
     forall a m,
     ~ PInAs a (ph_one []) m.
   Proof.
     intros.
     intros N.
-    apply p_in_as_to_p_in in N.
-    apply p_in_nil in N.
-    assumption.
-  Qed.
+    apply p_in_inv_one in N.
+    contradiction.
+  Qed.*)
 
   Lemma p_in_as_inv_cons:
     forall a h p m,
@@ -282,7 +247,7 @@ Inductive PIn a : phaseset -> phaseloc -> Prop :=
 
   Lemma p_in_as_inv_prefix:
     forall a h p m,
-    PInAs a (app_first h p) m ->
+    PInAs a (ph_prefix h p) m ->
     List.In a h \/
     PInAs a p m.
   Proof.
@@ -405,9 +370,26 @@ Inductive PIn a : phaseset -> phaseloc -> Prop :=
 *)
 (* -------------------- RUN --------------------------- *)
 
+
+  Inductive inst :=
+  | Sync
+  | Block: Conc.inst -> inst
+  | Seq: inst -> inst -> inst
+  | For : var -> range -> inst -> inst.
+
+
+
+Fixpoint i_subst x v i :=
+  match i with
+  | Sync => Sync
+  | Block c => Block (Conc.i_subst x v c)
+  | Seq i2 i3 => Seq (i_subst x v i2) (i_subst x v i3)
+  | For y r i2 =>
+    let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
+    For y (r_subst x v r) i2'
+  end.
+
 Inductive Run: inst -> phaseset -> Prop :=
-| run_skip:
-  Run Skip (ph_one [])
 | run_sync:
   Run Sync (ph_cons [] (ph_one []))
 | run_block:
@@ -419,13 +401,6 @@ Inductive Run: inst -> phaseset -> Prop :=
   Run j mh_j ->
   ph_seq mh_i mh_j = mh ->
   Run (Seq i j) mh
-| run_if_true: forall b i mh,
-  BStep b true ->
-  Run i mh ->
-  Run (If b i) mh
-| run_if_false: forall b i,
-  BStep b false ->
-  Run (If b i) (ph_one [])
 | run_for_cons:
   forall e1 e2 n1 n2 i x h1 h2 h3,
   NStep e1 n1 ->
@@ -466,15 +441,15 @@ Proof.
   reflexivity.
 Qed.
 
-
-Goal Run (Seq Sync Skip) (ph_cons [] (ph_one [])).
+(*
+Goal Run (Seq Sync (Block Conc.Skip)) (ph_cons [] (ph_one [])).
 Proof.
   eapply run_seq.
   + apply run_sync.
   + apply run_skip.
   + reflexivity.
 Qed.
-
+*)
 Goal Run (Seq Sync Sync) (ph_cons [] (ph_cons [] (ph_one []))).
 Proof.
   eapply run_seq.
@@ -497,11 +472,10 @@ Qed.
 (* ------------------------------ VAR -------------------------- *)
   Fixpoint Var x i :=
   match i with
-  | Skip | Sync | Loop _ _ _ => False
+  | Sync => False
   | Block c => Conc.Var x c
   | Seq i j => Var x i \/ Var x j
   | For y _ i => x = y \/ Var x i
-  | If _ i => Var x i
   end.
 
   Lemma var_subst_inv_1:
@@ -518,172 +492,77 @@ Qed.
 
 (* ------------------------------ IIN -------------------------- *)
 
-Inductive HasSync: inst -> Prop :=
-| has_sync_sync:
-  HasSync Sync
-| has_sync_if:
-  forall i b,
-  BStep b true ->
-  HasSync i ->
-  HasSync (If b i)
-| has_sync_seq_l:
-| has_sync_seq_r:
-| has_sync_for:
-  forall e1 e2 x i n1 n2 n,
-  NStep e1 n1 ->
-  NStep e2 n2 ->
-  n1 <= n < n2 ->
-  HasSync (i_subst x (NNum n) i) ->
-  HasSync (For x (e1, e2) i).
+  Inductive Phase : inst -> nat -> Prop :=
+  | phase_block:
+    forall c,
+    Phase (Block c) 0
+  | phase_sync:
+    Phase Sync 1
+  | phase_seq:
+    forall i j n m o,
+    Phase i n ->
+    Phase j m ->
+    o = n + m ->
+    Phase (Seq i j) o
+  | phase_for_cons:
+    forall i x e1 e2 n1 n2 n m o,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    Phase (i_subst x (NNum n1) i) n ->
+    Phase (For x (NNum (S n1), e2) i) m ->
+    n + m = o ->
+    Phase (For x (e1, e2) i) o
+  | phase_for_nil:
+    forall i x e1 e2 n1 n2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 >= n2 ->
+    Phase (For x (e1, e2) i) 0.
 
-Inductive IInFirst (a:access_val) : inst -> Prop :=
-| i_in_first_seq_l:
-  forall i j,
-  IInFirst a i ->
-  IIn a (Seq i j) p
-| i_in_first_seq_r:
-  forall i j,
-  IInFirst a j ->
-  ~ HasSync i ->
-  IIn a (Seq i j) p
 
-| i_in_seq_l_last:
-  forall i j,
-  IIn a i LastPhase ->
-  has_sync j = true ->
-  IIn a (Seq i j) MidPhase
+  Inductive InPhase (a:access_val) : nat -> inst -> Prop :=
+  | in_phase_block:
+    forall c,
+    Conc.IIn a c ->
+    InPhase a 0 (Block c)
+  | in_phase_seq_l:
+    forall i j n,
+    InPhase a n i ->
+    InPhase a n (Seq i j)
+  | in_phase_seq_r:
+    forall i j n m o,
+    Phase i n ->
+    InPhase a m j ->
+    o = n + m ->
+    InPhase a o (Seq i j)
+  | phase_for_eq:
+    forall i x e1 e2 n1 n2 n,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    InPhase a n (i_subst x (NNum n1) i) ->
+    InPhase a n (For x (NNum (S n1), e2) i)
+  | in_phase_for_cons:
+    forall i x e1 e2 n1 n2 n m o,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    Phase (i_subst x (NNum n1) i) n ->
+    InPhase a m (For x (NNum (S n1), e2) i) ->
+    o = n + m ->
+    InPhase a o (For x (e1, e2) i).
 
-| i_in_seq_r_eq:
-  forall i j p,
-  p = MidPhase \/ p = LastPhase \/ has_sync i = false ->
-  IIn a j p ->
-  IIn a (Seq i j) p
-| i_in_seq_r_first:
-  forall i j,
-  IIn a j FirstPhase ->
-  has_sync i = true ->
-  IIn a (Seq i j) MidPhase
-  
-| i_in_if: forall b i p,
-  BStep b true ->
-  IIn a i p ->
-  IIn a (If b i) p
+  Definition IIn a i : Prop := exists n, InPhase a n i.
 
- | i_in_for_unsync:
-  forall e1 e2 i n1 n2 n x,
-  has_sync i = true ->
-  NStep e1 n1 ->
-  NStep e2 n2 ->
-  n1 <= n < n2 ->
-  IIn a (i_subst x (NNum n) i) LastPhase ->
-  IIn a (For x (e1,e2) i) LastPhase
+  Definition IPairIn (p:access_val * access_val) i : Prop :=
+    let (a1, a2) := p in
+    exists n, InPhase a1 n i /\ InPhase a2 n i.
 
- | i_in_for_first:
-  forall e1 e2 i n1 n2 x,
-  NStep e1 n1 ->
-  NStep e2 n2 ->
-  n1 < n2 ->
-  IIn a (i_subst x (NNum n1) i) FirstPhase ->
-  IIn a (For x (e1,e2) i) FirstPhase
 
- | i_in_for_last:
-  forall e1 e2 i n1 n2 x,
-  NStep e1 n1 ->
-  NStep e2 (S n2) ->
-  IIn a (i_subst x (NNum n2) i) LastPhase ->
-  IIn a (For x (e1,e2) i) LastPhase
-
- | i_in_for_mid:
-  forall e1 e2 i n1 n2 n x m,
-  NStep e1 n1 ->
-  NStep e2 n2 ->
-  n1 <= n < n2 ->
-  IIn a (i_subst x (NNum n) i) m ->
-  IIn a (For x (e1,e2) i) MidPhase
-  .
-
-Inductive IIn (a:access_val) : inst -> phaseloc -> Prop :=
-| i_in_block: forall i,
-  Conc.IIn a i ->
-  IIn a (Block i) LastPhase
-
-| i_in_seq_l_eq:
-  forall i j p,
-  IIn a i p ->
-  p = FirstPhase \/ p = MidPhase \/ has_sync j = false ->
-  IIn a (Seq i j) p
-  
-| i_in_seq_l_last:
-  forall i j,
-  IIn a i LastPhase ->
-  has_sync j = true ->
-  IIn a (Seq i j) MidPhase
-
-| i_in_seq_r_eq:
-  forall i j p,
-  p = MidPhase \/ p = LastPhase \/ has_sync i = false ->
-  IIn a j p ->
-  IIn a (Seq i j) p
-| i_in_seq_r_first:
-  forall i j,
-  IIn a j FirstPhase ->
-  has_sync i = true ->
-  IIn a (Seq i j) MidPhase
-  
-| i_in_if: forall b i p,
-  BStep b true ->
-  IIn a i p ->
-  IIn a (If b i) p
-
- | i_in_for_unsync:
-  forall e1 e2 i n1 n2 n x,
-  has_sync i = true ->
-  NStep e1 n1 ->
-  NStep e2 n2 ->
-  n1 <= n < n2 ->
-  IIn a (i_subst x (NNum n) i) LastPhase ->
-  IIn a (For x (e1,e2) i) LastPhase
-
- | i_in_for_first:
-  forall e1 e2 i n1 n2 x,
-  NStep e1 n1 ->
-  NStep e2 n2 ->
-  n1 < n2 ->
-  IIn a (i_subst x (NNum n1) i) FirstPhase ->
-  IIn a (For x (e1,e2) i) FirstPhase
-
- | i_in_for_last:
-  forall e1 e2 i n1 n2 x,
-  NStep e1 n1 ->
-  NStep e2 (S n2) ->
-  IIn a (i_subst x (NNum n2) i) LastPhase ->
-  IIn a (For x (e1,e2) i) LastPhase
-
- | i_in_for_mid:
-  forall e1 e2 i n1 n2 n x m,
-  NStep e1 n1 ->
-  NStep e2 n2 ->
-  n1 <= n < n2 ->
-  IIn a (i_subst x (NNum n) i) m ->
-  IIn a (For x (e1,e2) i) MidPhase
-  .
-
-(*
-  Lemma run_to_unsync:
-    forall i h,
-    Run i (ph_one h) ->
-    has_sync i = false.
-  Proof.
-    induction i; intros; simpl; auto.
-    - inversion H.
-    - inversion H; subst; clear H.
-      + eauto.
-      + 
-  Qed.
-*)
   Lemma run_p_in_to_i_in:
     forall i h,
-    Run i h ->
+    Run2 i h ->
     ~ Var TID i ->
     forall a m,
     PInAs a h m ->
@@ -702,18 +581,7 @@ Inductive IIn (a:access_val) : inst -> phaseloc -> Prop :=
       eapply Conc.run_all_to_i_in in H; eauto.
     - subst.
       destruct mh_i as [h|h]; simpl in Hi.
-      + destruct mh_j; simpl in Hi.
-        * apply p_in_as_inv_one in Hi.
-          destruct Hi as (?, Hi).
-          subst.
-          apply in_app_iff in Hi.
-          simpl in Hwf.
-          destruct Hi as [Hi|Hi]. {
-            apply i_in_seq_l_eq.
-            - apply IHRun1; auto.
-            - 
-              simpl in 
-        apply p_in_as_inv_prefix in Hi.
+      + apply p_in_as_inv_prefix in Hi.
         destruct Hi as [Hi|Hi].
         * 
       apply p_in_inv_merge in Hi.

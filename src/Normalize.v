@@ -11,11 +11,10 @@ Inductive Unsync : inst -> Prop :=
 | unsync_skip:
     Unsync Skip
 | unsync_if:
-    forall b i j,
+    forall b i,
       Unsync i ->
-      Unsync j ->
       Unsync (If b i)
-| unsync_hole:
+| unsync_block:
     forall c,
     Unsync (Block c)
 | unsync_seq:
@@ -26,54 +25,51 @@ Inductive Unsync : inst -> Prop :=
 | unsync_for:
     forall v r i,
       Unsync i ->
-      Unsync (For v r i)
-| unsync_loop:
-    forall v r i,
-      Unsync i ->
-      Unsync (Loop v r i).
-
+      Unsync (For v r i).
 
 
 
 Inductive Normalised: inst -> (option inst * inst) -> Prop :=
 | norm_unsync:
-  forall i,
-  Unsync i -> 
-  Normalised i (None, i)
+    forall i,
+      Unsync i -> 
+      Normalised i (None, i)
 | norm_sync:
-  Normalised Sync (Some Sync, Skip)
+    Normalised Sync (Some Sync, Skip)
 | norm_seq_dual:
-  forall i i1 i2 j j1 j2,
-  Normalised i (Some i1, i2) ->
-  Normalised j (Some j1, j2) ->
-  Normalised (Seq i j) (Some (Seq i1 (Seq i2 j1)), j2)
+    forall i i1 i2 j j1 j2,
+      Normalised i (Some i1, i2) ->
+      Normalised j (Some j1, j2) ->
+      Normalised (Seq i j) (Some (Seq i1 (Seq i2 j1)), j2)
 | norm_seq_r:
-  forall i j j1 j2,
-  Unsync i -> 
-  Normalised j (Some j1, j2) ->
-  Normalised (Seq i j) (Some (Seq i j1), j2)
+    forall i j j1 j2,
+      Unsync i -> 
+      Normalised j (Some j1, j2) ->
+      Normalised (Seq i j) (Some (Seq i j1), j2)
 | norm_seq_l:
-  forall i i1 i2 j,
-  Unsync j -> 
-  Normalised i (Some i1, i2) ->
-  Normalised (Seq i j) (Some i1, Seq i2 j)
+    forall i i1 i2 j,
+      Unsync j -> 
+      Normalised i (Some i1, i2) ->
+      Normalised (Seq i j) (Some i1, Seq i2 j)
 | norm_for_step: 
-  forall v r i i1 i2,
-  Normalised i (Some i1, i2) ->
-  Normalised (For v r i) (Some (Seq i1 (For v r (Seq i2 i1))), i2) (* still needs to replace things here *)
-| norm_for_nop: 
-  forall v r i i1 i2,
-  Normalised i (Some i1, i2) ->
-  Normalised (For v r i) (None, Skip)
-| norm_loop_step: 
-  forall v r i i1 i2,
-  Normalised i (Some i1, i2) ->
-  Normalised (Loop v r i) (Some (Seq i1 (Loop v r (Seq i2 i1))), i2) (* still needs to replace things here *)
-| norm_loop_nop: 
-  forall v r i i1 i2,
-  Normalised i (Some i1, i2) ->
-  Normalised (Loop v r i) (None, Skip)
+    forall v r i i1 i2 n m j1 k1 j2,
+      Normalised i (Some i1, i2) ->
+      r = (n,m) ->
+      j1 = If (BExp.NRel BExp.NLe n m) (i_subst v n i1) ->
+      j2 = If (BExp.NRel BExp.NLe n m) (i_subst v (NExp.NBin NExp.NMinus m (NExp.NNum 1)) i2) ->
+      k1 = (i_subst v (NExp.NBin NExp.NPlus v (NExp.NNum 1)) i1)
+      Normalised (For v r i) (Some (Seq j1 (For v r (Seq i2 k1))), j2)
+| norm_if_true:
+    forall i b i1 i2,
+      Normalised i (Some i1, i2) ->
+      Normalised (If b i) (Some (If b i1), If b i2)
+| norm_if_false:
+    forall i b i1 i2,
+      Normalised i (Some i1, i2) ->
+      Normalised (If b i) (None, Skip)
 .
+
+
 
 Theorem unsync_normalisable:
   forall i,

@@ -18,15 +18,14 @@ Require Conc.
 
 Section C1.
   Context {A:Access}.
+  Context `{T:Tasks}.
   Inductive inst :=
   | Skip
   | Sync
   | If: bexp -> inst -> inst
   | Block: Conc.inst -> inst
   | Seq: inst -> inst -> inst
-  | For : var -> range -> inst -> inst
-  | Loop : var -> list nat -> inst -> inst.
-
+  | For : var -> range -> inst -> inst.
 
 
 Fixpoint i_subst x v i :=
@@ -39,9 +38,6 @@ Fixpoint i_subst x v i :=
   | For y r i2 =>
     let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
     For y (r_subst x v r) i2'
-  | Loop y r i2 =>
-    let i2' := if VAR.eq_dec x y then i2 else i_subst x v i2 in
-    Loop y r i2'
   end.
 
 
@@ -51,563 +47,260 @@ Notation mhistory := (list history).
 
 Notation histpair := (mhistory * history) % type.
 
-Context `{T:Tasks}.
 
-(* ------------------------------ RUN -------------------------- *)
-
-Inductive Run: (histpair * inst) -> histpair -> Prop :=
-| run_skip:
-    forall x,
-    Run (x, Skip) x
-| run_sync:
-  forall h hs,
-    Run ((hs, h), Sync) (h::hs, [])
-| run_block:
-  forall c h1 h2 m,
-  Conc.RunAll TID_COUNT c h1 ->
-  Run ((m, h2), Block c) (m, h1 ++ h2) 
-| run_seq:
-    forall i j x y z,
-      Run (x, i) y ->
-      Run (y,j) z ->
-      Run (x, Seq i j) z
-| run_if_true:
-    forall i b x y,
-      BStep b true ->
-      Run (x, i) y ->
-      Run (x, If b i) y
-| run_if_false:
-    forall i b x,
-      BStep b false ->
-      Run (x, If b i) x
-| run_for:
-  forall r l v x y i,
-    RStep r l ->
-    Run (x, Loop v l i) y ->
-    Run (x, For v r i) y
-| run_loop_nil:
-    forall x i y v,
-    Run (x,i) y ->
-    Run (x, Loop v [] i) y
-| run_loop_cons:
-    forall x i y v l n z,
-      Run (x, i_subst v (NNum n) i) y ->
-      Run (y, Loop v l i) z ->
-      Run (x, Loop v (n::l) i) z.
-
-Goal
-  forall hs i x, 
-  Run (hs, i) x ->
-  Run (hs, Seq Skip i) x.
-Proof.
-  intros hs i x HR.
-  apply run_seq with (y:=hs).
-  - apply run_skip.
-  - assumption.
-Qed.
-
-Goal
-  forall hs i x, 
-  Run (hs, i) x ->
-  Run (hs, Seq i Skip) x.
-Proof.
-  intros hs i x HR.
-  eapply run_seq; eauto.
-  apply run_skip.
-Qed.
-(*
-Inductive NSEquiv : inst -> inst -> Prop :=
-| equiv_unit_r:
-    forall i j,
-      NSEquiv i j ->
-      NSEquiv (Seq Skip i) j
-| equiv_unit_l:
-    forall i j,
-      NSEquiv i j ->
-      NSEquiv (Seq i Skip) j
-| equiv_assoc:
-    forall x y z x' y' z',
-      NSEquiv x x' ->
-      NSEquiv y y' ->
-      NSEquiv z z' ->
-      NSEquiv (Seq x (Seq y z)) (Seq (Seq x' y') z')
-| equiv_eq:
-    forall x,
-      NSEquiv x x
-| equiv_seq:
-    forall x y x' y',
-      NSEquiv x x' ->
-      NSEquiv y y' ->
-      NSEquiv (Seq x y) (Seq x' y')
-| equiv_for:
-    forall x y r l,
-      NSEquiv x y ->
-      NSEquiv (For l r x) (For l r y)
-| equiv_loop:
-    forall x y l r,
-      NSEquiv x y ->
-      NSEquiv (Loop l r x) (Loop l r y)
-| equiv_if:
-    forall b x y x' y',
-      NSEquiv x x' ->
-      NSEquiv y y' ->      
-      NSEquiv (If b x y) (If b x' y')
+Inductive phaseset :=
+| ph_one: history -> phaseset
+| ph_cons: history -> phaseset -> phaseset
 .
 
+Fixpoint HIn h p :=
+match p with
+| ph_one h' => h' = h
+| ph_cons h' p => h' = h \/ HIn h p
+end.
 
-Notation nsequivstar := (clos_refl_sym_trans_n1 _ NSEquiv).
+Definition ph_skip := ph_one [].
+Definition ph_block h := ph_one h.
+Fixpoint ph_suffix (p:phaseset) (h:history) :=
+match p with
+| ph_one h' => ph_one (h' ++ h)
+| ph_cons h' p => ph_cons h' (ph_suffix p h)
+end.
 
-Global Add Parametric Relation : _ nsequivstar
-    reflexivity proved by (rstn1_refl inst NSEquiv)                                   
-    symmetry proved by (clos_rstn1_sym inst NSEquiv)
-    transitivity proved by (clos_rstn1_trans inst NSEquiv)
-      as nsequivstar_setoid.
+Definition ph_prefix h p :=
+match p with
+| ph_one h' => ph_one (h ++ h')
+| ph_cons h' p => ph_cons (h ++ h') p
+end.
 
-Lemma i_subst_equiv:
-  forall i j,
-    NSEquiv i j ->
-    forall v n,
-    NSEquiv (i_subst v (NNum n) i) (i_subst v (NNum n) j).
-Proof.
-  intros i j HE.
-  induction HE.
-  - intros. simpl. assert (IHHE:= IHHE v n).
-    apply equiv_unit_r.
-    assumption.
-  -  intros. simpl. assert (IHHE:= IHHE v n).
-    apply equiv_unit_l.
-    assumption.
-  - intros. simpl.
-    assert (IHHE1 := IHHE1 v n).
-    assert (IHHE2 := IHHE2 v n).
-    assert (IHHE3 := IHHE3 v n).
-    apply equiv_assoc; assumption.
-  - intros. apply equiv_eq.
-  - intros.
-    assert (IHHE1 := IHHE1 v n).
-    assert (IHHE2 := IHHE2 v n).
-    simpl.
-    apply equiv_seq; assumption.
-  - intros.
-    assert (IHHE := IHHE v n).
-    simpl.
-    apply equiv_for.
-    destruct (Set_VAR.MF.eq_dec v l); assumption.
-  - intros.
-    simpl.
-    assert (IHHE:=IHHE v n).
-    apply equiv_loop.
-    destruct (Set_VAR.MF.eq_dec v l); assumption.
-  - intros.
-    assert (IHHE1 := IHHE1 v n).
-    assert (IHHE2 := IHHE2 v n).
-    simpl.
-    apply equiv_if; assumption.
-Qed. 
+Fixpoint ph_seq p1 p2 :=
+  match p1 with
+  | ph_one h1 => ph_prefix h1 p2 
+  | ph_cons h1 p1 => ph_cons h1 (ph_seq p1 p2)
+  end.
 
-  
-Lemma equiv_one_run_l:
-  forall x ht,
-    Run x ht ->
-    forall hs i,
-      x = (hs, i) ->
-      forall j,
-      NSEquiv i j ->
-      Run (hs, j) ht.
-Proof.
-  intros x ht HR.
-  induction HR.
-  - intros; inversion H; subst; clear H;
-    inversion H0; subst; clear H0. apply run_skip.
-  - intros; inversion H; subst; clear H;
-    inversion H0; subst; clear H0. apply run_sync.
-  - intros; inversion H; subst; clear H;
-      inversion H0; subst; clear H0.
-    + assert (HS: y = hs). {
-        inversion HR1. reflexivity.
-      }
-      subst.
-      assert (IHHR2:= IHHR2 hs j eq_refl j0 H3).
-      assumption.
-    + assert (HS: y = z). {
-        inversion HR2. reflexivity.
-      }
-      subst.
-      assert (IHHR1:= IHHR1 hs i eq_refl j0 H3).
-      assumption.
-    + assert (IHHR1:= IHHR1 hs i eq_refl x' H2).
-      assert (HE: NSEquiv (Seq y0 z0) (Seq y' z')). {
-        apply equiv_seq; assumption.
-      }
-      assert (IHHR2:= IHHR2 y (Seq y0 z0) eq_refl (Seq y' z') HE).
-      inversion IHHR2; subst; clear IHHR2.
-      apply run_seq with (y:=y1).
-      * eapply run_seq; eauto.
-      * assumption.
-    + assert (Hi: NSEquiv i i) by auto using equiv_eq.
-      assert (Hj: NSEquiv j j) by auto using equiv_eq.
-      assert (IHHR1 := IHHR1 hs i eq_refl i Hi).
-      assert (IHHR2 := IHHR2 y j eq_refl j Hj).
-      eapply run_seq; eauto.
-    + assert (IHHR1 := IHHR1 hs i eq_refl x' H2).
-      assert (IHHR2 := IHHR2 y j eq_refl y' H4).
-      eapply run_seq; eauto.
-  - intros. inversion H0; subst; clear H0.
-    inversion H1; subst; clear H1.
-    + apply run_if_true; assumption.
-    + assert (IHHR:=IHHR hs i eq_refl x' H5).
-      apply run_if_true; assumption.
-  - intros. inversion H0; subst; clear H0.
-    inversion H1; subst; clear H1.
-    + apply run_if_false; assumption.
-    + assert (IHHR:=IHHR hs j eq_refl y' H6).
-      apply run_if_false; assumption.
-  - intros. inversion H0; subst; clear H0.
-    inversion H1; subst; clear H1.
-    + eapply run_for; eauto.
-    + assert (HE: NSEquiv (Loop v l i) (Loop v l y0)) by auto using equiv_loop.
-      assert (IHHR:=IHHR hs (Loop v l i) eq_refl (Loop v l y0) HE).
-      eapply run_for; eauto.
- 
-  - intros; inversion H; subst; clear H;
-      inversion H0; subst; clear H0.
-    + apply run_loop_nil. assumption.
-    + assert (IHHR := IHHR hs i eq_refl y0 H4).
-      apply run_loop_nil. assumption.
-  - intros; inversion H; subst; clear H;
-      inversion H0; subst; clear H0.
-    + eapply run_loop_cons; eauto.
-    + assert (HE: NSEquiv (Loop v l i) (Loop v l y0)) by auto using equiv_loop.
-      assert (IHHR2 := IHHR2 y (Loop v l i) eq_refl (Loop v l y0) HE).
-      eapply run_loop_cons; eauto.
-      assert (HES: NSEquiv (i_subst v (NNum n) i) (i_subst v (NNum n) y0)). {
-        apply i_subst_equiv.
-        assumption.
-      }
-      assert (IHHR1 := IHHR1 hs (i_subst v (NNum n) i)
-                             eq_refl (i_subst v (NNum n) y0) HES).
-      assumption.
-Qed.
+Fixpoint PIn (a:access_val) (p:phaseset) : Prop :=
+match p with
+| ph_one h => List.In a h
+| ph_cons h p => List.In a h \/ PIn a p
+end.
 
+Fixpoint phase_to_list (p:phaseset) : mhistory :=
+match p with
+| ph_one h => [h]
+| ph_cons h m => h::phase_to_list m
+end.
 
-Lemma run_i_skip:
-  forall i hs,
-    NSEquiv i Skip ->
-    Run (hs, i) hs.
+Inductive phaseloc := FirstPhase | MidPhase | LastPhase.
+
+Fixpoint PInLast a (p:phaseset) := 
+  match p with
+  | ph_one h => List.In a h
+  | ph_cons _ p => PInLast a p
+  end.
+
+Definition PInFirst a (p:phaseset) :=
+  match p with
+  | ph_one _ => False
+  | ph_cons h _ => List.In a h
+  end.
+
+Definition PInMid a (p:phaseset) :=
+  match p with
+  | ph_one _ => False
+  | ph_cons _ p => PIn a p
+  end.
+
+Definition PInAs a p m :=
+  match m with
+  | FirstPhase => PInFirst a p
+  | MidPhase => PInMid a p
+  | LastPhase => PInLast a p
+  end.
+
+Lemma p_in_mid_cons_in_first:
+  forall a h p,
+  PInFirst a p ->
+  PInMid a (ph_cons h p).
 Proof.
   intros.
-  induction i.
-  - apply run_skip.
-  - inversion H.
-  - inversion H.
-  - inversion H.
-  - inversion H; subst.
-    + apply run_seq with (y:=hs).
-      * apply run_skip.
-      * apply IHi2 in H3. assumption.
-    + apply run_seq with (y:=hs).
-      * apply IHi1 in H3. assumption.
-      * apply run_skip.
-  - inversion H.
-  - inversion H.
-Qed.
-    
-
-Lemma run_i_sync:
-  forall j,
-    NSEquiv j Sync ->
-    forall h hs,
-      Run (hs, h, j) (h :: hs, []).
-Proof.
-  intro j.
-  induction j.
-  - intros HE h. inversion HE.
-  - intros. apply run_sync.
-  - intros HE h hs. inversion HE.
-  - intros HE h hs. inversion HE.
-  - intros HE h hs. inversion HE; subst.
-    + apply run_seq with (y:=(hs,h)).
-      * apply run_skip.
-      * eapply IHj2 in H2; eauto.
-    + apply run_seq with (y:=(h::hs, [])).
-      * eapply IHj1 in H2; eauto.
-      * apply run_skip.
-  - intros HE h hs. inversion HE.
-  - intros HE h hs. inversion HE.
+  destruct p as [h'|h']; simpl in *; auto.
+  contradiction.
 Qed.
 
-
-Lemma run_i_for:
-  forall j' v r i l,
-    NSEquiv j' (For v r i) ->
-    RStep r l ->
-    forall y h',
-    (forall j, NSEquiv j (Loop v l i) -> Run (h', j) y) ->
-    Run (h', Loop v l i) y ->
-    Run (h', j') y.
+Lemma p_in_mid_to_p_in:
+  forall a p,
+  PInMid a p ->
+  PIn a p.
 Proof.
-  intros jh.
-  induction jh; intros vh rh ih lh HE; inversion HE; subst; clear HE.
-  - intros.
-    eapply IHjh2 in H2; eauto.
-    apply run_seq with (y:=h').
-    + apply run_i_skip. apply equiv_eq.
-    + assumption.
-  - intros.
-    eapply IHjh1 in H2; eauto.
-    + apply run_seq with (y:=y).
-      * assumption.
-      * apply run_i_skip. apply equiv_eq.
-  - intros.
-    eapply run_for; eauto.
-  - intros.
-    assert (HEQ: NSEquiv (Loop vh lh jh) (Loop vh lh ih)). {
-      apply equiv_loop.
-      assumption.
-    }
-    assert (H1 := H1 (Loop vh lh jh) HEQ).
-    eapply run_for; eauto.
+  intros.
+  destruct p; simpl in *; auto.
+  contradiction.
 Qed.
 
-
-Lemma run_i_loop_nil:
-  forall j v i h' y,
-  NSEquiv j (Loop v [] i) ->
-  (forall j : inst, NSEquiv j i -> Run (h', j) y) ->
-  Run (h', i) y -> 
-  Run (h', j) y.
+Lemma p_in_mid_cons:
+  forall a h p,
+  PInMid a p ->
+  PInMid a (ph_cons h p).
 Proof.
-  intros j.
-  induction j; intros vh ih hh yh HE;
-    inversion HE; subst; clear HE.
-  - intros.
-    eapply IHj2 in H2; eauto.
-    apply run_seq with (y:=hh).
-    + apply run_i_skip. apply equiv_eq.
-    + assumption.
-  - intros.
-    eapply IHj1 in H2; eauto.
-    apply run_seq with (y:=yh).
-    + assumption.
-    + apply run_i_skip.
-      apply equiv_eq.
-  - intros.
-    apply run_loop_nil.
+  intros.
+  simpl.
+  auto using p_in_mid_to_p_in.
+Qed.
+
+Lemma p_in_last_cons:
+  forall a h p,
+  PInLast a p ->
+  PInLast a (ph_cons h p).
+Proof.
+  intros.
+  simpl.
+  assumption.
+Qed.
+
+Lemma p_in_to_p_in_as:
+  forall a p,
+  PIn a p ->
+  exists m, PInAs a p m.
+Proof.
+  induction p; intros Hi; simpl in Hi. {
+    exists LastPhase.
+    auto.
+  }
+  destruct Hi. {
+    exists FirstPhase.
+    eauto.
+  }
+  apply IHp in H.
+  destruct H as (m, Hi).
+  destruct m; simpl in Hi.
+  - exists MidPhase.
+    apply p_in_mid_cons_in_first.
     assumption.
-  - intros.
-    apply run_loop_nil.
-    apply H in H0.
-    assumption.
+  - exists MidPhase.
+    apply p_in_mid_cons; auto.
+  - exists LastPhase.
+    auto.
 Qed.
 
-
-Lemma run_i_loop_cons:
-  forall k v n l i z h' y,
-  NSEquiv k (Loop v (n :: l) i) ->
-  Run (h', i_subst v (NNum n) i) y ->
-  Run (y, Loop v l i) z ->
-  (forall j : inst, NSEquiv j (i_subst v (NNum n) i) -> Run (h', j) y) ->
-  (forall j : inst, NSEquiv j (Loop v l i) -> Run (y, j) z) ->
-  Run (h', k) z.
-Proof.
-  intros k.
-  induction k;
-    intros vn nn ln i0 zn hn yn HE; inversion HE; subst; clear HE.
-  - intros.
-    eapply IHk2 in H1; eauto.
-    apply run_seq with (y:=hn).
-    + apply run_i_skip. apply equiv_eq.
-    + assumption.
-  - intros.
-    eapply IHk1 in H1; eauto.
-    apply run_seq with (y:=zn).
-    + assumption.
-    + apply run_i_skip. apply equiv_eq.
-  - intros.
-    eapply run_loop_cons; eauto.
-  - intros.
-    apply run_loop_cons with (y:=yn).
-    + assert (H2 := H2 (i_subst vn (NNum nn) k)).
-      assert (HEQ: NSEquiv (i_subst vn (NNum nn) k) (i_subst vn (NNum nn) i0)). {
-        apply i_subst_equiv.
-        assumption.
-      }
-      apply H2 in HEQ.
-      assumption.
-    + assert (H3 := H3 (Loop vn ln k)).
-      assert (HEQ: NSEquiv (Loop vn ln k) (Loop vn ln i0)). {
-        apply equiv_loop.
-        assumption.
-      }
-      apply H3 in HEQ.
-      assumption.
-Qed.
-
-Lemma run_i_seq:
-  forall k i j h' y z,
-  NSEquiv k (Seq i j) ->
-  Run (h', i) y ->
-  Run (y, j) z -> 
-  (forall j : inst, NSEquiv j i -> Run (h', j) y) ->
-  (forall j0 : inst, NSEquiv j0 j -> Run (y, j0) z) ->
-  Run (h', k) z.
-Proof.
-  intros k.
-  induction k;
-    intros ih jh hh yh zh HE; inversion HE; subst; clear HE.
-  - intros.
-    eapply IHk2 in H2; eauto.
-    apply run_seq with (y:=hh).
-    + apply run_i_skip. apply equiv_eq.
-    + assumption.
-  - intros.
-    eapply IHk1 in H2; eauto.
-    apply run_seq with (y:=zh).
-    + assumption.
-    + apply run_i_skip. apply equiv_eq.
-  - intros.
-    inversion H; subst; clear H.
-    assert (HEQ: NSEquiv (Seq k1 y) (Seq x' y')). {
-      apply equiv_seq; assumption.
-    }
-    apply H1 in HEQ.
-    apply H2 in H5.
-    inversion HEQ; subst; clear HEQ.
-    apply run_seq with (y:=y1).
-    + assumption.
-    + apply run_seq with (y:= yh); assumption.
-  - intros.
-    apply run_seq with (y:= yh); assumption.
-  - intros.
-    apply run_seq with (y:= yh).
-    + apply H1 in H2. assumption.
-    + apply H3 in H4. assumption.
-Qed.
-    
-Lemma run_i_ite_true:
-  forall k b i j y h',
-    NSEquiv k (If b i j) ->
-    BStep b true ->
-    (forall j : inst, NSEquiv j i -> Run (h', j) y) ->
-    Run (h', i) y ->
-    Run (h', k) y.
-Proof.
-  intro k.
-  induction k; intros bh ih jh yh hh HE; inversion HE; subst; clear HE.
-  - intros.
-    eapply run_if_true; assumption.
-  - intros.
-    apply run_if_true.
-    + assumption.
-    + apply H0 in H1.
-      assumption.
-  - intros.
-    apply run_seq with (y:=hh).
-    + apply run_i_skip.
-      apply equiv_eq.
-    + eapply IHk2 in H2; eauto.
-  - intros.
-    eapply IHk1 in H2; eauto.
-    eapply run_seq with (y:=yh); eauto.
-    apply run_i_skip.
-    apply equiv_eq.
-Qed.
-
-
-Lemma run_i_ite_false:
-  forall k b i j y h',
-    NSEquiv k (If b i j) ->
-    BStep b false ->
-    (forall j0 : inst, NSEquiv j0 j -> Run (h', j0) y) ->
-    Run (h', j) y ->
-    Run (h', k) y.
-Proof.
-  intro k.
-  induction k; intros bh ih jh yh hh HE; inversion HE; subst; clear HE.
-  - intros.
-    eapply run_if_false; assumption.
-  - intros.
-    apply H0 in H6.
-    apply run_if_false; assumption.
-  - intros.
-    apply run_seq with (y:=hh).
-    + apply run_i_skip.
-      apply equiv_eq.
-    + eapply IHk2 in H2; eauto.
-  - intros.
-    eapply IHk1 in H2; eauto.
-    eapply run_seq with (y:=yh); eauto.
-    apply run_i_skip.
-    apply equiv_eq.
-Qed.
-
-
-
-      
-Lemma equiv_one_run_r:
-  forall x ht,
-    Run x ht ->
-    forall hs i,
-      x = (hs, i) ->
-      forall j,
-      NSEquiv j i ->
-      Run (hs, j) ht.
-Proof.
-  intros x ht HR.
-  induction HR.
-  - intros hs i Hx j HE.
-    inversion Hx; subst; clear Hx.
-    apply run_i_skip.
-    assumption.
-  - intros h' i Hx j HE.
-    inversion Hx; subst; clear Hx.
-    auto using run_i_sync.
-  - intros h' i' Hx j' HE.
-    inversion Hx; subst; clear Hx.
-    assert (IHHR1 := IHHR1 h' i eq_refl).
-    assert (IHHR2 := IHHR2 y j eq_refl).
-    eapply run_i_seq; eauto.
-  - intros h' i' Hx j' HE.
-    inversion Hx; subst; clear Hx.
-    assert (IHHR:=IHHR h' i eq_refl).
-    eapply run_i_ite_true; eauto.
-  - intros h' i' Hx j' HE.
-    inversion Hx; subst; clear Hx.
-    assert (IHHR:=IHHR h' j eq_refl).
-    eapply run_i_ite_false; eauto.
-  - intros h' i' Hx j' HE.
-    inversion Hx; subst; clear Hx.
-    assert (IHHR := IHHR h' (Loop v l i) eq_refl).
-    eapply run_i_for; eauto.
-  - intros h' i' Hx j' HE.
-    inversion Hx; subst; clear Hx.
-    assert (IHHR := IHHR h' i eq_refl).
-    eapply run_i_loop_nil; eauto.
-  - intros h' i' Hx j' HE.
-    inversion Hx; subst; clear Hx.
-    assert (IHHR1 := IHHR1 h' (i_subst v (NNum n) i) eq_refl).
-    assert (IHHR2 := IHHR2 y (Loop v l i) eq_refl).
-    eapply run_i_loop_cons; eauto.
-Qed.
-    
-
-    
-
-Lemma equiv_star_run:
-  forall i j,
-    nsequivstar i j ->
-    forall hs x,
-    Run (hs, i) x ->
-    Run (hs, j) x.
-Proof.
-  intros i j HE.
-  induction HE.
-  - intros. assumption.
-  - intros hs x HR.
-    apply IHHE in HR.
-    destruct H as [Hyz | Hzy].
-    + eapply equiv_one_run_l; eauto.
-    + eapply equiv_one_run_r; eauto.
-Qed.
+(*
+Inductive PIn a : phaseset -> phaseloc -> Prop :=
+| p_in_one: forall h,
+  List.In a h ->
+  PIn a (ph_one h) LastPhase
+| p_in_head: forall h m t,
+  List.In a h ->
+  PIn a (ph_cons h m) FirstPhase
+| p_in_mid: forall h m t,
+  PIn a m ->
+  PIn a (ph_cons h m) MidPhase
+| p_in_tail: forall h m t,
+  List.In a t ->
+  PIn a (ph_many h m t) LastPhase
+  .
 *)
+
+  Lemma p_in_nil:
+    forall a,
+    ~ PIn a (ph_one []).
+  Proof.
+    intros.
+    simpl.
+    auto.
+  Qed.
+(*
+  Lemma p_in_as_nil:
+    forall a m,
+    ~ PInAs a (ph_one []) m.
+  Proof.
+    intros.
+    intros N.
+    apply p_in_inv_one in N.
+    contradiction.
+  Qed.
+*)
+  Lemma p_in_as_inv_cons:
+    forall a h p m,
+    PInAs a (ph_cons h p) m ->
+    (m = FirstPhase /\ List.In a h)
+    \/ (m = MidPhase /\ PIn a p)
+    \/ (m = LastPhase /\ PInLast a p).
+  Proof.
+    intros.
+    destruct m; simpl in *; auto.
+  Qed.
+
+  Lemma p_in_as_inv_cons_nil:
+    forall a p m,
+    PInAs a (ph_cons [] p) m ->
+    (m = MidPhase /\ PIn a p)
+    \/ (m = LastPhase /\ PInLast a p).
+  Proof.
+    intros.
+    destruct m; simpl in *; auto.
+    contradiction.
+  Qed.
+
+  Lemma p_in_as_inv_one:
+    forall a h m,
+    PInAs a (ph_one h) m ->
+    m = LastPhase /\ List.In a h.
+  Proof.
+    intros.
+    destruct m; simpl in *; auto; contradiction.
+  Qed.
+
+  Lemma p_in_as_inv_prefix:
+    forall a h p m,
+    PInAs a (ph_prefix h p) m ->
+    List.In a h \/
+    PInAs a p m.
+  Proof.
+    intros.
+    destruct m; destruct p as [h'|h']; simpl in *; auto.
+    - apply in_app_iff in H.
+      destruct H; auto.
+    - apply in_app_iff in H.
+      destruct H; auto.
+  Qed.
+
+  
+Inductive Run: inst -> phaseset -> Prop :=
+| run_skip:
+  Run Skip (ph_one [])
+| run_sync:
+  Run Sync (ph_cons [] (ph_one []))
+| run_block:
+  forall c h,
+  Conc.RunAll TID_COUNT c h ->
+  Run (Block c) (ph_one h)
+| run_seq: forall i j mh_i mh_j mh,
+  Run i mh_i ->
+  Run j mh_j ->
+  ph_seq mh_i mh_j = mh ->
+  Run (Seq i j) mh
+| run_if_true: forall b i mh,
+  BStep b true ->
+  Run i mh ->
+  Run (If b i) mh
+| run_if_false: forall b i,
+  BStep b false ->
+  Run (If b i) (ph_one [])
+| run_for_cons:
+  forall e1 e2 n1 n2 i x h1 h2 h3,
+  NStep e1 n1 ->
+  NStep e2 n2 ->
+  n1 < n2 ->
+  Run (i_subst x (NNum n1) i) h1 ->
+  Run (For x (NNum (S n1), NNum n2) i) h2 ->
+  ph_seq h1 h2 = h3 ->
+  Run (For x (e1, e2) i) h3
+| run_for_nil:
+  forall x i e1 e2 n1 n2,
+  NStep e1 n1 ->
+  NStep e2 n2 ->
+  n1 >= n2 ->
+  Run (For x (e1, e2) i) (ph_one []).
+
+
 End C1.
