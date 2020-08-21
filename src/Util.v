@@ -3,6 +3,9 @@ Require Import Coq.Lists.List.
 Import ListNotations.
 Section Ops.
 
+  Definition summation l :=
+    fold_left Nat.add l 0.
+
   Lemma app_neq_nil:
     forall A l1 l2,
     l1 <> [] ->

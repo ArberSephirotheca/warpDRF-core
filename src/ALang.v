@@ -11,7 +11,9 @@ Require Import AccExp.
 Require Import Tasks.
 Require Import InUtil.
 Require Import VHist.
+Require Import RangeList.
 
+Require RangeList.
 Require Import Lia.
 
 Import ListNotations.
@@ -127,6 +129,50 @@ Section Defs.
       destruct (Set_VAR.MF.eq_dec x v); auto.
   Qed.
 
+(* ------------------------------- NOSYNC ------------------------ *)
+
+  Fixpoint Nosync (i:inst) : Prop :=
+  match i with
+  | Sync => False
+  | Block _ => True
+  | Seq i j => Nosync i /\ Nosync j
+  | For _ _ i => Nosync i
+  end.
+
+  Lemma nosync_subst:
+    forall i,
+    Nosync i ->
+    forall x v,
+    Nosync (i_subst x v i).
+  Proof.
+    induction i; intros; simpl in *; auto.
+    - destruct H; auto.
+    - assert (IHi := IHi H x v0).
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        assumption.
+      }
+      assumption.
+  Qed.
+
+  Lemma nosync_inv_subst:
+    forall i x v,
+    Nosync (i_subst x v i) ->
+    Nosync i.
+  Proof.
+    induction i; intros; simpl in *; auto.
+    - destruct H as (Ha, Hb).
+      apply IHi1 in Ha.
+      apply IHi2 in Hb.
+      auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        assumption.
+      }
+      apply IHi in H.
+      assumption.
+  Qed.
+
 (* ------------------------------ PHASE -------------------------- *)
   (* Count how many phases this instruction yields. *)
 
@@ -156,8 +202,56 @@ Section Defs.
     NStep e1 n ->
     NStep e2 (S n) ->
     Phase (i_subst x (NNum n) i) m ->
-    Phase (For x (e1, e2) i) m.
+    Phase (For x (e1, e2) i) m
+  .
 
+  Lemma phase_inv_nosync:
+    forall i n,
+    Phase i n ->
+    Nosync i ->
+    n = 0.
+  Proof.
+    intros i n H.
+    induction H; intros; simpl in *.
+    - reflexivity.
+    - contradiction.
+    - destruct H2.
+      subst.
+      assert (n = 0) by auto.
+      assert (m = 0) by auto.
+      subst; reflexivity.
+    - subst.
+      assert (Hx: Nosync (i_subst x (NNum n1) i)) by auto using nosync_subst.
+      assert (n = 0) by auto.
+      assert (m = 0) by auto.
+      subst; reflexivity.
+    - auto using nosync_subst.
+  Qed.
+
+  Lemma phase_to_nosync:
+    forall i,
+    Phase i 0 ->
+    Nosync i.
+  Proof.
+    intros i H.
+    remember 0.
+    generalize dependent Heqn.
+    induction H; intros; simpl; auto.
+    - inversion Heqn.
+    - subst.
+      assert (n = 0) by lia.
+      assert (m = 0) by lia.
+      auto.
+    - subst.
+      assert (n = 0) by lia.
+      assert (m = 0) by lia.
+      subst.
+      simpl in *.
+      auto.
+    - eauto using nosync_inv_subst.
+  Qed.
+
+(* ------------------------ IN PHASE ------------------------------ *)
 
   Inductive InPhase (a:access_val) : nat -> inst -> Prop :=
   | in_phase_block:
