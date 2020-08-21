@@ -717,53 +717,36 @@ Section Defs.
     Phase2 p n.
   Proof.
     intros i n H.
-    induction H; intros p Ht; inversion Ht; subst; clear Ht.
-    - apply phase2_1.
-    - simpl.
+    induction H; intros p Ht.
+    - inversion Ht; subst; clear Ht.
+      apply phase2_1.
+    - inversion Ht; subst; clear Ht.
+      simpl.
       apply phase_sync.
-    - eapply phase2_pseq with (p1:=pi) (p2:=pj); eauto.
-    - admit.
+    - inversion Ht; subst; clear Ht.
+      eapply phase2_pseq with (p1:=pi) (p2:=pj); eauto.
     - assert (Ht1: exists p, Translate (ALang.i_subst x (NNum n1) i) p) by auto using translate_exists.
       destruct Ht1 as (p1, Ht1).
       assert (IHPhase1 := IHPhase1 _ Ht1).
       assert (Ht2: exists p, Translate (For x (NNum (S n1), e2) i) p) by auto using translate_exists.
       destruct Ht2 as (p2, Ht2).
       assert (IHPhase2 := IHPhase2 _ Ht2).
+      inversion Ht; subst; clear Ht. {
+        admit.
+      }
       simpl.
       eapply phase_seq; eauto.
-      + 
-      apply phase2_1.
-    intros p Heq; simpl in *.
-    - inversion Heq; subst; clear Heq.
-      reflexivity.
-    - inversion Heq; subst; clear Heq.
-      constructor.
-    - destruct (translate i) as [pi|] eqn:R1.
-      2: { inversion Heq. }
-      destruct (translate j) as [pj|] eqn:R2.
-      2: { inversion Heq. }
-      assert (IHPhase1 := IHPhase1 _ eq_refl). 
-      assert (IHPhase2 := IHPhase2 _ eq_refl). 
-      subst.
-      eapply phase2_seq with (p1:=pi) (p2:=pj); eauto.
-    - destruct (translate i) as [pi|] eqn:R1.
-      2: { inversion Heq. }
-      destruct pi as [j c|c]. {
-        destruct (seq1 c (i_subst x (NBin NPlus (NNum 1) (NVar x)) j)) as [o'|].
-        2: { inversion Heq. }
-        inversion Heq; subst; clear Heq.
-      }
-      destruct (translate j) as [pj|] eqn:R2.
-      2: { inversion Heq. }
-      
-  Qed.
-
+      + admit.
+      + admit.
+    - admit.
+  Admitted.
+(*
   Lemma in_phase_spec:
     forall i,
     forall a n,
     ALang.InPhase a n i ->
     forall p,
-    translate i = Some p ->
+    Translate i p ->
     InPhase2 a n p.
   Proof.
     intros i a n H.
@@ -840,4 +823,5 @@ Section Defs.
           apply in_phase2_seq3_r; auto.
           
   Qed.
+  *)
 End Defs.
