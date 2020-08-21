@@ -1,6 +1,6 @@
 Require Import Coq.Lists.List.
 
-Require Coq.omega.Omega.
+Require Import Coq.micromega.Lia.
 Require Import Var.
 Require Import NExp.
 Require Import BExp.
@@ -603,8 +603,7 @@ Section C1.
       assert (n0 = n1) by eauto using n_step_fun.
       assert (n3 = n2) by eauto using n_step_fun.
       subst.
-      Import Omega.
-      omega.
+      lia.
   Qed.
 
   Lemma s_run_i_in_iff:

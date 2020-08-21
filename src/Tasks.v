@@ -1,5 +1,5 @@
 Require Import Var.
-Require Import Omega.
+Require Import Coq.micromega.Lia.
 Require Import NExp.
 Require Import BExp.
 Require Import AccExp.
@@ -48,13 +48,13 @@ Section Defs.
     assert (Hx := tid_count_1_lt).
     inversion H; subst; clear H. {
       destruct n. {
-        omega.
+        lia.
       }
       exists 0.
-      omega.
+      lia.
     }
     exists m.
-    omega.
+    lia.
   Qed.
 
   Definition NData t (e:nexp) n :=

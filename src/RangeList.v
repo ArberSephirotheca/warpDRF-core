@@ -2,7 +2,7 @@ Set Implicit Arguments.
 
 Require Import Coq.Lists.List.
 Import ListNotations.
-Require Coq.omega.Omega.
+Require Import Coq.micromega.Lia.
 
 Lemma map_rw_func:
   forall {A} {B} (f1:A -> B) f2 l,
@@ -41,7 +41,7 @@ Section Defs.
     RangeList low high (low::l). 
 
   Section range_list_fun.
-    Import Omega.
+
     Lemma range_list_fun:
       forall l1 n1 n2 l2,
       RangeList n1 n2 l1 ->
@@ -52,10 +52,10 @@ Section Defs.
         inversion H0; subst; clear H0. {
           reflexivity.
         }
-        omega.
+        lia.
       }
       inversion H0; subst; clear H0. {
-        omega.
+        lia.
       }
       erewrite IHl1; eauto.
     Qed.
@@ -67,7 +67,7 @@ Section Defs.
     Proof.
       intros.
       inversion H; subst; clear H.
-      omega.
+      lia.
     Qed.
 
     Lemma range_list_inv_2:
@@ -79,7 +79,7 @@ Section Defs.
         reflexivity.
       }
       inversion H; subst; clear H.
-      omega.
+      lia.
     Qed.
 
     Lemma range_list_inv_3:
@@ -90,7 +90,7 @@ Section Defs.
     Proof.
       induction l; intros; auto.
       inversion H; subst; clear H.
-      omega.
+      lia.
     Qed.
 
     Lemma range_list_inv_4:
@@ -134,7 +134,7 @@ Section Defs.
         inversion H; subst; clear H.
         apply range_list_inv_succ_nil in H5.
         inversion H5; subst; clear H5.
-        omega.
+        lia.
       }
       inversion H; subst; clear H.
       apply IHl in H5.
@@ -161,7 +161,7 @@ Section Defs.
         split. {
           apply range_list_cons; auto.
         }
-        omega.
+        lia.
     Qed.
 
     Lemma range_list_succ:
@@ -172,18 +172,18 @@ Section Defs.
     Proof.
       induction l; intros. {
         apply range_list_inv_4 in H0.
-        assert (n1 = n2) by omega.
+        assert (n1 = n2) by lia.
         subst.
         apply range_list_cons.
-        + omega.
+        + lia.
         + apply range_list_nil.
-          omega.
+          lia.
       }
       simpl.
       assert (a = n1) by eauto using range_list_inv_5.
       subst.
       apply range_list_cons.
-      + omega.
+      + lia.
       + inversion H0; subst; clear H0.
         apply IHl in H5; auto.
     Qed.
@@ -306,7 +306,7 @@ Section Defs.
       induction l; intros. {
         unfold range_list in *.
         apply range_list_aux_inv_nil in H.
-        apply Nat.sub_0_le in H.
+        apply PeanoNat.Nat.sub_0_le in H.
         apply range_list_nil.
         auto.
       }
@@ -314,10 +314,10 @@ Section Defs.
       apply range_list_aux_inv_cons in H.
       destruct H as (?, (?, (?, Hx))).
       subst.
-      apply range_list_cons; auto with *.
+      apply range_list_cons. { lia. }
       apply IHl.
       unfold range_list.
-      assert (R: x = n2 - S n1) by omega.
+      assert (R: x = n2 - S n1) by lia.
       rewrite R.
       reflexivity.
     Qed.
@@ -329,7 +329,7 @@ Section Defs.
     Proof.
       induction l; intros;
         inversion H; subst; clear H. {
-        apply Nat.sub_0_le in H0.
+        apply PeanoNat.Nat.sub_0_le in H0.
         unfold range_list.
         rewrite H0.
         reflexivity.
@@ -338,10 +338,10 @@ Section Defs.
       unfold range_list in *.
       subst.
       destruct (n2 - a) eqn:R. {
-        omega.
+        lia.
       }
       simpl.
-      assert (R2: n2 - S a = n) by omega.
+      assert (R2: n2 - S a = n) by lia.
       rewrite R2.
       reflexivity.
     Qed.
@@ -398,7 +398,7 @@ Section Defs.
       auto with *.
     }
     eapply IHl in H6; eauto.
-    auto with *.
+    lia.
   Qed.
 
   Lemma range_list_inv_lt:
@@ -408,15 +408,14 @@ Section Defs.
     n < n2 ->
     List.In n l.
   Proof.
-    Import Omega.
     induction l; intros. {
       inversion H.
       subst.
-      omega.
+      lia.
     }
     simpl.
     inversion H; subst; clear H.
-    assert (Hx: a < n \/ a = n) by omega.
+    assert (Hx: a < n \/ a = n) by lia.
     destruct Hx. {
       eapply IHl in H7; eauto.
     }
@@ -465,7 +464,7 @@ Section Defs.
     remember (range_list _ _).
     symmetry in Heql.
     apply range_list_to_prop in Heql.
-    apply range_list_inv_lt with (n1:=n1) (n2:=n2); auto with *.
+    apply range_list_inv_lt with (n1:=n1) (n2:=n2); auto; lia.
   Qed.
 
   Lemma range_list_inv_in_2:
@@ -499,7 +498,7 @@ Section Defs.
     apply NoDup_cons; auto. {
       intros N.
       apply range_list_inv_in with (n:=a) in H5; auto.
-      omega.
+      lia.
     }
     eauto.
   Qed.
@@ -524,14 +523,14 @@ Section Defs.
       inversion H; subst; clear H.
       simpl.
       assert (Hle: n2 <= n1) by auto with *.
-      apply Nat.sub_0_le in Hle.
+      apply PeanoNat.Nat.sub_0_le in Hle.
       rewrite Hle.
       reflexivity.
     }
     inversion H; subst; clear H.
     apply IHl in H5.
     simpl.
-    auto with *.
+    lia.
   Qed.
 
   Lemma range_list_fun_length:
@@ -554,7 +553,7 @@ Section Defs.
     intros N.
     apply range_list_to_prop in N.
     inversion N; subst.
-    omega.
+    lia.
   Qed.
 
   Lemma range_list_inv_plus_l_1:
@@ -566,7 +565,7 @@ Section Defs.
   Proof.
     induction l; intros. {
       inversion H0; subst; clear H0.
-      omega.
+      lia.
     }
     inversion H0; subst; clear H0.
     inversion H; subst; clear H. {
@@ -599,7 +598,7 @@ Section Defs.
     RangeList n1 (n2 + n3) (l1 ++ l2).
   Proof.
     induction l1; intros; simpl; inversion H0; subst; clear H0. {
-      omega.
+      lia.
     }
     inversion H; subst; clear H. {
       assert (l1 = []). {

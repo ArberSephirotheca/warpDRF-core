@@ -1,4 +1,5 @@
 Require Import Coq.Lists.List.
+Require Import Coq.micromega.Lia.
 
 Require Import AccExp.
 Require Import NExp.
@@ -44,8 +45,6 @@ Section Defs.
     GenAccess x a n l ->
     CStep (cond_access_subst x (NNum n) a, NNum  n) v ->
     GenAccess x a (S n) (v::l).
-
-  Import Omega.
 
   Lemma gen_access_lt:
     forall x e n v,
@@ -94,7 +93,7 @@ Section Defs.
     exists l, CStep (cond_access_subst x (NNum m) e, NNum m) l.
   Proof.
     induction n; intros. {
-      omega.
+      lia.
     }
     inversion H; subst; clear H.
     inversion H0; subst; clear H0; eauto.
@@ -317,7 +316,7 @@ Section Defs.
     unfold proj. intros.
     apply filter_In in H.
     destruct H as (Hl, Hr).
-    apply beq_nat_true in Hr.
+    apply Coq.Arith.EqNat.beq_nat_true in Hr.
     split; auto.
   Qed.
 
@@ -410,7 +409,7 @@ Section Defs.
     apply filter_In in H; auto.
     destruct H as (_, Hx).
     apply Bool.orb_prop in Hx.
-    destruct Hx as [Hx|Hx]; apply beq_nat_true in Hx; intuition.
+    destruct Hx as [Hx|Hx]; apply Coq.Arith.EqNat.beq_nat_true in Hx; intuition.
   Qed.
 
   Lemma in_proj2_inv_tid_eq:
@@ -488,7 +487,7 @@ Section Defs.
     split; intros. {
       assert (forall tid1 tid2, Safe (proj2 tid1 tid2 h)). {
         intros.
-        assert (Hx: tid1 = tid2 \/ tid1 < tid2 \/ tid1 > tid2) by omega.
+        assert (Hx: tid1 = tid2 \/ tid1 < tid2 \/ tid1 > tid2) by lia.
         destruct Hx as [Hx|[Hx|Hx]].
         - subst.
           apply safe_proj2_eq.
@@ -564,7 +563,7 @@ Section Defs.
     apply forallb_forall.
     intros.
     apply H in H0.
-    apply Nat.eqb_eq.
+    apply PeanoNat.Nat.eqb_eq.
     assumption.
   Qed.
 
@@ -787,7 +786,7 @@ Section Defs.
     proj t1 (List.concat v) = gen_access_item x a t1.
   Proof.
     induction n; intros. {
-      omega.
+      lia.
     }
     inversion H; subst; clear H.
     simpl.
@@ -882,7 +881,7 @@ Section Defs.
     proj2 t1 t2 (List.concat v) = gen_access_item x a t1.
   Proof.
     induction n; intros. {
-      omega.
+      lia.
     }
     inversion H; subst; clear H.
     simpl.
@@ -892,7 +891,7 @@ Section Defs.
       erewrite proj2_id_l; eauto.
       assert (R: proj2 n t2 (List.concat l) = []). {
         erewrite gen_access_proj2_1; eauto.
-        omega.
+        lia.
       }
       rewrite R.
       unfold gen_access_item.
@@ -928,10 +927,10 @@ Section Defs.
       (* t1 = n *)
       inversion H1; subst; clear H1. {
         (* t2 = n *)
-        omega.
+        lia.
       }
       (* t2 < n *)
-      omega.
+      lia.
     }
     assert (t1 < n) by auto.
     inversion H1; subst; clear H1. {
@@ -971,7 +970,7 @@ Section Defs.
     .
   Proof.
     intros.
-    apply nat_total_order in H2.
+    apply Coq.Arith.Lt.nat_total_order in H2.
     destruct H2. {
       left; intuition.
       eauto using gen_access_proj_3.
@@ -988,7 +987,7 @@ Section Defs.
     exists l, List.In v l /\ GenAccess x a m l.
   Proof.
     induction m; intros. {
-      omega.
+      lia.
     }
     inversion H; subst; clear H. {
       destruct m. {
@@ -1004,7 +1003,7 @@ Section Defs.
       apply gen_access_cons; auto.
     }
     destruct m. {
-      omega.
+      lia.
     }
     assert (Hy := cond_access_step_next _ _ _ _ H0 (S m)).
     destruct Hy as (v', Hi).
@@ -1288,7 +1287,7 @@ Section Defs.
   Proof.
     intros.
     unfold MSafeStrong, AllInclAll,Ensembles.Included,Ensembles.In, MPairIncl, MSafe, Safe2; intros.
-    destruct (Nat.eq_dec (access_tid x) (access_tid y)). {
+    destruct (PeanoNat.Nat.eq_dec (access_tid x) (access_tid y)). {
       auto using access_safe_eq_tid.
     }
     eauto using m_in_def.
@@ -1308,7 +1307,7 @@ Section Defs.
     Safe h.
   Proof.
     unfold MSafeStrong, Safe; intros.
-    assert (X: access_tid x = access_tid y \/ access_tid x <> access_tid y) by omega.
+    assert (X: access_tid x = access_tid y \/ access_tid x <> access_tid y) by lia.
     destruct X. {
       auto using access_safe_eq_tid.
     }
