@@ -293,4 +293,64 @@ Section Defs.
     let (a1, a2) := p in
     exists n, InPhase a1 n i /\ InPhase a2 n i.
 
+(* ------------------------------ Phase type -------------------------- *)
+
+  Inductive phase :=
+  | PhZero
+  | PhOne
+  | PhPlus: phase -> phase -> phase
+  | PhSum : var -> range -> phase -> phase
+  .
+
+  Inductive PhaseOf : inst -> phase -> Prop :=
+  | phase_of_block:
+    forall c,
+    PhaseOf (Block c) PhZero
+  | phase_of_sync:
+    PhaseOf Sync PhOne
+  | phase_of_seq: forall i j ph1 ph2,
+    PhaseOf i ph1 ->
+    PhaseOf j ph2 ->
+    PhaseOf (Seq i j) (PhPlus ph1 ph2)
+  | run_for:
+    forall x r i ph,
+    PhaseOf i ph ->
+    PhaseOf (For x r i) (PhSum x r ph)
+  .
+
+  Fixpoint ph_subst (x:var) (v:nexp) (ph:phase) : phase :=
+  match ph with
+  | PhZero => PhZero
+  | PhOne => PhOne
+  | PhPlus ph1 ph2 => PhPlus (ph_subst x v ph1) (ph_subst x v ph2)
+  | PhSum y r ph =>
+    let ph' := if VAR.eq_dec x y then ph else ph_subst x v ph in
+    PhSum y (r_subst x v r) ph'
+  end.
+
+  Inductive RunPh : phase -> nat -> Prop :=
+  | run_ph_zero:
+    RunPh PhZero 0
+  | run_ph_sync:
+    RunPh PhOne 1
+  | run_ph_plus:
+    forall ph1 ph2 n1 n2,
+    RunPh ph1 n1 ->
+    RunPh ph2 n2 ->
+    RunPh (PhPlus ph1 ph2) (n1 + n2)
+  | run_ph_sum_cons:
+    forall x e1 e2 ni nj ph n1 n2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    RunPh (ph_subst x (NNum n1) ph) ni ->
+    RunPh (PhSum x (NNum (S n1), e2) ph) nj -> 
+    RunPh (PhSum x (e1, e2) ph) (ni + nj)
+  | run_ph_sum_nil:
+    forall x e1 e2 ph n1 n2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 > n2 ->
+    RunPh (PhSum x (e1, e2) ph) 0.
+
 End Defs.
