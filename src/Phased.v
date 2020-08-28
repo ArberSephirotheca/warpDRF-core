@@ -232,6 +232,78 @@ Section Defs.
     Phase (For x (e1, e2) i) 0
   .
 
+  (* -------------------- PHASE OF ----------------------------- *)
+
+  Inductive PhaseOf : inst -> phase -> Prop :=
+  | phase_of_block:
+    forall c,
+    PhaseOf (Block c) PhOne
+  | phase_of_sync:
+    PhaseOf Sync PhOne
+  | phase_of_seq: forall i j ph1 ph2,
+    PhaseOf i ph1 ->
+    PhaseOf j ph2 ->
+    PhaseOf (Seq i j) (PhPlus ph1 ph2)
+  | phase_of_for:
+    forall x r i ph,
+    PhaseOf i ph ->
+    PhaseOf (For x r i) (PhSum x r ph)
+  .
+
+  Definition PhaseOf2 (p:phased) (ph: phase) : Prop :=
+    match p with
+    | Phased1 c => ph = PhZero
+    | Phased2 i c => PhaseOf i ph
+    end.
+
+  Lemma phase_of_subst:
+    forall i ph,
+    PhaseOf i ph ->
+    forall x v,
+    PhaseOf (i_subst x v i) (ph_subst x v ph).
+  Proof.
+    intros i ph H.
+    induction H; intros y v; simpl.
+    - apply phase_of_block.
+    - apply phase_of_sync.
+    - apply phase_of_seq; auto.
+    - destruct (Set_VAR.MF.eq_dec y x); auto using phase_of_for.
+  Qed.
+
+  Lemma phase_to_run_ph:
+    forall n ph,
+    RunPh ph n ->
+    forall i,
+    PhaseOf i ph ->
+    Phase i n.
+  Proof.
+    intros ph n H.
+    induction H; intros i Hp; inversion Hp; subst; clear Hp.
+    - apply phase_block.
+    - apply phase_sync.
+    - eauto using phase_seq.
+    - eapply phase_for_cons; eauto using phase_of_subst, phase_of_for.
+    - eapply phase_for_nil; eauto.
+  Qed.
+
+  Lemma run_ph_to_phase:
+    forall i n,
+    Phase i n ->
+    forall ph,
+    PhaseOf i ph ->
+    RunPh ph n.
+  Proof.
+    intros i n H.
+    induction H; intros ph Hp; inversion Hp; subst; clear Hp; try (constructor; fail).
+    - constructor; auto.
+    - eapply run_ph_sum_cons; eauto.
+      + auto using phase_of_subst.
+      + auto using phase_of_for.
+    - eauto using run_ph_sum_nil.
+  Qed.
+
+  (* --------------------------- IN PHASE ------------------- *) 
+
   Inductive InPhase (a:access_val) : nat -> inst -> Prop :=
   | in_phase_block:
     forall c,
@@ -708,8 +780,15 @@ Section Defs.
         apply translate_for_2; eauto.
   Qed.
 
-
-
+  Lemma translate_phase_of:
+    forall i n,
+    Translate i n ->
+    forall ph,
+    ALang.PhaseOf i ph ->
+    PhaseOf2 n ph.
+  Proof.
+    intros.
+  Admitted.
 (*
   Inductive PhTranslate: ALang.inst -> phased -> nat -> Prop :=
   | ph_translate_block:

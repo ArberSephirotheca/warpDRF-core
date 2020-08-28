@@ -350,7 +350,7 @@ Section Defs.
     forall x e1 e2 ph n1 n2,
     NStep e1 n1 ->
     NStep e2 n2 ->
-    n1 > n2 ->
+    n1 >= n2 ->
     RunPh (PhSum x (e1, e2) ph) 0.
 
   Lemma phase_of_subst:
@@ -426,5 +426,11 @@ Section Defs.
       + auto using phase_of_for.
     - eauto using run_ph_sum_ne_eq, phase_of_subst.
   Qed.
+
+  (* --------------------- PhEq -------- *)
+
+  Definition PhEq ph1 ph2 : Prop :=
+    forall n,
+    RunPh ph1 n <-> RunPh ph2 n.
 
 End Defs.
