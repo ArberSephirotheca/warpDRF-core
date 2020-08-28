@@ -312,7 +312,7 @@ Section Defs.
     PhaseOf i ph1 ->
     PhaseOf j ph2 ->
     PhaseOf (Seq i j) (PhPlus ph1 ph2)
-  | run_for:
+  | phase_of_for:
     forall x r i ph,
     PhaseOf i ph ->
     PhaseOf (For x r i) (PhSum x r ph)
@@ -352,5 +352,79 @@ Section Defs.
     NStep e2 n2 ->
     n1 > n2 ->
     RunPh (PhSum x (e1, e2) ph) 0.
+
+  Lemma phase_of_subst:
+    forall i ph,
+    PhaseOf i ph ->
+    forall x v,
+    PhaseOf (i_subst x v i) (ph_subst x v ph).
+  Proof.
+    intros i ph H.
+    induction H; intros y v; simpl.
+    - apply phase_of_block.
+    - apply phase_of_sync.
+    - apply phase_of_seq; auto.
+    - destruct (Set_VAR.MF.eq_dec y x); auto using phase_of_for.
+  Qed.
+
+  (* Same as RunPh but all sums are nonempty. *)
+
+  Inductive RunPhNE : phase -> nat -> Prop :=
+  | run_ph_ne_zero:
+    RunPhNE PhZero 0
+  | run_ph_ne_sync:
+    RunPhNE PhOne 1
+  | run_ph_ne_plus:
+    forall ph1 ph2 n1 n2,
+    RunPhNE ph1 n1 ->
+    RunPhNE ph2 n2 ->
+    RunPhNE (PhPlus ph1 ph2) (n1 + n2)
+  | run_ph_ne_sum_cons:
+    forall x e1 e2 ni nj ph n1 n2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    RunPhNE (ph_subst x (NNum n1) ph) ni ->
+    RunPhNE (PhSum x (NNum (S n1), e2) ph) nj -> 
+    RunPhNE (PhSum x (e1, e2) ph) (ni + nj)
+  | run_ph_sum_ne_eq:
+    forall x e1 e2 ph n m,
+    NStep e1 n ->
+    NStep e2 (S n) ->
+    RunPhNE (ph_subst x (NNum n) ph) m ->
+    RunPhNE (PhSum x (e1, e2) ph) m.
+
+  Lemma phase_to_run_ph_ne:
+    forall n ph,
+    RunPhNE ph n ->
+    forall i,
+    PhaseOf i ph ->
+    Phase i n.
+  Proof.
+    intros n ph H. induction H; intros i Hp; inversion Hp; subst; clear Hp.
+    - apply phase_block.
+    - apply phase_sync.
+    - eauto using phase_seq.
+    - eapply phase_for_cons; eauto.
+      + eauto using phase_of_subst.
+      + auto using phase_of_for.
+    - eapply phase_for_eq; eauto using phase_of_subst.
+  Qed.
+
+  Lemma run_ph_ne_to_phase:
+    forall i n,
+    Phase i n ->
+    forall ph,
+    PhaseOf i ph ->
+    RunPhNE ph n.
+  Proof.
+    intros i n H.
+    induction H; intros ph Hp; inversion Hp; subst; clear Hp; try (constructor; fail).
+    - constructor; auto.
+    - eapply run_ph_ne_sum_cons; eauto.
+      + auto using phase_of_subst.
+      + auto using phase_of_for.
+    - eauto using run_ph_sum_ne_eq, phase_of_subst.
+  Qed.
 
 End Defs.

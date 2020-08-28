@@ -709,6 +709,38 @@ Section Defs.
   Qed.
 
 
+
+(*
+  Inductive PhTranslate: ALang.inst -> phased -> nat -> Prop :=
+  | ph_translate_block:
+    forall c,
+    PhTranslate (ALang.Block c) (Phased1 c) 0
+  | ph_translate_sync:
+    PhTranslate ALang.Sync (Phased2 Sync Conc.Skip) 1
+  | ph_translate_seq:
+    forall i j pi pj p,
+    Translate i pi ni ->
+    Translate j pj nj ->
+    PSeq pi pj p ->
+    PhTranslate (ALang.Seq i j) p (ni+nj)
+  | ph_translate_for_1:
+    forall i c x r,
+    PhTranslate i (Phased1 c) 0 ->
+    PhTranslate (ALang.For x r i) (Phased1 (Conc.For x r c)) 0
+  | ph_translate_for_2:
+    forall e1 e2 x i c b j,
+    let e2' := NBin NMinus e2 (NNum 1) in
+    let x' := NBin NPlus (NNum 1) (NVar x) in
+    PhTranslate i (Phased2 b c) n ->
+    Seq1 c (i_subst x x' b) j ->
+    PhTranslate (ALang.For x (e1, e2) i) (
+      Phased2
+        (Seq (i_subst x e1 b) (For x (e1, e2') j))
+        (Conc.i_subst x e2' c)
+    ).
+
+*)
+
   Lemma phase_to_phase2:
     forall i n,
     ALang.Phase i n ->
