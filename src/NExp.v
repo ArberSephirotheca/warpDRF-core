@@ -3,6 +3,7 @@ Require Import Var.
 Require Import RangeList.
 Import ListNotations.
 Require Coq.omega.Omega.
+Require Import Coq.Classes.RelationPairs.
 
 Section Defs.
 
@@ -750,10 +751,6 @@ Section SO.
       inversion N; subst; clear N; contradiction.
   Qed.
 
-
-
-  (* -------------------------------- RANGE ------------------------- *)
-
   Lemma r_subst_subst_eq:
     forall x n1 n2 r,
     r_subst x (NNum n1) (r_subst x (NNum n2) r) = r_subst x (NNum n2) r.
@@ -1059,6 +1056,18 @@ Section SO.
       eauto using n_step_bin.
   Qed.
 
+  Lemma n_eq_subst_rw:
+    forall x v v' e, 
+    NEq v v' ->
+    NEq (n_subst x v e) (n_subst x v' e).
+  Proof.
+    intros.
+    split; intros.
+    - eauto using eq_n_step_n_subst_proper.
+    - symmetry in H.
+      eauto using eq_n_step_n_subst_proper.
+  Qed.
+
   Global Instance n_eq_proper_3: Proper (eq ==> NEq ==> eq ==> NEq) n_subst.
   Proof.
     unfold Proper, respectful.
@@ -1094,5 +1103,39 @@ Section SO.
       }
       rewrite n_subst_subst_eq_2; eauto using n_step_to_not_in.
   Qed.
+
+  (* ------------------------ RSTEP --------------------------- *)
+
+  Lemma eq_r_step_subst_proper:
+    forall x v v' e n, 
+    NEq v v' ->
+    RStep (r_subst x v e) n ->
+    RStep (r_subst x v' e) n.
+  Proof.
+    intros.
+    destruct e as (e1, e2).
+    simpl in *.
+    inversion H0; subst; clear H0.
+    eapply r_step_def; eauto.
+    - rewrite <- H.
+      assumption.
+    - rewrite <- H.
+      assumption.
+  Qed.
+
+  Global Instance n_eq_proper_4: Proper (eq ==> NEq ==> eq ==> NEq * NEq ) r_subst.
+  Proof.
+    unfold Proper, respectful, RelCompFun, RelProd.
+    split; intros; subst; unfold RelCompFun.
+    - destruct y1.
+      simpl in *.
+      rewrite H0.
+      reflexivity.
+    - destruct y1.
+      simpl.
+      rewrite H0.
+      reflexivity.
+  Qed.
+
 End SO.
 

@@ -250,11 +250,44 @@ Section Defs.
     PhaseOf (For x r i) (PhSum x r ph)
   .
 
-  Definition PhaseOf2 (p:phased) (ph: phase) : Prop :=
-    match p with
-    | Phased1 c => ph = PhZero
-    | Phased2 i c => PhaseOf i ph
+  Fixpoint phase_of (i:inst) :=
+    match i with
+    | Block _
+    | Sync => PhOne
+    | Seq i j => PhPlus (phase_of i) (phase_of j)
+    | For x r i => PhSum x r (phase_of i)
     end.
+
+  Lemma phase_of_to_prop:
+    forall i,
+    PhaseOf i (phase_of i).
+  Proof.
+    induction i; intros; simpl; constructor; auto.
+  Qed.
+
+  Lemma phase_of_from_prop:
+    forall i ph,
+    PhaseOf i ph ->
+    phase_of i = ph.
+  Proof.
+    induction i; simpl; intros; inversion H; subst; clear H; auto.
+    - erewrite IHi1; eauto.
+      erewrite IHi2; eauto.
+    - erewrite IHi; eauto.
+  Qed.
+
+  Lemma phase_of_fun:
+    forall i ph1 ph2,
+    PhaseOf i ph1 ->
+    PhaseOf i ph2 ->
+    ph1 = ph2.
+  Proof.
+    intros.
+    apply phase_of_from_prop in H.
+    apply phase_of_from_prop in H0.
+    rewrite H in H0.
+    assumption.
+  Qed.
 
   Lemma phase_of_subst:
     forall i ph,
@@ -268,6 +301,27 @@ Section Defs.
     - apply phase_of_sync.
     - apply phase_of_seq; auto.
     - destruct (Set_VAR.MF.eq_dec y x); auto using phase_of_for.
+  Qed.
+
+  Lemma phase_of_inv_subst:
+    forall ph x v i,
+    PhaseOf (i_subst x v i) ph ->
+    ph = ph_subst x v (phase_of i).
+  Proof.
+    intros.
+    assert (Hp: PhaseOf i (phase_of i)) by auto using phase_of_to_prop.
+    apply phase_of_subst with (x:=x) (v:=v) in Hp; auto.
+    eauto using phase_of_fun.
+  Qed.
+
+  Lemma phase_of_subst_rw:
+    forall x v i,
+    phase_of (i_subst x v i) = ph_subst x v (phase_of i).
+  Proof.
+    intros.
+    assert (Hp: PhaseOf (i_subst x v i) (phase_of (i_subst x v i))) by auto using phase_of_to_prop.
+    apply phase_of_inv_subst in Hp.
+    assumption.
   Qed.
 
   Lemma phase_to_run_ph:
@@ -295,11 +349,41 @@ Section Defs.
   Proof.
     intros i n H.
     induction H; intros ph Hp; inversion Hp; subst; clear Hp; try (constructor; fail).
-    - constructor; auto.
+    - econstructor; eauto.
     - eapply run_ph_sum_cons; eauto.
       + auto using phase_of_subst.
       + auto using phase_of_for.
     - eauto using run_ph_sum_nil.
+  Qed.
+
+
+  (* ------------------------- PHASEOF 2 -------------------- *)
+
+  Definition PhaseOf2 (p:phased) (ph: phase) : Prop :=
+    match p with
+    | Phased1 c => ph = PhZero
+    | Phased2 i c => PhaseOf i ph
+    end.
+
+  Definition phase_of2 (p:phased) :=
+    match p with
+    | Phased1 c => PhZero
+    | Phased2 i c => phase_of i
+    end.
+
+  Lemma phase_of2_to_prop:
+    forall i,
+    PhaseOf2 i (phase_of2 i).
+  Proof.
+    intros [c|i c]; simpl; auto using phase_of_to_prop.
+  Qed.
+
+  Lemma phase_of2_from_prop:
+    forall i ph,
+    PhaseOf2 i ph ->
+    phase_of2 i = ph.
+  Proof.
+    intros [c|i c]; simpl; auto using phase_of_from_prop.
   Qed.
 
   (* --------------------------- IN PHASE ------------------- *) 
@@ -780,14 +864,48 @@ Section Defs.
         apply translate_for_2; eauto.
   Qed.
 
+  Lemma phase_of_seq1:
+    forall c i j,
+    Seq1 c i j ->
+    phase_of i = phase_of j.
+  Proof.
+    intros c i j H.
+    induction H; auto.
+    simpl.
+    rewrite IHSeq1.
+    reflexivity.
+  Qed.
+
   Lemma translate_phase_of:
     forall i n,
     Translate i n ->
-    forall ph,
-    ALang.PhaseOf i ph ->
-    PhaseOf2 n ph.
+    forall ph1,
+    ALang.PhaseOf i ph1 ->
+    forall ph2,
+    PhaseOf2 n ph2 ->
+    PhEq ph1 ph2.
   Proof.
-    intros.
+    intros i n H.
+    induction H; intros ph1 Hp1 ph2 Hp2.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - simpl in *.
+      inversion Hp2; subst; clear Hp2.
+      inversion Hp1; subst; clear Hp1.
+      eapply IHTranslate with (ph2:=phase_of2 (Phased2 b c)) in H7; eauto using phase_of2_to_prop.
+      + apply phase_of_inv_subst in H3.
+        subst.
+        apply phase_of_from_prop in H5.
+        subst.
+        simpl in *.
+        apply phase_of_seq1 in H0.
+        rewrite phase_of_subst_rw in H0.
+        rewrite <- H0.
+        admit.
+      + simpl.
+        eapply phase_of_to_prop.
   Admitted.
 (*
   Inductive PhTranslate: ALang.inst -> phased -> nat -> Prop :=
@@ -842,6 +960,7 @@ Section Defs.
       assert (Ht2: exists p, Translate (For x (NNum (S n1), e2) i) p) by auto using translate_exists.
       destruct Ht2 as (p2, Ht2).
       assert (IHPhase2 := IHPhase2 _ Ht2).
+      subst.
       inversion Ht; subst; clear Ht. {
         admit.
       }
@@ -851,7 +970,7 @@ Section Defs.
       + admit.
     - admit.
   Admitted.
-(*
+
   Lemma in_phase_spec:
     forall i,
     forall a n,
@@ -863,76 +982,18 @@ Section Defs.
     intros i a n H.
     induction H; intros p Heq; simpl in *; inversion Heq; subst; clear Heq; simpl.
     - auto.
-    - destruct (translate i) as [[i' c1 | c1]|];
-        destruct (translate j) as [[j' c2 | c2]|];
-        try (inversion H1; fail); simpl in *;
-        assert (IHInPhase := IHInPhase _ eq_refl).
-      + destruct (seq1 c1 _) as [j''|] eqn:R; inversion H1; subst; clear H1.
-        simpl in *.
-        destruct IHInPhase as [Hi|(Hp,Hi)].
-        * left.
-          apply in_phase_seq_l.
-          assumption.
-        * left.
-          eapply in_phase_seq1_r; eauto.
-      + inversion H1; subst; clear H1.
-        simpl in *.
-        intuition.
-        right; split; auto.
-        apply Conc.i_in_seq_l.
-        assumption.
-      + destruct (seq1 c1 _) as [j''|] eqn:R; inversion H1; subst; clear H1.
-        simpl in *.
-        destruct IHInPhase as (?, Hi).
-        subst.
-        left.
-        eapply in_phase_seq1_l; eauto.
-      + inversion H1; subst; clear H1.
-        simpl in *.
-        destruct IHInPhase as (?, Hi).
-        subst.
-        split; auto using Conc.i_in_seq_l.
-    - destruct (translate i) as [p1|] eqn:R1.
-      2: { inversion H3. }
-      destruct (translate j) as [p2|] eqn:R2.
-      2: { inversion H3. }
-      assert (IHInPhase := IHInPhase _ eq_refl).
-      destruct p1 as [j1 c1 | c1], p2 as [j2 c2 | c2]; simpl in *.
-      + admit.
-      + inversion H3; subst; clear H3.
-        destruct IHInPhase as (?, Hi).
-        subst.
-        simpl.
-        right.
-        simpl in *.
-      }
-        destruct (translate j) as [[j' c2 | c2]|].
-        ;
-        try (inversion H3; fail); simpl in *.
-      * admit.
-      * admit.
-      * inversion H3.
-      * admit. 
-      * admit.
-      * inversion H3.
-      * 
-      destruct (translate i) as [j' c | c]; simpl in *.
-      
-      try (inversion H1; fail). {
-        .
-        simpl in *.
-        destruct (translate j) as [[j' c2 | c2]|]; try (inversion H1; fail); simpl in H1. {
-          
-        }
-      }
-      destruct (translate j) as [[j' c2 | c2]|]; try (inversion H1; fail); simpl in H1.
-      destruct (translate i) as [j' c | c]; simpl in *.
-      + destruct IHInPhase as [Hi|(Hp, Hi)].
-        * auto using in_phase2_seq3_l.
-        * assert (R: n = n + 0) by auto using PeanoNat.Nat.add_0_r.
-          rewrite R; clear R.
-          apply in_phase2_seq3_r; auto.
-          
-  Qed.
-  *)
+    - apply IHInPhase in H2.
+      (* Sequence 1 *)
+      admit.
+    - (* Sequence 2 *)
+      assert (InPhase2 a m pj) by auto.
+      admit.
+    - (* conc-loop *)
+      admit.
+    - 
+      admit.
+    - admit.
+    - admit.
+  Admitted.
+
 End Defs.
