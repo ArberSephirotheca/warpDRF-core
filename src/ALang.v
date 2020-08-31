@@ -335,16 +335,29 @@ Section Defs.
 
 (* ------------------------------- WELL-FORMED ------------------------ *)
 
-  Inductive w_inst :=
-  | SSync: Conc.inst -> w_inst
-  | SSeq: w_inst -> w_inst -> w_inst
-  | SFor : var -> range -> (w_inst * Conc.inst) -> w_inst.
+  Inductive WellFormed0 : inst -> Prop :=
+  | wf0_sync:
+    forall c,
+    WellFormed0 (Seq (Block c) Sync)
+  | wf0_seq:
+    forall i j,
+    WellFormed0 i ->
+    WellFormed0 j ->
+    WellFormed0 (Seq i j)
+  | wf0_for:
+    forall i c d x r,
+    WellFormed0 i ->
+    WellFormed0 (Seq (Block c) (For x r (Seq i (Block d)))).
 
-  Inductive w_prog := 
-  | prog1: w_inst -> Conc.inst -> w_prog
-  | prog2: Conc.inst -> w_prog
+  Inductive WellFormed : inst -> Prop :=
+  | wf_1:
+    forall c,
+    WellFormed (Block c)
+  | wf_2:
+    forall c i,
+    WellFormed0 i ->
+    WellFormed (Seq i (Block c))
   .
- 
 
 (* ------------------------------- IN PHASE OF ------------------------ *)
 
