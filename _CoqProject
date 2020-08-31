@@ -15,7 +15,9 @@ src/Tasks.v
 src/Hist.v
 src/VHist.v
 src/ALang.v
+src/ALangTy.v
 src/Phased.v
+src/PhasedTy.v
 src/NSync.v
 src/MultiHist.v
 src/AccExpImpl.v
