@@ -317,6 +317,40 @@ Section C1.
       auto using incl_appr with *.
   Qed.
 
+  Lemma run_inv_in_eq:
+    forall n i h,
+    Run n i h ->
+    forall a,
+    List.In a h ->
+    access_tid a = n.
+  Proof.
+    intros n i h H.
+    induction H; intros.
+    - contradiction.
+    - eauto using access_step_inv_in_eq.
+    - apply List.in_app_iff in H1.
+      destruct H1; auto.
+    - destruct b; auto.
+    - apply List.in_app_iff in H4.
+      destruct H4; auto.
+    - contradiction.
+  Qed.
+
+  Lemma run_all_inv_in_eq:
+    forall n i h,
+    RunAll n i h ->
+    forall x,
+    List.In x h ->
+    access_tid x < n.
+  Proof.
+    intros.
+    eapply run_all_inv_in in H0; eauto.
+    destruct H0 as (m, (h', (?, (Hr, (Hi, Hj))))).
+    eapply run_inv_in_eq in Hj; eauto.
+    subst.
+    assumption.
+  Qed.
+
   Lemma run_all_inv_run:
     forall n i h,
     RunAll n i h ->
