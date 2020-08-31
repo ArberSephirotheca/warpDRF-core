@@ -23,7 +23,8 @@ Require Import Lia.
 
 Import ListNotations.
 Require Conc.
-
+Require Import PhaseExp.
+Require Import AccSym.
 Section Defs.
 
   Context `{T:Tasks}.
@@ -31,19 +32,13 @@ Section Defs.
 
   Open Scope vhist_scope.
 
-  Inductive phase :=
-  | PhZero
-  | PhOne
-  | PhPlus: phase -> phase -> phase
-  | PhSum : var -> range -> phase -> phase
-  .
 
   (* ------------------------------ PHASE OF ------------------------- *)
 
   Inductive PhaseOf : inst -> phase -> Prop :=
   | phase_of_block:
     forall c,
-    PhaseOf (Block c) PhZero
+    PhaseOf (ALang.Block c) PhZero
   | phase_of_sync:
     PhaseOf Sync PhOne
   | phase_of_seq: forall i j ph1 ph2,
@@ -59,7 +54,7 @@ Section Defs.
 
   Fixpoint phase_of (i:inst) : phase :=
     match i with
-    | Block _ => PhZero
+    | ALang.Block _ => PhZero
     | Sync => PhOne
     | Seq i j => PhPlus (phase_of i) (phase_of j)
     | For x r i => PhSum x r (phase_of i)
@@ -88,7 +83,7 @@ Section Defs.
   Inductive WellFormed0 : inst -> Prop :=
   | wf0_sync:
     forall c,
-    WellFormed0 (Seq (Block c) Sync)
+    WellFormed0 (Seq (ALang.Block c) Sync)
   | wf0_seq:
     forall i j,
     WellFormed0 i ->
@@ -97,20 +92,20 @@ Section Defs.
   | wf0_for:
     forall i c d x r,
     WellFormed0 i ->
-    WellFormed0 (Seq (Block c) (For x r (Seq i (Block d)))).
+    WellFormed0 (Seq (ALang.Block c) (For x r (Seq i (ALang.Block d)))).
 
   Inductive WellFormed : inst -> Prop :=
   | wf_1:
     forall c,
-    WellFormed (Block c)
+    WellFormed (ALang.Block c)
   | wf_2:
     forall c i,
     WellFormed0 i ->
-    WellFormed (Seq i (Block c))
+    WellFormed (Seq i (ALang.Block c))
   .
 
 (* ------------------------------- IN PHASE OF ------------------------ *)
-
+(*
   Inductive sym_acc :=
   | Base: Conc.inst -> sym_acc
   | Decl: var -> range -> sym_acc -> sym_acc
@@ -123,11 +118,11 @@ Section Defs.
     | PhPlus ph1 ph2 => ph_not_zero_weak ph1 \/ ph_not_zero_weak ph2
     | PhSum x r ph => True
     end.
-
-  Inductive InPhaseOf : sym_acc -> phase -> inst -> Prop :=
+*)
+  Inductive InPhaseOf : access_sym -> phase -> inst -> Prop :=
   | in_phase_of_block:
     forall c,
-    InPhaseOf (Base c) PhZero (Block c)
+    InPhaseOf (Block c) PhZero (ALang.Block c)
   | in_phase_of_seq_l:
     forall a i j n,
     InPhaseOf a n i ->
@@ -143,7 +138,7 @@ Section Defs.
     InPhaseOf (Decl x r a) (PhSum x r n) (For x r i).
 
   (* ------------------------- OPERATIONAL SEMANTICS ----------------- *)
-
+(*
   Fixpoint ph_subst (x:var) (v:nexp) (ph:phase) : phase :=
   match ph with
   | PhZero => PhZero
@@ -180,7 +175,7 @@ Section Defs.
     NStep e2 n2 ->
     n1 >= n2 ->
     RunPh (PhSum x (e1, e2) ph) 0.
-
+*)
   Lemma phase_of_subst:
     forall i ph,
     PhaseOf i ph ->
@@ -196,7 +191,7 @@ Section Defs.
   Qed.
 
   (* Same as RunPh but all sums are nonempty. *)
-
+(*
   Inductive Nonempty : phase -> Prop :=
   | nonempty_zero:
     Nonempty PhZero
@@ -248,7 +243,7 @@ Section Defs.
     NStep e2 (S n) ->
     RunPhNE (ph_subst x (NNum n) ph) m ->
     RunPhNE (PhSum x (e1, e2) ph) m.
-
+*)
   Lemma phase_to_run_ph_ne:
     forall n ph,
     RunPhNE ph n ->
@@ -281,7 +276,7 @@ Section Defs.
       + auto using phase_of_for.
     - eauto using run_ph_ne_sum_eq, phase_of_subst.
   Qed.
-
+(*
   (* --------------------- PhEq -------- *)
 
   Definition PhEq ph1 ph2 : Prop :=
@@ -577,5 +572,5 @@ Section Defs.
         admit.
       + 
   Admitted.
-
+*)
 End Defs.

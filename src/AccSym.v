@@ -5,8 +5,6 @@ Require Import ALang.
 Require Import NExp.
 Require Import Var.
 Require Import AccExp.
-Require Import Phased.
-Require Import ALangTy.
 Require Import Lia.
 Require Import PairInUtil.
 

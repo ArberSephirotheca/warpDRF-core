@@ -6,9 +6,11 @@ Require Import NExp.
 Require Import Var.
 Require Import AccExp.
 Require Import Phased.
-Require Import ALangTy.
+Require Import PhaseExp.
+Require Import AccSym.
 Require Import Lia.
 
+Require ALangTy.
 Require Conc.
 
 Import ListNotations.
@@ -25,7 +27,7 @@ Section Defs.
   Inductive PhaseOf : inst -> phase -> Prop :=
   | phase_of_block:
     forall c,
-    PhaseOf (Block c) PhOne
+    PhaseOf (ALang.Block c) PhOne
   | phase_of_sync:
     PhaseOf Sync PhOne
   | phase_of_seq: forall i j ph1 ph2,
@@ -40,7 +42,7 @@ Section Defs.
 
   Fixpoint phase_of (i:inst) :=
     match i with
-    | Block _
+    | ALang.Block _
     | Sync => PhOne
     | Seq i j => PhPlus (phase_of i) (phase_of j)
     | For x r i => PhSum x r (phase_of i)
@@ -178,10 +180,10 @@ Section Defs.
 
   Inductive Seq1 (c:Conc.inst) : inst -> inst -> Prop :=
   | seq1_sync:
-    Seq1 c Sync (Block c)
+    Seq1 c Sync (ALang.Block c)
   | seq1_block:
     forall c',
-    Seq1 c (Block c') (Block (Conc.Seq c c'))
+    Seq1 c (ALang.Block c') (ALang.Block (Conc.Seq c c'))
   | seq1_seq:
     forall i i' j,
     Seq1 c i i' ->
