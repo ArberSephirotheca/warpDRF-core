@@ -157,6 +157,75 @@ Section Defs.
       assumption.
   Qed.
 
+  Inductive w_inst :=
+  | WSync: Conc.inst -> w_inst 
+  | WSeq: w_inst -> w_inst -> w_inst
+  | WFor : Conc.inst -> var -> range -> (w_inst * Conc.inst) -> w_inst.
+
+  Fixpoint seq (c: Conc.inst) (i:w_inst) : w_inst :=
+    match i with
+    | WSync c' => WSync (Conc.Seq c c')
+    | WSeq i j => WSeq (seq c i) j
+    | WFor c1 x r (i, c2) => WFor (Conc.Seq c c1) x r (i, c2)
+    end.
+
+  Fixpoint w_subst x v i :=
+    match i with
+    | WSync c => WSync (Conc.i_subst x v c)
+    | WSeq i1 i2 => WSeq (w_subst x v i1) (w_subst x v i2)
+    | WFor c1 y r (i2,c2) =>
+      let i2' := if VAR.eq_dec x y
+        then (i2, c2)
+        else (w_subst x v i2, Conc.i_subst x v c2)
+      in
+      WFor (Conc.i_subst x v c1) y (r_subst x v r) i2'
+    end.
+
+  Inductive CPairIn : (access_val * access_val) -> Conc.inst -> Prop :=
+  | i_pair_in_def:
+    forall a1 a2 c,
+    access_tid a1 < TID_COUNT ->
+    access_tid a2 < TID_COUNT ->
+    Conc.IIn a1 c ->
+    Conc.IIn a2 c ->
+    CPairIn (a1, a2) c.
+
+  Inductive IPairIn : (access_val * access_val) -> w_inst -> Prop :=
+  | i_pair_in_block:
+    forall p c,
+    CPairIn p c ->
+    IPairIn p (WSync c)
+  | i_pair_in_seq_l:
+    forall p i j,
+    IPairIn p i ->
+    IPairIn p (WSeq i j)
+  | i_pair_in_seq_r:
+    forall p i j,
+    IPairIn p j ->
+    IPairIn p (WSeq i j)
+  | i_pair_in_for_first:
+    forall e1 e2 n1 n2 i r x c1 c2 p,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    IPairIn p (seq c1 (w_subst x (NNum n1) i)) ->
+    IPairIn p (WFor c1 x r (i, c2))
+  | i_pair_in_for_mid:
+    forall e1 e2 n1 n n2 i r x c1 c2 p,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n < n2 ->
+    IPairIn p (seq (Conc.i_subst x (NNum (n - 1)) c2) (w_subst x (NNum n) i)) ->
+    IPairIn p (WFor c1 x r (i, c2))
+  | i_pair_in_for_last:
+    forall e1 e2 n1 n2 i r x c1 c2 p,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    CPairIn p (Conc.i_subst x (NNum (n2 - 1)) c2) ->
+    IPairIn p (WFor c1 x r (i, c2))
+  .
+
 
 (* ------------------------------ PHASE -------------------------- *)
   (* Count how many phases this instruction yields. *)
