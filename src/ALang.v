@@ -11,6 +11,7 @@ Require Import BExp.
 Require Import AccExp.
 Require Import Tasks.
 Require Import InUtil.
+Require Import PairInUtil.
 Require Import VHist.
 Require Import RangeList.
 
@@ -160,38 +161,101 @@ Section Defs.
   Inductive w_inst :=
   | WSync: Conc.inst -> w_inst 
   | WSeq: w_inst -> w_inst -> w_inst
-  | WFor : Conc.inst -> var -> range -> (w_inst * Conc.inst) -> w_inst.
+  | WFor : Conc.inst -> var -> range -> w_inst -> Conc.inst -> w_inst.
 
   Fixpoint seq (c: Conc.inst) (i:w_inst) : w_inst :=
     match i with
     | WSync c' => WSync (Conc.Seq c c')
     | WSeq i j => WSeq (seq c i) j
-    | WFor c1 x r (i, c2) => WFor (Conc.Seq c c1) x r (i, c2)
+    | WFor c1 x r i c2 => WFor (Conc.Seq c c1) x r i c2
     end.
 
   Fixpoint w_subst x v i :=
     match i with
     | WSync c => WSync (Conc.i_subst x v c)
     | WSeq i1 i2 => WSeq (w_subst x v i1) (w_subst x v i2)
-    | WFor c1 y r (i2,c2) =>
-      let i2' := if VAR.eq_dec x y
+    | WFor c1 y r i2 c2 =>
+      let (i2', c2') := if VAR.eq_dec x y
         then (i2, c2)
         else (w_subst x v i2, Conc.i_subst x v c2)
       in
-      WFor (Conc.i_subst x v c1) y (r_subst x v r) i2'
+      WFor (Conc.i_subst x v c1) y (r_subst x v r) i2' c2'
     end.
 
+  Fixpoint w_to_i (i:w_inst) : inst :=
+    match i with
+    | WSync c => Seq (Block c) Sync
+    | WSeq i j => Seq (w_to_i i) (w_to_i j)
+    | WFor c1 x r i c2 =>
+      Seq (Block c1) (For x r (Seq (w_to_i i) (Block c2)))
+    end.
+
+  Inductive CIn : access_val -> Conc.inst -> Prop :=
+  | c_in_def:
+    forall a c,
+    access_tid a < TID_COUNT ->
+    Conc.IIn a c ->
+    CIn a c.
+
+
   Inductive CPairIn : (access_val * access_val) -> Conc.inst -> Prop :=
-  | i_pair_in_def:
+  | c_pair_in_def:
     forall a1 a2 c,
-    access_tid a1 < TID_COUNT ->
-    access_tid a2 < TID_COUNT ->
-    Conc.IIn a1 c ->
-    Conc.IIn a2 c ->
+    CIn a1 c ->
+    CIn a2 c ->
     CPairIn (a1, a2) c.
 
+  Inductive IFirst (a: access_val) : w_inst -> Prop :=
+  | i_first_sync:
+    forall c,
+    CIn a c ->
+    IFirst a (WSync c)
+  | i_first_seq:
+    forall i j,
+    IFirst a i ->
+    IFirst a (WSeq i j)
+  | i_first_for:
+    forall e1 e2 n1 n2 c1 x i c2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    CIn a c1 ->
+    IFirst a (w_subst x (NNum n1) i) ->
+    IFirst a (WFor c1 x (e1, e2) i c2).
+
+  Inductive ILast (a: access_val) : w_inst -> Prop :=
+  | i_last_seq:
+    forall i j,
+    ILast a j ->
+    ILast a (WSeq i j)
+  | i_first_for_1:
+    forall e1 e2 n1 n2 c1 x i c2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    ILast a (w_subst x (NNum (n2 - 1)) i) ->
+    ILast a (WFor c1 x (e1, e2) i c2)
+  | i_first_for_2:
+    forall e1 e2 n1 n2 c1 x i c2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    CIn a (Conc.i_subst x (NNum (n2 - 1)) c2) ->
+    ILast a (WFor c1 x (e1, e2) i c2)
+  .
+
+  Definition OneOf (p:access_val*access_val) P Q :=
+    let (a1,a2) := p in
+    (P a1 /\ Q a2) \/
+    (P a2 /\ Q a1).
+
+  Definition IPairInAux p c i :=
+    CPairIn p c \/
+    OneOf p (fun a => CIn a c)
+            (fun a => IFirst a i).
+
   Inductive IPairIn : (access_val * access_val) -> w_inst -> Prop :=
-  | i_pair_in_block:
+  | i_pair_in_sync:
     forall p c,
     CPairIn p c ->
     IPairIn p (WSync c)
@@ -203,29 +267,224 @@ Section Defs.
     forall p i j,
     IPairIn p j ->
     IPairIn p (WSeq i j)
+  | i_pair_in_seq_both:
+    forall p i j,
+    OneOf p (fun a => ILast a i) (fun a => IFirst a j) ->
+    IPairIn p (WSeq i j)
   | i_pair_in_for_first:
     forall e1 e2 n1 n2 i r x c1 c2 p,
     NStep e1 n1 ->
     NStep e2 n2 ->
     n1 < n2 ->
-    IPairIn p (seq c1 (w_subst x (NNum n1) i)) ->
-    IPairIn p (WFor c1 x r (i, c2))
+    (IPairInAux p c1 (w_subst x (NNum n1) i)
+      \/ IPairIn p (w_subst x (NNum n1) i)) ->
+    IPairIn p (WFor c1 x r i c2)
   | i_pair_in_for_mid:
     forall e1 e2 n1 n n2 i r x c1 c2 p,
     NStep e1 n1 ->
     NStep e2 n2 ->
     n1 < n < n2 ->
-    IPairIn p (seq (Conc.i_subst x (NNum (n - 1)) c2) (w_subst x (NNum n) i)) ->
-    IPairIn p (WFor c1 x r (i, c2))
+    (IPairInAux p (Conc.i_subst x (NNum (n - 1)) c2)
+              (w_subst x (NNum n) i)
+      \/ IPairIn p (w_subst x (NNum n) i)) ->
+    IPairIn p (WFor c1 x r i c2)
   | i_pair_in_for_last:
     forall e1 e2 n1 n2 i r x c1 c2 p,
     NStep e1 n1 ->
     NStep e2 n2 ->
     n1 < n2 ->
     CPairIn p (Conc.i_subst x (NNum (n2 - 1)) c2) ->
-    IPairIn p (WFor c1 x r (i, c2))
+    IPairIn p (WFor c1 x r i c2)
   .
 
+
+  Inductive WRun: w_inst -> vhist -> Prop :=
+  | wrun_sync:
+    forall c h,
+    Conc.RunAll TID_COUNT c h ->
+    WRun (WSync c) {{ h | [] }}
+  | wrun_seq: forall i j mh_i mh_j mh,
+    WRun i mh_i ->
+    WRun j mh_j ->
+    mh_i @ mh_j = mh ->
+    WRun (WSeq i j) mh
+  | wrun_for_cons:
+    forall e1 e2 n1 n2 i x h1 h2 m1 m2 m3 c1 c2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    Conc.RunAll TID_COUNT c1 h1 ->
+    WRun (w_subst x (NNum n1) i) m1 ->
+    Conc.RunAll TID_COUNT (Conc.i_subst x (NNum n1) c2) h2 ->
+    WRun (WFor Conc.Skip x (NNum (S n1), NNum n2) i c2) m2 ->
+    {{ h1 }} @ m1 @ {{ h2 }} @ m2 = m3 ->
+    WRun (WFor c1 x (e1, e2) i c2) m3
+  | wrun_for_eq:
+    (* We note that the loops must run at least once. This is
+       a constraint of our programming model. *)
+    forall x i c1 c2 h1 h2 e1 e2 m m1 n,
+    NStep e1 n ->
+    NStep e2 (S n) ->
+    Conc.RunAll TID_COUNT c1 h1 ->
+    WRun (w_subst x (NNum n) i) m1 ->
+    Conc.RunAll TID_COUNT (Conc.i_subst x (NNum n) c2) h2 ->
+    {{ h1 }} @ m1 @ {{ h2 }} = m ->
+    WRun (WFor c1 x (e1, e2) i c2) m.
+
+  Lemma c_pair_in_def_2:
+    forall c h p,
+    ~ Conc.Var TID c ->
+    Conc.RunAll TID_COUNT c h ->
+    PairIn p h ->
+    CPairIn p c.
+  Proof.
+    intros c h (a1, a2) Hv Hr Hi.
+    inversion Hi; subst; clear Hi.
+    apply c_pair_in_def;
+      eauto using c_in_def, Conc.run_all_inv_in_eq, Conc.run_all_to_i_in.
+  Qed.
+
+  Fixpoint WVar x i :=
+    match i with
+    | WSync c => Conc.Var x c
+    | WSeq i j => WVar x i \/ WVar x j
+    | WFor c1 y _ i c2 =>
+      x = y \/
+      Conc.Var x c1 \/
+      WVar x i \/
+      Conc.Var x c2
+    end.
+
+  Lemma wvar_subst_inv_1:
+    forall y x n i,
+    WVar y (w_subst x (NNum n) i) ->
+    WVar y i.
+  Proof.
+    induction i; simpl; intros; auto.
+    - eauto using Conc.var_subst_inv_1.
+    - destruct H; auto.
+    - destruct (Set_VAR.MF.eq_dec x v); simpl in *. {
+        intuition.
+        eauto using Conc.var_subst_inv_1.
+      }
+      intuition.
+      + eauto using Conc.var_subst_inv_1.
+      + eauto using Conc.var_subst_inv_1.
+  Qed.
+
+(*
+  Lemma i_pair_in_seq_1:
+    forall p i,
+    IPairIn p i ->
+    forall c,
+    CPairIn p c ->
+    IPairIn p (seq c i).
+  Proof.
+    intros p i H.
+    induction H; intros; simpl.
+    -  
+  Qed.
+*)
+  Lemma run_1:
+    forall i h,
+    WRun i h ->
+    ~ WVar TID i -> 
+    forall p,
+    VHist.MPairIn p h ->
+    IPairIn p i.
+  Proof.
+    intros i h H.
+    induction H; intros Hv p Hi; simpl in *.
+    - destruct Hi as [Hi|Hi]. 2: {
+        apply par_not_in_nil in Hi.
+        contradiction.
+        (*
+        apply m_pair_in_inv in Hi.
+        destruct Hi as [Hi|Hi]. {
+          apply par_not_in_nil in Hi.
+          contradiction.
+        }
+        apply m_pair_in_nil in Hi.
+        contradiction.*)
+      }
+      eauto using i_pair_in_sync, c_pair_in_def_2.
+    - subst.
+      apply VHist.m_pair_in_inv_seq in Hi.
+      intuition.
+      + auto using i_pair_in_seq_l.
+      + auto using i_pair_in_seq_r.
+      + admit.
+    - subst.
+      apply m_pair_in_inv_prefix in Hi.
+      destruct Hi as [Hi|[Hi|Hi]].
+      + apply i_pair_in_for_first with (e1:=e1) (e2:=e2) (n1:=n1) (n2:=n2); auto.
+        left.
+        unfold IPairInAux.
+        left.
+        eapply c_pair_in_def_2; eauto.
+      + apply VHist.m_pair_in_inv_seq in Hi.
+        destruct Hi as [Hi|[Hi|Hi]].
+        * apply i_pair_in_for_first with (e1:=e1) (e2:=e2) (n1:=n1) (n2:=n2); auto.
+          assert (IPairIn p (w_subst x (NNum n1) i)). {
+            apply IHWRun1; auto.
+            simpl.
+            intros N.
+            apply wvar_subst_inv_1 in N.
+            auto.
+          }
+          auto.
+        * apply VHist.m_pair_in_inv_prefix in Hi.
+          destruct Hi as [Hi|[Hi|Hi]].
+          {
+            assert (R: S n1 - 1 = n1) by lia.
+            inversion H1; subst; clear H1. {
+              apply i_pair_in_for_last with (e1:=e1) (e2:=e2) (n1:=n1) (n2:=S n1); auto.
+              rewrite R in *.
+              eapply c_pair_in_def_2; eauto.
+              intros N.
+              apply Conc.var_subst_inv_1 in N.
+              auto.
+            }
+            apply i_pair_in_for_mid with (e1:=e1) (e2:=e2) (n1:=n1) (n2:=S m) (n:=S n1); auto.
+            { lia. }
+            rewrite R.
+            unfold IPairInAux.
+            left.
+            left.
+            eapply c_pair_in_def_2; eauto.
+            intros N.
+            apply Conc.var_subst_inv_1 in N.
+            auto.
+          }
+          {
+            apply IHWRun2 in Hi.
+            2: {
+              intros N. contradict Hv. destruct N as [?|[N|?]]; auto; try contradiction. 
+            }
+            admit.
+          }
+          (* mid *)
+          admit.
+        * admit.
+      + admit.
+    - subst.
+      apply m_pair_in_inv_prefix in Hi.
+      destruct Hi as [Hi|[Hi|Hi]].
+      + (* c1 *)
+        admit.
+      + apply m_pair_in_inv_seq in Hi.
+        destruct Hi as [Hi|[Hi|Hi]].
+        * (* w_subst x (NNum n) i *)
+          admit.
+        * simpl in *.
+          (* c2 *)
+          admit.
+        * simpl in *.
+          (* c2 / w_subst x (NNum n) i *)
+          admit.
+      + (* c1 / w_subst x (NNum n) i *)
+        admit.
+  Admitted.
 
 (* ------------------------------ PHASE -------------------------- *)
   (* Count how many phases this instruction yields. *)
@@ -341,12 +600,12 @@ Section Defs.
     InPhase a o (For x (e1, e2) i).
 
 (* -------------------------------- IIN/ IPAIRIN ---------------------- *)
-
+(*
   Definition IIn a i : Prop := exists n, InPhase a n i.
 
   Definition IPairIn (p:access_val * access_val) i : Prop :=
     let (a1, a2) := p in
     exists n, InPhase a1 n i /\ InPhase a2 n i.
-
+*)
 
 End Defs.

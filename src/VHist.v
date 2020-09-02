@@ -1,7 +1,7 @@
 Require Import Coq.Lists.List.
 
 Require Import AccExp.
-
+Require Import PairInUtil.
 Import ListNotations.
 
 (*
@@ -17,6 +17,18 @@ Section Defs.
   | v_one: history -> vhist
   | v_cons: history -> vhist -> vhist
   .
+
+  Definition first (v:vhist) :=
+    match v with
+    | v_one h
+    | v_cons h _ => h
+    end.
+
+  Fixpoint last (v:vhist) :=
+   match v with
+   | v_one h => h
+   | v_cons _ v => last v
+   end.
 
   Fixpoint In h p :=
     match p with
@@ -48,11 +60,87 @@ Section Defs.
     | v_cons h p => List.In a h \/ MIn a p
     end.
 
+  Fixpoint MPairIn (p:access_val*access_val) (m:vhist) : Prop :=
+    match m with
+    | v_one h => PairIn p h
+    | v_cons h v => PairIn p h \/ MPairIn p v
+    end.
+
   Fixpoint vhist_to_list (p:vhist) : list history :=
     match p with
     | v_one h => [h]
     | v_cons h m => h :: vhist_to_list m
     end.
+
+  Definition MOneOf (p:access_val*access_val) h1 h2 :=
+    let (v1, v2) := p in
+    (List.In v1 h1 /\ List.In v2 h2)
+    \/
+    (List.In v2 h1 /\ List.In v1 h2).
+
+
+  Lemma m_pair_in_inv_v_app:
+    forall p m1 m2,
+    MPairIn p (v_app m1 m2) ->
+    MPairIn p m1 \/ MPairIn p m2.
+  Proof.
+    induction m1; intros; simpl in *.
+    - intuition.
+    - destruct H; try intuition.
+      apply IHm1 in H.
+      intuition.
+  Qed.
+
+  Lemma m_one_of_def_1:
+    forall p h1 h2,
+    List.In (fst p) h1 ->
+    List.In (snd p) h2 ->
+    MOneOf p h1 h2.
+  Proof.
+    intros.
+    destruct p; simpl in *; auto.
+  Qed.
+
+  Lemma m_one_of_def_2:
+    forall p h1 h2,
+    List.In (fst p) h2 ->
+    List.In (snd p) h1 ->
+    MOneOf p h1 h2.
+  Proof.
+    intros.
+    destruct p; simpl in *; auto.
+  Qed.
+
+  Lemma m_pair_in_inv_prefix:
+    forall p v h,
+    MPairIn p (v_prefix h v) ->
+    PairIn p h \/ MPairIn p v \/ MOneOf p h (first v).
+  Proof.
+    induction v; intros; simpl in *. {
+      apply pair_in_inv_app in H.
+      destruct H as [H|[H|H]];
+        intuition;
+        auto using m_one_of_def_1, m_one_of_def_2.
+    }
+    destruct H as [H|H]; auto.
+    apply pair_in_inv_app in H.
+    destruct H as [H|[H|H]];
+      intuition;
+      auto using m_one_of_def_1, m_one_of_def_2.
+  Qed.
+
+  Lemma m_pair_in_inv_seq:
+    forall p m1 m2,
+    MPairIn p (v_seq m1 m2) ->
+    MPairIn p m1 \/ MPairIn p m2 \/ MOneOf p (last m1) (first m2).
+  Proof.
+    induction m1; intros; simpl in *.
+    - apply m_pair_in_inv_prefix in H.
+      intuition.
+    - intuition.
+      apply IHm1 in H0.
+      intuition.
+  Qed.
 
   Inductive InPhase (a:access_val) : nat -> vhist -> Prop :=
   | in_phase_eq_one:
