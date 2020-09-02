@@ -142,6 +142,44 @@ Section Defs.
       intuition.
   Qed.
 
+  Lemma first_inv_in_prefix:
+    forall a v h,
+    List.In a (first (v_prefix h v)) ->
+    List.In a h
+    \/ List.In a (first v).
+  Proof.
+    induction v; simpl; intros; apply in_app_iff in H; auto.
+  Qed.
+ 
+  Lemma first_inv_in_seq:
+    forall a v1 v2,
+    List.In a (first (v_seq v1 v2)) ->
+    List.In a (first v1)
+    \/ exists h, v_one h = v1 /\ List.In a (first v2).
+  Proof.
+    induction v1; intros; simpl in *. {
+      apply first_inv_in_prefix in H.
+      intuition.
+      eauto.
+    }
+    auto.
+  Qed.
+
+  Lemma v_seq_inv_one:
+    forall v1 v2 h,
+    v_seq v1 v2 = v_one h ->
+    exists h1 h2,
+    v1 = v_one h1 /\ v2 = v_one h2.
+  Proof.
+    induction v1; intros; simpl in *. {
+      destruct v2. {
+        eauto.
+      }
+      inversion H.
+    }
+    inversion H.
+  Qed.
+  
   Inductive InPhase (a:access_val) : nat -> vhist -> Prop :=
   | in_phase_eq_one:
     forall h,

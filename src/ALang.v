@@ -214,12 +214,18 @@ Section Defs.
     forall i j,
     IFirst a i ->
     IFirst a (WSeq i j)
-  | i_first_for:
+  | i_first_for_1:
     forall e1 e2 n1 n2 c1 x i c2,
     NStep e1 n1 ->
     NStep e2 n2 ->
     n1 < n2 ->
     CIn a c1 ->
+    IFirst a (WFor c1 x (e1, e2) i c2)
+  | i_first_for_2:
+    forall e1 e2 n1 n2 c1 x i c2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
     IFirst a (w_subst x (NNum n1) i) ->
     IFirst a (WFor c1 x (e1, e2) i c2).
 
@@ -228,14 +234,14 @@ Section Defs.
     forall i j,
     ILast a j ->
     ILast a (WSeq i j)
-  | i_first_for_1:
+  | i_last_for_1:
     forall e1 e2 n1 n2 c1 x i c2,
     NStep e1 n1 ->
     NStep e2 n2 ->
     n1 < n2 ->
     ILast a (w_subst x (NNum (n2 - 1)) i) ->
     ILast a (WFor c1 x (e1, e2) i c2)
-  | i_first_for_2:
+  | i_last_for_2:
     forall e1 e2 n1 n2 c1 x i c2,
     NStep e1 n1 ->
     NStep e2 n2 ->
@@ -331,6 +337,18 @@ Section Defs.
     {{ h1 }} @ m1 @ {{ h2 }} = m ->
     WRun (WFor c1 x (e1, e2) i c2) m.
 
+
+  Lemma c_in_def_2:
+    forall c h a,
+    ~ Conc.Var TID c ->
+    Conc.RunAll TID_COUNT c h ->
+    List.In a h ->
+    CIn a c.
+  Proof.
+    intros c h a Hv Hr Hi.
+      eauto using c_in_def, Conc.run_all_inv_in_eq, Conc.run_all_to_i_in.
+  Qed.
+
   Lemma c_pair_in_def_2:
     forall c h p,
     ~ Conc.Var TID c ->
@@ -340,8 +358,7 @@ Section Defs.
   Proof.
     intros c h (a1, a2) Hv Hr Hi.
     inversion Hi; subst; clear Hi.
-    apply c_pair_in_def;
-      eauto using c_in_def, Conc.run_all_inv_in_eq, Conc.run_all_to_i_in.
+    eauto using c_pair_in_def, c_in_def_2.
   Qed.
 
   Fixpoint WVar x i :=
@@ -384,6 +401,105 @@ Section Defs.
     induction H; intros; simpl.
     -  
   Qed.
+*)
+  Lemma wrun_one:
+    forall i h,
+    ~ WRun i {{h}}.
+  Proof.
+    intros i h.
+    intros N.
+    remember (v_one _) as v.
+    generalize dependent h.
+    induction N; intros.
+    - inversion Heqv.
+    - subst.
+      apply v_seq_inv_one in Heqv.
+      destruct Heqv as (h1, (h2, (?, ?))).
+      subst.
+      eauto using IHN1.
+    - subst.
+      apply v_seq_inv_one in Heqv.
+      destruct Heqv as (h3, (h4, (Heq1, Heq2))).
+      inversion Heq1; subst; clear Heq1.
+      apply v_seq_inv_one in Heq2.
+      destruct Heq2 as (h1, (h5, (?, Heqv))).
+      subst.
+      eauto.
+    - subst.
+      apply v_seq_inv_one in Heqv.
+      destruct Heqv as (h3, (h4, (Heq1, Heqv))).
+      inversion Heq1; subst; clear Heq1.
+      apply v_seq_inv_one in Heqv.
+      destruct Heqv as (h5, (h6, (?, Heqv))).
+      subst.
+      eauto.
+  Qed.
+
+  Lemma i_first_1:
+    forall i v,
+    WRun i v ->
+    ~ WVar TID i ->
+    forall a,
+    List.In a (first v) ->
+    IFirst a i.
+  Proof.
+    intros i v H.
+    induction H; intros Hv a Hi; simpl in *.
+    - constructor.
+      eapply c_in_def_2; eauto.
+    - subst.
+      apply first_inv_in_seq in Hi.
+      intuition.
+      + auto using i_first_seq.
+      + destruct H1 as (h,(?,Hi)).
+        subst.
+        simpl in *.
+        apply wrun_one in H.
+        contradiction.
+    - subst.
+      apply first_inv_in_prefix in Hi.
+      destruct Hi as [Hi|Hi]. {
+        eapply i_first_for_1; eauto.
+        eapply c_in_def_2; eauto.
+      }
+      apply first_inv_in_seq in Hi.
+      destruct Hi as [Hi|(h', (?, Hi))]. {
+        eapply i_first_for_2; eauto.
+        apply IHWRun1; auto.
+        intros N.
+        apply wvar_subst_inv_1 in N.
+        auto.
+      }
+      subst.
+      apply wrun_one in H3.
+      contradiction.
+    - subst.
+      apply first_inv_in_prefix in Hi.
+      destruct Hi as [Hi|Hi]. {
+        eapply i_first_for_1; eauto.
+        eapply c_in_def_2; eauto.
+      }
+      apply first_inv_in_seq in Hi.
+      destruct Hi as [Hi|(h', (?, Hi))]. {
+        eapply i_first_for_2; eauto.
+        apply IHWRun; auto.
+        intros N.
+        apply wvar_subst_inv_1 in N.
+        auto.
+      }
+      subst.
+      simpl in *.
+      apply wrun_one in H2.
+      contradiction.
+  Qed.
+(*
+  Lemma 
+    WRun i mh_i ->
+    WRun j mh_j ->
+    MOneOf p (last mh_i) (first mh_j) ->
+    OneOf p (fun a => CIn a c)
+            (fun a => IFirst a i).
+    
 *)
   Lemma run_1:
     forall i h,
