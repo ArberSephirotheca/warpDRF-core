@@ -179,7 +179,40 @@ Section Defs.
     }
     inversion H.
   Qed.
-  
+
+  Lemma first_in_prefix_l:
+    forall a h v,
+    List.In a h ->
+    List.In a (first (v_prefix h v)).
+  Proof.
+    induction v; intros. {
+      simpl.
+      apply in_app_iff.
+      auto.
+    }
+    simpl.
+    apply in_app_iff.
+    auto.
+  Qed.
+
+  Lemma first_in_prefix_r:
+    forall a h v,
+    List.In a (first v) ->
+    List.In a (first (v_prefix h v)).
+  Proof.
+    destruct v; simpl; intros;
+      apply in_app_iff;
+      auto.
+  Qed.
+
+  Lemma first_in_seq_l:
+    forall a v1 v2,
+    List.In a (first v1) ->
+    List.In a (first (v_seq v1 v2)).
+  Proof.
+    induction v1; intros; simpl in *; auto using first_in_prefix_l.
+  Qed.
+
   Inductive InPhase (a:access_val) : nat -> vhist -> Prop :=
   | in_phase_eq_one:
     forall h,

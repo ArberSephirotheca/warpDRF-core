@@ -197,6 +197,30 @@ Section Defs.
     Conc.IIn a c ->
     CIn a c.
 
+  Lemma c_in_1:
+    forall c h a,
+    ~ Conc.Var TID c ->
+    Conc.RunAll TID_COUNT c h ->
+    List.In a h ->
+    CIn a c.
+  Proof.
+    intros c h a Hv Hr Hi.
+      eauto using c_in_def, Conc.run_all_inv_in_eq, Conc.run_all_to_i_in.
+  Qed.
+
+  Lemma c_in_2:
+    forall c h a,
+    ~ Conc.Var TID c ->
+    Conc.RunAll TID_COUNT c h ->
+    CIn a c ->
+    List.In a h.
+  Proof.
+    intros.
+    inversion H1; subst; clear H1.
+    eapply Conc.run_all_i_in_to_in; eauto.
+  Qed.
+
+
 
   Inductive CPairIn : (access_val * access_val) -> Conc.inst -> Prop :=
   | c_pair_in_def:
@@ -338,17 +362,6 @@ Section Defs.
     WRun (WFor c1 x (e1, e2) i c2) m.
 
 
-  Lemma c_in_def_2:
-    forall c h a,
-    ~ Conc.Var TID c ->
-    Conc.RunAll TID_COUNT c h ->
-    List.In a h ->
-    CIn a c.
-  Proof.
-    intros c h a Hv Hr Hi.
-      eauto using c_in_def, Conc.run_all_inv_in_eq, Conc.run_all_to_i_in.
-  Qed.
-
   Lemma c_pair_in_def_2:
     forall c h p,
     ~ Conc.Var TID c ->
@@ -358,7 +371,7 @@ Section Defs.
   Proof.
     intros c h (a1, a2) Hv Hr Hi.
     inversion Hi; subst; clear Hi.
-    eauto using c_pair_in_def, c_in_def_2.
+    eauto using c_pair_in_def, c_in_1.
   Qed.
 
   Fixpoint WVar x i :=
@@ -435,6 +448,23 @@ Section Defs.
       eauto.
   Qed.
 
+  Lemma i_first_for_3:
+    forall c1 h1,
+    Conc.RunAll TID_COUNT c1 h1 ->
+    forall a,
+    List.In a h1 ->
+    forall x e1 e2 n1 n2 i c2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    ~ Conc.Var TID c1 ->
+    IFirst a (WFor c1 x (e1, e2) i c2).
+  Proof.
+    intros.
+    eapply i_first_for_1; eauto.
+    eapply c_in_1; eauto.
+  Qed.
+
   Lemma i_first_1:
     forall i v,
     WRun i v ->
@@ -446,7 +476,7 @@ Section Defs.
     intros i v H.
     induction H; intros Hv a Hi; simpl in *.
     - constructor.
-      eapply c_in_def_2; eauto.
+      eapply c_in_1; eauto.
     - subst.
       apply first_inv_in_seq in Hi.
       intuition.
@@ -459,8 +489,7 @@ Section Defs.
     - subst.
       apply first_inv_in_prefix in Hi.
       destruct Hi as [Hi|Hi]. {
-        eapply i_first_for_1; eauto.
-        eapply c_in_def_2; eauto.
+        eapply i_first_for_3; eauto.
       }
       apply first_inv_in_seq in Hi.
       destruct Hi as [Hi|(h', (?, Hi))]. {
@@ -476,8 +505,7 @@ Section Defs.
     - subst.
       apply first_inv_in_prefix in Hi.
       destruct Hi as [Hi|Hi]. {
-        eapply i_first_for_1; eauto.
-        eapply c_in_def_2; eauto.
+        eapply i_first_for_3; eauto.
       }
       apply first_inv_in_seq in Hi.
       destruct Hi as [Hi|(h', (?, Hi))]. {
@@ -492,6 +520,58 @@ Section Defs.
       apply wrun_one in H2.
       contradiction.
   Qed.
+
+  Lemma i_first_2:
+    forall i v,
+    WRun i v ->
+    ~ WVar TID i ->
+    forall a,
+    IFirst a i ->
+    List.In a (first v).
+  Proof.
+    intros i v H.
+    induction H; intros.
+    - simpl.
+      inversion H1; subst; clear H1.
+      inversion H3; subst.
+      eapply Conc.run_all_i_in_to_in; eauto.
+    - subst.
+      inversion H3; subst; clear H3.
+      apply IHWRun1 in H4; auto using first_in_seq_l.
+      simpl in *.
+      auto.
+    - subst.
+      simpl.
+      inversion H8; subst; clear H8. {
+        simpl in *.
+        assert (n0 = n1) by eauto using n_step_fun.
+        assert (n3 = n2) by eauto using n_step_fun.
+        subst.
+        apply first_in_prefix_l.
+        eapply c_in_2; eauto.
+      }
+      simpl in *.
+      assert (n0 = n1) by eauto using n_step_fun.
+      assert (n3 = n2) by eauto using n_step_fun.
+      subst.
+      apply first_in_prefix_r.
+      apply IHWRun1 in H17.
+      2: { intros N. apply wvar_subst_inv_1 in N. auto. }
+      auto using first_in_seq_l.
+    - simpl in *.
+      inversion H6; subst; clear H6. {
+        simpl.
+        apply first_in_prefix_l.
+        eapply c_in_2; eauto.
+      }
+      assert (n1 = n) by eauto using n_step_fun.
+      assert (n2 = S n) by eauto using n_step_fun.
+      subst.
+      apply IHWRun in H16.
+      2: { intros N. apply wvar_subst_inv_1 in N. auto. }
+      auto using first_in_seq_l, first_in_prefix_r, first_in_seq_l.
+  Qed.
+
 (*
   Lemma 
     WRun i mh_i ->
