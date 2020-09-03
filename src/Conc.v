@@ -669,4 +669,21 @@ Section C1.
     eapply s_run_i_in_to_in; eauto.
   Qed.
 
+  Lemma run_all_inv_skip:
+    forall n h,
+    RunAll n Skip h ->
+    h = [].
+  Proof.
+    induction n; intros. {
+      inversion H; subst; clear H.
+      reflexivity.
+    }
+    inversion H; subst; clear H.
+    apply IHn in H2.
+    subst.
+    simpl in *.
+    inversion H1; subst; clear H1.
+    reflexivity.
+  Qed.
+
 End C1.
