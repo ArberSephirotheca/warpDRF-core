@@ -165,6 +165,48 @@ Section Defs.
     auto.
   Qed.
 
+  Lemma last_inv_in_prefix:
+    forall a v h,
+    List.In a (last (v_prefix h v)) ->
+    (exists h', v_one h' = v /\ List.In a h)
+    \/ List.In a (last v).
+  Proof.
+    induction v; simpl; intros.
+    - apply in_app_iff in H.
+      intuition.
+      eauto.
+    - auto.
+  Qed.
+
+  Lemma last_inv_in_seq:
+    forall a v1 v2,
+    List.In a (last (v_seq v1 v2)) ->
+    List.In a (last v2)
+    \/ exists h, v_one h = v2 /\ List.In a (last v1).
+  Proof.
+    induction v1; intros; simpl in *.
+    - apply last_inv_in_prefix in H.
+      destruct H as [(h', (?, Hi))|Hi]. {
+        subst.
+        eauto.
+      }
+      auto.
+    - apply IHv1 in H.
+      intuition.
+  Qed.
+
+  Lemma v_prefix_inv_one:
+    forall v h h',
+    v_prefix h v = v_one h' ->
+    exists h'', v = v_one h''.
+  Proof.
+    induction v; intros. {
+      eauto.
+    }
+    simpl in *.
+    inversion H; subst; clear H.
+  Qed.
+
   Lemma v_seq_inv_one:
     forall v1 v2 h,
     v_seq v1 v2 = v_one h ->
