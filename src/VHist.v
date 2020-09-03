@@ -255,6 +255,26 @@ Section Defs.
     induction v1; intros; simpl in *; auto using first_in_prefix_l.
   Qed.
 
+  Lemma v_prefix_nil:
+    forall v,
+    v_prefix [] v = v.
+  Proof.
+    intros v.
+    destruct v; auto.
+  Qed.
+
+  Lemma v_seq_one_nil_r:
+    forall v,
+    v_seq v (v_one []) = v.
+  Proof.
+    induction v; intros. {
+      simpl. rewrite app_nil_r. reflexivity.
+    }
+    simpl.
+    rewrite IHv.
+    reflexivity.
+  Qed.
+
   Inductive InPhase (a:access_val) : nat -> vhist -> Prop :=
   | in_phase_eq_one:
     forall h,
