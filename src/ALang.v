@@ -1062,6 +1062,72 @@ Section Defs.
     inversion Hb1.
   Qed.
 
+  Lemma c_pair_in_skip:
+    forall p,
+    ~ CPairIn p Conc.Skip.
+  Proof.
+    intros.
+    intros N.
+    inversion N; subst; clear N.
+    apply c_in_skip in H.
+    contradiction.
+  Qed.
+
+  Lemma i_one_of_skip_l:
+    forall p c,
+    ~ IOneOf p Conc.Skip c.
+  Proof.
+    intros (a1, a2) c [(N,_)|(_, N)];
+      apply c_in_skip in N; auto.
+  Qed.
+
+  Lemma i_pair_in_for_cons:
+    forall e1 e2 n1 n2 x i c2 c1 p,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    IPairIn p (WFor Conc.Skip x (NNum (S n1), NNum n2) i c2) ->
+    IPairIn p (WFor c1 x (e1, e2) i c2).
+  Proof.
+    intros.
+    inversion H2; subst; clear H2.
+    - apply c_pair_in_skip in H5.
+      contradiction.
+    - apply i_one_of_skip_l in H14.
+      contradiction.
+    - assert (n0 = S n1) by eauto using n_step_num, n_step_fun.
+      assert (n3 = n2) by eauto using n_step_num, n_step_fun.
+      subst.
+      eapply i_pair_in_for_mid_3; eauto.
+    - assert (n0 = S n1) by eauto using n_step_num, n_step_fun.
+      assert (n3 = n2) by eauto using n_step_num, n_step_fun.
+      subst.
+      eapply i_pair_in_for_mid_1 with (n:=n); eauto.
+      lia.
+    - assert (n0 = S n1) by eauto using n_step_num, n_step_fun.
+      assert (n3 = n2) by eauto using n_step_num, n_step_fun.
+      subst.
+      eapply i_pair_in_for_mid_2 with (n:=n); eauto.
+      lia.
+    - assert (n0 = S n1) by eauto using n_step_num, n_step_fun.
+      assert (n3 = n2) by eauto using n_step_num, n_step_fun.
+      subst.
+      eapply i_pair_in_for_mid_3 with (n:=n); eauto.
+      lia.
+    - assert (n0 = S n1) by eauto using n_step_num, n_step_fun.
+      assert (n3 = n2) by eauto using n_step_num, n_step_fun.
+      subst.
+      eapply i_pair_in_for_last_1; eauto.
+    - assert (n0 = S n1) by eauto using n_step_num, n_step_fun.
+      assert (n3 = n2) by eauto using n_step_num, n_step_fun.
+      subst.
+      eapply i_pair_in_for_last_2; eauto.
+    - assert (n0 = S n1) by eauto using n_step_num, n_step_fun.
+      assert (n3 = n2) by eauto using n_step_num, n_step_fun.
+      subst.
+      eapply i_pair_in_for_last_3; eauto.
+  Qed.
+
   Lemma run_1:
     forall i h,
     WRun i h ->
@@ -1116,7 +1182,7 @@ Section Defs.
             2: {
               intros N. contradict Hv. destruct N as [?|[N|?]]; auto; try contradiction. 
             }
-            admit.
+            eapply i_pair_in_for_cons; eauto.
           }
           (* are we mid or are we last? *)
           inversion H1; subst; clear H1. {
