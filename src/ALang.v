@@ -1010,12 +1010,12 @@ Section Defs.
   Lemma i_one_of_2:
     forall c1 c2 i h v n1 n2 x p,
     Conc.RunAll TID_COUNT c1 h ->
-    WRun (WFor Conc.Skip x (NNum (S n1), NNum (S n2)) i c2) v ->
+    WRun (WFor Conc.Skip x (NNum n1, NNum n2) i c2) v ->
     MOneOf p h (first v) ->
     ~ Conc.Var TID c1 ->
     ~ WVar TID i ->
     exists c,
-    GetFirst (w_subst x (NNum (S n1)) i) c /\
+    GetFirst (w_subst x (NNum n1) i) c /\
     IOneOf p c1 c.
   Proof.
     intros.
@@ -1077,6 +1077,24 @@ Section Defs.
       unfold IOneOf;
       eapply c_in_1 in H0; eauto; exists ci; intuition
       .
+  Qed.
+
+  Lemma i_one_of_4:
+    forall c1 h1 i m1 p,
+    Conc.RunAll TID_COUNT c1 h1 ->
+    WRun i m1 ->
+    MOneOf p h1 (first m1) ->
+    ~ Conc.Var TID c1 ->
+    ~ WVar TID i ->
+    exists c, GetFirst i c /\ IOneOf p c1 c.
+  Proof.
+    intros.
+    destruct p as (a1, a2).
+    destruct H1 as [(Hi,Hj)|(Hi,Hj)];
+      eapply c_in_1 in Hi; eauto;
+      eapply i_first_1 in Hj; eauto;
+      eapply i_first_to_get_first in Hj;
+      destruct Hj as (c, (Hj,Hij)); unfold IOneOf; exists c; auto.
   Qed.
 
   Lemma c_pair_in_skip:
@@ -1152,6 +1170,18 @@ Section Defs.
       simpl in *;
       destruct H as [(Hi,Hj)|(Hi,Hj)];
       apply in_app_iff in Hj; intuition.
+  Qed.
+
+  Lemma m_one_of_inv_first_seq_l:
+    forall p h v1 v2,
+    MOneOf p h (first (v1 @ v2)) ->
+    MOneOf p h (first v1) \/ MOneOf p h (first v2).
+  Proof.
+    destruct v1; simpl; intros. {
+      apply m_one_of_inv_first_prefix_l in H.
+      intuition.
+    }
+    auto.
   Qed.
 
   Lemma run_1:
@@ -1248,6 +1278,13 @@ Section Defs.
         }
         destruct n2. { lia. }
         eapply i_pair_in_for_mid_2 with (n:=n1); eauto.
+      }
+      apply m_one_of_inv_first_seq_l in Hi.
+      destruct Hi as [Hi|Hi]. {
+        eapply i_one_of_4 in Hi; eauto.
+        2: { intros N. apply wvar_subst_inv_1 in N. intuition. }
+        destruct Hi as (c, (Hg, Hi)).
+        eapply i_pair_in_for_first_2; eauto.
       }
       admit.
     - subst.
