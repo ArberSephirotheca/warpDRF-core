@@ -506,19 +506,16 @@ Section Defs.
     Translate j pj ->
     PSeq pi pj p ->
     Translate (ALang.Seq i j) p
-  | translate_for_1:
-    forall i c x r,
-    Translate i (Phased1 c) ->
-    Translate (ALang.For x r i) (Phased1 (Conc.For x r c))
-  | translate_for_2:
+  | translate_for:
     forall e1 e2 x i c b j,
+    let e1' := NBin NPlus e1 (NNum 1) in
+    let c' := Conc.i_subst x (NBin NMinus (NVar x) (NNum 1)) c in
     let e2' := NBin NMinus e2 (NNum 1) in
-    let x' := NBin NPlus (NNum 1) (NVar x) in
     Translate i (Phased2 b c) ->
-    Seq1 c (i_subst x x' b) j ->
+    Seq1 c' b j ->
     Translate (ALang.For x (e1, e2) i) (
       Phased2
-        (Seq (i_subst x e1 b) (For x (e1, e2') j))
+        (Seq (i_subst x e1 b) (For x (e1', e2) j))
         (Conc.i_subst x e2' c)
     ).
 
@@ -536,7 +533,7 @@ Section Defs.
       + auto using norm_subst.
       + eapply seq1_to_norm; eauto using norm_subst.
   Qed.
-
+(*
   Lemma translate_exists:
     forall i,
     exists p, Translate i p.
@@ -555,17 +552,16 @@ Section Defs.
       eapply translate_seq; eauto.
     - destruct IHi as (p, Ht).
       destruct p as [c | i' c].
-      + eauto using translate_for_1.
-      + destruct r as (e1, e2).
-        assert (Hn: PNorm (Phased2 i' c)) by eauto using translate_to_norm.
-        simpl in Hn.
-        assert (Hn': exists p, Seq1 c (i_subst v (NBin NPlus (NNum 1) (NVar v)) i') p). {
-          auto using seq1_norm, norm_subst.
-        }
-        destruct Hn' as (p, Hn').
-        eexists.
-        apply translate_for_2; eauto.
-  Qed.
+      destruct r as (e1, e2).
+      assert (Hn: PNorm (Phased2 i' c)) by eauto using translate_to_norm.
+      simpl in Hn.
+      assert (Hn': exists p, Seq1 c (i_subst v (NBin NPlus (NNum 1) (NVar v)) i') p). {
+        auto using seq1_norm, norm_subst.
+      }
+      destruct Hn' as (p, Hn').
+      eexists.
+      apply translate_for_2; eauto.
+  Qed.*)
 
   Lemma phase_of_seq1:
     forall c i j,
@@ -579,121 +575,191 @@ Section Defs.
     reflexivity.
   Qed.
 
-  Lemma translate_phase_of:
-    forall i n,
-    Translate i n ->
-    forall ph1,
-    ALangTy.PhaseOf i ph1 ->
-    forall ph2,
-    PhaseOf2 n ph2 ->
-    PhEq ph1 ph2.
+  Lemma c_in_seq_l:
+    forall a i j,
+    ALang.CIn a i ->
+    ALang.CIn a (Conc.Seq i j).
   Proof.
-    intros i n H.
-    induction H; intros ph1 Hp1 ph2 Hp2.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - simpl in *.
-      inversion Hp2; subst; clear Hp2.
-      inversion Hp1; subst; clear Hp1.
-      eapply IHTranslate with (ph2:=phase_of2 (Phased2 b c)) in H7; eauto using phase_of2_to_prop.
-      + apply phase_of_inv_subst in H3.
-        subst.
-        apply phase_of_from_prop in H5.
-        subst.
-        simpl in *.
-        apply phase_of_seq1 in H0.
-        rewrite phase_of_subst_rw in H0.
-        rewrite <- H0.
-        admit.
-      + simpl.
-        eapply phase_of_to_prop.
-  Admitted.
-(*
-  Inductive PhTranslate: ALang.inst -> phased -> nat -> Prop :=
-  | ph_translate_block:
-    forall c,
-    PhTranslate (ALang.Block c) (Phased1 c) 0
-  | ph_translate_sync:
-    PhTranslate ALang.Sync (Phased2 Sync Conc.Skip) 1
-  | ph_translate_seq:
-    forall i j pi pj p,
-    Translate i pi ni ->
-    Translate j pj nj ->
-    PSeq pi pj p ->
-    PhTranslate (ALang.Seq i j) p (ni+nj)
-  | ph_translate_for_1:
-    forall i c x r,
-    PhTranslate i (Phased1 c) 0 ->
-    PhTranslate (ALang.For x r i) (Phased1 (Conc.For x r c)) 0
-  | ph_translate_for_2:
-    forall e1 e2 x i c b j,
-    let e2' := NBin NMinus e2 (NNum 1) in
-    let x' := NBin NPlus (NNum 1) (NVar x) in
-    PhTranslate i (Phased2 b c) n ->
-    Seq1 c (i_subst x x' b) j ->
-    PhTranslate (ALang.For x (e1, e2) i) (
-      Phased2
-        (Seq (i_subst x e1 b) (For x (e1, e2') j))
-        (Conc.i_subst x e2' c)
-    ).
+    intros.
+    inversion H; subst; clear H.
+    eapply ALang.c_in_def; auto.
+    auto using Conc.i_in_seq_l.
+  Qed.
 
-*)
+  Lemma c_in_seq_r:
+    forall a i j,
+    ALang.CIn a j ->
+    ALang.CIn a (Conc.Seq i j).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eapply ALang.c_in_def; auto.
+    auto using Conc.i_in_seq_r.
+  Qed.
 
-  Lemma phase_to_phase2:
-    forall i n,
-    ALang.Phase i n ->
+  Lemma c_pair_in_seq_l:
+    forall a i j,
+    CPairIn a i ->
+    CPairIn a (Conc.Seq i j).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    apply c_pair_in_def; auto using c_in_seq_l.
+  Qed.
+
+  Lemma c_pair_in_seq_r:
+    forall a i j,
+    CPairIn a j ->
+    CPairIn a (Conc.Seq i j).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    apply c_pair_in_def; auto using c_in_seq_r.
+  Qed.
+
+  Lemma c_pair_in_seq1_l:
+    forall c i j,
+    Seq1 c i j ->
+    forall a,
+    CPairIn a c ->
+    Phased.IPairIn a j.
+  Proof.
+    intros c i j H.
+    induction H; intros a Hp.
+    - auto using Phased.i_pair_in_block.
+    - apply Phased.i_pair_in_block.
+      auto using c_pair_in_seq_l.
+    - auto using Phased.i_pair_in_seq_l.
+  Qed.
+
+  Lemma c_pair_in_seq1_r:
+    forall c i j,
+    Seq1 c i j ->
     forall p,
-    Translate i p ->
-    Phase2 p n.
+    Phased.IPairIn p i ->
+    Phased.IPairIn p j.
   Proof.
-    intros i n H.
-    induction H; intros p Ht.
-    - inversion Ht; subst; clear Ht.
-      apply phase2_1.
-    - inversion Ht; subst; clear Ht.
-      simpl.
-      apply phase_sync.
-    - inversion Ht; subst; clear Ht.
-      eapply phase2_pseq with (p1:=pi) (p2:=pj); eauto.
-    - assert (Ht1: exists p, Translate (ALang.i_subst x (NNum n1) i) p) by auto using translate_exists.
-      destruct Ht1 as (p1, Ht1).
-      assert (IHPhase1 := IHPhase1 _ Ht1).
-      assert (Ht2: exists p, Translate (For x (NNum (S n1), e2) i) p) by auto using translate_exists.
-      destruct Ht2 as (p2, Ht2).
-      assert (IHPhase2 := IHPhase2 _ Ht2).
-      subst.
-      inversion Ht; subst; clear Ht. {
-        admit.
-      }
-      simpl.
-      eapply phase_seq; eauto.
-      + admit.
-      + admit.
-    - admit.
-  Admitted.
+    intros c i j H.
+    induction H; intros p Hi.
+    - inversion Hi.
+    - apply Phased.i_pair_in_block.
+      inversion Hi; subst; clear Hi.
+      auto using c_pair_in_seq_r.
+    - inversion Hi; subst; clear Hi;
+      auto using Phased.i_pair_in_seq_l, Phased.i_pair_in_seq_r.
+  Qed.
 
-  Lemma in_phase_spec:
-    forall i,
-    forall a n,
-    ALang.InPhase a n i ->
-    forall p,
-    Translate i p ->
-    InPhase2 a n p.
+  Lemma p_pair_in_seq2_l:
+    forall a c p q,
+    CPairIn a c ->
+    Seq2 c p q ->
+    PPairIn a q.
   Proof.
-    intros i a n H.
-    induction H; intros p Heq; simpl in *; inversion Heq; subst; clear Heq; simpl.
-    - auto.
-    - apply IHInPhase in H2.
-      (* Sequence 1 *)
+    intros.
+    inversion H0; subst; clear H0. {
+      simpl.
+      auto using c_pair_in_seq_l.
+    }
+    simpl.
+    eauto using c_pair_in_seq1_l.
+  Qed.
+
+  Lemma p_pair_in_seq2_r:
+    forall p i j c,
+    PPairIn p i ->
+    Seq2 c i j ->
+    PPairIn p j.
+  Proof.
+    intros.
+    inversion H0; subst; clear H0; simpl in *.
+    - auto using c_pair_in_seq_r.
+    - intuition.
+      eauto using c_pair_in_seq1_r.
+  Qed.
+
+  Lemma p_pair_in_seq3_l:
+    forall a i j,
+    Phased.IPairIn a i ->
+    PPairIn a (seq3 i j).
+  Proof.
+    intros.
+    destruct j; simpl; auto.
+    auto using i_pair_in_seq_l.
+  Qed.
+
+  Lemma p_pair_in_seq3_r:
+    forall p j i,
+    PPairIn p j ->
+    PPairIn p (seq3 i j).
+  Proof.
+    intros.
+    destruct j as [c|c j]; simpl in *; auto.
+    intuition.
+    auto using Phased.i_pair_in_seq_r.
+  Qed.
+
+  Lemma p_pair_in_seq_l:
+    forall a b c p,
+    PPairIn p a ->
+    PSeq a b c ->
+    PPairIn p c.
+  Proof.
+    intros.
+    inversion H0; subst; clear H0. {
+      simpl in *.
+      eauto using p_pair_in_seq2_l.
+    }
+    simpl in *.
+    destruct H as [Hi|Hi]. {
+      auto using p_pair_in_seq3_l.
+    }
+    eauto using p_pair_in_seq2_l, p_pair_in_seq3_r.
+  Qed.
+
+  Lemma p_pair_in_seq_r:
+    forall i j k p,
+    PPairIn p j ->
+    PSeq i j k ->
+    PPairIn p k.
+  Proof.
+    intros.
+    inversion H0; subst; clear H0. {
+      simpl in *.
+      eauto using p_pair_in_seq2_r.
+    }
+    simpl in *.
+    eauto using p_pair_in_seq2_r, p_pair_in_seq3_r.
+  Qed.
+
+  Lemma translate_1:
+    forall a i,
+    ALang.IPairIn a i ->
+    forall p,
+    Translate (w_to_i i) p ->
+    PPairIn a p.
+  Proof.
+    intros i a H.
+    induction H; simpl; intros pi Ht; inversion Ht; subst; clear Ht.
+    - inversion H2; subst; clear H2.
+      inversion H3; subst; clear H3.
+      inversion H5; subst; clear H5.
+      inversion H1; subst; clear H1.
+      inversion H4; subst; clear H4.
+      simpl.
+      left.
+      constructor.
+      assumption.
+    - eauto using p_pair_in_seq_l.
+    - eauto using p_pair_in_seq_r.
+    - (* seq both *)
       admit.
-    - (* Sequence 2 *)
-      assert (InPhase2 a m pj) by auto.
-      admit.
-    - (* conc-loop *)
-      admit.
-    - 
+    - inversion H5; subst; clear H5.
+      inversion H8; subst; clear H8.
+      inversion H6; subst; clear H6.
+      inversion H10; subst; clear H10.
+      inversion H7; subst; clear H7.
+      inversion H4; subst; clear H4.
+      inversion H8; subst; clear H8.
       admit.
     - admit.
     - admit.

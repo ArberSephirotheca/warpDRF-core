@@ -286,6 +286,12 @@ Section Defs.
       contradiction.
   Qed.
 
+  Definition PPairIn a (p: phased) : Prop :=
+    match p with
+    | Phased1 c => CPairIn a c
+    | Phased2 i c =>  IPairIn a i \/ CPairIn a c
+    end.
+
   Inductive Phase : inst -> nat -> Prop :=
   | phase_block:
     forall c,
