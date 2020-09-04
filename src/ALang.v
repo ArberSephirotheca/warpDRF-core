@@ -337,6 +337,22 @@ Section Defs.
       eauto.
   Qed.
 
+  Definition HasMany (v:vhist) : Prop :=
+    match v with
+    | v_one _ => False
+    | v_cons _ _ => True
+    end.
+
+  Lemma wrun_has_many:
+    forall i v,
+    WRun i v ->
+    HasMany v.
+  Proof.
+    intros.
+    destruct v; simpl; auto.
+    apply wrun_one in H.
+    assumption.
+  Qed.
 
   Lemma w_run_inv_for_skip:
     forall x n1 n2 i c m,
@@ -1174,6 +1190,18 @@ Section Defs.
 
   Lemma m_one_of_inv_first_seq_l:
     forall p h v1 v2,
+    HasMany v1 ->
+    MOneOf p h (first (v1 @ v2)) ->
+    MOneOf p h (first v1).
+  Proof.
+    destruct v1; simpl; intros. {
+      contradiction.
+    }
+    auto.
+  Qed.
+(*
+  Lemma m_one_of_inv_first_seq_l:
+    forall p h v1 v2,
     MOneOf p h (first (v1 @ v2)) ->
     MOneOf p h (first v1) \/ MOneOf p h (first v2).
   Proof.
@@ -1183,7 +1211,7 @@ Section Defs.
     }
     auto.
   Qed.
-
+*)
   Lemma run_1:
     forall i h,
     WRun i h ->
@@ -1279,32 +1307,46 @@ Section Defs.
         destruct n2. { lia. }
         eapply i_pair_in_for_mid_2 with (n:=n1); eauto.
       }
-      apply m_one_of_inv_first_seq_l in Hi.
-      destruct Hi as [Hi|Hi]. {
-        eapply i_one_of_4 in Hi; eauto.
-        2: { intros N. apply wvar_subst_inv_1 in N. intuition. }
-        destruct Hi as (c, (Hg, Hi)).
-        eapply i_pair_in_for_first_2; eauto.
-      }
-      admit.
+      apply m_one_of_inv_first_seq_l in Hi. 2: { eauto using wrun_has_many. }
+      eapply i_one_of_4 in Hi; eauto.
+      2: { intros N. apply wvar_subst_inv_1 in N. intuition. }
+      destruct Hi as (c, (Hg, Hi)).
+      eapply i_pair_in_for_first_2; eauto.
     - subst.
       apply m_pair_in_inv_prefix in Hi.
       destruct Hi as [Hi|[Hi|Hi]].
       + (* c1 *)
-        admit.
+        eapply c_pair_in_def_2 in Hi; eauto.
+        eauto using i_pair_in_for_first_1.
       + apply m_pair_in_inv_seq in Hi.
         destruct Hi as [Hi|[Hi|Hi]].
         * (* w_subst x (NNum n) i *)
-          admit.
+          apply IHWRun in Hi. 2: {
+            intros N. apply wvar_subst_inv_1 in N. intuition.
+          }
+          eauto using i_pair_in_for_1.
         * simpl in *.
           (* c2 *)
-          admit.
+          eapply i_pair_in_for_2; eauto.
+          eapply c_pair_in_def_2; eauto.
+          intros N.
+          apply Conc.var_subst_inv_1 in N.
+          intuition.
         * simpl in *.
           (* c2 / w_subst x (NNum n) i *)
-          admit.
+          eapply i_one_of_3 in Hi; eauto.
+          2: { intros N. apply wvar_subst_inv_1 in N. intuition. }
+          2: { intros N. apply Conc.var_subst_inv_1 in N. intuition. }
+          destruct Hi as (c', (Hg, Hi)).
+          eapply i_pair_in_for_3 with (n:=n); eauto.
       + (* c1 / w_subst x (NNum n) i *)
-        admit.
-  Admitted.
+        apply m_one_of_inv_first_seq_l in Hi.
+        2: { eauto using wrun_has_many. }
+        eapply i_one_of_4 in Hi; eauto.
+        2: { intros N. apply wvar_subst_inv_1 in N. intuition. }
+        destruct Hi as (c, (Hg, Hi)).
+        eauto using i_pair_in_for_first_2.
+  Qed.
 
 (* ------------------------------ PHASE -------------------------- *)
   (* Count how many phases this instruction yields. *)
