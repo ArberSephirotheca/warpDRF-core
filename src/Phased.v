@@ -5,6 +5,7 @@ Require Import AccExp.
 Require Import Tasks.
 Require Import VHist.
 Require Conc.
+
 Require Import ALang.
 
 Require Import Lia.
@@ -202,6 +203,88 @@ Section Defs.
   .
 
   (* ----------------------- Acces membership ---------------------- *)
+
+  Inductive IPairIn (p:access_val * access_val) : inst -> Prop :=
+  | i_pair_in_block:
+    forall c,
+    CPairIn p c ->
+    IPairIn p (Block c)
+  | i_pair_in_seq_l:
+    forall i j,
+    IPairIn p i ->
+    IPairIn p (Seq i j)
+  | i_pair_in_seq_r:
+    forall i j,
+    IPairIn p j ->
+    IPairIn p (Seq i j)
+  | i_pair_in_for:
+    forall e1 e2 n1 n2 n i x,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 <= n < n2 ->
+    IPairIn p (i_subst x (NNum n) i) ->
+    IPairIn p (For x (e1, e2) i)
+  .
+
+  Lemma i_pair_in_for_cons:
+    forall e1 e2 n1 n2 x i p,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    IPairIn p (For x (NNum (S n1), NNum n2) i) ->
+    IPairIn p (For x (e1, e2) i).
+  Proof.
+    intros.
+    inversion H2; subst; clear H2.
+    assert (n0 = S n1) by eauto using n_step_num, n_step_fun.
+    assert (n3 = n2) by eauto using n_step_num, n_step_fun.
+    subst.
+    eapply i_pair_in_for with (n:=n); eauto.
+    lia.
+  Qed.
+
+  Lemma i_pair_in_1:
+    forall i m,
+    Run i m ->
+    ~ Var TID i ->
+    forall p,
+    PairInUtil.MPairIn p m ->
+    IPairIn p i.
+  Proof.
+    intros i m H.
+    induction H; intros Hv p Hi.
+    - apply PairInUtil.m_pair_in_nil in Hi.
+      contradiction.
+    - apply PairInUtil.m_pair_in_inv in Hi.
+      destruct Hi as [Hi|Hi]. {
+        constructor.
+        eapply c_pair_in_def_2; eauto.
+      }
+      apply PairInUtil.m_pair_in_nil in Hi.
+      contradiction.
+    - subst.
+      apply PairInUtil.m_pair_in_app_or in Hi.
+      simpl in *.
+      destruct Hi as [Hi|Hi]. {
+        eapply i_pair_in_seq_l; eauto.
+      }
+      eapply i_pair_in_seq_r; eauto.
+    - subst.
+      apply PairInUtil.m_pair_in_app_or in Hi.
+      destruct Hi as [Hi|Hi]. {
+        eapply i_pair_in_for with (n:=n1); eauto.
+        apply IHRun1; auto.
+        intros N.
+        apply var_subst_inv_1 in N.
+        simpl in *.
+        intuition.
+      }
+      apply IHRun2 in Hi.
+      2: { simpl in *. intuition. }
+      eauto using i_pair_in_for_cons.
+    - apply PairInUtil.m_pair_in_nil in Hi.
+      contradiction.
+  Qed.
 
   Inductive Phase : inst -> nat -> Prop :=
   | phase_block:
