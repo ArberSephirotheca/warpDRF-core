@@ -753,14 +753,7 @@ Section Defs.
     - eauto using p_pair_in_seq_r.
     - (* seq both *)
       admit.
-    - inversion H5; subst; clear H5.
-      inversion H8; subst; clear H8.
-      inversion H6; subst; clear H6.
-      inversion H10; subst; clear H10.
-      inversion H7; subst; clear H7.
-      inversion H4; subst; clear H4.
-      inversion H8; subst; clear H8.
-      admit.
+    - admit.
     - admit.
     - admit.
   Admitted.

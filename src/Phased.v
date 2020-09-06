@@ -258,7 +258,7 @@ Section Defs.
     - apply PairInUtil.m_pair_in_inv in Hi.
       destruct Hi as [Hi|Hi]. {
         constructor.
-        eapply c_pair_in_def_2; eauto.
+        eapply c_pair_in_1; eauto.
       }
       apply PairInUtil.m_pair_in_nil in Hi.
       contradiction.
