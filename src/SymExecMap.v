@@ -10,6 +10,7 @@ Require Import MExp.
 Require Import SymExec.
 Require Import SymExecMRun.
 Require Import SymExecEq.
+Require Import Lia.
 
 Import ListNotations.
 Import MHistNotations.
@@ -35,13 +36,13 @@ Section Defs.
 
   Definition DeclRun x r i m :=
     exists l ms,
-    RStep r l /\
+    RList r l /\
     BranchMap x i l ms /\
     m == summation ms.
 
   Lemma decl_run_def:
     forall x r i m l ms,
-    RStep r l ->
+    RList r l ->
     BranchMap x i l ms ->
     m == summation ms ->
     DeclRun x r i m.
@@ -51,7 +52,7 @@ Section Defs.
 
   Lemma decl_run_eq:
     forall x r i ms l,
-    RStep r l ->
+    RList r l ->
     BranchMap x i l ms ->
     DeclRun x r i (summation ms).
   Proof.
@@ -67,7 +68,7 @@ Section Defs.
     DeclRun x (NNum n1, NNum n2) i m.
   Proof.
     intros.
-    eapply decl_run_def; eauto using r_step_range_list.
+    eapply decl_run_def; eauto using r_list_range_list.
   Qed.
 
   Lemma decl_run_range_eq:
@@ -105,7 +106,7 @@ Section Defs.
     unfold DeclRun.
     intros.
     destruct H as (l', (ms', (Hr, (Hb, R)))).
-    apply r_step_to_range_list in Hr.
+    apply r_list_to_range_list in Hr.
     subst.
     eauto.
   Qed.
@@ -115,29 +116,10 @@ Section Defs.
     NStep e1 n1 ->
     NStep e2 n2 ->
     n1 >= n2 ->
-    RStep (e1, e2) [].
+    RList (e1, e2) [].
   Proof.
     intros.
-    eauto using r_step_def, range_list_nil.
-  Qed.
-
-  Lemma r_step_cons:
-    forall e1 e2 n1 n2 l,
-    NStep e1 n1 ->
-    NStep e2 n2 ->
-    n1 < n2 ->
-    RStep (NNum (S n1), NNum n2) l ->
-    RStep (e1, e2) (n1 :: l).
-  Proof.
-    intros.
-    apply r_step_to_range_list in H2.
-    symmetry in H2.
-    assert (Hx := r_step_range_list n1 n2).
-    eapply r_step_def; eauto.
-    apply range_list_cons; auto.
-    rewrite <- H2.
-    apply range_list_to_prop.
-    reflexivity.
+    eauto using r_list_def, range_list_nil.
   Qed.
 
   Lemma decl_run_cons:
@@ -156,15 +138,14 @@ Section Defs.
     exists (n1::l).
     exists (m1::ms).
     simpl.
-    split. { eauto using r_step_cons. }
+    split. { eauto using r_list_cons. }
     split. {
       apply map_cons; auto.
       intros N.
-      apply r_step_to_range_list in Hr.
+      apply r_list_to_range_list in Hr.
       subst.
       apply range_list_in_iff in N.
-      Import Omega.
-      omega.
+      lia.
     }
     repeat match goal with
       H: _ == _ |- _ => rewrite H; clear H

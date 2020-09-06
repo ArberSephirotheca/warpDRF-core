@@ -1,6 +1,6 @@
 Require Import Coq.Lists.List.
 
-Require Coq.omega.Omega.
+Require Import Coq.micromega.Lia.
 
 Require Import Var.
 Require Import NExp.
@@ -88,8 +88,7 @@ Section Compiler.
     apply c_i_in_to_t_in in Hiy.
 
     assert (X: access_tid x < access_tid y \/ access_tid y < access_tid x). {
-      Import Omega.
-      omega.
+      lia.
     }
     destruct X as [Hlt|Hlt]. {
       (* We know that x < y, thus T1 = y and T2 = x *)

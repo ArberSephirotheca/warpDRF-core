@@ -44,13 +44,13 @@ Section SO.
     NStep e2 n2 ->
     NStep (NBin o e1 e2) (eval_nbin o n1 n2). 
 
-  Inductive RStep: range -> list nat -> Prop :=
-  | r_step_def:
+  Inductive RList: range -> list nat -> Prop :=
+  | r_list_def:
     forall e1 e2 n1 n2 l,
     NStep e1 n1 ->
     NStep e2 n2 ->
     RangeList n1 n2 l ->
-    RStep (e1, e2) l.
+    RList (e1, e2) l.
 
   Fixpoint n_subst x v e :=
   match e with
@@ -142,17 +142,17 @@ Section SO.
     auto.
   Qed.
 
-  Definition r_step (r:range) :=
+  Definition r_list (r:range) :=
     let (e1, e2) := r in
     match n_step e1, n_step e2 with
     | Some n1, Some n2 => Some (range_list n1 n2)
     | _, _ => None
     end.
 
-  Lemma r_step_to_prop:
-    forall r n,
-    r_step r = Some n ->
-    RStep r n.
+  Lemma r_list_to_prop:
+    forall r l,
+    r_list r = Some l ->
+    RList r l.
   Proof.
     intros.
     destruct r as (e1, e2).
@@ -162,20 +162,20 @@ Section SO.
         apply n_step_to_prop in He1.
         apply n_step_to_prop in He2.
         inversion H; subst; clear H.
-        remember (range_list n0 n1).
+        remember (range_list _ _).
         symmetry in Heql.
         apply range_list_to_prop in Heql.
-        eauto using r_step_def.
+        eauto using r_list_def.
       }
       inversion H.
     }
     inversion H.
   Qed.
 
-  Lemma prop_to_r_step:
-    forall r n,
-    RStep r n ->
-    r_step r = Some n.
+  Lemma prop_to_r_list:
+    forall r l,
+    RList r l ->
+    r_list r = Some l.
   Proof.
     intros.
     destruct r as (e1, e2).
@@ -190,23 +190,23 @@ Section SO.
     reflexivity.
   Qed.
 
-  Lemma r_step_fun:
+  Lemma r_list_fun:
     forall r n1 n2,
-    RStep r n1 ->
-    RStep r n2 ->
+    RList r n1 ->
+    RList r n2 ->
     n1 = n2.
   Proof.
     intros.
-    apply prop_to_r_step in H.
-    apply prop_to_r_step in H0.
+    apply prop_to_r_list in H.
+    apply prop_to_r_list in H0.
     rewrite H in *.
     inversion H0.
     auto.
   Qed.
 
-  Lemma r_step_to_range_list:
+  Lemma r_list_to_range_list:
     forall n1 n2 l,
-    RStep (NNum n1, NNum n2) l ->
+    RList (NNum n1, NNum n2) l ->
     l = range_list n1 n2.
   Proof.
     intros.
@@ -217,15 +217,35 @@ Section SO.
     auto.
   Qed.
 
-  Lemma r_step_range_list:
+
+  Lemma r_list_range_list:
     forall n1 n2,
-    RStep (NNum n1, NNum n2) (range_list n1 n2).
+    RList (NNum n1, NNum n2) (range_list n1 n2).
   Proof.
     intros.
     remember (range_list _ _).
-    apply r_step_def with (n1:=n1) (n2:=n2); auto using n_step_num.
+    apply r_list_def with (n1:=n1) (n2:=n2); auto using n_step_num.
     apply range_list_to_prop.
     auto.
+  Qed.
+
+  Lemma r_list_cons:
+    forall e1 e2 n1 n2 l,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    RList (NNum (S n1), NNum n2) l ->
+    RList (e1, e2) (n1 :: l).
+  Proof.
+    intros.
+    apply r_list_to_range_list in H2.
+    symmetry in H2.
+    assert (Hx := r_list_range_list n1 n2).
+    eapply r_list_def; eauto.
+    apply range_list_cons; auto.
+    rewrite <- H2.
+    apply range_list_to_prop.
+    reflexivity.
   Qed.
 
   Inductive NTypes (l: list var) : nexp -> Prop :=
@@ -267,7 +287,7 @@ Section SO.
   Lemma r_progress:
     forall r,
     RTypes [] r ->
-    exists l, RStep r l.
+    exists l, RList r l.
   Proof.
     intros.
     destruct r as (e1, e2).
@@ -276,7 +296,7 @@ Section SO.
     destruct (n_progress e2) as (n2, Hn2); auto.
     destruct (range_list_progress n1 n2) as (l, Hr).
     exists l.
-    eauto using r_step_def.
+    eauto using r_list_def.
   Qed.
 
   Lemma add_inv_n_0:
@@ -811,9 +831,9 @@ Section SO.
     - apply IHNStep2 in H2; auto.
   Qed.
 
-  Lemma r_step_to_not_in:
+  Lemma r_list_to_not_in:
     forall r l,
-    RStep r l ->
+    RList r l ->
     forall x,
     ~ RIn x r.
   Proof.
@@ -884,9 +904,9 @@ Section SO.
     - apply in_n_subst_neq in H2; auto using r_in_r.
   Qed.
 
-  Lemma r_step_no_dup:
+  Lemma r_list_no_dup:
     forall l r,
-    RStep r l ->
+    RList r l ->
     NoDup l.
   Proof.
     intros.
@@ -1106,17 +1126,17 @@ Section SO.
 
   (* ------------------------ RSTEP --------------------------- *)
 
-  Lemma eq_r_step_subst_proper:
+  Lemma eq_r_list_subst_proper:
     forall x v v' e n, 
     NEq v v' ->
-    RStep (r_subst x v e) n ->
-    RStep (r_subst x v' e) n.
+    RList (r_subst x v e) n ->
+    RList (r_subst x v' e) n.
   Proof.
     intros.
     destruct e as (e1, e2).
     simpl in *.
     inversion H0; subst; clear H0.
-    eapply r_step_def; eauto.
+    eapply r_list_def; eauto.
     - rewrite <- H.
       assumption.
     - rewrite <- H.

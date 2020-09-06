@@ -10,6 +10,7 @@ Require Import MExp.
 Require Import PairInUtil.
 Require Import MultiHist.
 Require Import SymExec.
+Require Import Lia.
 
 Import ListNotations.
 Import MHistNotations.
@@ -187,15 +188,11 @@ Section Defs.
         rewrite IHERun2 with (e2:=m3); auto.
       + assert (n0 = n1) by eauto using n_step_fun; subst.
         assert (n3 = n2) by eauto using n_step_fun; subst.
-        Import Omega.
-        omega.
+        lia.
     - inversion H2; subst; clear H2;
       assert (n0 = n1) by eauto using n_step_fun; subst;
       assert (n3 = n2) by eauto using n_step_fun; subst
-      . {
-        Import Omega.
-        omega.
-      }
+      . { lia. }
       reflexivity.
   Qed.
 
@@ -472,11 +469,11 @@ Section Defs.
   Lemma f_run_inv_decl_r_step:
     forall x r i m,
     FRun (Decl x r i) m ->
-    exists l, RStep r l.
+    exists l, RList r l.
   Proof.
     intros.
     inversion H; subst; clear H;
-      eauto using r_step_def, range_list_to_prop.
+      eauto using r_list_def, range_list_to_prop.
   Qed.
 
   Lemma f_run_decl_1:
@@ -506,8 +503,7 @@ Section Defs.
     inversion H0; subst; clear H0;
     assert (n1 = n0) by eauto using n_step_fun; subst;
     assert (n3 = n2) by eauto using n_step_fun; subst.
-    + Import Omega.
-      omega.
+    + lia.
     + assumption.
   Qed.
 
@@ -536,8 +532,7 @@ Section Defs.
     assert (n1 = n0) by eauto using n_step_fun, n_step_num; subst;
     assert (n3 = n2) by eauto using n_step_fun, n_step_num; subst.
     + eauto.
-    + Import Omega.
-      omega.
+    + lia.
   Qed.
 
 
