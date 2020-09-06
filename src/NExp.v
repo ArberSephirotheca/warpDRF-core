@@ -2,7 +2,7 @@ Require Import Coq.Lists.List.
 Require Import Var.
 Require Import RangeList.
 Import ListNotations.
-Require Coq.omega.Omega.
+Require Import Coq.micromega.Lia.
 Require Import Coq.Classes.RelationPairs.
 
 Section Defs.
@@ -1155,6 +1155,322 @@ Section SO.
       simpl.
       rewrite H0.
       reflexivity.
+  Qed.
+
+  (* ------------------ ABSTRACTION OF RANGE ------------------------- *)
+
+
+  Inductive RStep : range -> nat -> range -> Prop :=
+  | r_step_def:
+    forall e1 e2 n1 n2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    RStep (e1, e2) n1 (NNum (S n1), NNum n2).
+
+  Inductive RFirst : range -> nat -> Prop :=
+  | r_first_def:
+    forall e1 e2 n1 n2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 < n2 ->
+    RFirst (e1, e2) n1.
+
+  Lemma r_first_refl_l:
+    forall e n,
+    ~ RFirst (e, e) n.
+  Proof.
+    intros.
+    intros N.
+    inversion N; subst; clear N.
+    assert (n2 = n) by eauto using n_step_fun.
+    subst.
+    lia.
+  Qed.
+
+  Lemma r_step_to_first:
+    forall r n r',
+    RStep r n r' ->
+    RFirst r n.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eauto using r_first_def.
+  Qed.
+
+  Lemma r_step_refl_l:
+    forall e n r,
+    ~ RStep (e, e) n r.
+  Proof.
+    intros.
+    intros N.
+    apply r_step_to_first in N.
+    apply r_first_refl_l in N.
+    assumption.
+  Qed.
+
+  Inductive ROne : range -> nat -> Prop :=
+  | r_one_def:
+    forall e1 e2 n,
+    NStep e1 n ->
+    NStep e2 (S n) ->
+    ROne (e1, e2) n.
+
+  Lemma r_one_to_first:
+    forall r n,
+    ROne r n ->
+    RFirst r n.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eapply r_first_def; eauto.
+  Qed.
+
+  Lemma r_one_refl_l:
+    forall e n,
+    ~ ROne (e, e) n.
+  Proof.
+    intros.
+    intros N.
+    apply r_one_to_first in N.
+    apply r_first_refl_l in N.
+    assumption.
+  Qed.
+
+  Definition RHasNext (r:range) :=
+    exists n, RFirst r n.
+
+  Inductive RPick : range -> nat -> Prop :=
+  | r_pick_def:
+    forall e1 e2 n1 n2 n,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 <= n < n2 ->
+    RPick (e1, e2) n.
+
+  Lemma r_first_to_pick:
+    forall r n,
+    RFirst r n ->
+    RPick r n.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eapply r_pick_def; eauto.
+  Qed.
+
+  Inductive RPick2 : range -> nat -> Prop :=
+  | r_pick2_def:
+    forall e1 e2 n1 n2 n,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 <= n ->
+    S n < n2 ->
+    RPick2 (e1, e2) n.
+
+  Lemma r_first_to_has_next:
+    forall r n,
+    RFirst r n ->
+    RHasNext r.
+  Proof.
+    intros.
+    unfold RHasNext.
+    eauto.
+  Qed.
+
+  Lemma r_one_to_has_next:
+    forall r n,
+    ROne r n ->
+    RHasNext r.
+  Proof.
+    intros.
+    apply r_one_to_first in H.
+    eauto using r_first_to_has_next.
+  Qed.
+
+  Lemma r_step_to_has_next:
+    forall r n r',
+    RStep r n r' ->
+    RHasNext r.
+  Proof.
+    intros.
+    apply r_step_to_first in H.
+    eauto using r_first_to_has_next.
+  Qed.
+
+  Lemma r_first_fun:
+    forall r n1 n2,
+    RFirst r n1 ->
+    RFirst r n2 ->
+    n1 = n2.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0.
+    assert (n1 = n2) by eauto using n_step_fun.
+    assert (n3 = n4) by eauto using n_step_fun.
+    subst.
+    reflexivity.
+  Qed.
+
+  Lemma r_step_first_fun:
+    forall r n1 r' n2,
+    RStep r n1 r' ->
+    RFirst r n2 ->
+    n1 = n2.
+  Proof.
+    intros.
+    apply r_step_to_first in H.
+    eauto using r_first_fun.
+  Qed.
+
+  Lemma r_first_inv_eq:
+    forall n e n',
+    RFirst (NNum n, e) n' ->
+    n = n'.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eauto using n_step_fun, n_step_num.
+  Qed.
+ 
+  Inductive REmpty : range -> Prop :=
+  | r_empty_def:
+    forall e1 e2 n1 n2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 >= n2 ->
+    REmpty (e1, e2).
+
+  Lemma r_empty_eq:
+    forall n,
+    REmpty (NNum n, NNum n).
+  Proof.
+    intros.
+    eapply r_empty_def; eauto using n_step_num.
+  Qed.
+
+  Inductive RLast : range -> nat -> Prop :=
+  | r_last_def:
+    forall e1 e2 n1 n2,
+    NStep e1 n1 ->
+    NStep e2 (S n2) ->
+    n1 < S n2 ->
+    RLast (e1, e2) n2.
+
+  Lemma r_step_last:
+    forall r1 n1 n r2,
+    RStep r1 n1 r2 ->
+    RLast r2 n ->
+    RLast r1 n.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0.
+    assert (n0 = S n1) by eauto using n_step_num, n_step_fun.
+    assert (n2 = S n) by eauto using n_step_num, n_step_fun.
+    subst.
+    eapply r_last_def; eauto.
+  Qed.
+
+  Lemma r_one_to_last:
+    forall r n,
+    ROne r n ->
+    RLast r n.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eapply r_last_def; eauto.
+  Qed.
+
+  Lemma r_step_to_pick:
+    forall r n r',
+    RStep r n r' ->
+    RPick r n.
+  Proof.
+    intros.
+    eauto using r_step_to_first, r_first_to_pick.
+  Qed.
+
+  Lemma r_step_pick_rev:
+    forall r n' r' n,
+    RStep r n' r' ->
+    RPick r' n ->
+    RPick r n.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0.
+    assert (n1 = S n') by eauto using n_step_fun, n_step_num.
+    assert (n0 = n2) by eauto using n_step_fun, n_step_num.
+    subst.
+    eapply r_pick_def; eauto.
+    lia.
+  Qed.
+
+  Lemma r_step_pick2_rev:
+    forall r n' r' n,
+    RStep r n' r' ->
+    RPick2 r' n ->
+    RPick2 r n.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0.
+    assert (n1 = S n') by eauto using n_step_fun, n_step_num.
+    assert (n0 = n2) by eauto using n_step_fun, n_step_num.
+    subst.
+    eapply r_pick2_def; eauto.
+    lia.
+  Qed.
+
+  Lemma r_step_unfold:
+    forall r1 n r2,
+    RStep r1 n r2 ->
+    REmpty r2 \/ RHasNext r2.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    inversion H2; subst; clear H2. {
+      left.
+      auto using r_empty_eq.
+    }
+    right.
+    unfold RHasNext.
+    exists (S n).
+    eapply r_first_def; eauto using n_step_num.
+    lia.
+  Qed.
+
+  Lemma r_empty_to_has_next:
+    forall r,
+    REmpty r ->
+    ~ RHasNext r.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    intros N.
+    destruct N as (x, N).
+    inversion N; subst; clear N.
+    assert (x = n1) by eauto using n_step_fun.
+    assert (n3 = n2) by eauto using n_step_fun.
+    subst.
+    lia.
+  Qed.
+
+  Lemma r_has_next_to_empty:
+    forall r,
+    RHasNext r ->
+    ~ REmpty r.
+  Proof.
+    intros.
+    destruct H as (n, H).
+    inversion H; subst; clear H.
+    intros N.
+    inversion N; subst; clear N.
+    assert (n = n1) by eauto using n_step_fun.
+    assert (n0 = n2) by eauto using n_step_fun.
+    subst.
+    lia.
   Qed.
 
 End SO.
