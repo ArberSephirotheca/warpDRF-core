@@ -230,6 +230,106 @@ Section Defs.
     induction H; intros i.
   Qed.
 *)
+
+  Lemma i_seq_subst:
+    forall i x n c,
+    i_subst x (NNum n) (i_seq c i) =
+    i_seq (Conc.i_subst x (NNum n) c) (i_subst x (NNum n) i).
+  Proof.
+    induction i; intros; simpl.
+    - reflexivity.
+    - rewrite IHi1.
+      reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        rewrite IHi1.
+        reflexivity.
+      }
+      rewrite IHi1.
+      reflexivity.
+  Qed.
+
+  Lemma seq_subst:
+    forall i x n j,
+    seq (p_subst x (NNum n) i) (p_subst x (NNum n) j) = 
+    p_subst x (NNum n) (seq i j).
+  Proof.
+    intros (i, ci).
+    generalize dependent ci.
+    destruct i; intros; simpl.
+    - destruct j as (j, cj).
+      simpl.
+      rewrite i_seq_subst.
+      reflexivity.
+    - destruct j as (j, cj).
+      simpl.
+      rewrite i_seq_subst.
+      auto.
+    - destruct j as (j, cj).
+      simpl.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        rewrite i_seq_subst.
+        reflexivity.
+      }
+      rewrite i_seq_subst.
+      auto.
+  Qed.
+
+
+  Lemma tr_subst:
+    forall i x n,
+    tr (w_subst x (NNum n) i) = p_subst x (NNum n) (tr i).
+  Proof.
+    induction i; intros.
+    - reflexivity.
+    - simpl.
+      rewrite IHi1.
+      rewrite IHi2.
+      rewrite seq_subst.
+      reflexivity.
+    - simpl.
+      destruct r as (e1, e2).
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        destruct (tr i0) as (b, c) eqn:R1.
+        simpl.
+        destruct (Set_VAR.MF.eq_dec v v) as [_|N]; try contradiction.
+        rewrite R1.
+        rewrite i_seq_subst.
+        admit.
+        (*
+        assert (i_subst v (NNum n) (i_subst v e1 b) = i_subst v e1 b). {
+          rewrite 
+        }
+        remember (Conc.i_subst v (NNum n) i) as i'.
+        remember (n_subst v (NNum n) e1) as e1'.
+        remember (n_subst v (NNum n) e2) as e2'.
+        remember (Conc.i_subst v (NBin NMinus (NVar v) (NNum 1)) c) as c'.
+        Conc.i_subst
+        rewrite i_subst_subst_eq_2.
+        *)
+      }
+      destruct (tr i0) as (b, c) eqn:R1.
+      simpl.
+      destruct (Set_VAR.MF.eq_dec x v). { contradiction. }
+      rewrite IHi.
+      simpl.
+      rewrite i_seq_subst.
+      rewrite i_seq_subst.
+      (*
+        remember (Conc.i_subst x (NNum n) i) as i'.
+        remember (n_subst x (NNum n) e1) as e1'.
+        remember (n_subst x (NNum n) e2) as e2'.
+        remember (i_subst x (NNum n) b) as b'.
+        remember (NBin NPlus e1' (NNum 1), e2') as r.
+        remember (Conc.i_subst x (NNum n) c) as c'.
+        remember (Conc.i_subst v (NBin NMinus (NVar v) (NNum 1)) c') as c''.
+        remember (Conc.i_subst v (NBin NMinus (NVar v) (NNum 1)) c) as c'''.
+        remember (i_subst v e1' b') as e1''.
+        remember (i_subst v e1 b) as e1'''.
+    *)
+  Admitted.
+
+
   Lemma translate_1:
     forall a i,
     WLang.IPairIn a i ->
@@ -242,6 +342,20 @@ Section Defs.
       assumption.
     - auto using p_pair_in_seq_l.
     - auto using p_pair_in_seq_r.
+    - admit.
+    - destruct r as (e1, e2).
+      destruct (tr i) as (b, c) eqn:Ht.
+      rewrite tr_subst in IHIPairIn.
+      simpl.
+      left.
+      apply i_pair_in_for_1.
+      rewrite Ht in *.
+      simpl in *.
+      admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
     - admit.
     - admit.
   Admitted.
