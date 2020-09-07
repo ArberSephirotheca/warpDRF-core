@@ -275,6 +275,39 @@ Section Defs.
     reflexivity.
   Qed.
 
+
+  Lemma m_one_of_inv_first_prefix_l:
+    forall p h1 h2 v,
+    MOneOf p h1 (first (v_prefix h2 v)) ->
+    MOneOf p h1 h2 \/ MOneOf p h1 (first v).
+  Proof.
+    intros.
+    destruct p as (a1, a2).
+    simpl in *.
+    destruct v as [h3 | h3 v];
+      simpl in *;
+      destruct H as [(Hi,Hj)|(Hi,Hj)];
+      apply in_app_iff in Hj; intuition.
+  Qed.
+
+  Definition HasMany (v:vhist) : Prop :=
+    match v with
+    | v_one _ => False
+    | v_cons _ _ => True
+    end.
+
+  Lemma m_one_of_inv_first_seq_l:
+    forall p h v1 v2,
+    HasMany v1 ->
+    MOneOf p h (first (v_seq v1 v2)) ->
+    MOneOf p h (first v1).
+  Proof.
+    destruct v1; simpl; intros. {
+      contradiction.
+    }
+    auto.
+  Qed.
+
   Inductive InPhase (a:access_val) : nat -> vhist -> Prop :=
   | in_phase_eq_one:
     forall h,

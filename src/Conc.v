@@ -7,6 +7,7 @@ Require Import BExp.
 Require Import AccExp.
 Require Import Util.
 Require Import Tasks.
+Require Import PairInUtil.
 Require Hist.
 
 Import ListNotations.
@@ -684,6 +685,184 @@ Section C1.
     simpl in *.
     inversion H1; subst; clear H1.
     reflexivity.
+  Qed.
+
+  (* --------------------------- ABSTRACT CONC -------------------------- *)
+
+  Inductive CIn : access_val -> inst -> Prop :=
+  | c_in_def:
+    forall a c,
+    access_tid a < TID_COUNT ->
+    IIn a c ->
+    CIn a c.
+
+  Lemma c_in_1:
+    forall c h a,
+    ~ Var TID c ->
+    RunAll TID_COUNT c h ->
+    List.In a h ->
+    CIn a c.
+  Proof.
+    intros c h a Hv Hr Hi.
+      eauto using c_in_def, run_all_inv_in_eq, run_all_to_i_in.
+  Qed.
+
+  Lemma c_in_2:
+    forall c h a,
+    ~ Var TID c ->
+    RunAll TID_COUNT c h ->
+    CIn a c ->
+    List.In a h.
+  Proof.
+    intros.
+    inversion H1; subst; clear H1.
+    eapply run_all_i_in_to_in; eauto.
+  Qed.
+
+  Lemma c_in_seq_l:
+    forall a i j,
+    CIn a i ->
+    CIn a (Seq i j).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eapply c_in_def; auto.
+    auto using i_in_seq_l.
+  Qed.
+
+  Lemma c_in_seq_r:
+    forall a i j,
+    CIn a j ->
+    CIn a (Seq i j).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eapply c_in_def; auto.
+    auto using i_in_seq_r.
+  Qed.
+
+  Lemma c_in_inv_seq:
+    forall a i j,
+    CIn a (Seq i j) ->
+    CIn a i \/ CIn a j.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    inversion H1; subst; clear H1; auto using c_in_def.
+  Qed.
+
+  Inductive CPairIn : (access_val * access_val) -> inst -> Prop :=
+  | c_pair_in_def:
+    forall a1 a2 c,
+    CIn a1 c ->
+    CIn a2 c ->
+    CPairIn (a1, a2) c.
+
+  Lemma c_pair_in_1:
+    forall c h p,
+    ~ Var TID c ->
+    RunAll TID_COUNT c h ->
+    PairIn p h ->
+    CPairIn p c.
+  Proof.
+    intros c h (a1, a2) Hv Hr Hi.
+    inversion Hi; subst; clear Hi.
+    eauto using c_pair_in_def, c_in_1.
+  Qed.
+
+  Lemma c_pair_in_seq_l:
+    forall a i j,
+    CPairIn a i ->
+    CPairIn a (Seq i j).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    apply c_pair_in_def; auto using c_in_seq_l.
+  Qed.
+
+  Lemma c_pair_in_seq_r:
+    forall a i j,
+    CPairIn a j ->
+    CPairIn a (Seq i j).
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    apply c_pair_in_def; auto using c_in_seq_r.
+  Qed.
+
+  Lemma c_in_skip:
+    forall a,
+    ~ CIn a Skip.
+  Proof.
+    intros.
+    intros N.
+    inversion N; subst; clear N.
+    inversion H0; subst; clear H0.
+  Qed.
+
+  Lemma c_in_seq_seq:
+    forall a c1 c2 c3,
+    CIn a (Seq (Seq c1 c2) c3) ->
+    CIn a (Seq c1 (Seq c2 c3)).
+  Proof.
+    intros.
+    apply c_in_inv_seq in H.
+    destruct H as [H|H]. {
+      apply c_in_inv_seq in H.
+      destruct H; auto using c_in_seq_l, c_in_seq_r.
+    }
+    auto using c_in_seq_l, c_in_seq_r.
+  Qed.
+
+  Lemma c_pair_in_skip:
+    forall p,
+    ~ CPairIn p Skip.
+  Proof.
+    intros.
+    intros N.
+    inversion N; subst; clear N.
+    apply c_in_skip in H.
+    contradiction.
+  Qed.
+
+  Lemma r_step_inv_next_eq:
+    forall r n r' n',
+    RStep r n r' ->
+    RFirst r' n' ->
+    n' = S n.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0.
+    assert (n' = S n) by eauto using n_step_num, n_step_fun.
+    auto.
+  Qed.
+
+  Lemma r_step_to_pick2:
+    forall r n r',
+    RStep r n r' ->
+    RHasNext r' ->
+    RPick2 r n.
+  Proof.
+    intros.
+    destruct r as (e1, e2).
+    inversion H; subst; clear H.
+    destruct H0 as (n', Hx).
+    inversion Hx; subst; clear Hx.
+    assert (n' = S n) by eauto using n_step_fun, n_step_num.
+    assert (n0 = n2) by eauto using n_step_fun, n_step_num.
+    subst.
+    eapply r_pick2_def; eauto.
+  Qed.
+
+  Lemma r_one_to_pick:
+    forall r n,
+    ROne r n ->
+    RPick r n.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eapply r_pick_def; eauto.
   Qed.
 
 End C1.

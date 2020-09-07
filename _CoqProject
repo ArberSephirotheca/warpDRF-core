@@ -15,6 +15,7 @@ src/Tasks.v
 src/Hist.v
 src/VHist.v
 src/ALang.v
+src/WLang.v
 src/PhaseExp.v
 src/AccSym.v
 src/ALangTy.v

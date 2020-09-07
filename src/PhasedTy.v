@@ -9,6 +9,7 @@ Require Import Phased.
 Require Import PhaseExp.
 Require Import AccSym.
 Require Import Lia.
+Require Import Conc.
 
 Require ALangTy.
 Require Conc.
@@ -574,11 +575,11 @@ Section Defs.
     rewrite IHSeq1.
     reflexivity.
   Qed.
-
+(*
   Lemma c_in_seq_l:
     forall a i j,
-    ALang.CIn a i ->
-    ALang.CIn a (Conc.Seq i j).
+    CIn a i ->
+    CIn a (Conc.Seq i j).
   Proof.
     intros.
     inversion H; subst; clear H.
@@ -616,12 +617,12 @@ Section Defs.
     inversion H; subst; clear H.
     apply c_pair_in_def; auto using c_in_seq_r.
   Qed.
-
+*)
   Lemma c_pair_in_seq1_l:
     forall c i j,
     Seq1 c i j ->
     forall a,
-    CPairIn a c ->
+    Conc.CPairIn a c ->
     Phased.IPairIn a j.
   Proof.
     intros c i j H.

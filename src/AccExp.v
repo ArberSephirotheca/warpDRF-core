@@ -211,7 +211,7 @@ Section Defs.
      The workaround is to require the user to [unfold cond_access_eval1].
      *)
   Global Arguments cond_access_eval1 _ : simpl never.
-
+(*
   Inductive CIn (x:var): cond_access -> Prop :=
   | c_in_access:
     forall e b,
@@ -221,7 +221,7 @@ Section Defs.
     forall e b,
     BIn x b ->
     CIn x (e,b).
-
+*)
   Lemma c_step_to_b_step:
     forall e b n v,
     CStep ((e,b), n) v ->
@@ -379,7 +379,7 @@ Section Defs.
     rewrite access_subst_subst_neq_2; auto.
     rewrite b_subst_subst_neq_2; auto.
   Qed.
-
+(*
   Lemma cond_access_subst_subst_trans:
     forall e x v y,
     ~ CIn x e ->
@@ -430,5 +430,5 @@ Section Defs.
     inversion Hi; subst; clear Hi.
     + eauto using c_in_access, access_in_subst_neq.
     + eauto using c_in_cond, in_b_subst_neq.
-  Qed.
+  Qed.*)
 End Defs.

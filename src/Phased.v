@@ -207,7 +207,7 @@ Section Defs.
   Inductive IPairIn (p:access_val * access_val) : inst -> Prop :=
   | i_pair_in_block:
     forall c,
-    CPairIn p c ->
+    Conc.CPairIn p c ->
     IPairIn p (Block c)
   | i_pair_in_seq_l:
     forall i j,
@@ -258,7 +258,7 @@ Section Defs.
     - apply PairInUtil.m_pair_in_inv in Hi.
       destruct Hi as [Hi|Hi]. {
         constructor.
-        eapply c_pair_in_1; eauto.
+        eapply Conc.c_pair_in_1; eauto.
       }
       apply PairInUtil.m_pair_in_nil in Hi.
       contradiction.
@@ -288,8 +288,8 @@ Section Defs.
 
   Definition PPairIn a (p: phased) : Prop :=
     match p with
-    | Phased1 c => CPairIn a c
-    | Phased2 i c =>  IPairIn a i \/ CPairIn a c
+    | Phased1 c => Conc.CPairIn a c
+    | Phased2 i c =>  IPairIn a i \/ Conc.CPairIn a c
     end.
 
   Inductive Phase : inst -> nat -> Prop :=
