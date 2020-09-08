@@ -20,7 +20,6 @@ src/PhaseExp.v
 src/AccSym.v
 src/ALangTy.v
 src/Phased.v
-src/PhasedTy.v
 src/NSync.v
 src/MultiHist.v
 src/AccExpImpl.v

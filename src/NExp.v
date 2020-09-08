@@ -1473,5 +1473,32 @@ Section SO.
     lia.
   Qed.
 
+  Lemma r_last_to_pick:
+    forall r n,
+    RLast r n ->
+    RPick r n.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eapply r_pick_def; eauto.
+    lia.
+  Qed.
+
+  Lemma r_last_to_eq:
+    forall e1 e2 n,
+    RLast (e1, e2) n ->
+    NStep (NBin NMinus e2 (NNum 1)) n.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    assert (R1: n = eval_nbin NMinus (S n) 1). {
+      simpl.
+      lia.
+    }
+    rewrite R1.
+    apply n_step_bin; auto.
+    auto using n_step_num.
+  Qed.
+
 End SO.
 

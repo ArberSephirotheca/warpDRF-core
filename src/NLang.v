@@ -11,22 +11,78 @@ Section Defs.
   Inductive n_inst :=
   | NSync: Conc.inst -> n_inst
   | NSeq: n_inst -> n_inst -> n_inst
-  | NFor : n_inst -> var -> range -> n_inst -> n_inst.
+  | NFor : n_inst -> range -> (nexp -> n_inst) -> n_inst.
 
   Definition p_inst := (n_inst * Conc.inst) % type.
 
-  Fixpoint i_seq (c:Conc.inst) (n:n_inst) : n_inst :=
+
+  Fixpoint c_seq (c1:Conc.inst) (c2:Conc.inst) :=
+    match c1 with
+    | Conc.Skip
+    | Conc.If _ _ _
+    | MemAcc _
+    | For _ _ _
+      => Conc.Seq c1 c2
+    | Seq c1 c3 => c_seq c1 (c_seq c3 c2)
+    end.
+
+  Fixpoint w_seq (c:Conc.inst) (i:w_inst) :=
+   match i with
+   | WSync c' => WSync (c_seq c c') 
+   | WSeq i j => WSeq (w_seq c i) j
+   | WFor c1 r i => WFor (c_seq c c1) r i
+   end.
+
+  Fixpoint n_seq (c:Conc.inst) (n:n_inst) : n_inst :=
     match n with
-    | NSync c' => NSync (Conc.Seq c c')
-    | NSeq i j => NSeq (i_seq c i) j
-    | NFor i x r j => NFor (i_seq c i) x r j
+    | NSync c' => NSync (c_seq c c')
+    | NSeq i j => NSeq (n_seq c i) j
+    | NFor i r j => NFor (n_seq c i) r j
     end.
 
-  Definition seq (i:p_inst) (j:p_inst) :=
+  Lemma n_seq_seq:
+    forall i c c',
+    n_seq (Conc.Seq c c') i = n_seq c (n_seq c' i).
+  Proof.
+    induction i; intros.
+    - simpl.
+      reflexivity.
+    - simpl.
+      rewrite IHi1.
+      auto.
+    - simpl.
+      rewrite IHi.
+      reflexivity.
+  Qed.
+
+  Lemma c_seq_seq:
+    forall c1 c2 c3,
+    c_seq (c_seq c1 c2) c3 = c_seq c1 (c_seq c2 c3).
+  Proof.
+    induction c1; intros; simpl; auto.
+    rewrite IHc1_1.
+    rewrite IHc1_2.
+    auto.
+  Qed.
+
+  Lemma n_seq_c_seq:
+    forall i c1 c2,
+    n_seq (c_seq c1 c2) i = n_seq c1 (n_seq c2 i).
+  Proof.
+    induction i; intros; simpl.
+    - rewrite c_seq_seq.
+      auto.
+    - rewrite IHi1.
+      auto.
+    - rewrite IHi.
+      auto.
+  Qed.
+
+  Definition p_seq (i:p_inst) (j:p_inst) :=
    match i, j with
-    | (i,ci), (j, cj) => (NSeq i (i_seq ci j), cj)
+    | (i,ci), (j, cj) => (NSeq i (n_seq ci j), cj)
     end.
-
+(*
   Fixpoint i_subst x v i :=
     match i with
     | NSync c => NSync (Conc.i_subst x v c)
@@ -40,24 +96,57 @@ Section Defs.
    match p with
     | (i, c) => (i_subst x v i, Conc.i_subst x v c)
     end.
-
+*)
   Fixpoint tr (i:w_inst) : p_inst :=
     match i with
+      (*
+        [[ c ; sync ]] =  [ c, skip ]
+        *) 
     | WSync c => (NSync c, Conc.Skip)
-    | WSeq i j => seq (tr i) (tr j)
-    | WFor c1 x (e1, e2) i c2 =>
-      let (b, c) := tr i in
-      let e1' := NBin NPlus e1 (NNum 1) in
-      let c' := Conc.i_subst x (NBin NMinus (NVar x) (NNum 1)) c in
-      let e2' := NBin NMinus e2 (NNum 1) in
+      (*
+        [[ P; Q ]] = [[P]] ;; [[Q]]
+        *) 
+    | WSeq i j => p_seq (tr i) (tr j)
+    | WFor c1 (e1, e2) f =>
+      (*
+      
+      [[  c1; for x \in (e1, e2] { f = \x. (P, c2) } ]] =
+        
+        c1; P'(e1);
+        for x \in (e1 + 1, e2) {
+          c'(x - 1); c2 (x - 1); P'(x)
+        }
+        ,
+        c'(e2 - 1); c2 (e2 - 1)
+        
+        
+        where F = \x. [[ fst(f(x)) ]] = P', c'
+            P' x = fst (F x)
+       *)
+      let i x := fst (tr (fst (f x))) in
+      let c e := Conc.Seq (snd (tr (fst (f e)))) (snd (f e)) in
       (
-        NFor (i_seq c1 (i_subst x e1 b)) x (e1', e2) (i_seq c' b),
-        Conc.i_subst x e2' c
+        NFor
+          (n_seq c1 (i e1))
+          (NBin NPlus e1 (NNum 1), e2)
+          (fun x =>
+            n_seq (c (NBin NMinus x (NNum 1))) (i x)
+          )
+        ,
+        c (NBin NMinus e2 (NNum 1))
       )
     end.
 
+
+  (*  (a1, a2) \in P *)
+
   Inductive IPairIn (p:access_val*access_val) : n_inst -> Prop :=
   | i_pair_in_sync:
+    (* 
+       p \in c
+       ------------
+       p \in c;sync
+      *)
     forall c,
     CPairIn p c ->
     IPairIn p (NSync c)
@@ -70,32 +159,32 @@ Section Defs.
     IPairIn p j ->
     IPairIn p (NSeq i j)
   | i_pair_in_for_1:
-    forall r i x j,
+    forall r i j,
     IPairIn p i ->
-    IPairIn p (NFor i x r j)
+    IPairIn p (NFor i r j)
   | i_pair_in_for_2:
-    forall r n i x j,
+    forall r n i j,
     RPick r n ->
-    IPairIn p (i_subst x (NNum n) j) ->
-    IPairIn p (NFor i x r j)
+    IPairIn p (j (NNum n)) ->
+    IPairIn p (NFor i r j)
   .
 
-  Fixpoint w_seq (c:Conc.inst) (i:w_inst) :=
-   match i with
-   | WSync c' => WSync (Conc.Seq c c') 
-   | WSeq i j => WSeq (w_seq c i) j
-   | WFor c1 x (e1, e2) i c2 => WFor (Conc.Seq c c1) x (e1, e2) i c2
-   end.
+
+  (*
+    p \in P \/ p \in c 
+    ------------------
+    p \in [P, c]
+    *)
 
   Definition PPairIn a (p:p_inst) : Prop :=
     match p with
     | (i, c) => IPairIn a i \/ CPairIn a c
     end.
-
-  Lemma i_pair_in_i_seq_l:
+(*
+  Lemma i_pair_in_n_seq_l:
     forall p c i,
     CPairIn p c ->
-    IPairIn p (i_seq c i).
+    IPairIn p (n_seq c i).
   Proof.
     intros.
     induction i; simpl.
@@ -142,63 +231,101 @@ Section Defs.
     left.
     auto using i_pair_in_seq_r, i_pair_in_i_seq_r.
   Qed.
-(*
-  Inductive TPairIn (p:access_val * access_val) : w_inst -> n_inst * Conc.inst -> Prop :=
+  *)
 
+  (*
+  
+   ---------------
+    p \in [[ P ]]
+  
+    *)
+
+  Inductive TPairIn a : w_inst -> Prop :=
   | t_pair_in_sync:
     forall c,
-    CPairIn p c ->
-    TPairIn p (WSync c) (NSync c, Conc.Skip)
+    CPairIn a c ->
+    TPairIn a (WSync c)
+  | t_pair_in_seq_l:
+    forall i j,
+    TPairIn a i ->
+    TPairIn a (WSeq i j).
 
-  | t_pair_seq_l:
-   forall i j,
-    TPairIn p i (i', c) ->
-    TPairIn p (WSeq i j) (
-    
-
-  | t_pair_in_seq_r:
+  Lemma tr_seq:
     forall i j c,
-    ALang.GetLast i c ->
-    TPairIn p (w_seq c j) ->
-    TPairIn p (WSeq i j)
-  (*
-  | t_pair_seq_last:
-    forall i j c,
-    ALang.GetLast j c ->
-    CPairIn p c ->
-    TPairIn p (WSeq i j)
-  | t_pair_for_1:
-    forall e1 e2 n1 n2 c1 c2 x i,
-    NStep e1 n1 ->
-    NStep e2 n2 ->
-    n1 < n2 ->
-    TPairIn p (w_seq c1 (i_subst x (NNum n1) i)) ->
-    TPairIn p (WFor c1 x (e1, e2) i c2).
-  | t_pair_for_2:
-  *)
-    .
-(*
-  Lemma t_pair_seq_r_eq:
-    forall p i j,
-    TPairIn p j ->
-    TPairIn p (WSeq i j).
+    tr i = (j, c) ->
+    forall c',
+    tr (w_seq c' i) = (n_seq c' j, c).
   Proof.
-    intros.
-    apply t_pair_in_seq_r with (c:=Conc.Skip).
+    induction i; intros; simpl in *.
+    - inversion H; subst; clear H.
+      simpl.
+      reflexivity.
+    - destruct (tr i1) as (j1, c1) eqn:R1.
+      assert (IHi1 := IHi1 _ _ eq_refl c').
+      destruct (tr i2) as (j2, c2) eqn:R2.
+      assert (IHi2 := IHi2 _ _ eq_refl c').
+      rewrite IHi1.
+      simpl in *.
+      inversion H; subst; clear H.
+      simpl.
+      reflexivity.
+    - destruct r as (e1, e2).
+      inversion H; subst; clear H.
+      simpl.
+      rewrite n_seq_c_seq.
+      auto.
   Qed.
-*)
-(*
-      let e1' := NBin NPlus e1 (NNum 1) in
-      let c' := Conc.i_subst x (NBin NMinus (NVar x) (NNum 1)) c in
-      let e2' := NBin NMinus e2 (NNum 1) in
-      (
-        NFor (i_seq c1 (i_subst x e1 b)) x (e1', e2) (i_seq c' b),
-        Conc.i_subst x e2' c
-      )
-*)
-*)
-(*
-  Lemma t_pair_in_1:
+
+  Lemma snd_p_seq:
+    forall i j,
+    snd (p_seq i j) = snd j.
+  Proof.
+    intros (i, ci) (j, cj).
+    destruct i; intros; simpl; auto.
+  Qed.
+
+  Inductive WF : w_inst -> Prop :=
+  | wf_sync:
+    forall c,
+    WF (WSync c)
+  | wf_seq:
+    forall i j,
+    WF i ->
+    WF j ->
+    WF (WSeq i j)
+  | wf_for:
+    forall i r j,
+    (forall n, RPick r n -> forall x, NEq (NNum n) x -> j (NNum n) = j x) ->
+    (forall n, RPick r n -> WF (fst (j (NNum n)))) ->
+    WF (WFor i r j).
+
+  Lemma translate_to_i_last:
+    forall a i,
+    ILast a i ->
+    WF i ->
+    Conc.CIn a (snd (tr i)).
+  Proof.
+    intros a i H.
+    induction H; intros Hw; inversion Hw; subst; clear Hw.
+    - simpl.
+      rewrite snd_p_seq.
+      auto.
+    - simpl.
+      destruct r as (e1, e2).
+      simpl.
+      apply c_in_seq_l.
+      assert (Hi: CIn a (snd (tr (fst (b (NNum n)))))). {
+        apply IHILast.
+        apply H5.
+        auto using r_last_to_pick.
+      }
+    - destruct r as (e1, e2).
+      simpl.
+      apply c_in_seq_r.
+      admit.
+  Qed.
+
+  Lemma translate_1:
     forall a i,
     PPairIn a (tr i) ->
     TPairIn a i.
@@ -207,128 +334,43 @@ Section Defs.
     remember (tr i) as j.
     generalize dependent i.
     destruct j as (j, c).
-    simpl in *.
-    destruct H as [H|H].
-    2: {
-      intros i.
-      generalize dependent a.
+    destruct H as [H|H]. {
       generalize dependent c.
-      generalize dependent j.
-      induction i; intros; inversion Heqj; subst.
-      - apply c_pair_in_skip in H.
-        contradiction.
-      - simpl in *.
-        clear H1.
-        symmetry in Heqj.
-        destruct (tr i1) as (j1, c1) eqn:R1.
-        destruct (tr i2) as (j2, c2) eqn:R2.
-        simpl in *.
-        inversion Heqj; subst; clear Heqj.
-        assert (IHi2 := IHi2 j2 c a H eq_refl).
-        apply t_pair_in_seq_r with (c:=c1).
-        destruct i2 as (j2, c2).
-    induction H; intros i.
-  Qed.
-*)
-
-  Lemma i_seq_subst:
-    forall i x n c,
-    i_subst x (NNum n) (i_seq c i) =
-    i_seq (Conc.i_subst x (NNum n) c) (i_subst x (NNum n) i).
-  Proof.
-    induction i; intros; simpl.
-    - reflexivity.
-    - rewrite IHi1.
-      reflexivity.
-    - destruct (Set_VAR.MF.eq_dec x v). {
-        rewrite IHi1.
-        reflexivity.
-      }
-      rewrite IHi1.
-      reflexivity.
-  Qed.
-
-  Lemma seq_subst:
-    forall i x n j,
-    seq (p_subst x (NNum n) i) (p_subst x (NNum n) j) = 
-    p_subst x (NNum n) (seq i j).
-  Proof.
-    intros (i, ci).
-    generalize dependent ci.
-    destruct i; intros; simpl.
-    - destruct j as (j, cj).
-      simpl.
-      rewrite i_seq_subst.
-      reflexivity.
-    - destruct j as (j, cj).
-      simpl.
-      rewrite i_seq_subst.
-      auto.
-    - destruct j as (j, cj).
-      simpl.
-      destruct (Set_VAR.MF.eq_dec x v). {
-        rewrite i_seq_subst.
-        reflexivity.
-      }
-      rewrite i_seq_subst.
-      auto.
-  Qed.
-
-
-  Lemma tr_subst:
-    forall i x n,
-    tr (w_subst x (NNum n) i) = p_subst x (NNum n) (tr i).
-  Proof.
-    induction i; intros.
-    - reflexivity.
-    - simpl.
-      rewrite IHi1.
-      rewrite IHi2.
-      rewrite seq_subst.
-      reflexivity.
-    - simpl.
-      destruct r as (e1, e2).
-      destruct (Set_VAR.MF.eq_dec x v). {
-        subst.
-        destruct (tr i0) as (b, c) eqn:R1.
-        simpl.
-        destruct (Set_VAR.MF.eq_dec v v) as [_|N]; try contradiction.
-        rewrite R1.
-        rewrite i_seq_subst.
-        admit.
-        (*
-        assert (i_subst v (NNum n) (i_subst v e1 b) = i_subst v e1 b). {
-          rewrite 
-        }
-        remember (Conc.i_subst v (NNum n) i) as i'.
-        remember (n_subst v (NNum n) e1) as e1'.
-        remember (n_subst v (NNum n) e2) as e2'.
-        remember (Conc.i_subst v (NBin NMinus (NVar v) (NNum 1)) c) as c'.
-        Conc.i_subst
-        rewrite i_subst_subst_eq_2.
-        *)
-      }
-      destruct (tr i0) as (b, c) eqn:R1.
-      simpl.
-      destruct (Set_VAR.MF.eq_dec x v). { contradiction. }
-      rewrite IHi.
-      simpl.
-      rewrite i_seq_subst.
-      rewrite i_seq_subst.
-      (*
-        remember (Conc.i_subst x (NNum n) i) as i'.
-        remember (n_subst x (NNum n) e1) as e1'.
-        remember (n_subst x (NNum n) e2) as e2'.
-        remember (i_subst x (NNum n) b) as b'.
-        remember (NBin NPlus e1' (NNum 1), e2') as r.
-        remember (Conc.i_subst x (NNum n) c) as c'.
-        remember (Conc.i_subst v (NBin NMinus (NVar v) (NNum 1)) c') as c''.
-        remember (Conc.i_subst v (NBin NMinus (NVar v) (NNum 1)) c) as c'''.
-        remember (i_subst v e1' b') as e1''.
-        remember (i_subst v e1 b) as e1'''.
-    *)
+      induction H; intros c' i' Hr; symmetry in Hr.
+      - destruct i'; inversion Hr; subst; clear Hr.
+        + constructor.
+          auto.
+        + destruct (tr i'1); simpl in *.
+          destruct (tr i'2); simpl in *.
+          inversion H1; subst; clear H1.
+        + destruct r as (e1, e2).
+          inversion H1.
+      - destruct i'; simpl in *; inversion Hr.
+        + destruct (tr i'1) as (i1, c1) eqn:R1.
+          destruct (tr i'2) as (i2, c2) eqn:R2.
+          simpl in *.
+          inversion Hr; subst; clear Hr.
+          symmetry in R1.
+          apply IHIPairIn in R1.
+          auto using t_pair_in_seq_l.
+        + destruct r as (e1, e2).
+          inversion H1.
+      - destruct i'; simpl in *; inversion Hr.
+        + destruct (tr i'1) as (i1, c1) eqn:R1.
+          destruct (tr i'2) as (i2, c2) eqn:R2.
+          simpl in *.
+          inversion Hr; subst; clear Hr.
+          symmetry in R2.
+          assert (Hx: (n_seq c1 i2, c') = tr (w_seq c1 i'2)). {
+            erewrite tr_seq; eauto.
+          }
+          apply IHIPairIn in Hx.
+          assert (IHIPairIn := IHIPairIn c' (w_seq c1 i'2)).
+          apply IHIPairIn in R2.
+          auto using t_pair_in_seq_l.
+          
+    }
   Admitted.
-
 
   Lemma translate_1:
     forall a i,
@@ -336,23 +378,27 @@ Section Defs.
     PPairIn a (tr i).
   Proof.
     intros i a H.
-    induction H; simpl.
+    induction H; simpl;
+      try rename b into i;
+      try destruct r as (e1, e2);
+      try remember (fst (i (NNum n))) as i_n.
     - left.
       constructor.
       assumption.
     - auto using p_pair_in_seq_l.
     - auto using p_pair_in_seq_r.
     - admit.
-    - destruct r as (e1, e2).
+    - (*
       destruct (tr i) as (b, c) eqn:Ht.
       rewrite tr_subst in IHIPairIn.
       simpl.
       left.
       apply i_pair_in_for_1.
       rewrite Ht in *.
-      simpl in *.
+      simpl in *. *)
       admit.
-    - admit.
+    - 
+      admit.
     - admit.
     - admit.
     - admit.
