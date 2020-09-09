@@ -11,11 +11,38 @@ Section Defs.
   Inductive n_inst :=
   | NSync: Conc.inst -> n_inst
   | NSeq: n_inst -> n_inst -> n_inst
-  | NFor : n_inst -> range -> (nexp -> n_inst) -> n_inst.
+  | NFor : n_inst -> var -> range -> n_inst -> n_inst.
+
+  Fixpoint subst x v i :=
+    match i with
+    | NSync c => NSync (Conc.i_subst x v c)
+    | NSeq i1 i2 => NSeq (subst x v i1) (subst x v i2)
+    | NFor P y r Q =>
+      let Q' := if VAR.eq_dec x y
+        then Q
+        else subst x v Q
+      in
+      NFor (subst x v P) y (r_subst x v r) Q'
+    end.
 
   Definition p_inst := (n_inst * Conc.inst) % type.
-
-
+(*
+  Inductive IEq : n_inst -> n_inst -> Prop :=
+  | i_eq_sync:
+    forall c c',
+    CEq c c' ->
+    IEq (NSync c) (NSync c')
+  | i_eq_seq:
+    forall P P' Q Q',
+    IEq P P' ->
+    IEq Q Q' ->
+    IEq (NSeq P Q) (NSeq P' Q')
+  | i_eq_for:
+    forall P P' e1 e2 Q Q',
+    IEq P P' ->
+    (forall n n', NEq n n' -> IEq (Q n) (Q' n')) ->
+    IEq (NFor P (e1, e2) Q) (NFor P' (e1', e2') Q).
+*)
   Fixpoint c_seq (c1:Conc.inst) (c2:Conc.inst) :=
     match c1 with
     | Conc.Skip
@@ -30,14 +57,14 @@ Section Defs.
    match i with
    | WSync c' => WSync (c_seq c c') 
    | WSeq i j => WSeq (w_seq c i) j
-   | WFor c1 r i => WFor (c_seq c c1) r i
+   | WFor c1 x r P c2 => WFor (c_seq c c1) x r P c2
    end.
 
   Fixpoint n_seq (c:Conc.inst) (n:n_inst) : n_inst :=
     match n with
     | NSync c' => NSync (c_seq c c')
     | NSeq i j => NSeq (n_seq c i) j
-    | NFor i r j => NFor (n_seq c i) r j
+    | NFor i x r j => NFor (n_seq c i) x r j
     end.
 
   Lemma n_seq_seq:
@@ -51,7 +78,7 @@ Section Defs.
       rewrite IHi1.
       auto.
     - simpl.
-      rewrite IHi.
+      rewrite IHi1.
       reflexivity.
   Qed.
 
@@ -74,7 +101,7 @@ Section Defs.
       auto.
     - rewrite IHi1.
       auto.
-    - rewrite IHi.
+    - rewrite IHi1.
       auto.
   Qed.
 
@@ -97,20 +124,53 @@ Section Defs.
     | (i, c) => (i_subst x v i, Conc.i_subst x v c)
     end.
 *)
-  Fixpoint tr (i:w_inst) : p_inst :=
+  Reserved Notation "P |> Q" (at level 80).
+
+  Inductive Translate : w_inst -> p_inst -> Prop :=
+  (*
+        [[ c ; sync ]] |> ( c, skip )
+  *) 
+  | translate_sync:
+    forall c,
+    WSync c |> (NSync c, Conc.Skip)
+
+  | translate_seq:
+    forall P P' Q Q' R,
+    P |> P' ->
+    Q |> Q' ->
+    R = p_seq P' Q' ->
+    (* --------- *)
+    WSeq P Q |> R  
+  
+  | translate_for:
+    forall x e1 e2 P c2 c1 P_e1 c_e1 P_dec_e2 P_dec_x c_dec_x c_dec_e2 P_x c_x P' c', 
+    w_subst x e1 P |> (P_e1, c_e1) ->
+    w_subst x (NBin NMinus (NVar x) (NNum 1)) P |> (P_dec_x , c_dec_x) ->
+    P |> (P_x, c_x) ->
+    w_subst x (NBin NMinus e2 (NNum 1)) P |> (P_dec_e2, c_dec_e2) ->
+    let c2_dec_x := Conc.i_subst x (NBin NMinus (NVar x) (NNum 1)) c2 in
+    let c2_dec_e2 := Conc.i_subst x (NBin NMinus e2 (NNum 1)) c2 in
+    P' =
+      NFor
+        (n_seq c1 P_e1) x (e1, e2)
+        (n_seq c_dec_x (n_seq c2_dec_x P_x)) ->
+    c' = c_seq c_dec_e2 c2_dec_e2 ->
+    WFor c1 x (e1, e2) P c2 |> (P', c')
+    
+  where " P |> Q" := (Translate P Q).
+
+  (*
+  Fixpoint tr i :=
     match i with
-      (*
-        [[ c ; sync ]] =  [ c, skip ]
-        *) 
     | WSync c => (NSync c, Conc.Skip)
       (*
         [[ P; Q ]] = [[P]] ;; [[Q]]
         *) 
-    | WSeq i j => p_seq (tr i) (tr j)
-    | WFor c1 (e1, e2) f =>
+    | WSeq P Q => p_seq [[ P ]] [[ Q ]]
+    | WFor c1 x (e1, e2) P c2 =>
       (*
       
-      [[  c1; for x \in (e1, e2] { f = \x. (P, c2) } ]] =
+      [[  c1; for x \in (e1, e2] { \x. P, \x. c2 } ]] =
         
         c1; P'(e1);
         for x \in (e1 + 1, e2) {
@@ -118,25 +178,23 @@ Section Defs.
         }
         ,
         c'(e2 - 1); c2 (e2 - 1)
+
         
-        
-        where F = \x. [[ fst(f(x)) ]] = P', c'
-            P' x = fst (F x)
        *)
-      let i x := fst (tr (fst (f x))) in
-      let c e := Conc.Seq (snd (tr (fst (f e)))) (snd (f e)) in
+      let P' e := fst ([[w_subst x e P ]]) in
+      let c' e := Conc.Seq (snd ([[w_subst x e P]])) (Conc.i_subst x e c2) in
       (
         NFor
-          (n_seq c1 (i e1))
+          (n_seq c1 (P' e1))
+          x
           (NBin NPlus e1 (NNum 1), e2)
-          (fun x =>
-            n_seq (c (NBin NMinus x (NNum 1))) (i x)
-          )
+          (n_seq (c' (NBin NMinus (NVar x) (NNum 1))) (P' (NVar x)))
         ,
-        c (NBin NMinus e2 (NNum 1))
+        c' (NBin NMinus e2 (NNum 1))
       )
-    end.
-
+    end
+    where "[[ P ]]" := (tr P).
+  *)
 
   (*  (a1, a2) \in P *)
 
@@ -159,14 +217,14 @@ Section Defs.
     IPairIn p j ->
     IPairIn p (NSeq i j)
   | i_pair_in_for_1:
-    forall r i j,
+    forall x r i j,
     IPairIn p i ->
-    IPairIn p (NFor i r j)
+    IPairIn p (NFor i x r j)
   | i_pair_in_for_2:
-    forall r n i j,
+    forall r n i j x,
     RPick r n ->
-    IPairIn p (j (NNum n)) ->
-    IPairIn p (NFor i r j)
+    IPairIn p (subst x (NNum n) j) ->
+    IPairIn p (NFor i x r j)
   .
 
 
@@ -249,10 +307,10 @@ Section Defs.
     forall i j,
     TPairIn a i ->
     TPairIn a (WSeq i j).
-
+(*
   Lemma tr_seq:
-    forall i j c,
-    tr i = (j, c) ->
+    forall P Q c,
+    P |> (Q, c) ->
     forall c',
     tr (w_seq c' i) = (n_seq c' j, c).
   Proof.
@@ -270,12 +328,12 @@ Section Defs.
       simpl.
       reflexivity.
     - destruct r as (e1, e2).
-      inversion H; subst; clear H.
+      inversion H0; subst; clear H0.
       simpl.
       rewrite n_seq_c_seq.
       auto.
   Qed.
-
+*)
   Lemma snd_p_seq:
     forall i j,
     snd (p_seq i j) = snd j.
@@ -284,6 +342,19 @@ Section Defs.
     destruct i; intros; simpl; auto.
   Qed.
 
+  Lemma p_seq_inv_snd:
+    forall P Q c Q' c',
+    p_seq P (Q, c) = (Q', c') ->
+    c' = c.
+  Proof.
+    intros.
+    destruct P as (P, c1).
+    simpl in *.
+    inversion H; subst; clear H.
+    reflexivity.
+  Qed.
+
+(*
   Inductive WF : w_inst -> Prop :=
   | wf_sync:
     forall c,
@@ -294,31 +365,82 @@ Section Defs.
     WF j ->
     WF (WSeq i j)
   | wf_for:
-    forall i r j,
-    (forall n, RPick r n -> forall x, NEq (NNum n) x -> j (NNum n) = j x) ->
-    (forall n, RPick r n -> WF (fst (j (NNum n)))) ->
-    WF (WFor i r j).
+    forall c1 r P c2,
+    (forall n, RPick r n -> forall x, NEq (NNum n) x -> WLang.IEq (P (NNum n)) (P x)) ->
+    (forall n, RPick r n -> WF (P (NNum n))) ->
+    WF (WFor c1 r P c2).
 
-  Lemma translate_to_i_last:
-    forall a i,
-    ILast a i ->
-    WF i ->
-    Conc.CIn a (snd (tr i)).
+  Definition IEq P Q :=
+    forall p, IPairIn p P <-> IPairIn p Q. 
+
+  Definition PEq P Q :=
+    forall p, PPairIn p P <-> PPairIn p Q.
+(*
+  Lemma tr_eq (*i_eq: forall p Q, WLang.IPairIn p Q <-> PPairIn p [[Q]]*):
+    forall P Q,
+    WLang.IEq P Q ->
+    Conc.CEq (snd (tr P)) (snd (tr Q)).
   Proof.
-    intros a i H.
-    induction H; intros Hw; inversion Hw; subst; clear Hw.
-    - simpl.
-      rewrite snd_p_seq.
-      auto.
-    - simpl.
-      destruct r as (e1, e2).
-      simpl.
-      apply c_in_seq_l.
-      assert (Hi: CIn a (snd (tr (fst (b (NNum n)))))). {
-        apply IHILast.
-        apply H5.
-        auto using r_last_to_pick.
+    intros.
+    split; intros Hi.
+    -  
+    induction P; intros.
+    - simpl in *.
+      split; intros Hi.
+      + simpl in *.
+        apply c_in_skip in Hi.
+        contradiction.
+      + 
+        Search (CIn _ Skip).
+        destruct Hi as [Hi|Hi].
+        2: { apply c_pair_in_skip in Hi. contradiction. }
+        unfold WLang.IEq in H.
+        inversion Hi; subst; clear Hi.
+        assert (Hi: WLang.IPairIn p Q). {
+          assert (X: WLang.IPairIn p (WSync i)). {
+            auto using WLang.i_pair_in_sync.
+          }
+          apply H in X.
+          assumption.
+        }
+        apply i_eq; auto.
+      + apply i_eq in Hi.
+        apply H in Hi.
+        simpl.
+        inversion Hi; subst; clear Hi.
+  Admitted.
+  *)
+*)
+  Lemma translate_to_i_last:
+    forall a P,
+    ILast a P ->
+    forall Q c,
+    P |> (Q, c) ->
+    Conc.CIn a c.
+  Proof.
+    intros a P H.
+    induction H; intros Q c Ht; inversion Ht; subst; clear Ht.
+    - destruct Q' as (Q', c').
+      assert (c' = c). {
+        symmetry.
+        eapply p_seq_inv_snd; eauto.
       }
+      subst.
+      eauto.
+    - 
+      assert (Hn: NEq (NBin NMinus e2 (NNum 1)) (NNum n)) by eauto using r_last_to_eq, n_step_to_n_eq.
+      assert (Hi: CIn a (snd (tr (P (NNum n))))). {
+        eauto using r_last_to_pick.
+      }
+      assert (CIn a c_dec_e2). {
+      }
+      apply c_in_seq_l.
+
+      apply r_last_to_pick in H.
+      assert (Hi: CIn a (snd (tr (P (NNum n))))). {
+        eauto using r_last_to_pick.
+      }
+      apply 
     - destruct r as (e1, e2).
       simpl.
       apply c_in_seq_r.

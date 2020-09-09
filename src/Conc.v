@@ -865,4 +865,8 @@ Section C1.
     eapply r_pick_def; eauto.
   Qed.
 
+  Definition CEq c1 c2 :=
+    forall a,
+    CIn a c1 <-> CIn a c2.
+
 End C1.
