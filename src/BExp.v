@@ -294,6 +294,23 @@ Section SO.
     - rewrite IHe; auto.
   Qed.
 
+  Lemma b_subst_subst_neq_3:
+    forall e x y v1 v2,
+    x <> y ->
+    ~ NIn y v1 ->
+    ~ NIn x v2 ->
+    b_subst x v1 (b_subst y v2 e)
+    =
+    b_subst y v2 (b_subst x v1 e).
+  Proof.
+    induction e; intros; simpl; auto.
+    - rewrite n_subst_subst_neq_3; auto.
+      rewrite n_subst_subst_neq_3 with (x:=y) (y:=x) (e:=n1); auto.
+    - rewrite IHe1; auto.
+      rewrite IHe2; auto.
+    - rewrite IHe; auto.
+  Qed.
+
   Lemma in_b_subst_neq:
     forall e x y v,
     BIn x (b_subst y v e) ->

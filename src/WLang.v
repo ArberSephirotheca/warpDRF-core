@@ -63,6 +63,48 @@ Section Defs.
       WFor (Conc.i_subst x v c1) y (r_subst x v r) i2' c2'
     end.
 
+
+  Lemma w_subst_subst_neq_3:
+    forall P x y v1 v2,
+    x <> y ->
+    ~ NIn y v1 ->
+    ~ NIn x v2 ->
+    w_subst x v1 (w_subst y v2 P)
+    =
+    w_subst y v2 (w_subst x v1 P).
+  Proof.
+    induction P; intros; simpl.
+    - rewrite i_subst_subst_neq_3; auto.
+    - rewrite IHP1; auto.
+      rewrite IHP2; auto.
+    - destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        destruct (Set_VAR.MF.eq_dec x v). {
+          simpl.
+          destruct (Set_VAR.MF.eq_dec x v) as [?|_]; try contradiction.
+        }
+        simpl.
+        destruct (Set_VAR.MF.eq_dec x v) as [?|_]; try contradiction.
+        destruct (Set_VAR.MF.eq_dec v v) as [_|?]; try contradiction.
+        rewrite i_subst_subst_neq_3; auto.
+        rewrite r_subst_subst_neq_3; auto.
+      }
+      destruct (Set_VAR.MF.eq_dec x v). {
+        simpl.
+        subst.
+        destruct (Set_VAR.MF.eq_dec v v) as [_|?]; try contradiction.
+        destruct (Set_VAR.MF.eq_dec y v) as [?|_]; try contradiction.
+        rewrite i_subst_subst_neq_3; auto.
+        rewrite r_subst_subst_neq_3; auto.
+      }
+      simpl.
+      destruct (Set_VAR.MF.eq_dec x v) as [?|_]; try contradiction.
+      destruct (Set_VAR.MF.eq_dec y v) as [?|_]; try contradiction.
+      rewrite i_subst_subst_neq_3; auto.
+      rewrite i_subst_subst_neq_3 with (c:=i0); auto.
+      rewrite r_subst_subst_neq_3; auto.
+      rewrite IHP; auto.
+  Qed.
 (*
   Fixpoint w_to_i (i:w_inst) : inst :=
     match i with

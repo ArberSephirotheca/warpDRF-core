@@ -77,6 +77,15 @@ Class Access := {
     =
     access_subst z (NNum n) (access_subst x (NVar y) i);
 
+  access_subst_subst_neq_3:
+    forall e x y v1 v2,
+    x <> y ->
+    ~ NIn y v1 ->
+    ~ NIn x v2 ->
+    access_subst x v1 (access_subst y v2 e)
+    =
+    access_subst y v2 (access_subst x v1 e);
+
   access_subst_subst_trans:
     forall e x v y,
     ~ access_in x e ->

@@ -564,6 +564,44 @@ Section SO.
       rewrite IHe2; auto.
   Qed.
 
+  Lemma n_subst_subst_neq_3:
+    forall e x y v1 v2,
+    x <> y ->
+    ~ NIn y v1 ->
+    ~ NIn x v2 ->
+    n_subst x v1 (n_subst y v2 e)
+    =
+    n_subst y v2 (n_subst x v1 e).
+  Proof.
+    induction e; intros; simpl; auto.
+    - destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        destruct (Set_VAR.MF.eq_dec x v). {
+          subst.
+          contradiction.
+        }
+        simpl.
+        destruct (Set_VAR.MF.eq_dec v v) as [_|N]; try contradiction.
+        rewrite n_subst_not_in; auto.
+      }
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        simpl.
+        destruct (Set_VAR.MF.eq_dec v v) as [_|N]; try contradiction.
+        rewrite n_subst_not_in; auto.
+      }
+      simpl.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        contradiction.
+      }
+      destruct (Set_VAR.MF.eq_dec y v). {
+        contradiction.
+      }
+      reflexivity.
+    - rewrite IHe1; auto.
+      rewrite IHe2; auto.
+  Qed.
+
   Lemma r_subst_subst_neq_2:
     forall x y z n e,
     y <> z ->
@@ -576,6 +614,21 @@ Section SO.
     destruct e.
     simpl.
     repeat rewrite n_subst_subst_neq_2; auto.
+  Qed.
+
+  Lemma r_subst_subst_neq_3:
+    forall e x y v1 v2,
+    x <> y ->
+    ~ NIn y v1 ->
+    ~ NIn x v2 ->
+    r_subst x v1 (r_subst y v2 e)
+    =
+    r_subst y v2 (r_subst x v1 e).
+  Proof.
+    intros (e1, e2); intros.
+    simpl.
+    rewrite n_subst_subst_neq_3; auto.
+    rewrite n_subst_subst_neq_3 with (e:=e2); auto.
   Qed.
 
   (* TODO: remove me and replace it by n_subst_subst_eq_2 *)
@@ -1498,6 +1551,45 @@ Section SO.
     rewrite R1.
     apply n_step_bin; auto.
     auto using n_step_num.
+  Qed.
+
+  Lemma n_eq_def:
+    forall e1 e2 n,
+    NStep e1 n ->
+    NStep e2 n ->
+    NEq e1 e2.
+  Proof.
+    intros.
+    split; intros;
+      assert (n0 = n) by eauto using n_step_fun; subst; auto. 
+  Qed.
+
+  Lemma r_last_proper:
+    forall e1 e1' e2 e2' n,
+    NEq e1 e1' ->
+    NEq e2 e2' ->
+    RLast (e1, e2) n ->
+    RLast (e1', e2') n.
+  Proof.
+    intros.
+    inversion H1; subst; clear H1.
+    rewrite H in H4.
+    rewrite H0 in H5.
+    eauto using r_last_def.
+  Qed.
+
+  Global Instance n_eq_proper_5: Proper (NEq * NEq ==> eq ==> iff) RLast.
+  Proof.
+    unfold Proper, respectful, RelCompFun, RelProd.
+    intros (e1,e2) (e1', e2') (Ha, Hb) n' n ?.
+    subst.
+    unfold RelCompFun in *.
+    simpl in *.
+    split; intros Hi.
+    - eauto using r_last_proper.
+    - symmetry in Ha.
+      symmetry in Hb.
+      eauto using r_last_proper.
   Qed.
 
 End SO.

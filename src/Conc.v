@@ -149,6 +149,39 @@ Section C1.
       rewrite r_subst_subst_neq; auto.
   Qed.
 
+  Lemma i_subst_subst_neq_3:
+    forall c x y v1 v2,
+    x <> y ->
+    ~ NIn y v1 ->
+    ~ NIn x v2 ->
+    i_subst x v1 (i_subst y v2 c)
+    =
+    i_subst y v2 (i_subst x v1 c).
+  Proof.
+    induction c; intros; simpl.
+    - reflexivity.
+    - rewrite IHc1; auto.
+      rewrite IHc2; auto.
+      rewrite b_subst_subst_neq_3; auto.
+    - rewrite IHc1; auto.
+      rewrite IHc2; auto.
+    - rewrite access_subst_subst_neq_3; auto.
+    - rewrite r_subst_subst_neq_3; auto.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        destruct (Set_VAR.MF.eq_dec y v). {
+          subst.
+          reflexivity.
+        }
+        reflexivity.
+      }
+      destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        reflexivity.
+      }
+      rewrite IHc; auto.
+  Qed.
+
   Lemma var_subst_inv_1:
     forall y x n i,
     Var y (i_subst x (NNum n) i) ->
