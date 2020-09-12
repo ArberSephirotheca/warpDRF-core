@@ -1174,4 +1174,25 @@ Section C1.
     auto.
   Qed.
 
+  Lemma c_in_c_seq_r:
+    forall a c1 c2,
+    CIn a c2 ->
+    CIn a (c_seq c1 c2).
+  Proof.
+    induction c1; intros; simpl; auto using c_in_seq_r.
+  Qed.
+
+  Lemma c_in_c_seq_l:
+    forall a c1,
+    CIn a c1 ->
+    forall c2,
+    CIn a (c_seq c1 c2).
+  Proof.
+    induction c1; intros; simpl; auto using c_in_seq_l.
+    apply c_in_inv_seq in H.
+    destruct H as [H|H].
+    - auto using IHc1_1.
+    - eapply IHc1_2 with (c2:=c2) in H; eauto using c_in_c_seq_r.
+  Qed.
+
 End C1.

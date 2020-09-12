@@ -412,12 +412,11 @@ Section Defs.
     - 
       assert (Hn: NStep (NBin NMinus e2 (NNum 1)) n) by eauto using r_last_to_eq.
       eapply H1 in H12; eauto.
-      (* auto using c_in_c_seq_l. *)
-      admit.
+      auto using c_in_c_seq_l.
     - assert (Hn: NStep (NBin NMinus e2 (NNum 1)) n) by eauto using r_last_to_eq.
-      (* auto using c_in_c_seq_r. *)
+      apply c_in_c_seq_r.
       admit.
-  Qed.
+  Admitted.
 
   Lemma translate_1:
     forall a i,
