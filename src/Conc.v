@@ -487,7 +487,8 @@ Section C1.
       assumption.
     - destruct i0; inversion Heqj; subst; clear Heqj.
       constructor; eauto.
-    - admit.
+    - destruct i0; inversion Heqj; subst; clear Heqj.
+      eauto using x_run_if.
     - destruct i0; inversion Heqj; subst; clear Heqj.
       destruct r as (e1', e2').
       simpl in *.
@@ -497,15 +498,6 @@ Section C1.
       destruct (Set_VAR.MF.eq_dec y z). {
         subst.
         eapply x_run_for_cons_eq; eauto.
-        (*
-        + eapply IHRun1; eauto.
-          rewrite i_subst_subst_eq_2; auto.
-          intros N.
-          inversion N.
-        + eapply IHRun2; eauto.
-          simpl.
-          destruct (Set_VAR.MF.eq_dec z z) as [_|?]; try contradiction.
-          auto.*)
       }
       apply x_run_for_cons_neq with (n1:=n1) (n2:=n2); auto.
       + apply IHRun1; auto.
@@ -529,7 +521,7 @@ Section C1.
         eauto using x_run_for_nil.
       }
       apply x_run_for_nil with (n1:=n1) (n2:=n2); auto.
-  Admitted.
+  Qed.
 
   Lemma x_run_to_run:
     forall n x e i h,
@@ -935,7 +927,51 @@ Section C1.
     reflexivity.
   Qed.
 
+
   (* --------------------------- ABSTRACT CONC -------------------------- *)
+
+  Definition CRun := RunAll TID_COUNT.
+
+  Transparent CRun.
+
+  Lemma run_all_impl:
+    forall m,
+    forall c1 c2,
+    (forall n h, n < m -> Run n (i_subst TID (NNum n) c1) h -> Run n (i_subst TID (NNum n) c2) h) ->
+    forall h,
+    RunAll m c1 h ->
+    RunAll m c2 h.
+  Proof.
+    induction m; intros. {
+      inversion H0; subst; clear H0.
+      apply run_all_zero.
+    }
+    inversion H0; subst; clear H0.
+    apply run_all_succ; eauto.
+  Qed.
+
+  Lemma c_run_subst_impl:
+    forall x e e' c h,
+    ~ Var TID c ->
+    ~ NIn TID e ->
+    ~ NIn TID e' ->
+    x <> TID ->
+    forall n,
+    NStep e n ->
+    NStep e' n ->
+    CRun (i_subst x e c) h ->
+    CRun (i_subst x e' c) h.
+  Proof.
+    intros.
+    apply run_all_impl with (c1:=i_subst x e c); auto.
+    intros.
+    assert (~ NIn x (NNum n0)). {
+      intros N; inversion N.
+    }
+    rewrite i_subst_subst_neq_3; auto.
+    rewrite i_subst_subst_neq_3 in H7; auto.
+    apply run_subst with (e1:=e)(n:=n); eauto.
+  Qed.
 
   Inductive CIn : access_val -> inst -> Prop :=
   | c_in_def:
