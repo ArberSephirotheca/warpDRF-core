@@ -182,13 +182,25 @@ Section C1.
       rewrite IHc; auto.
   Qed.
 
+  Lemma var_subst_inv:
+    forall y x e i,
+    ~ NIn y e ->
+    Var y (i_subst x e i) ->
+    Var y i.
+  Proof.
+    induction i; simpl; intros Hn Hv; simpl in *; auto; try intuition.
+    destruct (Set_VAR.MF.eq_dec x v); auto.
+  Qed.
+
   Lemma var_subst_inv_1:
     forall y x n i,
     Var y (i_subst x (NNum n) i) ->
     Var y i.
   Proof.
-    induction i; simpl; intros; auto; destruct H; auto.
-    - destruct (Set_VAR.MF.eq_dec x v); auto.
+    intros.
+    eapply var_subst_inv; eauto.
+    intros N.
+    inversion N.
   Qed.
 
   Lemma in_range_subst_inv_1:
@@ -406,6 +418,209 @@ Section C1.
     split; auto.
     apply incl_tran with (m:= h2); auto.
     apply InUtil.incl_app_refl_r.
+  Qed.
+  Section XRun.
+  Variable n:nat.
+  Variable x:var.
+  Variable e:nexp.
+  Inductive XRun : inst -> history -> Prop :=
+  | x_run_skip:
+    XRun Skip []
+  | x_run_access:
+    forall a v,
+    access_step (access_subst x e a, NNum n) v ->
+    XRun (MemAcc a) v
+  | x_run_seq:
+    forall i j h1 h2,
+    XRun i h1 ->
+    XRun j h2 ->
+    XRun (Seq i j) (h1 ++ h2)
+  | x_run_if:
+    forall e' i j b hi hj,
+    BStep (b_subst x e e') b ->
+    XRun i hi ->
+    XRun j hj ->
+    XRun (If e' i j) (if b then hi else hj)
+  | x_run_for_cons_eq:
+    forall e1 e2 n1 n2 i h1 h2,
+    NStep (n_subst x e e1) n1 ->
+    NStep (n_subst x e e2) n2 ->
+    n1 < n2 ->
+    Run n (i_subst x (NNum n1) i) h1 ->
+    Run n (For x (NNum (S n1), NNum n2) i) h2 ->
+    XRun (For x (e1, e2) i) (h1 ++ h2) 
+  | x_run_for_cons_neq:
+    forall e1 e2 n1 n2 y i h1 h2,
+    x <> y ->
+    NStep (n_subst x e e1) n1 ->
+    NStep (n_subst x e e2) n2 ->
+    n1 < n2 ->
+    XRun (i_subst y (NNum n1) i) h1 ->
+    XRun (For y (NNum (S n1), NNum n2) i) h2 ->
+    XRun (For y (e1, e2) i) (h1 ++ h2) 
+  | x_run_for_nil:
+    forall e1 e2 n1 n2 y i,
+    NStep (n_subst x e e1) n1 ->
+    NStep (n_subst x e e2) n2 ->
+    n1 >= n2 ->
+    XRun (For y (e1, e2) i) []
+  .
+  End XRun.
+
+  Lemma run_to_x_run:
+    forall n x e i h,
+    Run n (i_subst x e i) h ->
+    forall m,
+    NStep e m ->
+    XRun n x e i h.
+  Proof.
+    intros.
+    remember (i_subst x e i) as j.
+    generalize dependent x.
+    generalize dependent e.
+    generalize dependent i.
+    induction H; intros.
+    - destruct i; inversion Heqj; subst; clear Heqj.
+      constructor.
+    - destruct i; inversion Heqj; subst; clear Heqj.
+      constructor.
+      assumption.
+    - destruct i0; inversion Heqj; subst; clear Heqj.
+      constructor; eauto.
+    - admit.
+    - destruct i0; inversion Heqj; subst; clear Heqj.
+      destruct r as (e1', e2').
+      simpl in *.
+      inversion H7; subst; clear H7.
+      rename x0 into y.
+      rename v into z.
+      destruct (Set_VAR.MF.eq_dec y z). {
+        subst.
+        eapply x_run_for_cons_eq; eauto.
+        (*
+        + eapply IHRun1; eauto.
+          rewrite i_subst_subst_eq_2; auto.
+          intros N.
+          inversion N.
+        + eapply IHRun2; eauto.
+          simpl.
+          destruct (Set_VAR.MF.eq_dec z z) as [_|?]; try contradiction.
+          auto.*)
+      }
+      apply x_run_for_cons_neq with (n1:=n1) (n2:=n2); auto.
+      + apply IHRun1; auto.
+        rewrite i_subst_subst_neq_3; auto.
+        * intros N.
+          inversion N.
+        * eauto using n_step_to_not_in.
+      + apply IHRun2; auto.
+        simpl.
+        destruct (Set_VAR.MF.eq_dec y z). {
+          contradiction.
+        }
+        auto.
+    - destruct i0; inversion Heqj; subst; clear Heqj.
+      destruct r as (e1', e2').
+      inversion H5; subst; clear H5.
+      rename x0 into x.
+      rename v into y.
+      destruct (Set_VAR.MF.eq_dec x y). {
+        subst.
+        eauto using x_run_for_nil.
+      }
+      apply x_run_for_nil with (n1:=n1) (n2:=n2); auto.
+  Admitted.
+
+  Lemma x_run_to_run:
+    forall n x e i h,
+    XRun n x e i h ->
+    forall m,
+    NStep e m ->
+    Run n (i_subst x e i) h.
+  Proof.
+    intros n x e i h H.
+    induction H; intros; simpl.
+    - constructor.
+    - constructor; auto.
+    - constructor; eauto.
+    - constructor; eauto.
+    - destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
+      eapply run_for_cons; eauto.
+    - destruct (Set_VAR.MF.eq_dec x y). {
+        subst.
+        simpl in *.
+        destruct (Set_VAR.MF.eq_dec y y) as [_|?]; try contradiction.
+      }
+      simpl in *.
+      destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
+      eapply run_for_cons; eauto.
+      assert (Hx: Run n (i_subst x e (i_subst y (NNum n1) i)) h1). {
+        eauto.
+      }
+      rewrite i_subst_subst_neq_3 in Hx; auto.
+      + eauto using n_step_to_not_in.
+      + intros N; inversion N.
+    - destruct (Set_VAR.MF.eq_dec x y). {
+        subst.
+        eapply run_for_nil; eauto.
+      }
+      eapply run_for_nil; eauto.
+  Qed.
+
+  Lemma run_subst t:
+    forall c x e1 h n,
+    NStep e1 n ->
+    Run t (i_subst x e1 c) h ->
+    forall e2,
+    NStep e2 n ->
+    Run t (i_subst x e2 c) h.
+  Proof.
+    intros c x e1 h n He1 Hr.
+    eapply run_to_x_run in Hr; eauto.
+    intros.
+    eapply x_run_to_run; eauto.
+    generalize dependent e2.
+    generalize dependent n.
+    induction Hr; intros.
+    - simpl.
+      constructor.
+    - simpl.
+      constructor.
+      assert (r1: NEq e1 e2) by eauto using n_eq_def.
+      eapply access_step_proper; eauto.
+      + rewrite r1.
+        reflexivity.
+      + reflexivity.
+    - simpl.
+      constructor; eauto.
+    - assert (r1: NEq e1 e2) by eauto using n_eq_def.
+      rewrite r1 in H.
+      eauto using x_run_if.
+    - simpl.
+      destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
+      rename e1 into e.
+      rename e3 into e'.
+      assert (r1: NEq e e') by eauto using n_eq_def.
+      eapply x_run_for_cons_eq; eauto.
+      + rewrite <- r1.
+        auto.
+      + rewrite <- r1.
+        auto.
+    - simpl in *.
+      rename e1 into e.
+      rename e3 into e'.
+      assert (r1: NEq e e') by eauto using n_eq_def.
+      eapply x_run_for_cons_neq; eauto.
+      + rewrite <- r1.
+        auto.
+      + rewrite <- r1; auto.
+    - rename e1 into e.
+      rename e3 into e'.
+      assert (r1: NEq e e') by eauto using n_eq_def.
+      eapply x_run_for_nil; eauto.
+      + rewrite <- r1.
+        auto.
+      + rewrite <- r1; auto.
   Qed.
 
   Inductive SRun n: inst -> history -> Prop :=
