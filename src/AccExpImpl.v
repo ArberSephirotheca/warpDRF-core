@@ -280,6 +280,7 @@ Instance ONE_DIM : Access := {|
   access_eq_trans := n_eq_trans;
   access_subst_proper := OneDim.eq_subst_proper;
   access_step_proper := OneDim.step_proper;
+  access_subst_subst_neq_3 := n_subst_subst_neq_3;
 |}.
 
 
