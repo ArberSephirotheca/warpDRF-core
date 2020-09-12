@@ -1153,4 +1153,25 @@ Section C1.
     forall a,
     CIn a c1 <-> CIn a c2.
 
+  (* ---------------------- C SEQUENCE ---------------- *)
+  Fixpoint c_seq (c1:inst) (c2:inst) :=
+    match c1 with
+    | Skip
+    | If _ _ _
+    | MemAcc _
+    | For _ _ _
+      => Seq c1 c2
+    | Seq c1 c3 => c_seq c1 (c_seq c3 c2)
+    end.
+
+  Lemma c_seq_seq:
+    forall c1 c2 c3,
+    c_seq (c_seq c1 c2) c3 = c_seq c1 (c_seq c2 c3).
+  Proof.
+    induction c1; intros; simpl; auto.
+    rewrite IHc1_1.
+    rewrite IHc1_2.
+    auto.
+  Qed.
+
 End C1.

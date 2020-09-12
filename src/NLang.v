@@ -43,15 +43,6 @@ Section Defs.
     (forall n n', NEq n n' -> IEq (Q n) (Q' n')) ->
     IEq (NFor P (e1, e2) Q) (NFor P' (e1', e2') Q).
 *)
-  Fixpoint c_seq (c1:Conc.inst) (c2:Conc.inst) :=
-    match c1 with
-    | Conc.Skip
-    | Conc.If _ _ _
-    | MemAcc _
-    | For _ _ _
-      => Conc.Seq c1 c2
-    | Seq c1 c3 => c_seq c1 (c_seq c3 c2)
-    end.
 
   Fixpoint w_seq (c:Conc.inst) (i:w_inst) :=
    match i with
@@ -82,15 +73,6 @@ Section Defs.
       reflexivity.
   Qed.
 
-  Lemma c_seq_seq:
-    forall c1 c2 c3,
-    c_seq (c_seq c1 c2) c3 = c_seq c1 (c_seq c2 c3).
-  Proof.
-    induction c1; intros; simpl; auto.
-    rewrite IHc1_1.
-    rewrite IHc1_2.
-    auto.
-  Qed.
 
   Lemma n_seq_c_seq:
     forall i c1 c2,
@@ -428,22 +410,12 @@ Section Defs.
       subst.
       eauto.
     - 
-      assert (Hn: NEq (NBin NMinus e2 (NNum 1)) (NNum n)) by eauto using r_last_to_eq, n_step_to_n_eq.
-      assert (Hi: CIn a (snd (tr (P (NNum n))))). {
-        eauto using r_last_to_pick.
-      }
-      assert (CIn a c_dec_e2). {
-      }
-      apply c_in_seq_l.
-
-      apply r_last_to_pick in H.
-      assert (Hi: CIn a (snd (tr (P (NNum n))))). {
-        eauto using r_last_to_pick.
-      }
-      apply 
-    - destruct r as (e1, e2).
-      simpl.
-      apply c_in_seq_r.
+      assert (Hn: NStep (NBin NMinus e2 (NNum 1)) n) by eauto using r_last_to_eq.
+      eapply H1 in H12; eauto.
+      (* auto using c_in_c_seq_l. *)
+      admit.
+    - assert (Hn: NStep (NBin NMinus e2 (NNum 1)) n) by eauto using r_last_to_eq.
+      (* auto using c_in_c_seq_r. *)
       admit.
   Qed.
 
