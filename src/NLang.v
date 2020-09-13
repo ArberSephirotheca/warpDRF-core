@@ -415,8 +415,9 @@ Section Defs.
       auto using c_in_c_seq_l.
     - assert (Hn: NStep (NBin NMinus e2 (NNum 1)) n) by eauto using r_last_to_eq.
       apply c_in_c_seq_r.
-      admit.
-  Admitted.
+      unfold c2_dec_e2.
+      eauto.
+  Qed.
 
   Lemma translate_1:
     forall a i,
