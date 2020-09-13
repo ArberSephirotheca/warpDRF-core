@@ -764,7 +764,8 @@ Section Defs.
       eauto using get_last_seq.
     - edestruct H1 as (c, (Hg, Hc)); eauto using n_step_num.
       eauto using get_last_for_1.
-    - eauto using get_last_for_2.
+    - assert (CIn a (Conc.i_subst x (NNum n) c2)) by eauto using n_step_num.
+      eauto using get_last_for_2.
   Qed.
 
   Definition IOneOf (p:access_val*access_val) c1 c2 :=
