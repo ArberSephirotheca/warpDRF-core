@@ -574,7 +574,7 @@ Section Defs.
   | i_last_for_2:
     forall r n c1 P c2 x,
     RLast r n ->
-    CIn a (Conc.i_subst x (NNum n) c2) ->
+    (forall e, NStep e n -> CIn a (Conc.i_subst x e c2)) ->
     ILast a (WFor c1 x r P c2)
   .
 
@@ -589,30 +589,13 @@ Section Defs.
     | [ |- ~ WVar TID _ ] => simpl in *; intuition
    end.
 
-(*
-  Inductive S_ILast y v (a: access_val) : w_inst -> Prop :=
-  | s_i_last_seq:
-    forall i j,
-    S_ILast a j ->
-    S_ILast a (WSeq i j)
-  | s_i_last_for_1:
-    forall r n c1 P c2 x,
-    RLast (r_subst y v r) n ->
-    (forall e, NStep (n_subst y v e) n -> S_ILast y v a (w_subst x e P)) ->
-    S_ILast a (WFor c1 x r P c2)
-  | s_i_last_for_2:
-    forall r n c1 P c2 x,
-    RLast (r_subst y v r) n ->
-    (forall e, NStep (n_subst y v e) n -> CIn a (Conc.i_subst x e (Conc.i_subst y v c2))) ->
-    S_ILast a (WFor c1 x r P c2)
-  .*)
-
   Lemma i_last_w_subst:
     forall a P x e1 n,
     NStep e1 n ->
     ILast a (w_subst x e1 P) ->
     forall e2,
     NStep e2 n ->
+    x <> TID ->
     ILast a (w_subst x e2 P).
   Proof.
     intros a P x e1 n Hn Hl.
@@ -625,17 +608,17 @@ Section Defs.
     - destruct P; inversion HeqQ; subst; clear HeqQ; simpl.
       + constructor.
         eauto.
-      + destruct (Set_VAR.MF.eq_dec x v); inversion H1.
+      + destruct (Set_VAR.MF.eq_dec x v); inversion H2.
     - assert (r1: NEq e1 e2) by eauto using n_eq_def.
       destruct P0; inversion HeqQ; subst; clear HeqQ; simpl.
       destruct (Set_VAR.MF.eq_dec x0 v). {
         subst.
-        inversion H4; subst; clear H4.
+        inversion H5; subst; clear H5.
         eapply i_last_for_1; eauto.
         rewrite r1 in *.
         assumption.
       }
-      inversion H4; subst; clear H4.
+      inversion H5; subst; clear H5.
       rename x0 into y.
       rename P0 into Q.
       destruct r0 as (e1', e2').
@@ -643,8 +626,8 @@ Section Defs.
       rewrite r1 in H.
       eapply i_last_for_1 with (n:=n); eauto.
       intros.
-      assert (H0 := H0 _ H3).
-      assert (H1 := H1 _ H3 y (w_subst v e Q) n0 e1 Hn).
+      assert (H0 := H0 _ H4).
+      assert (H1 := H1 _ H4 y (w_subst v e Q) n0 e1 Hn).
       assert (ILast a (w_subst y e2 (w_subst v e Q))). {
         apply H1; auto.
         rewrite w_subst_subst_neq_3; eauto using n_step_to_not_in.
@@ -655,7 +638,7 @@ Section Defs.
     rename v into z.
     assert (r1: NEq e2 e1) by eauto using n_eq_def.
     destruct (Set_VAR.MF.eq_dec y z);
-      inversion H3; subst; clear H3. {
+      inversion H4; subst; clear H4. {
       subst.
       eapply i_last_for_2; eauto.
       rewrite r1.
@@ -664,12 +647,15 @@ Section Defs.
     eapply i_last_for_2 with (n:=n); eauto.
     + rewrite r1.
       auto.
-    + assert (~ NIn z e2) by eauto using n_step_to_not_in.
-      assert (~ NIn y (NNum n)) by (intros N; inversion N).
+    + intros e He.
+      assert (~ NIn z e2) by eauto using n_step_to_not_in.
+      assert (~ NIn y e) by eauto using n_step_to_not_in.
       assert (~ NIn z e1) by eauto using n_step_to_not_in.
       rewrite Conc.i_subst_subst_neq_3; auto.
-      rewrite Conc.i_subst_subst_neq_3 in H0; auto.
-  Admitted.
+      assert (Hi : CIn a (Conc.i_subst z e (Conc.i_subst y e1 i0))) by eauto.
+      rewrite Conc.i_subst_subst_neq_3 in Hi; auto.
+      eapply c_in_subst with (n2:=n0) (v:=e1); eauto.
+  Qed.
 
   Lemma i_last_1:
     forall i v,
@@ -747,10 +733,12 @@ Section Defs.
       simpl in *.
       destruct Hi as [Hi|(h', (Heq, Hi))]. {
         eapply i_last_for_2; eauto using r_one_to_last, n_step_num.
-        eapply c_in_1; eauto.
-        intros N.
-        apply Conc.var_subst_inv_1 in N.
-        intuition.
+        assert (CIn a (Conc.i_subst x (NNum n) c2)). {
+          eapply c_in_1; eauto.
+          handle_not_var.
+        }
+        intros e He.
+        apply c_in_subst with (v:=NNum n) (n0:=n); auto using n_step_num.
       }
       inversion Heq; subst; clear Heq.
       eapply i_last_for_1; eauto using r_one_to_last, n_step_num.
