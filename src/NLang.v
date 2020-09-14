@@ -26,23 +26,6 @@ Section Defs.
     end.
 
   Definition p_inst := (n_inst * Conc.inst) % type.
-(*
-  Inductive IEq : n_inst -> n_inst -> Prop :=
-  | i_eq_sync:
-    forall c c',
-    CEq c c' ->
-    IEq (NSync c) (NSync c')
-  | i_eq_seq:
-    forall P P' Q Q',
-    IEq P P' ->
-    IEq Q Q' ->
-    IEq (NSeq P Q) (NSeq P' Q')
-  | i_eq_for:
-    forall P P' e1 e2 Q Q',
-    IEq P P' ->
-    (forall n n', NEq n n' -> IEq (Q n) (Q' n')) ->
-    IEq (NFor P (e1, e2) Q) (NFor P' (e1', e2') Q).
-*)
 
   Fixpoint w_seq (c:Conc.inst) (i:w_inst) :=
    match i with
@@ -91,26 +74,12 @@ Section Defs.
    match i, j with
     | (i,ci), (j, cj) => (NSeq i (n_seq ci j), cj)
     end.
-(*
-  Fixpoint i_subst x v i :=
-    match i with
-    | NSync c => NSync (Conc.i_subst x v c)
-    | NSeq i2 i3 => NSeq (i_subst x v i2) (i_subst x v i3)
-    | NFor i y r j =>
-      let j' := if VAR.eq_dec x y then j else i_subst x v j in
-      NFor (i_subst x v i) y (r_subst x v r) j'
-    end.
 
-  Definition p_subst x v (p:p_inst) :=
-   match p with
-    | (i, c) => (i_subst x v i, Conc.i_subst x v c)
-    end.
-*)
   Reserved Notation "P |> Q" (at level 80).
 
   Inductive Translate : w_inst -> p_inst -> Prop :=
   (*
-        [[ c ; sync ]] |> ( c, skip )
+        c ; sync |> ( c, skip )
   *) 
   | translate_sync:
     forall c,
@@ -178,8 +147,6 @@ Section Defs.
     where "[[ P ]]" := (tr P).
   *)
 
-  (*  (a1, a2) \in P *)
-
   Inductive IPairIn (p:access_val*access_val) : n_inst -> Prop :=
   | i_pair_in_sync:
     (* 
@@ -220,7 +187,9 @@ Section Defs.
     match p with
     | (i, c) => IPairIn a i \/ CPairIn a c
     end.
+
 (*
+
   Lemma i_pair_in_n_seq_l:
     forall p c i,
     CPairIn p c ->
@@ -228,7 +197,9 @@ Section Defs.
   Proof.
     intros.
     induction i; simpl.
-    - auto using i_pair_in_sync, c_pair_in_seq_l.
+    - apply i_pair_in_sync.
+      apply c_pair_in_c_seq_l.
+      auto using i_pair_in_sync, c_pair_in_seq_l.
     - auto using i_pair_in_seq_l.
     - auto using i_pair_in_for_1.
   Qed.
@@ -288,34 +259,21 @@ Section Defs.
   | t_pair_in_seq_l:
     forall i j,
     TPairIn a i ->
-    TPairIn a (WSeq i j).
-(*
-  Lemma tr_seq:
-    forall P Q c,
-    P |> (Q, c) ->
-    forall c',
-    tr (w_seq c' i) = (n_seq c' j, c).
-  Proof.
-    induction i; intros; simpl in *.
-    - inversion H; subst; clear H.
-      simpl.
-      reflexivity.
-    - destruct (tr i1) as (j1, c1) eqn:R1.
-      assert (IHi1 := IHi1 _ _ eq_refl c').
-      destruct (tr i2) as (j2, c2) eqn:R2.
-      assert (IHi2 := IHi2 _ _ eq_refl c').
-      rewrite IHi1.
-      simpl in *.
-      inversion H; subst; clear H.
-      simpl.
-      reflexivity.
-    - destruct r as (e1, e2).
-      inversion H0; subst; clear H0.
-      simpl.
-      rewrite n_seq_c_seq.
-      auto.
-  Qed.
-*)
+    TPairIn a (WSeq i j)
+  | t_pair_in_for_1:
+    forall c1 n x r e P c,
+    RPick r n ->
+    NStep e n ->
+    TPairIn a (w_subst x e P) ->
+    TPairIn a (WFor c1 x r P c)
+  | t_pair_in_for_2:
+    forall r e n c1 P x c2,
+    RPick r n ->
+    NStep e n ->
+    CPairIn a (Conc.i_subst x e c2) ->
+    TPairIn a (WFor c1 x r P c2)
+  .
+
   Lemma snd_p_seq:
     forall i j,
     snd (p_seq i j) = snd j.
@@ -336,81 +294,59 @@ Section Defs.
     reflexivity.
   Qed.
 
-(*
-  Inductive WF : w_inst -> Prop :=
-  | wf_sync:
+  Inductive CanRun: n_inst -> Prop :=
+  | can_run_sync:
     forall c,
-    WF (WSync c)
-  | wf_seq:
+    CanRun (NSync c)
+  | can_run_seq:
     forall i j,
-    WF i ->
-    WF j ->
-    WF (WSeq i j)
-  | wf_for:
-    forall c1 r P c2,
-    (forall n, RPick r n -> forall x, NEq (NNum n) x -> WLang.IEq (P (NNum n)) (P x)) ->
-    (forall n, RPick r n -> WF (P (NNum n))) ->
-    WF (WFor c1 r P c2).
+    CanRun i -> 
+    CanRun j ->
+    CanRun (NSeq i j)
+  | can_run_for:
+    forall x r P Q,
+    CanRun P ->
+    (forall n, RPick r n -> CanRun (subst x (NNum n) Q)) -> 
+    CanRun (NFor P x r Q).
 
-  Definition IEq P Q :=
-    forall p, IPairIn p P <-> IPairIn p Q. 
-
-  Definition PEq P Q :=
-    forall p, PPairIn p P <-> PPairIn p Q.
-(*
-  Lemma tr_eq (*i_eq: forall p Q, WLang.IPairIn p Q <-> PPairIn p [[Q]]*):
-    forall P Q,
-    WLang.IEq P Q ->
-    Conc.CEq (snd (tr P)) (snd (tr Q)).
+  Lemma can_run_inv_n_seq_r:
+    forall c P,
+    CanRun (n_seq c P) ->
+    CanRun P.
   Proof.
-    intros.
-    split; intros Hi.
-    -  
-    induction P; intros.
-    - simpl in *.
-      split; intros Hi.
-      + simpl in *.
-        apply c_in_skip in Hi.
-        contradiction.
-      + 
-        Search (CIn _ Skip).
-        destruct Hi as [Hi|Hi].
-        2: { apply c_pair_in_skip in Hi. contradiction. }
-        unfold WLang.IEq in H.
-        inversion Hi; subst; clear Hi.
-        assert (Hi: WLang.IPairIn p Q). {
-          assert (X: WLang.IPairIn p (WSync i)). {
-            auto using WLang.i_pair_in_sync.
-          }
-          apply H in X.
-          assumption.
-        }
-        apply i_eq; auto.
-      + apply i_eq in Hi.
-        apply H in Hi.
-        simpl.
-        inversion Hi; subst; clear Hi.
-  Admitted.
-  *)
-*)
+    induction P; simpl; intros.
+    - inversion H; subst; clear H.
+      constructor.
+    - inversion H; subst; clear H.
+      auto using can_run_seq.
+    - inversion H; subst; clear H.
+      eauto using can_run_for.
+  Qed.
+
+  Definition ILast a (P:p_inst) :=
+    match P with
+    | (Q, c) => Conc.CIn a c
+    end.
+
   Lemma translate_to_i_last:
     forall a P,
-    ILast a P ->
-    forall Q c,
-    P |> (Q, c) ->
-    Conc.CIn a c.
+    WLang.ILast a P ->
+    forall Q,
+    P |> Q ->
+    ILast a Q.
   Proof.
     intros a P H.
-    induction H; intros Q c Ht; inversion Ht; subst; clear Ht.
+    unfold ILast.
+    induction H; intros (Q, c) Ht; inversion Ht; subst; clear Ht.
     - destruct Q' as (Q', c').
       assert (c' = c). {
         symmetry.
         eapply p_seq_inv_snd; eauto.
       }
       subst.
-      eauto.
-    - 
-      assert (Hn: NStep (NBin NMinus e2 (NNum 1)) n) by eauto using r_last_to_eq.
+      apply IHILast in H3.
+      assumption.
+    - assert (Hn: NStep (NBin NMinus e2 (NNum 1)) n) by eauto using r_last_to_eq.
       eapply H1 in H12; eauto.
       auto using c_in_c_seq_l.
     - assert (Hn: NStep (NBin NMinus e2 (NNum 1)) n) by eauto using r_last_to_eq.
@@ -419,51 +355,190 @@ Section Defs.
       eauto.
   Qed.
 
-  Lemma translate_1:
-    forall a i,
-    PPairIn a (tr i) ->
-    TPairIn a i.
+  Lemma i_last_to_translate:
+    forall P Q,
+    P |> Q ->
+    CanRun (fst Q) ->
+    forall a,
+    ILast a Q ->
+    WLang.ILast a P.
   Proof.
-    intros.
-    remember (tr i) as j.
-    generalize dependent i.
-    destruct j as (j, c).
-    destruct H as [H|H]. {
-      generalize dependent c.
-      induction H; intros c' i' Hr; symmetry in Hr.
-      - destruct i'; inversion Hr; subst; clear Hr.
-        + constructor.
-          auto.
-        + destruct (tr i'1); simpl in *.
-          destruct (tr i'2); simpl in *.
-          inversion H1; subst; clear H1.
-        + destruct r as (e1, e2).
-          inversion H1.
-      - destruct i'; simpl in *; inversion Hr.
-        + destruct (tr i'1) as (i1, c1) eqn:R1.
-          destruct (tr i'2) as (i2, c2) eqn:R2.
-          simpl in *.
-          inversion Hr; subst; clear Hr.
-          symmetry in R1.
-          apply IHIPairIn in R1.
-          auto using t_pair_in_seq_l.
-        + destruct r as (e1, e2).
-          inversion H1.
-      - destruct i'; simpl in *; inversion Hr.
-        + destruct (tr i'1) as (i1, c1) eqn:R1.
-          destruct (tr i'2) as (i2, c2) eqn:R2.
-          simpl in *.
-          inversion Hr; subst; clear Hr.
-          symmetry in R2.
-          assert (Hx: (n_seq c1 i2, c') = tr (w_seq c1 i'2)). {
-            erewrite tr_seq; eauto.
-          }
-          apply IHIPairIn in Hx.
-          assert (IHIPairIn := IHIPairIn c' (w_seq c1 i'2)).
-          apply IHIPairIn in R2.
-          auto using t_pair_in_seq_l.
-          
-    }
+    intros P Q H.
+    induction H; intros.
+    - inversion H0; subst; clear H0.
+      inversion H2.
+    - subst.
+      destruct P' as (P', c1).
+      destruct Q' as (Q', c2).
+      simpl in *.
+      inversion H2; subst; clear H2.
+      assert (CanRun Q') by eauto using can_run_inv_n_seq_r.
+      auto using WLang.i_last_seq.
+    - simpl in *.
+      subst.
+      match goal with
+        H: CIn a _ |- _ => rename H into Hi
+      end.
+      apply c_in_inv_c_seq in Hi.
+      match goal with
+        H: CanRun _ |- _ => inversion H; subst; clear H
+      end.
+      (* TODO: CanRun must say that the loop is defined *)
+      assert (Hx: exists m, RLast (e1, e2) m) by admit.
+      destruct Hx as (m, Hl).
+      destruct Hi as [Hi|Hi]. {
+        (* In c from P |> (Q, c) *)
+        assert (Hw: WLang.ILast a (w_subst x (NBin NMinus e2 (NNum 1)) P)). {
+          apply IHTranslate4; auto.
+          (* TODO: Prove:
+             If WLang.CanRun P and P |> (Q, c), then
+             CanRun Q
+             *)
+          admit.
+        }
+        apply i_last_for_1 with (n:=m); eauto.
+        intros.
+        (* TODO: Prove WLang.i_last_subst *)
+        (* apply WLang.i_last_subst *)
+        admit.
+      }
+      (* In c2 *)
+      apply i_last_for_2 with (n:=m); auto.
+      intros e He.
+      unfold c2_dec_e2 in *.
+      apply c_in_subst with (v:=(NBin NMinus e2 (NNum 1))) (n:=m); eauto.
+      + eauto using r_last_to_eq.
+      + (* TODO: ~ Var TID P *)
+        admit.
+  Admitted.
+
+  Lemma translate_1:
+    forall P Q,
+    P |> Q ->
+    forall a,
+    PPairIn a Q ->
+    TPairIn a P.
+  Proof.
+    intros P Q H.
+    induction H; intros a Hi.
+    - simpl in *.
+      destruct Hi as [Hi|Hi].
+      + inversion Hi; subst; clear Hi.
+        auto using t_pair_in_sync.
+      + apply c_pair_in_skip in Hi.
+        contradiction.
+    - subst.
+      (*
+      | i_pair_in_seq_l:
+        forall p i j,
+        IPairIn p i ->
+        IPairIn p (WSeq i j)
+      | i_pair_in_seq_r:
+        forall p i j,
+        IPairIn p j ->
+        IPairIn p (WSeq i j)
+      | i_pair_in_seq_both:
+        forall p i j c1 c2,
+        GetLast i c1 ->
+        GetFirst j c2 ->
+        IOneOf p c1 c2 ->
+        IPairIn p (WSeq i j)
+      *)
+      admit.
+    - simpl in *.
+      subst.
+      destruct Hi as [Hi|Hi]. {
+        inversion Hi; subst; clear Hi.
+        - (* First iteration *)
+          (*
+          | i_pair_in_for_first_1:
+            forall r c1 p P c2 x,
+            CPairIn p c1 ->
+            IPairIn p (WFor c1 x r P c2)
+          | i_pair_in_for_first_2:
+            forall r e n c1 c3 p P x c2,
+            RFirst r n ->
+            NStep e n ->
+            GetFirst (w_subst x e P) c3 ->
+            IOneOf p c1 c3 ->
+            IPairIn p (WFor c1 x r P c2)
+          *)
+          (* Prove:
+            IPairIn a (n_seq c1 P_e1) ->
+            CPairIn a c1 \/ CPairIn a P_e1 \/ OneOf c1 (GetFirst P_e1) *)
+          admit.
+        - (* Mid iteration *)
+          (*
+          | i_pair_in_for_mid_1:
+            forall r n c1 c3 p x P c2 e e',
+            RPick2 r n ->
+            NStep e n ->
+            NStep e' (S n) ->
+            GetFirst (w_subst x e' P) c3 ->
+            IOneOf p (Conc.i_subst x e c2) c3 ->
+            IPairIn p (WFor c1 x r P c2)
+
+          | i_pair_in_for_mid_2:
+            forall r n e e' P x c2 c1 c c' p,
+            RPick2 r n ->
+            NStep e n ->
+            NStep e' (S n) ->
+            GetLast (w_subst x e P) c ->
+            GetFirst (w_subst x e' P) c' ->
+            IOneOf p c c' ->
+            IPairIn p (WFor c1 x r P c2)
+           *)
+          admit.
+      }
+      (* Last iteration *)
+      unfold c2_dec_e2 in Hi.
+      inversion Hi; subst; clear Hi.
+      apply c_in_inv_c_seq in H3.
+      apply c_in_inv_c_seq in H4.
+      destruct H3 as [Ha|Ha];
+        destruct H4 as [Hb|Hb].
+      + (*
+        | i_pair_in_for_1:
+          forall r e n c1 P c2 p x,
+          RPick r n ->
+          NStep e n ->
+          IPairIn p (w_subst x e P) ->
+          IPairIn p (WFor c1 x r P c2)
+        *)
+        assert (CPairIn (a1, a2) c_dec_e2) by auto using c_pair_in_def.
+        assert (TPairIn (a1, a2) (w_subst x (NBin NMinus e2 (NNum 1)) P)) by auto.
+        (* We must show that r has at least one iteration, which
+           allows us to learn that it has a last iteration.
+           *)
+        eapply t_pair_in_for_1; admit.
+      + (*
+        | i_pair_in_for_3:
+          forall r e n c1 c3 x p P c2,
+          RPick r n ->
+          GetLast (w_subst x e P) c3 ->
+          IOneOf p c3 (Conc.i_subst x e c2) ->
+          IPairIn p (WFor c1 x r P c2)
+        *)
+        assert (WLang.ILast a1 (w_subst x (NBin NMinus e2 (NNum 1)) P)). {
+          assert (CanRun P_dec_e2) by admit.
+          apply i_last_to_translate with (a:=a1) in H2; auto; simpl.
+        }
+        admit.
+      + (*
+        | i_pair_in_for_3:
+          forall r e n c1 c3 x p P c2,
+          RPick r n ->
+          GetLast (w_subst x e P) c3 ->
+          IOneOf p c3 (Conc.i_subst x e c2) ->
+          IPairIn p (WFor c1 x r P c2)
+        *)
+        admit.
+      + assert (CPairIn (a1, a2) c2_dec_e2) by auto using c_pair_in_def.
+        unfold c2_dec_e2 in *.
+        (* We must show that r has at least one iteration, which
+           allows us to learn that it has a last iteration.
+           *)
+        eapply t_pair_in_for_2; admit.
   Admitted.
 
   Lemma translate_1:
