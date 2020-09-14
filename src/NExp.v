@@ -1553,16 +1553,46 @@ Section SO.
     auto using n_step_num.
   Qed.
 
-  Lemma n_eq_def:
-    forall e1 e2 n,
-    NStep e1 n ->
-    NStep e2 n ->
-    NEq e1 e2.
+  Lemma r_step_inv_next_eq:
+    forall r n r' n',
+    RStep r n r' ->
+    RFirst r' n' ->
+    n' = S n.
   Proof.
     intros.
-    split; intros;
-      assert (n0 = n) by eauto using n_step_fun; subst; auto. 
+    inversion H; subst; clear H.
+    inversion H0; subst; clear H0.
+    assert (n' = S n) by eauto using n_step_num, n_step_fun.
+    auto.
   Qed.
+
+  Lemma r_step_to_pick2:
+    forall r n r',
+    RStep r n r' ->
+    RHasNext r' ->
+    RPick2 r n.
+  Proof.
+    intros.
+    destruct r as (e1, e2).
+    inversion H; subst; clear H.
+    destruct H0 as (n', Hx).
+    inversion Hx; subst; clear Hx.
+    assert (n' = S n) by eauto using n_step_fun, n_step_num.
+    assert (n0 = n2) by eauto using n_step_fun, n_step_num.
+    subst.
+    eapply r_pick2_def; eauto.
+  Qed.
+
+  Lemma r_one_to_pick:
+    forall r n,
+    ROne r n ->
+    RPick r n.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eapply r_pick_def; eauto.
+  Qed.
+
 
   Lemma r_last_proper:
     forall e1 e1' e2 e2' n,
@@ -1576,6 +1606,17 @@ Section SO.
     rewrite H in H4.
     rewrite H0 in H5.
     eauto using r_last_def.
+  Qed.
+
+  Lemma n_eq_def:
+    forall e1 e2 n,
+    NStep e1 n ->
+    NStep e2 n ->
+    NEq e1 e2.
+  Proof.
+    intros.
+    split; intros;
+      assert (n0 = n) by eauto using n_step_fun; subst; auto. 
   Qed.
 
   Global Instance n_eq_proper_5: Proper (NEq * NEq ==> eq ==> iff) RLast.
