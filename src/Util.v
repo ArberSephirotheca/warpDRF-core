@@ -1,6 +1,97 @@
 Require Import Coq.Lists.List.
 
 Import ListNotations.
+
+Tactic Notation "invc" ident(X) := inversion X; subst; clear X.
+
+(* Internal tactic; do not use. *)
+
+Ltac do_match_err x H H' :=
+  let t1 := type of H in
+  let t2 := type of H' in
+  idtac "Expecting a single hypothesis of type " x " but found at least 2";
+  idtac H  ":" t1;
+  idtac H' ":" t2;
+  fail 1.
+
+(**
+  The `with_hyp` tactics lets us refer to a hypothesis by type,
+  rather than by name.
+  
+  The `with_hyp` tactics will fail when you have more than one hypothesis
+  with the same given type.
+  
+  The type may be given partially.
+  *)
+
+Tactic Notation "with_hyp" constr(x) tactic(f) :=
+    match goal with
+    | H: x |- _ =>
+      match goal with
+      | H: x, H': x |- _ => do_match_err x H H'
+      | _ => f H
+      end
+    | H: x _ |- _ =>
+      match goal with
+      | H: x _, H': x _ |- _ => do_match_err x H H'
+      | _ => f H
+      end
+    | H: x _ _ |- _ =>
+      match goal with
+      | H: x _ _, H': x _ _ |- _ => do_match_err x H H'
+      | _ => f H
+      end
+    | H: x _ _ _ |- _ =>
+      match goal with
+      | H: x _ _ _, H': x _ _ _ |- _ => do_match_err x H H'
+      | _ => f H
+      end
+    | H: x _ _ _ _ |- _ =>
+      match goal with
+      | H: x _ _ _ _, H': x _ _ _ _ |- _ => do_match_err x H H'
+      | _ => f H
+      end
+    | H: x _ _ _ _ _ |- _ =>
+      match goal with
+      | H: x _ _ _ _ _, H': x _ _ _ _ _ |- _ => do_match_err x H H'
+      | _ => f H
+      end
+    | H: x _ _ _ _ _ _ |- _ =>
+      match goal with
+      | H: x _ _ _ _ _ _, H': x _ _ _ _ _ _ |- _ => do_match_err x H H'
+      | _ => f H
+      end
+    end.
+
+(** Here is a usage example. *)
+Goal forall P Q, P /\ Q -> Q.
+Proof.
+  intros.
+  (* we run some code, given by the ltac function:   *)
+  with_hyp (P /\ Q) ltac:(fun H =>
+    destruct H as (Ha, Hb);
+    apply Hb
+  ).
+Qed.
+
+(** A useful tactics that renames an assumption that matches a certain type. *)
+Tactic Notation "rename_hyp" constr(X) "as" ident(Y) :=
+  with_hyp X ltac:(fun H => rename H into Y).
+
+Goal forall P Q, P /\ Q -> Q.
+Proof.
+  intros.
+  (* We give a name to the assumption P /\ Q: *)
+  rename_hyp (P /\ Q) as Hab.
+  destruct Hab as (Ha, Hb).
+  apply Hb.
+Qed.
+
+(** Invert; subst; clear the hypothesis with the given type. *)
+
+Tactic Notation "invc_hyp" constr(x) :=
+  with_hyp x ltac:(fun H => invc H).
+
 Section Ops.
 
   Definition summation l :=

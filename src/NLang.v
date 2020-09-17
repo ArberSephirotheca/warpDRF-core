@@ -4,7 +4,7 @@ Require Import Conc.
 Require Import NExp.
 Require Import Var.
 Require Import WLang.
-
+Require Import Util.
 Section Defs.
   Context `{T:Tasks}.
   Context {A:Access}.
@@ -294,6 +294,10 @@ Section Defs.
     reflexivity.
   Qed.
 
+  Definition RDefined (r:range) :=
+    let (e1, e2) := r in
+    (exists n1, NStep e1 n1) /\ (exists n2, NStep e2 n2).
+
   Inductive CanRun: n_inst -> Prop :=
   | can_run_sync:
     forall c,
@@ -306,6 +310,7 @@ Section Defs.
   | can_run_for:
     forall x r P Q,
     CanRun P ->
+    RDefined r ->
     (forall n, RPick r n -> CanRun (subst x (NNum n) Q)) -> 
     CanRun (NFor P x r Q).
 
@@ -371,18 +376,14 @@ Section Defs.
       destruct P' as (P', c1).
       destruct Q' as (Q', c2).
       simpl in *.
-      inversion H2; subst; clear H2.
+      invc_hyp CanRun.
       assert (CanRun Q') by eauto using can_run_inv_n_seq_r.
       auto using WLang.i_last_seq.
     - simpl in *.
       subst.
-      match goal with
-        H: CIn a _ |- _ => rename H into Hi
-      end.
+      rename_hyp (CIn a) as Hi.
       apply c_in_inv_c_seq in Hi.
-      match goal with
-        H: CanRun _ |- _ => inversion H; subst; clear H
-      end.
+      invc_hyp CanRun.
       (* TODO: CanRun must say that the loop is defined *)
       assert (Hx: exists m, RLast (e1, e2) m) by admit.
       destruct Hx as (m, Hl).
