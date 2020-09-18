@@ -1,4 +1,5 @@
 -R src Faial
+src/Tictac.v
 src/StringUtil.v
 src/RangeList.v
 src/Tid.v

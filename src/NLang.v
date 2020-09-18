@@ -4,7 +4,7 @@ Require Import Conc.
 Require Import NExp.
 Require Import Var.
 Require Import WLang.
-Require Import Util.
+Require Import Tictac.
 Section Defs.
   Context `{T:Tasks}.
   Context {A:Access}.
@@ -352,7 +352,8 @@ Section Defs.
       apply IHILast in H3.
       assumption.
     - assert (Hn: NStep (NBin NMinus e2 (NNum 1)) n) by eauto using r_last_to_eq.
-      eapply H1 in H12; eauto.
+      rename_hyp (_ |> (P_dec_e2, c_dec_e2)) as H_e2.
+      eapply H1 in H_e2; eauto.
       auto using c_in_c_seq_l.
     - assert (Hn: NStep (NBin NMinus e2 (NNum 1)) n) by eauto using r_last_to_eq.
       apply c_in_c_seq_r.
@@ -376,14 +377,14 @@ Section Defs.
       destruct P' as (P', c1).
       destruct Q' as (Q', c2).
       simpl in *.
-      invc_hyp CanRun.
+      invc_hyp (CanRun _).
       assert (CanRun Q') by eauto using can_run_inv_n_seq_r.
       auto using WLang.i_last_seq.
     - simpl in *.
       subst.
-      rename_hyp (CIn a) as Hi.
+      rename_hyp (CIn a _) as Hi.
       apply c_in_inv_c_seq in Hi.
-      invc_hyp CanRun.
+      invc_hyp (CanRun _).
       (* TODO: CanRun must say that the loop is defined *)
       assert (Hx: exists m, RLast (e1, e2) m) by admit.
       destruct Hx as (m, Hl).
