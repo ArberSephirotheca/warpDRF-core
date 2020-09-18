@@ -43,14 +43,7 @@ Section Defs.
   | WSync: Conc.inst -> w_inst 
   | WSeq: w_inst -> w_inst -> w_inst
   | WFor : Conc.inst -> var -> range -> w_inst -> Conc.inst -> w_inst.
-(*
-  Fixpoint seq (c: Conc.inst) (i:w_inst) : w_inst :=
-    match i with
-    | WSync c' => WSync (Conc.Seq c c')
-    | WSeq i j => WSeq (seq c i) j
-    | WFor c1 x r i c2 => WFor (Conc.Seq c c1) x r i c2
-    end.
-*)
+
   Fixpoint w_subst x v i :=
     match i with
     | WSync c => WSync (Conc.i_subst x v c)
@@ -105,15 +98,6 @@ Section Defs.
       rewrite r_subst_subst_neq_3; auto.
       rewrite IHP; auto.
   Qed.
-(*
-  Fixpoint w_to_i (i:w_inst) : inst :=
-    match i with
-    | WSync c => Seq (Block c) Sync
-    | WSeq i j => Seq (w_to_i i) (w_to_i j)
-    | WFor c1 x r i c2 =>
-      Seq (Block c1) (For x r (Seq (w_to_i i) (Block c2)))
-    end.
-*)
 
   Inductive WRun: w_inst -> vhist -> Prop :=
   | wrun_sync:
@@ -346,102 +330,8 @@ Section Defs.
     (* TODO: PLEASE PROVE ME! *)
   Admitted.
 
-
-(*
-  Lemma w_run_subst:
-    forall P e e' x h,
-    NEq e e' ->
-    WRun (w_subst x e P) h ->
-    WRun (w_subst x e' P) h.
-  Proof.
-    intros H.
-  Admitted.
-
-
-  Import Morphisms.
-  Global Instance w_eq_proper_1: Proper (eq ==> NEq ==> eq ==> WEq) w_subst.
-  Proof.
-    unfold Proper, respectful.
-    intros x' x ? e e' r1 P' P ?.
-    subst.
-    split; intros Hi.
-    - eauto using w_run_subst.
-    - symmetry in r1.
-      eauto using w_run_subst.
-  Qed.
-*)
-(*
-  Inductive Wellformed: w_inst -> Prop :=
-  | wellformed_sync:
-    forall c,
-    Wellformed (WSync c)
-  | wellformed_seq:
-    forall i j,
-    Wellformed i -> 
-    Wellformed j ->
-    Wellformed (WSeq i j)
-  | wellformed_for_1:
-    forall c1 c2 x r r' n i,
-    RStep r n r' ->
-    Wellformed (w_subst x (NNum n) i) ->
-    Wellformed (WFor Conc.Skip x r' i c2) -> 
-    Wellformed (WFor c1 x r i c2)
-  | wellformed_for_2:
-    forall c1 c2 x r n i,
-    ROne r n ->
-    Wellformed (w_subst x (NNum n) i) ->
-    Wellformed (WFor c1 x r i c2).
-
-  Lemma wrun_to_wellformed:
-    forall i v,
-    WRun i v ->
-    Wellformed i.
-  Proof.
-    intros.
-    induction H; try (constructor; auto).
-    - subst.
-      eapply wellformed_for_1; eauto.
-    - eapply wellformed_for_2; eauto.
-  Qed.
-*)
-  (* --------------------------- GET FIRST ----------------------- *)
-(*
-  Inductive GetFirst: w_inst -> Conc.inst -> Prop :=
-  | get_first_sync:
-    forall c,
-    GetFirst (WSync c) c
-  | get_first_seq:
-    forall i j c,
-    GetFirst i c ->
-    GetFirst (WSeq i j) c
-  | get_first_for_1:
-    forall r c1 P c2 x,
-    GetFirst (WFor c1 x r P c2) c1
-  | get_first_for_2:
-    forall r n c1 x P c2 c,
-    RFirst r n ->
-    GetFirst (w_subst x (NNum n) P) c ->
-    GetFirst (WFor c1 x r P c2) c
-  .
-
-  Lemma get_first_inv_for_skip:
-    forall r P c1 c x,
-    GetFirst (WFor Conc.Skip x r P c1) c ->
-    c = Conc.Skip \/ exists n, RFirst r n /\ GetFirst (w_subst x (NNum n) P) c.
-  Proof.
-    intros.
-    inversion H; subst; clear H; eauto.
-  Qed.
-*)
   (* ------------------ IFIRST --------------------------------------- *)
-(*
-  Fixpoint i_seq (c:Conc.inst) (i:w_inst) :=
-    match i with
-    | WSync c' => WSync (Conc.Seq c c')
-    | WSeq i j => WSeq (i_seq c i) j
-    | WFor c1 x r i c2 => WFor (Conc.Seq c c1) x r i c2
-    end.
-*)
+
   Inductive IFirst (a: access_val) : w_inst -> Prop :=
   | i_first_sync:
     forall c,
