@@ -160,6 +160,37 @@ Section Defs.
     | (i, c) => IPairIn a i \/ CPairIn a c
     end.
 
+  Definition PLast a (P:p_inst) :=
+    match P with
+    | (Q, c) => Conc.CIn a c
+    end.
+
+  Inductive IFirst a : n_inst -> Prop :=
+  | i_first_sync:
+    forall c,
+    CIn a c ->
+    IFirst a (NSync c)
+  | i_first_seq:
+    forall P Q,
+    IFirst a P ->
+    IFirst a (NSeq P Q)
+  | i_first_for:
+    forall P x r Q,
+    IFirst a P ->
+    IFirst a (NFor P x r Q)
+  .
+
+  Definition PFirst a (P:p_inst) :=
+    match P with
+    | (Q, _) => IFirst a Q
+    end.
+
+  Definition POneOf (p:access_val * access_val) (P:p_inst) (Q:p_inst) : Prop :=
+     let (a1, a2) := p in
+     (PLast a1 P /\ PFirst a2 Q)
+     \/
+     (PLast a2 P /\ PFirst a1 Q).
+
   (*
   
    ---------------
@@ -173,9 +204,17 @@ Section Defs.
     CPairIn a c ->
     TPairIn a (WSync c)
   | t_pair_in_seq_l:
-    forall i j,
-    TPairIn a i ->
-    TPairIn a (WSeq i j)
+    forall P Q,
+    TPairIn a P ->
+    TPairIn a (WSeq P Q)
+  | t_pair_in_seq_r:
+    forall P Q,
+    TPairIn a Q ->
+    TPairIn a (WSeq P Q)
+  | t_pair_in_seq_both:
+    forall P Q,
+    OneOf a (inr P) (inr Q) ->
+    TPairIn a (WSeq P Q)
   | t_pair_in_for_1:
     forall c1 n x r e P c,
     RPick r n ->
@@ -250,20 +289,15 @@ Section Defs.
       eauto using can_run_for.
   Qed.
 
-  Definition ILast a (P:p_inst) :=
-    match P with
-    | (Q, c) => Conc.CIn a c
-    end.
-
   Lemma translate_to_i_last:
     forall a P,
     WLang.ILast a P ->
     forall Q,
     P |> Q ->
-    ILast a Q.
+    PLast a Q.
   Proof.
     intros a P H.
-    unfold ILast.
+    unfold PLast.
     induction H; intros (Q, c) Ht; inversion Ht; subst; clear Ht.
     - destruct Q' as (Q', c').
       assert (c' = c). {
@@ -297,12 +331,12 @@ Section Defs.
     WLang.CanRun P ->
     ~ WVar TID P ->
     forall a,
-    ILast a Q ->
+    PLast a Q ->
     WLang.ILast a P.
   Proof.
     intros P Q H.
     induction H; intros.
-    - invc_hyp (ILast _ _).
+    - invc_hyp (PLast _ _).
       invc_hyp (IIn _ Skip).
     - subst.
       destruct P' as (P', c1).
@@ -342,27 +376,7 @@ Section Defs.
       apply c_in_subst with (v:=(NBin NMinus e2 (NNum 1))) (n:=m); eauto using r_last_to_eq.
   Qed.
 
-  Inductive IFirst a : n_inst -> Prop :=
-  | i_first_sync:
-    forall c,
-    CIn a c ->
-    IFirst a (NSync c)
-  | i_first_seq:
-    forall P Q,
-    IFirst a P ->
-    IFirst a (NSeq P Q)
-  | i_first_for:
-    forall P x r Q,
-    IFirst a P ->
-    IFirst a (NFor P x r Q)
-  .
-
-  Definition PFirst a (P:p_inst) :=
-    match P with
-    | (Q, _) => IFirst a Q
-    end.
-
-  Lemma p_last_inv_p_seq:
+  Lemma p_first_inv_p_seq:
     forall a P Q,
     PFirst a (p_seq P Q) ->
     PFirst a P.
@@ -391,7 +405,7 @@ Section Defs.
     induction H; intros Hc Hv a Hi; simpl in Hi; try invc Hi; try invc Hc; simpl in *.
     - constructor; auto.
     - subst.
-      apply p_last_inv_p_seq in Hi.
+      apply p_first_inv_p_seq in Hi.
       constructor; auto.
     - invc_hyp (_ = _).
     - invc_hyp (_ = _).
@@ -419,6 +433,24 @@ Section Defs.
       intuition.
   Qed.
 
+  Lemma p_pair_in_inv_p_seq:
+    forall a P Q,
+    PPairIn a (p_seq P Q) ->
+    PPairIn a P \/ PPairIn a Q \/ POneOf a P Q.
+  Proof.
+  Admitted.
+
+  Lemma p_one_of_to_one_of:
+    forall P P',
+    P |> P' ->
+    forall Q Q',
+    Q |> Q' ->
+    forall a,
+    POneOf a P' Q' ->
+    OneOf a (inr P) (inr Q).
+  Proof.
+  Admitted.
+
   Lemma translate_1:
     forall P Q,
     P |> Q ->
@@ -429,7 +461,7 @@ Section Defs.
     TPairIn a P.
   Proof.
     intros P Q H.
-    induction H; intros Hc Hv a Hi.
+    induction H; intros Hc Hv a Hi; invc Hc.
     - simpl in *.
       destruct Hi as [Hi|Hi].
       + inversion Hi; subst; clear Hi.
@@ -453,7 +485,17 @@ Section Defs.
         IOneOf p c1 c2 ->
         IPairIn p (WSeq i j)
       *)
-      admit.
+      apply p_pair_in_inv_p_seq in Hi.
+      destruct Hi as [Hi|[Hi|Hi]].
+      + apply t_pair_in_seq_l.
+        apply IHTranslate1; auto.
+        simpl in *.
+        intuition.
+      + apply t_pair_in_seq_r.
+        apply IHTranslate2; auto.
+        simpl in *.
+        intuition.
+      + eapply p_one_of_to_one_of in Hi; eauto using t_pair_in_seq_both.
     - simpl in *.
       subst.
       destruct Hi as [Hi|Hi]. {
@@ -506,7 +548,6 @@ Section Defs.
       rename_hyp (CIn a2 _) as Hb.
       apply c_in_inv_c_seq in Ha.
       apply c_in_inv_c_seq in Hb.
-      inversion Hc; subst; clear Hc.
       assert (Hl: exists m, RLast (e1, e2) m) by eauto using r_has_next_to_last.
       destruct Hl as (m, Hl).
       assert (NStep (NBin NMinus e2 (NNum 1)) m) by eauto using r_last_to_eq.
