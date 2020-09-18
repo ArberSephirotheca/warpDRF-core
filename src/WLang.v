@@ -824,10 +824,31 @@ Section Defs.
       eauto using get_last_for_2.
   Qed.
 
+
   Definition IOneOf (p:access_val*access_val) c1 c2 :=
     let (a1,a2) := p in
     (CIn a1 c1 /\ CIn a2 c2) \/
     (CIn a1 c2 /\ CIn a2 c1).
+
+  Notation any_inst := (Conc.inst + w_inst) % type.
+
+  Definition OneOf (p:access_val*access_val) (P: any_inst) (Q:any_inst) : Prop :=
+    let get_P : access_val -> Prop :=
+      match P with
+      | inl c => fun a => CIn a c
+      | inr P => fun a => ILast a P
+      end
+    in  
+    let get_Q : access_val -> Prop :=
+      match Q with
+      | inl c => fun a => CIn a c
+      | inr Q => fun a => IFirst a Q
+      end
+    in
+    let (a1, a2) := p in
+      get_P a1 /\ get_Q a2
+      \/
+      get_P a2 /\ get_Q a1.
 
   Inductive IPairIn : (access_val * access_val) -> w_inst -> Prop :=
   | i_pair_in_sync:
@@ -843,11 +864,16 @@ Section Defs.
     IPairIn p j ->
     IPairIn p (WSeq i j)
   | i_pair_in_seq_both:
-    forall p i j c1 c2,
+    (*
+    forall p i j,
     GetLast i c1 ->
     GetFirst j c2 ->
     IOneOf p c1 c2 ->
     IPairIn p (WSeq i j)
+    *)
+    forall p P Q,
+    OneOf p (inr P) (inr Q) ->
+    IPairIn p (WSeq P Q)
   (* Any iteration *)
   | i_pair_in_for_1:
     forall r e n c1 P c2 p x,
@@ -890,13 +916,15 @@ Section Defs.
     IPairIn p (WFor c1 x r P c2)
 
   | i_pair_in_for_mid_2:
-    forall r n e e' P x c2 c1 c c' p,
+    forall r n e e' P x c2 c1 (* c c' *) p,
     RPick2 r n ->
     NStep e n ->
     NStep e' (S n) ->
+    OneOf p (inr (w_subst x e P)) (inr (w_subst x e' P)) ->
+  (*
     GetLast (w_subst x e P) c ->
     GetFirst (w_subst x e' P) c' ->
-    IOneOf p c c' ->
+    IOneOf p c c' ->*)
     IPairIn p (WFor c1 x r P c2)
   .
 
@@ -936,22 +964,20 @@ Section Defs.
     ~ WVar TID j ->
     forall p,
     MOneOf p (last vi) (first vj) ->
+    OneOf p (inr i) (inr j)
+    (*
     exists c1 c2,
     GetLast i c1 /\
     GetFirst j c2 /\
-    IOneOf p c1 c2.
+    IOneOf p c1 c2
+    *).
   Proof.
     intros.
     destruct p as (a1, a2).
     unfold MOneOf in *.
     destruct H3 as [(Hi, Hj)|(Hi, Hj)];
       eapply i_last_1 in Hi; eauto;
-      apply i_last_to_get_last in Hi;
-      destruct Hi as (ci, (Hgi, Hci));
-      eapply i_first_1 in Hj; eauto;
-      apply i_first_to_get_first in Hj;
-      destruct Hj as (cj, (Hgj, Hcj)); unfold IOneOf;
-      exists ci, cj; auto.
+      eapply i_first_1 in Hj; eauto; simpl; intuition.
   Qed.
 
   Lemma i_one_of_2:
@@ -1100,7 +1126,6 @@ Section Defs.
       + auto using i_pair_in_seq_l.
       + auto using i_pair_in_seq_r.
       + eapply i_one_of_1 in H2; eauto.
-        destruct H2 as (c1, (c2, (Hg1, (Hg2, Hi)))).
         eapply i_pair_in_seq_both; eauto.
     - subst.
       apply m_pair_in_inv_prefix in Hi.
@@ -1158,20 +1183,17 @@ Section Defs.
           destruct Hi as (c, (Hg, Hi)).
           eapply i_pair_in_for_3 with (n:=n); eauto using r_step_to_pick.
         }
-        eapply i_one_of_1 in Hi; eauto; try handle_not_var.
-        destruct Hi as (c1', (c3', (Hl, (Hf, Hi)))).
-        assert (Hx := H).
-        apply r_step_to_first in H.
-        eapply get_first_inv_for_skip in Hf; eauto.
-        destruct Hf as [?|(n',(Hf, Hg))]. {
+        assert (OneOf p (inr (w_subst x (NNum n) P)) (inr (w_subst x (NNum (S n)) P))). {
+          apply w_run_inv_for_skip_1 in H3.
+          destruct H3 as (n_b, (Hf, (m_b, (Hr, (h2', (Hrr, (m3', Hx))))))).
+          assert (n_b = S n) by eauto using r_step_inv_next_eq.
           subst.
-          apply i_one_of_skip_r in Hi.
-          contradiction.
+          apply m_one_of_inv_first_seq_l in Hi.
+          eapply i_one_of_1 in Hi; eauto; try handle_not_var.
+          eauto using wrun_has_many.
         }
-        assert (n'= S n) by eauto using r_step_inv_next_eq.
-        subst.
-        apply r_first_to_has_next in Hf.
         eapply i_pair_in_for_mid_2 with (n:=n); eauto using r_step_to_pick2, n_step_num.
+        eapply r_step_to_pick2; eauto using wrun_for_inv_has_next.
       }
       apply m_one_of_inv_first_seq_l in Hi. 2: { eauto using wrun_has_many. }
       eapply i_one_of_4 in Hi; eauto; try handle_not_var.
