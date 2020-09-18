@@ -881,10 +881,9 @@ Section Defs.
     CPairIn p (Conc.i_subst x e c2) ->
     IPairIn p (WFor c1 x r P c2)
   | i_pair_in_for_3:
-    forall r e n c1 c3 x p P c2,
+    forall r e n c1 x p P c2,
     RPick r n ->
-    GetLast (w_subst x e P) c3 ->
-    IOneOf p c3 (Conc.i_subst x e c2) ->
+    OneOf p (inr (w_subst x e P)) (inl (Conc.i_subst x e c2)) ->
     IPairIn p (WFor c1 x r P c2)
   (* ---- FIRST ITERATION ONLY ---- *)
   | i_pair_in_for_first_1:
@@ -1024,17 +1023,12 @@ Section Defs.
     MOneOf p (last v) h ->
     ~ WVar TID i ->
     ~ Conc.Var TID c ->
-    exists c',
-    GetLast i c' /\
-    IOneOf p c' c.
+    OneOf p (inr i) (inl c).
   Proof.
     intros.
     destruct p as (a1, a2).
     destruct H1 as [(Hi, Hj)|(Hi, Hj)];
-      eapply i_last_1 in Hi; eauto;
-      eapply i_last_to_get_last in Hi;
-      destruct Hi as (ci, (Hri, Hci));
-      unfold IOneOf;
+      eapply i_last_1 in Hi; eauto; simpl;
       eapply c_in_1 in H0; eauto; exists ci; intuition
       .
   Qed.
@@ -1169,7 +1163,6 @@ Section Defs.
         apply m_one_of_inv_first_prefix_l in Hi.
         destruct Hi as [Hi|Hi]. {
           eapply i_one_of_3 in Hi; eauto; try handle_not_var.
-          destruct Hi as (c, (Hg, Hi)).
           eapply i_pair_in_for_3 with (n:=n); eauto using r_step_to_pick.
         }
         assert (OneOf p (inr (w_subst x (NNum n) P)) (inr (w_subst x (NNum (S n)) P))). {
@@ -1206,7 +1199,6 @@ Section Defs.
         * simpl in *.
           (* c2 / w_subst x (NNum n) i *)
           eapply i_one_of_3 in Hi; eauto; try handle_not_var.
-          destruct Hi as (c', (Hg, Hi)).
           eapply i_pair_in_for_3 with (n:=n); eauto using r_one_to_pick.
       + (* c1 / w_subst x (NNum n) i *)
         apply m_one_of_inv_first_seq_l in Hi.
