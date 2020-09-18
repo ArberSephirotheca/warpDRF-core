@@ -1554,6 +1554,16 @@ Section SO.
     auto using n_step_num.
   Qed.
 
+  Lemma r_first_to_eq:
+    forall e1 e2 n,
+    RFirst (e1, e2) n ->
+    NStep e1 n.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    assumption.
+  Qed.
+
   Lemma r_step_inv_next_eq:
     forall r n r' n',
     RStep r n r' ->
@@ -1626,6 +1636,16 @@ Section SO.
     }
     eexists.
     eapply r_last_def; eauto.
+  Qed.
+
+  Lemma r_has_next_to_first:
+    forall r,
+    RHasNext r ->
+    exists m, RFirst r m.
+  Proof.
+    intros.
+    destruct H as (n, H).
+    eauto.
   Qed.
 
   Lemma n_eq_def:

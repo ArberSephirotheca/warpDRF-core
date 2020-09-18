@@ -342,6 +342,83 @@ Section Defs.
       apply c_in_subst with (v:=(NBin NMinus e2 (NNum 1))) (n:=m); eauto using r_last_to_eq.
   Qed.
 
+  Inductive IFirst a : n_inst -> Prop :=
+  | i_first_sync:
+    forall c,
+    CIn a c ->
+    IFirst a (NSync c)
+  | i_first_seq:
+    forall P Q,
+    IFirst a P ->
+    IFirst a (NSeq P Q)
+  | i_first_for:
+    forall P x r Q,
+    IFirst a P ->
+    IFirst a (NFor P x r Q)
+  .
+
+  Definition PFirst a (P:p_inst) :=
+    match P with
+    | (Q, _) => IFirst a Q
+    end.
+
+  Lemma p_last_inv_p_seq:
+    forall a P Q,
+    PFirst a (p_seq P Q) ->
+    PFirst a P.
+  Proof.
+    (* TODO: PROVE ME PLEASE! *)
+  Admitted.
+
+  Lemma i_first_inv_n_seq:
+    forall a c P,
+    IFirst a (n_seq c P) ->
+    CIn a c \/ IFirst a P.
+  Proof.
+    (* TODO: PROVE ME PLEASE! *)
+  Admitted.
+
+  Lemma i_first_1:
+    forall P Q,
+    P |> Q ->
+    WLang.CanRun P ->
+    ~ WVar TID P ->
+    forall a,
+    PFirst a Q ->
+    WLang.IFirst a P.
+  Proof.
+    intros P Q H.
+    induction H; intros Hc Hv a Hi; simpl in Hi; try invc Hi; try invc Hc; simpl in *.
+    - constructor; auto.
+    - subst.
+      apply p_last_inv_p_seq in Hi.
+      constructor; auto.
+    - invc_hyp (_ = _).
+    - invc_hyp (_ = _).
+    - invc_hyp (_ = _).
+      rename_hyp (IFirst _ _) as Hi.
+      apply i_first_inv_n_seq in Hi.
+      destruct Hi as [Hi|Hi]. {
+        auto using WLang.i_first_for_1.
+      }
+      rename_hyp (RHasNext _) as Hh. 
+      destruct Hh as (n, Hf).
+      assert (NStep e1 n) by eauto using r_first_to_eq.
+      eapply WLang.i_first_for_2; eauto.
+      assert (Hp: PFirst a (P_e1, c_e1)). {
+        simpl; auto.
+      }
+      assert (WLang.CanRun (w_subst x e1 P)). {
+        assert (WLang.CanRun (w_subst x (NNum n) P)) by eauto using r_first_to_pick.
+        eapply WLang.can_run_subst with (e:=NNum n); eauto using n_step_num.
+      }
+      apply IHTranslate1 in Hp; auto. {
+        eapply WLang.i_first_w_subst with (e3:=e1); eauto using n_step_num.
+      }
+      eapply wvar_subst_not_in; eauto.
+      intuition.
+  Qed.
+
   Lemma translate_1:
     forall P Q,
     P |> Q ->

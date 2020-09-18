@@ -586,6 +586,17 @@ Section Defs.
       eauto using get_first_for_2.
   Qed.
 
+
+  Lemma i_first_w_subst:
+    forall a P x e1 n,
+    NStep e1 n ->
+    IFirst a (w_subst x e1 P) ->
+    forall e2,
+    NStep e2 n ->
+    x <> TID ->
+    IFirst a (w_subst x e2 P).
+  Proof.
+  Admitted.
   (* ------------------ ILAST --------------------------------------- *)
 
   Inductive GetLast : w_inst -> Conc.inst -> Prop :=
@@ -889,48 +900,6 @@ Section Defs.
     IPairIn p (WFor c1 x r P c2)
   .
 
-(*
-  Lemma i_pair_in_seq_1:
-    forall p i,
-    IPairIn p i ->
-    forall c,
-    CPairIn p c ->
-    IPairIn p (seq c i).
-  Proof.
-    intros p i H.
-    induction H; intros; simpl.
-    -  
-  Qed.
-*)
-(*
-
-  Lemma m_one_of_to_i_one_of:
-    forall p i j mh_i mh_j,
-    WRun i mh_i ->
-    WRun j mh_j ->
-    ~ WVar TID i -> 
-    ~ WVar TID j -> 
-    MOneOf p (last mh_i) (first mh_j) ->
-    IOneOf p (fun a => ILast a i)
-            (fun a => IFirst a j).
-  Proof.
-    intros.
-    unfold MOneOf, OneOf in *.
-    destruct p as (a1, a2).
-    destruct H3 as [(Hi,Hj)|(Hi,Hj)]. {
-      left.
-      split. {
-        eapply i_last_1; eauto.
-      }
-      eapply i_first_1; eauto.
-    }
-    right.
-    split. {
-      eapply i_last_1; eauto.
-    }
-    eapply i_first_1; eauto.
-  Qed.
-*)
   Lemma i_pair_in_for_run_0_1:
     forall r c1 p h x P c2,
     Conc.RunAll TID_COUNT c1 h ->
@@ -942,21 +911,6 @@ Section Defs.
     eapply i_pair_in_for_first_1; eauto.
     eapply c_pair_in_1; eauto.
   Qed.
-(*
-  Lemma c_pair_in_to_any_pair_of:
-    forall p c i,
-    CPairIn p c ->
-    AnyPairOf p
-      (fun a => CIn a c)
-      (fun a => ILast a i).
-  Proof.
-    intros.
-    unfold AnyPairOf.
-    destruct p as (a1, a2).
-    inversion H; subst; clear H.
-    unfold AnyOf.
-    intuition.
-  Qed.*)
 
   Lemma i_pair_in_for_run_0_2:
     forall r n c1 P c2 h2 x p,
@@ -1251,168 +1205,5 @@ Section Defs.
         eapply i_pair_in_for_first_2; eauto using r_one_to_first, n_step_num.
   Qed.
 
-  Definition IEq P Q :=
-    forall p,
-    IPairIn p P <-> IPairIn p Q.
-
-  (* ------------------------------------------------------------- *)
-(*
-  Fixpoint i_seq (c:Conc.inst) (i:w_inst) :=
-    match i with
-    | WSync c' => WSync (Conc.Seq c' c)
-    | WSeq i j => WSeq (i_seq c i) j
-    | WFor c1 x r i c2 => WFor (Conc.Seq c c1) x r i c2
-    end.
-
-  Inductive EPairIn : (access_val * access_val) -> w_inst -> Prop :=
-  | e_pair_in_sync:
-    forall p c,
-    CPairIn p c ->
-    EPairIn p (WSync c)
-
-  | e_pair_in_seq_l:
-    forall p i j,
-    EPairIn p i ->
-    EPairIn p (WSeq i j)
-
-  | e_pair_in_seq_r:
-    forall p i j c,
-    GetLast i c ->
-    EPairIn p (i_seq c j) ->
-    EPairIn p (WSeq i j)
-
-  | e_pair_in_for_start:
-    forall e1 e2 n1 n2 i x c1 c2 p,
-    NStep e1 n1 ->
-    NStep e2 n2 ->
-    n1 < n2 ->
-    EPairIn p (i_seq c1 (w_subst x (NNum n1) i)) ->
-    EPairIn p (WFor c1 x (e1, e2) i c2)
-
-  | e_pair_in_for_mid:
-    forall e1 e2 n1 n n2 i x c1 c2 ci p,
-    NStep e1 n1 ->
-    NStep e2 n2 ->
-    n1 < n < n2 ->
-    GetLast (w_subst x (NNum (n - 1)) i) ci ->
-    EPairIn p (i_seq (Conc.Seq ci (Conc.i_subst x (NNum (n - 1)) c2)) (w_subst x (NNum n1) i)) ->
-    EPairIn p (WFor c1 x (e1, e2) i c2)
-
-  | e_pair_in_for_end:
-    forall e1 e2 n1 n2 i x c1 c2 p,
-    NStep e1 n1 ->
-    NStep e2 n2 ->
-    n1 < n2 ->
-    CPairIn p (Conc.i_subst x (NNum (n2 - 1)) c2 )->
-    EPairIn p (WFor c1 x (e1, e2) i c2).
-
-  Lemma c_in_seq_l:
-    forall a i j,
-    CIn a i ->
-    CIn a (Conc.Seq i j).
-  Proof.
-    intros.
-    inversion H; subst; clear H.
-    eapply c_in_def; auto.
-    auto using Conc.i_in_seq_l.
-  Qed.
-
-  Lemma c_in_seq_r:
-    forall a i j,
-    CIn a j ->
-    CIn a (Conc.Seq i j).
-  Proof.
-    intros.
-    inversion H; subst; clear H.
-    eapply c_in_def; auto.
-    auto using Conc.i_in_seq_r.
-  Qed.
-
-  Lemma c_in_inv_seq:
-    forall a i j,
-    CIn a (Conc.Seq i j) ->
-    CIn a i \/ CIn a j.
-  Proof.
-    intros.
-    inversion H; subst; clear H.
-    inversion H1; subst; clear H1; auto using c_in_def.
-  Qed.
-
-  Inductive Wellformed: w_inst -> Prop :=
-  | wellformed_sync:
-    forall c,
-    Wellformed (WSync c)
-  | wellformed_seq:
-    forall i j,
-    Wellformed i -> 
-    Wellformed j ->
-    Wellformed (WSeq i j)
-  | wellformed_for_1:
-    forall c1 c2 x r r' n i,
-    RStep r n r' ->
-    Wellformed (w_subst x (NNum n) i) ->
-    Wellformed (WFor Conc.Skip x r' i c2) -> 
-    Wellformed (WFor c1 x r i c2)
-  | wellformed_for_2:
-    forall c1 c2 x r n i,
-    ROne r n ->
-    Wellformed (w_subst x (NNum n) i) ->
-    Wellformed (WFor c1 x r i c2).
-
-  Lemma wrun_to_wellformed:
-    forall i v,
-    WRun i v ->
-    Wellformed i.
-  Proof.
-    intros.
-    induction H; try (constructor; auto).
-    - subst.
-      eapply wellformed_for_1; eauto.
-    - eapply wellformed_for_2; eauto.
-  Qed.
-
-  Lemma e_pair_in_i_seq_1:
-    forall i p,
-    CIn p c ->
-    EPairIn p (i_seq c1 i).
-
-  Lemma e_pair_in_i_seq_2:
-    forall i c2,
-    GetFirst i c2 ->
-    forall a1 a2 c1,
-    CIn a1 c1 ->
-    CIn a2 c2 ->
-    EPairIn (a1, a2) (i_seq c1 i).
-  Proof.
-    intros i c2 H.
-    induction H; intros; simpl.
-    - constructor.
-      apply c_pair_in_def; auto using c_in_seq_l, c_in_seq_r.
-    - auto using e_pair_in_seq_l.
-    - destruct r as (e1, e2).
-      eapply e_pair_in_for_start; eauto.
-  Qed.
-
-  Lemma e_pair_in_1:
-(*    forall i h,
-    WRun i h ->
-    ~ WVar TID i -> *)
-    forall p i,
-    IPairIn p i ->
-    EPairIn p i.
-  Proof.
-    intros.
-    induction H.
-    - constructor; auto.
-    - constructor; auto.
-    - eapply e_pair_in_seq_r.
-      admit.
-      admit.
-    - destruct p as (a1, a2).
-      destruct H1 as [(Ha, Hb)|(Ha, Hb)].
-      + eapply e_pair_in_seq_r; eauto.
-  Qed.
-  
-*)
 
 End Defs.
