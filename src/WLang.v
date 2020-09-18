@@ -864,13 +864,6 @@ Section Defs.
     IPairIn p j ->
     IPairIn p (WSeq i j)
   | i_pair_in_seq_both:
-    (*
-    forall p i j,
-    GetLast i c1 ->
-    GetFirst j c2 ->
-    IOneOf p c1 c2 ->
-    IPairIn p (WSeq i j)
-    *)
     forall p P Q,
     OneOf p (inr P) (inr Q) ->
     IPairIn p (WSeq P Q)
@@ -916,15 +909,11 @@ Section Defs.
     IPairIn p (WFor c1 x r P c2)
 
   | i_pair_in_for_mid_2:
-    forall r n e e' P x c2 c1 (* c c' *) p,
+    forall r n e e' P x c2 c1 p,
     RPick2 r n ->
     NStep e n ->
     NStep e' (S n) ->
     OneOf p (inr (w_subst x e P)) (inr (w_subst x e' P)) ->
-  (*
-    GetLast (w_subst x e P) c ->
-    GetFirst (w_subst x e' P) c' ->
-    IOneOf p c c' ->*)
     IPairIn p (WFor c1 x r P c2)
   .
 
