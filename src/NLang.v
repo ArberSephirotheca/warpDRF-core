@@ -362,6 +362,19 @@ Section Defs.
     (* TODO: PROVE ME PLEASE *)
   Admitted.
 
+  Definition NOneOf (p:access_val*access_val) c P :=
+    let (a1, a2) := p in
+    (CIn a1 c /\ IFirst a2 P)
+    \/
+    (CIn a2 c /\ IFirst a1 P).
+
+  Lemma i_pair_in_inv_n_seq:
+    forall a c P,
+    IPairIn a (n_seq c P) ->
+    CPairIn a c \/ IPairIn a P \/ NOneOf a c P.
+  Proof.
+  Admitted.
+
   Lemma i_first_1:
     forall P Q,
     P |> Q ->
@@ -457,23 +470,24 @@ Section Defs.
       destruct Hi as [Hi|Hi]. {
         inversion Hi; subst; clear Hi.
         - (* First iteration *)
-          (*
-          | i_pair_in_for_first_1:
-            forall r c1 p P c2 x,
-            CPairIn p c1 ->
-            IPairIn p (WFor c1 x r P c2)
-          | i_pair_in_for_first_2:
-            forall r e n c1 c3 p P x c2,
-            RFirst r n ->
-            NStep e n ->
-            GetFirst (w_subst x e P) c3 ->
-            IOneOf p c1 c3 ->
-            IPairIn p (WFor c1 x r P c2)
-          *)
-          (* Prove:
-            IPairIn a (n_seq c1 P_e1) ->
-            CPairIn a c1 \/ CPairIn a P_e1 \/ OneOf c1 (GetFirst P_e1) *)
-          admit.
+          rename_hyp (IPairIn a _) as Hi.
+          apply i_pair_in_inv_n_seq in Hi.
+          rename_hyp (RHasNext _) as Hx.
+          destruct Hx as (m, Hx).
+          assert (RPick (e1, e2) m) by eauto using r_first_to_pick.
+          assert (NStep e1 m) by eauto using r_first_to_eq.
+          destruct Hi as [Hi|[Hi|Hi]].
+          + constructor; auto.
+          + assert (WLang.IPairIn a (w_subst x e1 P)). {
+              apply IHTranslate1; auto.
+              - eauto using WLang.can_run_subst, n_step_num.
+              - eapply wvar_subst_not_in; eauto.
+                simpl in *.
+                intuition.
+            }
+            eapply WLang.i_pair_in_for_1; eauto.
+          + eapply WLang.i_pair_in_for_first_2; eauto.
+            admit.
         - (* Mid iteration *)
           (*
           | i_pair_in_for_mid_1:
