@@ -898,12 +898,11 @@ Section Defs.
     IPairIn p (WFor c1 x r P c2)
   (* -------- ALL BUT FIRST ---- *)
   | i_pair_in_for_mid_1:
-    forall r n c1 c3 p x P c2 e e',
+    forall r n c1 p x P c2 e e',
     RPick2 r n ->
     NStep e n ->
     NStep e' (S n) ->
-    GetFirst (w_subst x e' P) c3 ->
-    IOneOf p (Conc.i_subst x e c2) c3 ->
+    OneOf p (inl (Conc.i_subst x e c2)) (inr (w_subst x e' P)) ->
     IPairIn p (WFor c1 x r P c2)
 
   | i_pair_in_for_mid_2:
@@ -951,13 +950,7 @@ Section Defs.
     ~ WVar TID j ->
     forall p,
     MOneOf p (last vi) (first vj) ->
-    OneOf p (inr i) (inr j)
-    (*
-    exists c1 c2,
-    GetLast i c1 /\
-    GetFirst j c2 /\
-    IOneOf p c1 c2
-    *).
+    OneOf p (inr i) (inr j).
   Proof.
     intros.
     destruct p as (a1, a2).
@@ -975,9 +968,7 @@ Section Defs.
     MOneOf p h (first v) ->
     ~ Conc.Var TID c1 ->
     ~ WVar TID (w_subst x (NNum n) P) ->
-    exists c,
-    GetFirst (w_subst x (NNum n) P) c /\
-    IOneOf p c1 c.
+    OneOf p (inl c1) (inr (w_subst x (NNum n) P)).
   Proof.
     intros.
     apply w_run_inv_for_skip_1 in H1.
@@ -995,22 +986,16 @@ Section Defs.
       apply first_inv_in_seq in Hb.
       destruct Hb as [Hb|(h'', (Hb1, Hb2))]. {
         eapply i_first_1 in Hb; eauto.
-        apply i_first_to_get_first in Hb.
-        destruct Hb as (c', (Hg, Hci)).
-        exists c'.
-        split; auto.
-        unfold IOneOf; auto.
+        simpl.
+        auto.
       }
       inversion Hb1.
     }
     apply first_inv_in_seq in Hb.
     destruct Hb as [Hb|(h'', (Hb1, Hb2))]. {
       eapply i_first_1 in Hb; eauto.
-      apply i_first_to_get_first in Hb.
-      destruct Hb as (c', (Hg, Hci)).
-      exists c'.
-      split; auto.
-      unfold IOneOf; auto.
+      simpl.
+      auto.
     }
     inversion Hb1.
   Qed.
@@ -1155,7 +1140,6 @@ Section Defs.
           assert (n' = S n) by eauto using r_step_inv_next_eq.
           subst.
           eapply i_one_of_2 in Hi; eauto; try handle_not_var.
-          destruct Hi as (c, (Hg, Hi)).
           apply r_first_to_has_next in Hr.
           eapply i_pair_in_for_mid_1 with (n:=n); eauto using r_step_to_pick2, n_step_num.
         }
