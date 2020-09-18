@@ -25,6 +25,15 @@ Section Defs.
       NFor (subst x v P) y (r_subst x v r) Q'
     end.
 
+  Fixpoint Var x P :=
+    match P with
+    | NSync c => Conc.Var x c
+    | NSeq P Q => Var x P \/ Var x Q
+    | NFor P y _ Q =>
+      x = y \/
+      Var x P \/ Var x Q
+    end.
+
   Definition p_inst := (n_inst * Conc.inst) % type.
 
   Fixpoint w_seq (c:Conc.inst) (i:w_inst) :=
@@ -110,43 +119,6 @@ Section Defs.
     
   where " P |> Q" := (Translate P Q).
 
-  (*
-  Fixpoint tr i :=
-    match i with
-    | WSync c => (NSync c, Conc.Skip)
-      (*
-        [[ P; Q ]] = [[P]] ;; [[Q]]
-        *) 
-    | WSeq P Q => p_seq [[ P ]] [[ Q ]]
-    | WFor c1 x (e1, e2) P c2 =>
-      (*
-      
-      [[  c1; for x \in (e1, e2] { \x. P, \x. c2 } ]] =
-        
-        c1; P'(e1);
-        for x \in (e1 + 1, e2) {
-          c'(x - 1); c2 (x - 1); P'(x)
-        }
-        ,
-        c'(e2 - 1); c2 (e2 - 1)
-
-        
-       *)
-      let P' e := fst ([[w_subst x e P ]]) in
-      let c' e := Conc.Seq (snd ([[w_subst x e P]])) (Conc.i_subst x e c2) in
-      (
-        NFor
-          (n_seq c1 (P' e1))
-          x
-          (NBin NPlus e1 (NNum 1), e2)
-          (n_seq (c' (NBin NMinus (NVar x) (NNum 1))) (P' (NVar x)))
-        ,
-        c' (NBin NMinus e2 (NNum 1))
-      )
-    end
-    where "[[ P ]]" := (tr P).
-  *)
-
   Inductive IPairIn (p:access_val*access_val) : n_inst -> Prop :=
   | i_pair_in_sync:
     (* 
@@ -187,62 +159,6 @@ Section Defs.
     match p with
     | (i, c) => IPairIn a i \/ CPairIn a c
     end.
-
-(*
-
-  Lemma i_pair_in_n_seq_l:
-    forall p c i,
-    CPairIn p c ->
-    IPairIn p (n_seq c i).
-  Proof.
-    intros.
-    induction i; simpl.
-    - apply i_pair_in_sync.
-      apply c_pair_in_c_seq_l.
-      auto using i_pair_in_sync, c_pair_in_seq_l.
-    - auto using i_pair_in_seq_l.
-    - auto using i_pair_in_for_1.
-  Qed.
-
-  Lemma i_pair_in_i_seq_r:
-    forall p c i,
-    IPairIn p i ->
-    IPairIn p (i_seq c i).
-  Proof.
-    intros.
-    induction i; simpl; inversion H; subst; clear H.
-    - auto using i_pair_in_sync, c_pair_in_seq_r.
-    - auto using i_pair_in_seq_r, i_pair_in_seq_l.
-    - auto using i_pair_in_seq_r.
-    - auto using i_pair_in_for_1.
-    - eauto using i_pair_in_for_2.
-  Qed.
-
-  Lemma p_pair_in_seq_l:
-    forall p i j,
-    PPairIn p i ->
-    PPairIn p (seq i j).
-  Proof.
-    intros p (i, ci) (j, cj) Hi.
-    simpl in *.
-    destruct Hi as [Hi|Hi]. {
-      auto using i_pair_in_seq_l.
-    }
-    eauto using i_pair_in_i_seq_l, i_pair_in_seq_r.
-  Qed.
-
-  Lemma p_pair_in_seq_r:
-    forall p i j,
-    PPairIn p j ->
-    PPairIn p (seq i j).
-  Proof.
-    intros p (i, ci) (j, cj) Hi.
-    simpl in *.
-    destruct Hi as [Hi|Hi]; auto.
-    left.
-    auto using i_pair_in_seq_r, i_pair_in_i_seq_r.
-  Qed.
-  *)
 
   (*
   
@@ -317,6 +233,7 @@ Section Defs.
     P |> (Q, c) ->
     CanRun Q.
   Proof.
+    (* TODO: PLEASE PROVE ME! *)
   Admitted.
 
   Lemma can_run_inv_n_seq_r:
@@ -366,10 +283,19 @@ Section Defs.
       eauto.
   Qed.
 
+  Lemma tr_not_var:
+    forall P c Q,
+    P |> (Q, c) ->
+    ~ WVar TID P ->
+    ~ Var TID Q.
+  Proof.
+  Admitted.
+
   Lemma i_last_to_translate:
     forall P Q,
     P |> Q ->
     WLang.CanRun P ->
+    ~ WVar TID P ->
     forall a,
     ILast a Q ->
     WLang.ILast a P.
@@ -384,6 +310,7 @@ Section Defs.
       simpl in *.
       invc_hyp (WLang.CanRun _).
       assert (CanRun Q') by eauto using can_run_inv_n_seq_r, tr_can_run.
+      assert (~ WVar TID Q) by (simpl in *; intuition).
       auto using WLang.i_last_seq.
     - simpl in *.
       subst.
@@ -400,23 +327,20 @@ Section Defs.
           apply IHTranslate4; auto.
           assert (WLang.CanRun (w_subst x (NNum m) P)) by eauto using r_last_to_pick.
           eapply can_run_subst; eauto using n_step_num, r_last_to_eq.
+          assert (~ WVar TID P) by intuition.
+          eapply wvar_subst_not_in; eauto using r_last_to_eq.
         }
         apply i_last_for_1 with (n:=m); eauto.
         intros.
         assert (NStep (NBin NMinus e2 (NNum 1)) m) by eauto using r_last_to_eq.
         eapply i_last_w_subst; eauto.
-        (* TODO: ~ Var TID P *)
-        admit.
       }
       (* In c2 *)
       apply i_last_for_2 with (n:=m); auto.
       intros e He.
       unfold c2_dec_e2 in *.
-      apply c_in_subst with (v:=(NBin NMinus e2 (NNum 1))) (n:=m); eauto.
-      + eauto using r_last_to_eq.
-      + (* TODO: ~ Var TID P *)
-        admit.
-  Admitted.
+      apply c_in_subst with (v:=(NBin NMinus e2 (NNum 1))) (n:=m); eauto using r_last_to_eq.
+  Qed.
 
   Lemma translate_1:
     forall P Q,

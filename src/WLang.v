@@ -193,6 +193,15 @@ Section Defs.
       + eauto using Conc.var_subst_inv_1.
   Qed.
 
+  Lemma wvar_subst_not_in:
+    forall x P y e n,
+    NStep e n ->
+    ~ WVar x P ->
+    ~ WVar x (w_subst y e P).
+  Proof.
+    (* TODO: PROVE ME! *)
+  Admitted.
+
   Lemma wrun_one:
     forall i h,
     ~ WRun i {{h}}.
@@ -334,6 +343,7 @@ Section Defs.
     CanRun (w_subst x e P) ->
     CanRun (w_subst x e' P).
   Proof.
+    (* TODO: PLEASE PROVE ME! *)
   Admitted.
 
 
