@@ -405,7 +405,7 @@ Section Defs.
   Qed.
 *)
   (* --------------------------- GET FIRST ----------------------- *)
-
+(*
   Inductive GetFirst: w_inst -> Conc.inst -> Prop :=
   | get_first_sync:
     forall c,
@@ -432,7 +432,7 @@ Section Defs.
     intros.
     inversion H; subst; clear H; eauto.
   Qed.
-
+*)
   (* ------------------ IFIRST --------------------------------------- *)
 (*
   Fixpoint i_seq (c:Conc.inst) (i:w_inst) :=
@@ -571,22 +571,6 @@ Section Defs.
       auto using first_in_seq_l, first_in_prefix_r, first_in_seq_l.
   Qed.
 
-  Lemma i_first_to_get_first:
-    forall a i,
-    IFirst a i ->
-    exists c, GetFirst i c /\ CIn a c.
-  Proof.
-    intros a i H.
-    induction H; intros.
-    - eauto using get_first_sync.
-    - destruct IHIFirst as (c, (Hg, Hc)).
-      eauto using get_first_seq.
-    - eauto using get_first_for_1.
-    - destruct IHIFirst as (c, (Hg, Hc)).
-      eauto using get_first_for_2.
-  Qed.
-
-
   Lemma i_first_w_subst:
     forall a P x e1 n,
     NStep e1 n ->
@@ -598,24 +582,6 @@ Section Defs.
   Proof.
   Admitted.
   (* ------------------ ILAST --------------------------------------- *)
-
-  Inductive GetLast : w_inst -> Conc.inst -> Prop :=
-  | get_last_sync:
-    forall c,
-    GetLast (WSync c) Conc.Skip
-  | get_last_seq:
-    forall i j c,
-    GetLast j c ->
-    GetLast (WSeq i j) c
-  | get_last_for_1:
-    forall r n c1 x P c2 c,
-    RLast r n ->
-    GetLast (w_subst x (NNum n) P) c ->
-    GetLast (WFor c1 x r P c2) c
-  | get_last_for_2:
-    forall r n c1 x P c2,
-    RLast r n ->
-    GetLast (WFor c1 x r P c2) (Conc.i_subst x (NNum n) c2).
 
   Inductive ILast (a: access_val) : w_inst -> Prop :=
   | i_last_seq:
@@ -808,27 +774,6 @@ Section Defs.
         apply i_last_w_subst with (e1:=NNum n) (n:=n); eauto using n_step_num.
       }
   Qed.
-
-  Lemma i_last_to_get_last:
-    forall a i,
-    ILast a i ->
-    exists c, GetLast i c /\ CIn a c.
-  Proof.
-    intros a i H.
-    induction H; intros.
-    - destruct IHILast as (c, (Hg, Hc)).
-      eauto using get_last_seq.
-    - edestruct H1 as (c, (Hg, Hc)); eauto using n_step_num.
-      eauto using get_last_for_1.
-    - assert (CIn a (Conc.i_subst x (NNum n) c2)) by eauto using n_step_num.
-      eauto using get_last_for_2.
-  Qed.
-
-
-  Definition IOneOf (p:access_val*access_val) c1 c2 :=
-    let (a1,a2) := p in
-    (CIn a1 c1 /\ CIn a2 c2) \/
-    (CIn a1 c2 /\ CIn a2 c1).
 
   Notation any_inst := (Conc.inst + w_inst) % type.
 
@@ -1040,14 +985,6 @@ Section Defs.
   Proof.
     intros (a1, a2) [c|P]; simpl; intros N;
       destruct N as [(N,_)|(N,_)]; apply c_in_skip in N; auto.
-  Qed.
-
-  Lemma i_one_of_skip_r:
-    forall p c,
-    ~ IOneOf p c Conc.Skip.
-  Proof.
-    intros (a1, a2) c [(_,N)|(N,_)];
-      apply c_in_skip in N; auto.
   Qed.
 
   Lemma i_pair_in_for_cons:
