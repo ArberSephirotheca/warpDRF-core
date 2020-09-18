@@ -241,7 +241,7 @@ Section Defs.
     P |> (Q, c) ->
     CanRun Q.
   Proof.
-    (* TODO: PLEASE PROVE ME! *)
+    (* TODO: PROVE ME PLEASE *)
   Admitted.
 
   Lemma can_run_inv_n_seq_r:
@@ -292,6 +292,7 @@ Section Defs.
     ~ WVar TID P ->
     ~ Var TID Q.
   Proof.
+    (* TODO: PROVE ME PLEASE *)
   Admitted.
 
   Lemma i_last_to_translate:
@@ -350,7 +351,7 @@ Section Defs.
     PFirst a (p_seq P Q) ->
     PFirst a P.
   Proof.
-    (* TODO: PROVE ME PLEASE! *)
+    (* TODO: PROVE ME PLEASE *)
   Admitted.
 
   Lemma i_first_inv_n_seq:
@@ -358,7 +359,7 @@ Section Defs.
     IFirst a (n_seq c P) ->
     CIn a c \/ IFirst a P.
   Proof.
-    (* TODO: PROVE ME PLEASE! *)
+    (* TODO: PROVE ME PLEASE *)
   Admitted.
 
   Lemma i_first_1:
@@ -407,6 +408,7 @@ Section Defs.
     PPairIn a (p_seq P Q) ->
     PPairIn a P \/ PPairIn a Q \/ POneOf a P Q.
   Proof.
+    (* TODO: PROVE ME PLEASE *)
   Admitted.
 
   Lemma p_one_of_to_one_of:
@@ -418,6 +420,7 @@ Section Defs.
     POneOf a P' Q' ->
     OneOf a (inr P) (inr Q).
   Proof.
+    (* TODO: PROVE ME PLEASE *)
   Admitted.
 
   Lemma translate_1:

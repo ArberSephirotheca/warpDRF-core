@@ -183,7 +183,9 @@ Section Defs.
     ~ WVar x P ->
     ~ WVar x (w_subst y e P).
   Proof.
-    (* TODO: PROVE ME! *)
+    (* This one might be a long one, since we would need to prove a similar
+       result for Conc, NExp, BExp, and access_exp. *)
+    (* TODO: PROVE ME PLEASE *)
   Admitted.
 
   Lemma wrun_one:
@@ -315,7 +317,7 @@ Section Defs.
 
   Lemma can_run_subst:
     forall x e e' P,
-(*
+(* (* These assumptions might be useful *)
     ~ Var TID P ->
     ~ NIn TID e ->
     ~ NIn TID e' ->
@@ -327,7 +329,7 @@ Section Defs.
     CanRun (w_subst x e P) ->
     CanRun (w_subst x e' P).
   Proof.
-    (* TODO: PLEASE PROVE ME! *)
+    (* TODO: PROVE ME PLEASE *)
   Admitted.
 
   (* ------------------ IFIRST --------------------------------------- *)
@@ -470,6 +472,8 @@ Section Defs.
     x <> TID ->
     IFirst a (w_subst x e2 P).
   Proof.
+    (* See i_last_w_subst for an example *)
+    (* TODO: PROVE ME PLEASE *)
   Admitted.
   (* ------------------ ILAST --------------------------------------- *)
 
@@ -1017,4 +1021,4 @@ Section Defs.
   Qed.
 
 
-End Defs.
+End Defs. 
