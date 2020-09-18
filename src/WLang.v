@@ -15,13 +15,13 @@ Require Import PairInUtil.
 Require Import VHist.
 Require Import RangeList.
 Require Import Conc.
+Require Import Tictac.
 
 Require RangeList.
 Require Import Lia.
 
 Import ListNotations.
 Require Conc.
-Require Import NSync.
 
 Section Defs.
 
@@ -891,11 +891,10 @@ Section Defs.
     CPairIn p c1 ->
     IPairIn p (WFor c1 x r P c2)
   | i_pair_in_for_first_2:
-    forall r e n c1 c3 p P x c2,
+    forall r e n c1 p P x c2,
     RFirst r n ->
     NStep e n ->
-    GetFirst (w_subst x e P) c3 ->
-    IOneOf p c1 c3 ->
+    OneOf p (inl c1) (inr (w_subst x e P)) ->
     IPairIn p (WFor c1 x r P c2)
   (* -------- ALL BUT FIRST ---- *)
   | i_pair_in_for_mid_1:
@@ -1040,23 +1039,22 @@ Section Defs.
     MOneOf p h1 (first m1) ->
     ~ Conc.Var TID c1 ->
     ~ WVar TID i ->
-    exists c, GetFirst i c /\ IOneOf p c1 c.
+    OneOf p (inl c1) (inr i).
   Proof.
     intros.
     destruct p as (a1, a2).
     destruct H1 as [(Hi,Hj)|(Hi,Hj)];
+      simpl;
       eapply c_in_1 in Hi; eauto;
-      eapply i_first_1 in Hj; eauto;
-      eapply i_first_to_get_first in Hj;
-      destruct Hj as (c, (Hj,Hij)); unfold IOneOf; exists c; auto.
+      eapply i_first_1 in Hj; eauto.
   Qed.
 
   Lemma i_one_of_skip_l:
-    forall p c,
-    ~ IOneOf p Conc.Skip c.
+    forall p P,
+    ~ OneOf p (inl Conc.Skip) P.
   Proof.
-    intros (a1, a2) c [(N,_)|(_, N)];
-      apply c_in_skip in N; auto.
+    intros (a1, a2) [c|P]; simpl; intros N;
+      destruct N as [(N,_)|(N,_)]; apply c_in_skip in N; auto.
   Qed.
 
   Lemma i_one_of_skip_r:
@@ -1080,7 +1078,8 @@ Section Defs.
     - eauto using i_pair_in_for_3, r_step_pick_rev.
     - apply c_pair_in_skip in H3.
       contradiction.
-    - apply i_one_of_skip_l in H10.
+    - rename_hyp (OneOf _ _ _) as Hi.
+      apply i_one_of_skip_l in Hi.
       contradiction.
     - eauto using i_pair_in_for_mid_1, r_step_pick2_rev.
     - eauto using i_pair_in_for_mid_2, r_step_pick2_rev.
@@ -1179,7 +1178,6 @@ Section Defs.
       }
       apply m_one_of_inv_first_seq_l in Hi. 2: { eauto using wrun_has_many. }
       eapply i_one_of_4 in Hi; eauto; try handle_not_var.
-      destruct Hi as (c, (Hg, Hi)).
       eapply i_pair_in_for_first_2; eauto using r_step_to_first, n_step_num.
     - subst.
       apply m_pair_in_inv_prefix in Hi.
@@ -1204,7 +1202,6 @@ Section Defs.
         apply m_one_of_inv_first_seq_l in Hi.
         2: { eauto using wrun_has_many. }
         eapply i_one_of_4 in Hi; eauto; try handle_not_var.
-        destruct Hi as (c, (Hg, Hi)).
         eapply i_pair_in_for_first_2; eauto using r_one_to_first, n_step_num.
   Qed.
 
