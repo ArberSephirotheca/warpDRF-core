@@ -441,22 +441,6 @@ Section Defs.
       + apply c_pair_in_skip in Hi.
         contradiction.
     - subst.
-      (*
-      | i_pair_in_seq_l:
-        forall p i j,
-        IPairIn p i ->
-        IPairIn p (WSeq i j)
-      | i_pair_in_seq_r:
-        forall p i j,
-        IPairIn p j ->
-        IPairIn p (WSeq i j)
-      | i_pair_in_seq_both:
-        forall p i j c1 c2,
-        GetLast i c1 ->
-        GetFirst j c2 ->
-        IOneOf p c1 c2 ->
-        IPairIn p (WSeq i j)
-      *)
       apply p_pair_in_inv_p_seq in Hi.
       destruct Hi as [Hi|[Hi|Hi]].
       + apply WLang.i_pair_in_seq_l.
@@ -532,49 +516,33 @@ Section Defs.
         eapply wvar_subst_not_in; eauto.
         intuition.
       }
+      assert (RPick (e1, e2) m) by eauto using r_last_to_pick.
       destruct Ha as [Ha|Ha];
         destruct Hb as [Hb|Hb].
-      + (*
-        | i_pair_in_for_1:
-          forall r e n c1 P c2 p x,
-          RPick r n ->
-          NStep e n ->
-          IPairIn p (w_subst x e P) ->
-          IPairIn p (WFor c1 x r P c2)
-        *)
-        assert (CPairIn (a1, a2) c_dec_e2) by auto using c_pair_in_def.
+      + assert (CPairIn (a1, a2) c_dec_e2) by auto using c_pair_in_def.
         assert (WLang.IPairIn (a1, a2) (w_subst x (NBin NMinus e2 (NNum 1)) P)) by auto.
         (* We must show that r has at least one iteration, which
            allows us to learn that it has a last iteration.
            *)
-        eapply WLang.i_pair_in_for_1; eauto using r_last_to_pick.
-      + (*
-        | i_pair_in_for_3:
-          forall r e n c1 c3 x p P c2,
-          RPick r n ->
-          GetLast (w_subst x e P) c3 ->
-          IOneOf p c3 (Conc.i_subst x e c2) ->
-          IPairIn p (WFor c1 x r P c2)
-        *)
-        assert (WLang.ILast a1 (w_subst x (NBin NMinus e2 (NNum 1)) P)). {
+        eapply WLang.i_pair_in_for_1; eauto.
+      + assert (WLang.ILast a1 (w_subst x (NBin NMinus e2 (NNum 1)) P)). {
           apply i_last_to_translate with (a:=a1) in H2; auto; simpl.
         }
-        admit.
-      + (*
-        | i_pair_in_for_3:
-          forall r e n c1 c3 x p P c2,
-          RPick r n ->
-          GetLast (w_subst x e P) c3 ->
-          IOneOf p c3 (Conc.i_subst x e c2) ->
-          IPairIn p (WFor c1 x r P c2)
-        *)
-        admit.
+        eapply WLang.i_pair_in_for_3 with (e:=(NBin NMinus e2 (NNum 1))); eauto.
+        simpl.
+        intuition.
+      + assert (WLang.ILast a2 (w_subst x (NBin NMinus e2 (NNum 1)) P)). {
+          apply i_last_to_translate with (a:=a2) in H2; auto; simpl.
+        }
+        eapply WLang.i_pair_in_for_3 with (e:=(NBin NMinus e2 (NNum 1))); eauto.
+        simpl.
+        intuition.
       + assert (CPairIn (a1, a2) c2_dec_e2) by auto using c_pair_in_def.
         unfold c2_dec_e2 in *.
         (* We must show that r has at least one iteration, which
            allows us to learn that it has a last iteration.
            *)
-        eapply WLang.i_pair_in_for_2; eauto using r_last_to_pick.
+        eapply WLang.i_pair_in_for_2; eauto.
   Admitted.
 
   Lemma translate_1:
