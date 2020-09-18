@@ -146,6 +146,22 @@ Section Defs.
     {{ h1 }} @ m1 @ {{ h2 }} = m ->
     WRun (WFor c1 x r P c2) m.
 
+
+  Inductive CanRun: w_inst -> Prop :=
+  | can_run_sync:
+    forall c,
+    CanRun (WSync c)
+  | can_run_seq:
+    forall i j,
+    CanRun i -> 
+    CanRun j ->
+    CanRun (WSeq i j)
+  | can_run_for:
+    forall x r P c1 c2,
+    RHasNext r ->
+    (forall n, RPick r n -> CanRun (w_subst x (NNum n) P)) -> 
+    CanRun (WFor c1 x r P c2).
+
   Definition WEq P Q :=
     forall h,
     WRun P h <-> WRun Q h.
@@ -302,6 +318,25 @@ Section Defs.
     }
     eauto using r_one_to_has_next.
   Qed.
+
+
+  Lemma can_run_subst:
+    forall x e e' P,
+(*
+    ~ Var TID P ->
+    ~ NIn TID e ->
+    ~ NIn TID e' ->
+    x <> TID ->
+    *)
+    forall n,
+    NStep e n ->
+    NStep e' n ->
+    CanRun (w_subst x e P) ->
+    CanRun (w_subst x e' P).
+  Proof.
+  Admitted.
+
+
 (*
   Lemma w_run_subst:
     forall P e e' x h,

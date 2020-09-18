@@ -294,10 +294,6 @@ Section Defs.
     reflexivity.
   Qed.
 
-  Definition RDefined (r:range) :=
-    let (e1, e2) := r in
-    (exists n1, NStep e1 n1) /\ (exists n2, NStep e2 n2).
-
   Inductive CanRun: n_inst -> Prop :=
   | can_run_sync:
     forall c,
@@ -313,6 +309,15 @@ Section Defs.
     RDefined r ->
     (forall n, RPick r n -> CanRun (subst x (NNum n) Q)) -> 
     CanRun (NFor P x r Q).
+
+  Lemma tr_can_run:
+    forall P,
+    WLang.CanRun P ->
+    forall Q c,
+    P |> (Q, c) ->
+    CanRun Q.
+  Proof.
+  Admitted.
 
   Lemma can_run_inv_n_seq_r:
     forall c P,
@@ -364,44 +369,43 @@ Section Defs.
   Lemma i_last_to_translate:
     forall P Q,
     P |> Q ->
-    CanRun (fst Q) ->
+    WLang.CanRun P ->
     forall a,
     ILast a Q ->
     WLang.ILast a P.
   Proof.
     intros P Q H.
     induction H; intros.
-    - inversion H0; subst; clear H0.
-      inversion H2.
+    - invc_hyp (ILast _ _).
+      invc_hyp (IIn _ Skip).
     - subst.
       destruct P' as (P', c1).
       destruct Q' as (Q', c2).
       simpl in *.
-      invc_hyp (CanRun _).
-      assert (CanRun Q') by eauto using can_run_inv_n_seq_r.
+      invc_hyp (WLang.CanRun _).
+      assert (CanRun Q') by eauto using can_run_inv_n_seq_r, tr_can_run.
       auto using WLang.i_last_seq.
     - simpl in *.
       subst.
       rename_hyp (CIn a _) as Hi.
       apply c_in_inv_c_seq in Hi.
-      invc_hyp (CanRun _).
-      (* TODO: CanRun must say that the loop is defined *)
-      assert (Hx: exists m, RLast (e1, e2) m) by admit.
+      invc_hyp (WLang.CanRun _).
+      assert (Hx: exists m, RLast (e1, e2) m). {
+        auto using r_has_next_to_last.
+      }
       destruct Hx as (m, Hl).
       destruct Hi as [Hi|Hi]. {
         (* In c from P |> (Q, c) *)
         assert (Hw: WLang.ILast a (w_subst x (NBin NMinus e2 (NNum 1)) P)). {
           apply IHTranslate4; auto.
-          (* TODO: Prove:
-             If WLang.CanRun P and P |> (Q, c), then
-             CanRun Q
-             *)
-          admit.
+          assert (WLang.CanRun (w_subst x (NNum m) P)) by eauto using r_last_to_pick.
+          eapply can_run_subst; eauto using n_step_num, r_last_to_eq.
         }
         apply i_last_for_1 with (n:=m); eauto.
         intros.
-        (* TODO: Prove WLang.i_last_subst *)
-        (* apply WLang.i_last_subst *)
+        assert (NStep (NBin NMinus e2 (NNum 1)) m) by eauto using r_last_to_eq.
+        eapply i_last_w_subst; eauto.
+        (* TODO: ~ Var TID P *)
         admit.
       }
       (* In c2 *)

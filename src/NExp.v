@@ -4,6 +4,7 @@ Require Import RangeList.
 Import ListNotations.
 Require Import Coq.micromega.Lia.
 Require Import Coq.Classes.RelationPairs.
+Require Import Tictac.
 
 Section Defs.
 
@@ -1606,6 +1607,25 @@ Section SO.
     rewrite H in H4.
     rewrite H0 in H5.
     eauto using r_last_def.
+  Qed.
+
+  Definition RDefined (r:range) :=
+    let (e1, e2) := r in
+    (exists n1, NStep e1 n1) /\ (exists n2, NStep e2 n2).
+
+  Lemma r_has_next_to_last:
+    forall r,
+    RHasNext r ->
+    exists m, RLast r m.
+  Proof.
+    intros.
+    destruct H as(n, Hr).
+    invc Hr.
+    destruct n2. {
+      lia.
+    }
+    eexists.
+    eapply r_last_def; eauto.
   Qed.
 
   Lemma n_eq_def:
