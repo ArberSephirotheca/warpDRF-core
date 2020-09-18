@@ -198,37 +198,6 @@ Section Defs.
   
     *)
 
-  Inductive TPairIn a : w_inst -> Prop :=
-  | t_pair_in_sync:
-    forall c,
-    CPairIn a c ->
-    TPairIn a (WSync c)
-  | t_pair_in_seq_l:
-    forall P Q,
-    TPairIn a P ->
-    TPairIn a (WSeq P Q)
-  | t_pair_in_seq_r:
-    forall P Q,
-    TPairIn a Q ->
-    TPairIn a (WSeq P Q)
-  | t_pair_in_seq_both:
-    forall P Q,
-    OneOf a (inr P) (inr Q) ->
-    TPairIn a (WSeq P Q)
-  | t_pair_in_for_1:
-    forall c1 n x r e P c,
-    RPick r n ->
-    NStep e n ->
-    TPairIn a (w_subst x e P) ->
-    TPairIn a (WFor c1 x r P c)
-  | t_pair_in_for_2:
-    forall r e n c1 P x c2,
-    RPick r n ->
-    NStep e n ->
-    CPairIn a (Conc.i_subst x e c2) ->
-    TPairIn a (WFor c1 x r P c2)
-  .
-
   Lemma snd_p_seq:
     forall i j,
     snd (p_seq i j) = snd j.
@@ -458,14 +427,14 @@ Section Defs.
     ~ WVar TID P ->
     forall a,
     PPairIn a Q ->
-    TPairIn a P.
+    WLang.IPairIn a P.
   Proof.
     intros P Q H.
     induction H; intros Hc Hv a Hi; invc Hc.
     - simpl in *.
       destruct Hi as [Hi|Hi].
       + inversion Hi; subst; clear Hi.
-        auto using t_pair_in_sync.
+        auto using WLang.i_pair_in_sync.
       + apply c_pair_in_skip in Hi.
         contradiction.
     - subst.
@@ -487,15 +456,15 @@ Section Defs.
       *)
       apply p_pair_in_inv_p_seq in Hi.
       destruct Hi as [Hi|[Hi|Hi]].
-      + apply t_pair_in_seq_l.
+      + apply WLang.i_pair_in_seq_l.
         apply IHTranslate1; auto.
         simpl in *.
         intuition.
-      + apply t_pair_in_seq_r.
+      + apply WLang.i_pair_in_seq_r.
         apply IHTranslate2; auto.
         simpl in *.
         intuition.
-      + eapply p_one_of_to_one_of in Hi; eauto using t_pair_in_seq_both.
+      + eapply p_one_of_to_one_of in Hi; eauto using WLang.i_pair_in_seq_both.
     - simpl in *.
       subst.
       destruct Hi as [Hi|Hi]. {
@@ -571,11 +540,11 @@ Section Defs.
           IPairIn p (WFor c1 x r P c2)
         *)
         assert (CPairIn (a1, a2) c_dec_e2) by auto using c_pair_in_def.
-        assert (TPairIn (a1, a2) (w_subst x (NBin NMinus e2 (NNum 1)) P)) by auto.
+        assert (WLang.IPairIn (a1, a2) (w_subst x (NBin NMinus e2 (NNum 1)) P)) by auto.
         (* We must show that r has at least one iteration, which
            allows us to learn that it has a last iteration.
            *)
-        eapply t_pair_in_for_1; eauto using r_last_to_pick.
+        eapply WLang.i_pair_in_for_1; eauto using r_last_to_pick.
       + (*
         | i_pair_in_for_3:
           forall r e n c1 c3 x p P c2,
@@ -602,7 +571,7 @@ Section Defs.
         (* We must show that r has at least one iteration, which
            allows us to learn that it has a last iteration.
            *)
-        eapply t_pair_in_for_2; eauto using r_last_to_pick.
+        eapply WLang.i_pair_in_for_2; eauto using r_last_to_pick.
   Admitted.
 
   Lemma translate_1:
