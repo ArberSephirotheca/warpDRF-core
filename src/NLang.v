@@ -345,12 +345,14 @@ Section Defs.
   Lemma translate_1:
     forall P Q,
     P |> Q ->
+    WLang.CanRun P ->
+    ~ WVar TID P ->
     forall a,
     PPairIn a Q ->
     TPairIn a P.
   Proof.
     intros P Q H.
-    induction H; intros a Hi.
+    induction H; intros Hc Hv a Hi.
     - simpl in *.
       destruct Hi as [Hi|Hi].
       + inversion Hi; subst; clear Hi.
@@ -423,10 +425,25 @@ Section Defs.
       (* Last iteration *)
       unfold c2_dec_e2 in Hi.
       inversion Hi; subst; clear Hi.
-      apply c_in_inv_c_seq in H3.
-      apply c_in_inv_c_seq in H4.
-      destruct H3 as [Ha|Ha];
-        destruct H4 as [Hb|Hb].
+      rename_hyp (CIn a1 _) as Ha.
+      rename_hyp (CIn a2 _) as Hb.
+      apply c_in_inv_c_seq in Ha.
+      apply c_in_inv_c_seq in Hb.
+      inversion Hc; subst; clear Hc.
+      assert (Hl: exists m, RLast (e1, e2) m) by eauto using r_has_next_to_last.
+      destruct Hl as (m, Hl).
+      assert (NStep (NBin NMinus e2 (NNum 1)) m) by eauto using r_last_to_eq.
+      assert (WLang.CanRun (w_subst x (NBin NMinus e2 (NNum 1)) P)). {
+        assert (Hc: WLang.CanRun (w_subst x (NNum m) P)) by auto using r_last_to_pick.
+        eapply WLang.can_run_subst in Hc; eauto using n_step_num.
+      }
+      assert (~ WVar TID (w_subst x (NBin NMinus e2 (NNum 1)) P)). {
+        simpl in *.
+        eapply wvar_subst_not_in; eauto.
+        intuition.
+      }
+      destruct Ha as [Ha|Ha];
+        destruct Hb as [Hb|Hb].
       + (*
         | i_pair_in_for_1:
           forall r e n c1 P c2 p x,
@@ -440,7 +457,7 @@ Section Defs.
         (* We must show that r has at least one iteration, which
            allows us to learn that it has a last iteration.
            *)
-        eapply t_pair_in_for_1; admit.
+        eapply t_pair_in_for_1; eauto using r_last_to_pick.
       + (*
         | i_pair_in_for_3:
           forall r e n c1 c3 x p P c2,
@@ -450,7 +467,6 @@ Section Defs.
           IPairIn p (WFor c1 x r P c2)
         *)
         assert (WLang.ILast a1 (w_subst x (NBin NMinus e2 (NNum 1)) P)). {
-          assert (CanRun P_dec_e2) by admit.
           apply i_last_to_translate with (a:=a1) in H2; auto; simpl.
         }
         admit.
@@ -468,7 +484,7 @@ Section Defs.
         (* We must show that r has at least one iteration, which
            allows us to learn that it has a last iteration.
            *)
-        eapply t_pair_in_for_2; admit.
+        eapply t_pair_in_for_2; eauto using r_last_to_pick.
   Admitted.
 
   Lemma translate_1:
