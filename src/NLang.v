@@ -436,6 +436,98 @@ Section Defs.
     (* TODO: PROVE ME PLEASE *)
   Admitted.
 
+  Lemma subst_n_seq:
+    forall x v c P,
+    subst x v (n_seq c P) =
+      n_seq (Conc.i_subst x v c) (subst x v P).
+  Proof.
+  Admitted.
+
+  Lemma p_pair_in_sync:
+    forall a c,
+    PPairIn a (NSync c, Skip) ->
+    WLang.IPairIn a (WSync c).
+  Proof.
+    intros a c Hi.
+    simpl in *.
+    destruct Hi as [Hi|Hi].
+    - invc Hi.
+      auto using WLang.i_pair_in_sync.
+    - apply c_pair_in_skip in Hi.
+      contradiction.
+  Qed.
+
+  Lemma p_pair_in_seq:
+    forall P P' Q Q' a,
+    P |> P' ->
+    Q |> Q' ->
+    PPairIn a (p_seq P' Q') ->
+    (PPairIn a P' -> WLang.IPairIn a P) ->
+    (PPairIn a Q' -> WLang.IPairIn a Q) ->
+    WLang.IPairIn a (WSeq P Q).
+  Proof.
+    intros.
+    rename_hyp (PPairIn _ (p_seq _ _)) as Hi.
+    apply p_pair_in_inv_p_seq in Hi.
+    destruct Hi as [Hi|[Hi|Hi]].
+    - apply WLang.i_pair_in_seq_l; auto.
+    - apply WLang.i_pair_in_seq_r; auto.
+    - eapply p_one_of_to_one_of in Hi; eauto using WLang.i_pair_in_seq_both.
+  Qed.
+
+  Lemma p_par_in_for_last:
+    forall e1 e2 x c1 c2 P m a P_dec_e2 c_dec_e2,
+    let c2_dec_e2 := i_subst x (NBin NMinus e2 (NNum 1)) c2 in
+    w_subst x (NBin NMinus e2 (NNum 1)) P |> (P_dec_e2, c_dec_e2) ->
+    CPairIn a (c_seq c_dec_e2 (i_subst x (NBin NMinus e2 (NNum 1)) c2)) ->
+    ~ WVar TID P ->
+    RLast (e1, e2) m ->
+    WLang.CanRun (w_subst x (NBin NMinus e2 (NNum 1)) P) ->
+    (CPairIn a c_dec_e2 -> WLang.IPairIn a (w_subst x (NBin NMinus e2 (NNum 1)) P)) ->
+    WLang.IPairIn a (WFor c1 x (e1, e2) P c2).
+  Proof.
+    intros.
+    assert (NStep (NBin NMinus e2 (NNum 1)) m) by eauto using r_last_to_eq.
+    rename_hyp (CPairIn _ _) as Hi.
+    inversion Hi; subst; clear Hi.
+    rename_hyp (CIn a1 _) as Ha.
+      rename_hyp (CIn a2 _) as Hb.
+      apply c_in_inv_c_seq in Ha.
+      apply c_in_inv_c_seq in Hb.
+      assert (~ WVar TID (w_subst x (NBin NMinus e2 (NNum 1)) P)). {
+        simpl in *.
+        eapply wvar_subst_not_in; eauto.
+      }
+      rename_hyp (_ |> _) as Ht.
+      assert (RPick (e1, e2) m) by eauto using r_last_to_pick.
+      destruct Ha as [Ha|Ha];
+        destruct Hb as [Hb|Hb].
+      + assert (CPairIn (a1, a2) c_dec_e2) by auto using c_pair_in_def.
+        assert (WLang.IPairIn (a1, a2) (w_subst x (NBin NMinus e2 (NNum 1)) P)) by auto.
+        (* We must show that r has at least one iteration, which
+           allows us to learn that it has a last iteration.
+           *)
+        eapply WLang.i_pair_in_for_1; eauto.
+      + assert (WLang.ILast a1 (w_subst x (NBin NMinus e2 (NNum 1)) P)). {
+          apply i_last_to_translate with (a:=a1) in Ht; auto; simpl.
+        }
+        eapply WLang.i_pair_in_for_3 with (e:=(NBin NMinus e2 (NNum 1))); eauto.
+        simpl.
+        intuition.
+      + assert (WLang.ILast a2 (w_subst x (NBin NMinus e2 (NNum 1)) P)). {
+          apply i_last_to_translate with (a:=a2) in Ht; auto; simpl.
+        }
+        eapply WLang.i_pair_in_for_3 with (e:=(NBin NMinus e2 (NNum 1))); eauto.
+        simpl.
+        intuition.
+      + assert (CPairIn (a1, a2) c2_dec_e2) by auto using c_pair_in_def.
+        unfold c2_dec_e2 in *.
+        (* We must show that r has at least one iteration, which
+           allows us to learn that it has a last iteration.
+           *)
+        eapply WLang.i_pair_in_for_2; eauto.
+  Qed.
+
   Lemma translate_1:
     forall P Q,
     P |> Q ->
@@ -447,28 +539,20 @@ Section Defs.
   Proof.
     intros P Q H.
     induction H; intros Hc Hv a Hi; invc Hc.
-    - simpl in *.
-      destruct Hi as [Hi|Hi].
-      + inversion Hi; subst; clear Hi.
-        auto using WLang.i_pair_in_sync.
-      + apply c_pair_in_skip in Hi.
-        contradiction.
-    - subst.
-      apply p_pair_in_inv_p_seq in Hi.
-      destruct Hi as [Hi|[Hi|Hi]].
-      + apply WLang.i_pair_in_seq_l.
+    - auto using p_pair_in_sync.
+    - eapply p_pair_in_seq; eauto.
+      + intros.
         apply IHTranslate1; auto.
         simpl in *.
         intuition.
-      + apply WLang.i_pair_in_seq_r.
+      + intros.
         apply IHTranslate2; auto.
         simpl in *.
         intuition.
-      + eapply p_one_of_to_one_of in Hi; eauto using WLang.i_pair_in_seq_both.
     - simpl in *.
       subst.
       destruct Hi as [Hi|Hi]. {
-        inversion Hi; subst; clear Hi.
+        invc Hi.
         - (* First iteration *)
           rename_hyp (IPairIn a _) as Hi.
           apply i_pair_in_inv_n_seq in Hi.
@@ -489,35 +573,25 @@ Section Defs.
           + eapply WLang.i_pair_in_for_first_2; eauto.
             admit.
         - (* Mid iteration *)
-          (*
-          | i_pair_in_for_mid_1:
-            forall r n c1 c3 p x P c2 e e',
-            RPick2 r n ->
-            NStep e n ->
-            NStep e' (S n) ->
-            GetFirst (w_subst x e' P) c3 ->
-            IOneOf p (Conc.i_subst x e c2) c3 ->
-            IPairIn p (WFor c1 x r P c2)
-
-          | i_pair_in_for_mid_2:
-            forall r n e e' P x c2 c1 c c' p,
-            RPick2 r n ->
-            NStep e n ->
-            NStep e' (S n) ->
-            GetLast (w_subst x e P) c ->
-            GetFirst (w_subst x e' P) c' ->
-            IOneOf p c c' ->
-            IPairIn p (WFor c1 x r P c2)
-           *)
-          admit.
+          rename_hyp (IPairIn _ _) as Hi.
+          rewrite subst_n_seq in Hi.
+          apply i_pair_in_inv_n_seq in Hi.
+          rename_hyp (RHasNext _) as r1.
+          destruct r1 as (n1, He1).
+          destruct Hi as [Hi|[Hi|Hi]].
+          + eapply WLang.i_pair_in_for_1 with (e:=NNum n); eauto using n_step_num.
+            admit.
+          + rewrite subst_n_seq in Hi.
+            apply i_pair_in_inv_n_seq in Hi.
+            destruct Hi as [Hi|[Hi|Hi]].
+            * unfold c2_dec_x in Hi.
+              admit.
+            * admit.
+            * admit.
+          + rewrite subst_n_seq in Hi.
+            admit.
       }
       (* Last iteration *)
-      unfold c2_dec_e2 in Hi.
-      inversion Hi; subst; clear Hi.
-      rename_hyp (CIn a1 _) as Ha.
-      rename_hyp (CIn a2 _) as Hb.
-      apply c_in_inv_c_seq in Ha.
-      apply c_in_inv_c_seq in Hb.
       assert (Hl: exists m, RLast (e1, e2) m) by eauto using r_has_next_to_last.
       destruct Hl as (m, Hl).
       assert (NStep (NBin NMinus e2 (NNum 1)) m) by eauto using r_last_to_eq.
@@ -525,38 +599,12 @@ Section Defs.
         assert (Hc: WLang.CanRun (w_subst x (NNum m) P)) by auto using r_last_to_pick.
         eapply WLang.can_run_subst in Hc; eauto using n_step_num.
       }
-      assert (~ WVar TID (w_subst x (NBin NMinus e2 (NNum 1)) P)). {
-        simpl in *.
+      eapply p_par_in_for_last; eauto.
+      + intuition.
+      + intros.
+        apply IHTranslate4; auto.
         eapply wvar_subst_not_in; eauto.
         intuition.
-      }
-      assert (RPick (e1, e2) m) by eauto using r_last_to_pick.
-      destruct Ha as [Ha|Ha];
-        destruct Hb as [Hb|Hb].
-      + assert (CPairIn (a1, a2) c_dec_e2) by auto using c_pair_in_def.
-        assert (WLang.IPairIn (a1, a2) (w_subst x (NBin NMinus e2 (NNum 1)) P)) by auto.
-        (* We must show that r has at least one iteration, which
-           allows us to learn that it has a last iteration.
-           *)
-        eapply WLang.i_pair_in_for_1; eauto.
-      + assert (WLang.ILast a1 (w_subst x (NBin NMinus e2 (NNum 1)) P)). {
-          apply i_last_to_translate with (a:=a1) in H2; auto; simpl.
-        }
-        eapply WLang.i_pair_in_for_3 with (e:=(NBin NMinus e2 (NNum 1))); eauto.
-        simpl.
-        intuition.
-      + assert (WLang.ILast a2 (w_subst x (NBin NMinus e2 (NNum 1)) P)). {
-          apply i_last_to_translate with (a:=a2) in H2; auto; simpl.
-        }
-        eapply WLang.i_pair_in_for_3 with (e:=(NBin NMinus e2 (NNum 1))); eauto.
-        simpl.
-        intuition.
-      + assert (CPairIn (a1, a2) c2_dec_e2) by auto using c_pair_in_def.
-        unfold c2_dec_e2 in *.
-        (* We must show that r has at least one iteration, which
-           allows us to learn that it has a last iteration.
-           *)
-        eapply WLang.i_pair_in_for_2; eauto.
   Admitted.
 
   Lemma translate_1:
