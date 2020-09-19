@@ -528,6 +528,36 @@ Section Defs.
         eapply WLang.i_pair_in_for_2; eauto.
   Qed.
 
+  Lemma n_one_of_to_one_of:
+    forall x e1 P P_e1 c_e1 m c1 a,
+    w_subst x e1 P |> (P_e1, c_e1) ->
+    NOneOf a c1 P_e1 ->
+    NStep e1 m ->
+    OneOf a (inl c1) (inr (w_subst x e1 P)).
+  Proof.
+    (* TODO: PROVE ME PLEASE *)
+  Admitted.
+
+  Lemma p_pair_in_for_first:
+    forall x e1 P P_e1 c_e1 e2 m c2 c1 a,
+    w_subst x e1 P |> (P_e1, c_e1) ->
+    RFirst (e1, e2) m ->
+    IPairIn a (n_seq c1 P_e1) ->
+    (IPairIn a P_e1 -> WLang.IPairIn a (w_subst x e1 P)) ->
+    WLang.IPairIn a (WFor c1 x (e1, e2) P c2).
+  Proof.
+    intros.
+    assert (NStep e1 m) by eauto using r_first_to_eq.
+    assert (RPick (e1, e2) m) by eauto using r_first_to_pick.
+    rename_hyp (IPairIn a _) as Hi.
+    apply i_pair_in_inv_n_seq in Hi.
+    destruct Hi as [Hi|[Hi|Hi]].
+    - constructor; auto.
+    - eapply WLang.i_pair_in_for_1; eauto.
+    - eapply WLang.i_pair_in_for_first_2; eauto.
+      eauto using n_one_of_to_one_of.
+  Qed.
+
   Lemma translate_1:
     forall P Q,
     P |> Q ->
@@ -554,24 +584,17 @@ Section Defs.
       destruct Hi as [Hi|Hi]. {
         invc Hi.
         - (* First iteration *)
-          rename_hyp (IPairIn a _) as Hi.
-          apply i_pair_in_inv_n_seq in Hi.
           rename_hyp (RHasNext _) as Hx.
           destruct Hx as (m, Hx).
+          eapply p_pair_in_for_first; eauto.
+          intros.
           assert (RPick (e1, e2) m) by eauto using r_first_to_pick.
           assert (NStep e1 m) by eauto using r_first_to_eq.
-          destruct Hi as [Hi|[Hi|Hi]].
-          + constructor; auto.
-          + assert (WLang.IPairIn a (w_subst x e1 P)). {
-              apply IHTranslate1; auto.
-              - eauto using WLang.can_run_subst, n_step_num.
-              - eapply wvar_subst_not_in; eauto.
-                simpl in *.
-                intuition.
-            }
-            eapply WLang.i_pair_in_for_1; eauto.
-          + eapply WLang.i_pair_in_for_first_2; eauto.
-            admit.
+          apply IHTranslate1; auto.
+          + eauto using WLang.can_run_subst, n_step_num.
+          + eapply wvar_subst_not_in; eauto.
+            simpl in *.
+            intuition.
         - (* Mid iteration *)
           rename_hyp (IPairIn _ _) as Hi.
           rewrite subst_n_seq in Hi.
