@@ -820,6 +820,27 @@ Section Defs.
       eauto using r_last_proper.
   Qed.
  
+  Lemma r_pick_inv_first:
+    forall e1 e2 n,
+    RPick (e1, e2) n ->
+    RFirst (e1, e2) n \/ RPick (NBin NPlus (NNum 1) e1, e2) n.
+  Proof.
+    intros.
+    invc H.
+    assert (X: n = n1 \/ (S n1 <= n < n2)) by lia.
+    destruct X as [?|X]. {
+      subst.
+      left.
+      eapply r_first_def; eauto.
+      lia.
+    }
+    right.
+    eapply r_pick_def; eauto.
+    assert (r1: S n1 = 1 + n1) by lia.
+    rewrite r1.
+    apply n_step_plus; auto using n_step_num.
+  Qed.
+ 
   (* ------------------------------------ RPRED ------------------- *)
 
   Inductive RPred (P:nat -> nat -> Prop): range -> Prop :=

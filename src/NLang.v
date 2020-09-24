@@ -2,6 +2,7 @@ Require Import AccExp.
 Require Import Tasks.
 Require Import Conc.
 Require Import NExp.
+Require Import RExp.
 Require Import Var.
 Require Import WLang.
 Require Import Tictac.
@@ -950,6 +951,15 @@ Section Defs.
   Proof.
   Admitted.
 
+  Lemma i_pair_in_subst:
+    forall p x e1 P n,
+    NStep e1 n ->
+    IPairIn p (subst x e1 P) ->
+    forall e2,
+    NStep e2 n ->
+    IPairIn p (subst x e2 P).
+  Proof.
+  Admitted.
   (*
   
     a \in P 
@@ -982,12 +992,22 @@ Section Defs.
       simpl in Hx.
       destruct Hx. {
         left.
-        apply i_pair_in_for_2 with (n:=n); auto. { admit. }
+        rename_hyp (RPick _ _) as Hr.
+        apply r_pick_inv_first in Hr.
+        destruct Hr as [Hr|Hr]. {
+          eapply i_pair_in_for_1.
+          apply i_pair_in_n_seq_r.
+          unfold P_e1.
+          eapply i_pair_in_subst; eauto.
+          invc Hr.
+          assumption.
+        }
+        apply i_pair_in_for_2 with (n:=n); auto.
         rewrite subst_n_seq.
         rewrite subst_n_seq.
         apply i_pair_in_n_seq_r.
         apply i_pair_in_n_seq_r.
-        admit.
+        eapply i_pair_in_subst; eauto using n_step_num.
       }
       left.
       admit.
