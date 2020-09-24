@@ -40,20 +40,23 @@ Section Defs.
 
 
   Inductive w_inst :=
+    (* code ; sync *)
   | WSync: Conc.inst -> w_inst 
+    (* P ;  Q *)
   | WSeq: w_inst -> w_inst -> w_inst
+    (* c; for { P; c } *)
   | WFor : Conc.inst -> var -> range -> w_inst -> Conc.inst -> w_inst.
 
-  Fixpoint w_subst x v i :=
-    match i with
+  Fixpoint w_subst x v P :=
+    match P with
     | WSync c => WSync (Conc.i_subst x v c)
-    | WSeq i1 i2 => WSeq (w_subst x v i1) (w_subst x v i2)
-    | WFor c1 y r i2 c2 =>
-      let (i2', c2') := if VAR.eq_dec x y
-        then (i2, c2)
-        else (w_subst x v i2, Conc.i_subst x v c2)
+    | WSeq P Q => WSeq (w_subst x v P) (w_subst x v Q)
+    | WFor c1 y r P c2 =>
+      let (P', c2') := if VAR.eq_dec x y
+        then (P, c2)
+        else (w_subst x v P, Conc.i_subst x v c2)
       in
-      WFor (Conc.i_subst x v c1) y (r_subst x v r) i2' c2'
+      WFor (Conc.i_subst x v c1) y (r_subst x v r) P' c2'
     end.
 
 
@@ -1020,5 +1023,18 @@ Section Defs.
         eapply i_pair_in_for_first_2; eauto using r_one_to_first, n_step_num.
   Qed.
 
+  Fixpoint w_seq (c:Conc.inst) (i:w_inst) :=
+   match i with
+   | WSync c' => WSync (c_seq c c') 
+   | WSeq i j => WSeq (w_seq c i) j
+   | WFor c1 x r P c2 => WFor (c_seq c c1) x r P c2
+   end.
+
+  Lemma i_pair_in_inv_w_seq:
+    forall a c P,
+    IPairIn a (w_seq c P) ->
+    CPairIn a c \/ IPairIn a P \/ OneOf a (inl c) (inr P).
+  Proof.
+  Admitted.
 
 End Defs. 

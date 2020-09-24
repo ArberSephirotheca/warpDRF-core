@@ -1499,4 +1499,14 @@ Section C1.
     destruct H1 as [Hi|Hi]; eauto using c_in_def.
   Qed.
 
+  Lemma c_seq_subst:
+    forall x v c1 c2,
+    i_subst x v (c_seq c1 c2) = c_seq (i_subst x v c1) (i_subst x v c2).
+  Proof.
+    induction c1; intros; simpl; auto.
+    rewrite IHc1_1.
+    rewrite IHc1_2.
+    reflexivity.
+  Qed.
+
 End C1.
