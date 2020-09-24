@@ -2,6 +2,7 @@ Require Import Coq.Lists.List.
 
 Require Import Var.
 Require Import NExp.
+Require Import RExp.
 Require Import BExp.
 Require Import AccExp.
 Require Import Util.

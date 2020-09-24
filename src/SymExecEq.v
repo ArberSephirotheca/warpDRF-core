@@ -5,6 +5,7 @@ Require Import Util.
 Require Import RangeList.
 Require Import AccExp.
 Require Import NExp.
+Require Import RExp.
 Require Import BExp.
 Require Import MExp.
 Require Import MultiHist.

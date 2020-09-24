@@ -3,6 +3,7 @@ Require Import VHist.
 Require Import Tasks.
 Require Import ALang.
 Require Import NExp.
+Require Import RExp.
 Require Import Var.
 Require Import AccExp.
 Require Import Lia.

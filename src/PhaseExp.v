@@ -7,6 +7,7 @@ Require Import ALang.
 Require Import AccExp.
 Require Import Tasks.
 Require Import NExp.
+Require Import RExp.
 Require Import Var.
 (*
 Require Import Tid.

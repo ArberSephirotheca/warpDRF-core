@@ -61,23 +61,6 @@ Section SO.
     BStep e b ->
     BStep (BNot e) (negb b).
 
-  Inductive RPred (P:nat -> nat -> Prop): range -> Prop :=
-  | r_pred_def:
-    forall e1 e2 n1 n2,
-    NStep e1 n1 ->
-    NStep e2 n2 ->
-    P n1 n2 ->
-    RPred P (e1, e2).
-
-  Lemma r_pred_eq:
-    forall (P: nat -> nat -> Prop) n1 n2,
-    P n1 n2 ->
-    RPred P (NNum n1, NNum n2).
-  Proof.
-    intros.
-    eapply r_pred_def; eauto using n_step_num.
-  Qed.
-
   Fixpoint b_subst x v e :=
   match e with
   | NRel o e1 e2 => NRel o (n_subst x v e1) (n_subst x v e2)

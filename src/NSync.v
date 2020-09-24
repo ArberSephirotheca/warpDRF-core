@@ -7,6 +7,7 @@ Require Import Var.
 Require Import Tid.
 Require Import NExp.
 Require Import BExp.
+Require Import RExp.
 Require Import AccExp.
 Require Import Tasks.
 Require Import InUtil.

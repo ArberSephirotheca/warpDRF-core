@@ -7,6 +7,7 @@ src/Loc.v
 src/Var.v
 src/NExp.v
 src/BExp.v
+src/RExp.v
 src/Util.v
 src/InUtil.v
 src/PairInUtil.v

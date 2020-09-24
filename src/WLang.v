@@ -7,6 +7,7 @@ Require Import Coq.Classes.RelationPairs.
 Require Import Var.
 Require Import Tid.
 Require Import NExp.
+Require Import RExp.
 Require Import BExp.
 Require Import AccExp.
 Require Import Tasks.

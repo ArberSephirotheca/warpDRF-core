@@ -4,6 +4,7 @@ Require Import Coq.micromega.Lia.
 Require Import Var.
 Require Import NExp.
 Require Import BExp.
+Require Import RExp.
 Require Import AccExp.
 Require Import Util.
 Require Import Tasks.
