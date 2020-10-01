@@ -925,14 +925,55 @@ Section Defs.
   Lemma tr2_subst:
     forall P Q,
     P >> Q ->
+    WLang.CanRun P ->
     forall x e,
     w_subst x e P >> p_subst x e Q.
   Proof.
     intros P Q H.
-    induction H; intros y v.
+    induction H; intros Hc y v.
     - admit.
     - admit.
-    - 
+    - simpl.
+      invc Hc.
+      rewrite Conc.c_seq_subst.
+      rewrite n_seq_subst.
+      destruct (Set_VAR.MF.eq_dec y x) as [r1|Hneq]. {
+        symmetry in r1.
+        subst.
+        assert (r1: n_subst y v e1 = e1) by admit.
+        rewrite r1; clear r1.
+        assert (r1: n_subst y v e2 = e2) by admit.
+        rewrite r1; clear r1.
+        assert (r1:subst y v P_e1 = P_e1) by admit.
+        rewrite r1; clear r1.
+        assert (r1: i_subst y v c2_dec_e2 = c2_dec_e2) by admit.
+        rewrite r1; clear r1.
+        assert (r1: i_subst y v c_dec_e2 = c_dec_e2) by admit.
+        rewrite r1; clear r1.
+        assert (r1: i_subst y v c1 = c1) by admit.
+        rewrite r1; clear r1.
+        constructor; auto.
+      }
+      rewrite n_seq_subst.
+      rewrite n_seq_subst.
+      remember (i_subst y v c1) as c1'.
+      remember (i_subst y v c2) as c2'.
+      remember (w_subst y v P) as P'.
+      remember (subst y v P_x) as P_x'.
+      assert (r1: n_subst y v e1 = e1) by admit.
+      rewrite r1; clear r1.
+      assert (r1: n_subst y v e2 = e2) by admit.
+      rewrite r1; clear r1.
+      assert (r1:subst y v P_e1 = subst x e1 P_x') by admit.
+      rewrite r1; clear r1.
+      assert (r1: i_subst y v c2_dec_e2 = c2_dec_e2) by admit.
+      rewrite r1; clear r1.
+      assert (r1: i_subst y v c_dec_e2 = c_dec_e2) by admit.
+      rewrite r1; clear r1.
+      assert (r1: i_subst y v c1 = c1) by admit.
+      rewrite r1; clear r1.
+      constructor.
+      
   Admitted.
 
   Lemma i_pair_in_n_seq_l:
