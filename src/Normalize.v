@@ -57,7 +57,7 @@ Inductive Normalised: inst -> (option inst * inst) -> Prop :=
       r = (n,m) ->
       j1 = If (BExp.NRel BExp.NLe n m) (i_subst v n i1) ->
       j2 = If (BExp.NRel BExp.NLe n m) (i_subst v (NExp.NBin NExp.NMinus m (NExp.NNum 1)) i2) ->
-      k1 = (i_subst v (NExp.NBin NExp.NPlus v (NExp.NNum 1)) i1)
+      k1 = (i_subst v (NExp.NBin NExp.NPlus (NExp.NVar v) (NExp.NNum 1)) i1) ->
       Normalised (For v r i) (Some (Seq j1 (For v r (Seq i2 k1))), j2)
 | norm_if_true:
     forall i b i1 i2,
