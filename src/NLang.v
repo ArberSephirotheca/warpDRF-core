@@ -308,27 +308,6 @@ Section Defs.
     - intros HW Q c Hs.
       inversion HW; subst; clear HW.
       eapply IHP1 in H1; eauto.
-      + eauto.
-      admit.
-      (*
-      + inversion Hs; subst; clear Hs.
-        assumption.
-      + assumption.
-      + 
-      *)
-    - admit.
-    (*
-    intros P H.
-    induction H; intros; inversion H; subst; clear H.
-    - apply can_run_sync.
-    - inversion H1; subst; clear H1.
-      assert (IHCanRun1 := IHCanRun1 P' c1 H4).
-      assert (IHCanRun2 := IHCanRun2 Q' c H6).
-      apply can_run_seq.
-      + assumption.
-      + (* CanRun (n_seq c1 Q') *)Search n_seq.
-      *)
-    (* TODO: PROVE ME PLEASE *)
   Admitted.
 
   Lemma can_run_inv_n_seq_r:
