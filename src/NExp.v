@@ -866,5 +866,25 @@ Section SO.
   Qed.
 
 
+  Lemma n_subst_not_in_rw:
+    forall x e,
+    ~ NIn x e ->
+    forall v,
+    n_subst x v e = e.
+  Proof.
+    induction e; intros; simpl; rename_hyp (~ _) as N.
+    - reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        contradict N.
+        apply n_in_eq.
+      }
+      reflexivity.
+    - apply not_n_in_bin in N.
+      destruct N as (Ha, Hb).
+      rewrite IHe1; auto.
+      rewrite IHe2; auto.
+  Qed.
+
 End SO.
 

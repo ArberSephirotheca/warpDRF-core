@@ -860,4 +860,19 @@ Section Defs.
     eapply r_pred_def; eauto using n_step_num.
   Qed.
  
+   Lemma r_subst_not_in_rw:
+    forall x e,
+    ~ RIn x e ->
+    forall v,
+    r_subst x v e = e.
+  Proof.
+    intros.
+    destruct e as (e1, e2).
+    simpl.
+    apply not_r_in_to_in in H.
+    destruct H.
+    rewrite n_subst_not_in_rw; auto.
+    rewrite n_subst_not_in_rw; auto.
+  Qed.
+
 End Defs.

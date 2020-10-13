@@ -4,6 +4,7 @@ Require Import RangeList.
 Import ListNotations.
 Require Coq.omega.Omega.
 Require Import NExp.
+Require Import Tictac.
 
 Section Defs.
 
@@ -598,6 +599,26 @@ Section SO.
       eapply b_eq_proper_6; eauto.
   Qed.
 
+
+  Lemma b_subst_not_in_rw:
+    forall x b,
+    ~ BIn x b ->
+    forall v,
+    b_subst x v b = b.
+  Proof.
+    induction b; intros; simpl; rename_hyp (~ _) as N.
+    - reflexivity.
+    - apply not_in_n_bin_n_rel in N.
+      destruct N as (Ha, Hb).
+      rewrite n_subst_not_in_rw; auto.
+      rewrite n_subst_not_in_rw; auto.
+    - apply not_in_n_bin_b_rel in N.
+      destruct N.
+      rewrite IHb1; auto.
+      rewrite IHb2; auto.
+    - apply not_in_not in N.
+      rewrite IHb; auto.
+  Qed.
 
 End SO.
 

@@ -309,12 +309,15 @@ Section Defs.
       inversion HW; subst; clear HW.
       eapply IHP1 in H1; eauto.
       + eauto.
+      admit.
+      (*
       + inversion Hs; subst; clear Hs.
         assumption.
       + assumption.
       + 
-          
-    
+      *)
+    - admit.
+    (*
     intros P H.
     induction H; intros; inversion H; subst; clear H.
     - apply can_run_sync.
@@ -324,6 +327,7 @@ Section Defs.
       apply can_run_seq.
       + assumption.
       + (* CanRun (n_seq c1 Q') *)Search n_seq.
+      *)
     (* TODO: PROVE ME PLEASE *)
   Admitted.
 
@@ -689,12 +693,12 @@ Section Defs.
       auto.
   Qed.
 
-  Fixpoint In (x:var) P :=
+  Fixpoint WIn (x:var) P :=
     match P with
     | WSync c => Conc.In x c
-    | WSeq P Q => In x P \/ In x Q
+    | WSeq P Q => WIn x P \/ WIn x Q
     | WFor c1 y r P c2 => Conc.In x c1 \/
-      RIn x r \/ (x <> y /\ (In x P \/ Conc.In x c2))
+      RIn x r \/ (x <> y /\ (WIn x P \/ Conc.In x c2))
     end.
 
   Lemma n_in_subst_to_n_in:
@@ -753,7 +757,7 @@ Section Defs.
 
   Lemma w_in_subst_to_n_in:
     forall x e P,
-    In x (w_subst x e P) ->
+    WIn x (w_subst x e P) ->
     NIn x e.
   Proof.
     induction P; simpl; intros.
@@ -795,61 +799,6 @@ Section Defs.
       + eapply i_subst_not_in_2 in N; eauto.
   Qed.*)
 
-  Lemma n_subst_not_in_rw:
-    forall x e,
-    ~ NIn x e ->
-    forall v,
-    n_subst x v e = e.
-  Proof.
-    induction e; intros; simpl; rename_hyp (~ _) as N.
-    - reflexivity.
-    - destruct (Set_VAR.MF.eq_dec x v). {
-        subst.
-        contradict N.
-        apply n_in_eq.
-      }
-      reflexivity.
-    - apply not_n_in_bin in N.
-      destruct N as (Ha, Hb).
-      rewrite IHe1; auto.
-      rewrite IHe2; auto.
-  Qed.
-
-  Lemma b_subst_not_in_rw:
-    forall x b,
-    ~ BExp.BIn x b ->
-    forall v,
-    BExp.b_subst x v b = b.
-  Proof.
-    induction b; intros; simpl; rename_hyp (~ _) as N.
-    - reflexivity.
-    - apply BExp.not_in_n_bin_n_rel in N.
-      destruct N as (Ha, Hb).
-      rewrite n_subst_not_in_rw; auto.
-      rewrite n_subst_not_in_rw; auto.
-    - apply BExp.not_in_n_bin_b_rel in N.
-      destruct N.
-      rewrite IHb1; auto.
-      rewrite IHb2; auto.
-    - apply BExp.not_in_not in N.
-      rewrite IHb; auto.
-  Qed.
-
-  Lemma r_subst_not_in_rw:
-    forall x e,
-    ~ RIn x e ->
-    forall v,
-    r_subst x v e = e.
-  Proof.
-    intros.
-    destruct e as (e1, e2).
-    simpl.
-    apply not_r_in_to_in in H.
-    destruct H.
-    rewrite n_subst_not_in_rw; auto.
-    rewrite n_subst_not_in_rw; auto.
-  Qed.
-
   Lemma i_subst_not_in_rw:
     forall x c,
     ~ Conc.In x c ->
@@ -861,7 +810,7 @@ Section Defs.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.
       assert (~ BExp.BIn x b) by intuition.
-      rewrite b_subst_not_in_rw; auto.
+      rewrite BExp.b_subst_not_in_rw; auto.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.
     - admit.
@@ -872,14 +821,14 @@ Section Defs.
 
   Lemma w_subst_not_in_rw:
     forall x P,
-    ~ In x P ->
+    ~ WIn x P ->
     forall v,
     w_subst x v P = P.
   Proof.
     induction P; simpl; intros.
     - rewrite i_subst_not_in_rw; auto.
-    - assert (~ In x P1) by intuition.
-      assert (~ In x P2) by intuition.
+    - assert (~ WIn x P1) by intuition.
+      assert (~ WIn x P2) by intuition.
       rewrite IHP1; auto.
       rewrite IHP2; auto.
     - destruct (Set_VAR.MF.eq_dec x v). {
@@ -890,115 +839,103 @@ Section Defs.
       }
       rewrite i_subst_not_in_rw; auto.
       rewrite r_subst_not_in_rw; auto.
-      assert (~  (In x P \/ Conc.In x i0) ) by intuition.
+      assert (~  (WIn x P \/ Conc.In x i0) ) by intuition.
       rewrite i_subst_not_in_rw; auto.
       rewrite IHP; auto.
   Qed.
-(*
-  Lemma tr_subst:
-    forall P Q,
-    P |> Q ->
-    forall x e,
-    w_subst x e P |> p_subst x e Q.
-  Proof.
-    intros P Q H.
-    induction H; intros y v.
-    - admit.
-    - admit.
-    - simpl.
-      destruct (Set_VAR.MF.eq_dec y x). {
-        subst.
-        rewrite Conc.c_seq_subst.
-        rewrite n_seq_subst.
-        assert (Ha := IHTranslate3 x (n_subst x v e1)).
-        assert (Hb := IHTranslate3 x (NBin NMinus (n_subst x v e2) (NNum 1))).
-        simpl in Ha, Hb.
-        (*
-        assert (r1: w_subst x (n_subst x v e1) (w_subst x (NBin NMinus e2 (NNum 1)) P)
-              = w_subst x (NBin NMinus e2 (NNum 1)) P). {
-          rewrite w_subst_not_in_rw; auto.
-          intros N.
-          apply w_in_subst_to_n_in in N.
-          (* x not in e2 because CanRun P *)
-          admit.
-        }
-        rewrite r1 in Hb; clear r1.
-        *)
-        assert (Hx := translate_for_eq (Conc.i_subst x e1 c1) x (n_subst x v e1) (n_subst x v e2) P c2).
-        assert (Hx := Hx _ _ Ha _ _ H0 _ _ H1 _ _ Hb).
-        assert (Hx := Hx (NFor (n_seq (i_subst x v c1) (subst x v P_e1)) x
-      (n_subst x v e1, n_subst x v e2) (n_seq c_dec_x (n_seq c2_dec_x P_x)))
-        (Conc.c_seq (i_subst x v c_dec_e2) (i_subst x v c2_dec_e2))).
-        simpl in Hx.
-        rewrite Conc.c_seq_subst in Hx.
-        rewrite n_seq_subst in Hx.
-        
-        assert (Hx := Hx (subst x (n_subst x v e1) P_dec_e2) (i_subst x (n_subst x v e1) c_dec_e2)).
-          x
-          (n_subst x v e1)
-          P
-          _
-          _
-          Ha).
-          (subst x (n_subst x v e1) P_dec_x)
-          (i_subst x (n_subst x v e1) c_dec_x)
-        ).
-  Qed.
-*)
 
-  Lemma tr2_subst:
-    forall P Q,
-    P >> Q ->
-    WLang.CanRun P ->
-    forall x e,
-    w_subst x e P >> p_subst x e Q.
+  Fixpoint tr (w:w_inst) : p_inst :=
+    match w with
+    | WSync c => (NSync c, Conc.Skip)
+    | WSeq P Q =>
+      let (P', c1) := tr P in
+      let (Q', c2) := tr Q in
+      (NSeq P' (n_seq c1 Q'), c2)
+    | WFor c1 x (e1, e2) P c2 =>
+      let (P_x, c_x) := tr P in
+      let P_e1 := subst x e1 P_x in
+      let c_e1 := i_subst x e1 c_x in
+      let dec_x := NBin NMinus (NVar x) (NNum 1) in
+      let dec_e2 := NBin NMinus e2 (NNum 1) in
+      let c_dec_x := i_subst x dec_x c_x in
+      let c2_dec_x := i_subst x dec_x c2 in
+      let c_dec_e2 := i_subst x dec_e2 c_x in
+      let c2_dec_e2 := i_subst x dec_e2 c2 in
+      (NFor (n_seq c1 P_e1) x (NBin NPlus (NNum 1) e1, e2)
+                        (n_seq c_dec_x (n_seq c2_dec_x P_x)),
+                     Conc.c_seq c_dec_e2 c2_dec_e2)
+    end.
+
+  Let eq_pair_def:
+    forall A (x1 x2:A) B (y1 y2:B),
+    x1 = x2 ->
+    y1 = y2 ->
+    (x1,y1)=(x2,y2).
   Proof.
-    intros P Q H.
-    induction H; intros Hc y v.
-    - admit.
-    - admit.
-    - simpl.
-      invc Hc.
-      rewrite Conc.c_seq_subst.
-      rewrite n_seq_subst.
-      destruct (Set_VAR.MF.eq_dec y x) as [r1|Hneq]. {
-        symmetry in r1.
-        subst.
-        assert (r1: n_subst y v e1 = e1) by admit.
-        rewrite r1; clear r1.
-        assert (r1: n_subst y v e2 = e2) by admit.
-        rewrite r1; clear r1.
-        assert (r1:subst y v P_e1 = P_e1) by admit.
-        rewrite r1; clear r1.
-        assert (r1: i_subst y v c2_dec_e2 = c2_dec_e2) by admit.
-        rewrite r1; clear r1.
-        assert (r1: i_subst y v c_dec_e2 = c_dec_e2) by admit.
-        rewrite r1; clear r1.
-        assert (r1: i_subst y v c1 = c1) by admit.
-        rewrite r1; clear r1.
-        constructor; auto.
-      }
-      rewrite n_seq_subst.
-      rewrite n_seq_subst.
-      remember (i_subst y v c1) as c1'.
-      remember (i_subst y v c2) as c2'.
-      remember (w_subst y v P) as P'.
-      remember (subst y v P_x) as P_x'.
-      assert (r1: n_subst y v e1 = e1) by admit.
-      rewrite r1; clear r1.
-      assert (r1: n_subst y v e2 = e2) by admit.
-      rewrite r1; clear r1.
-      assert (r1:subst y v P_e1 = subst x e1 P_x') by admit.
-      rewrite r1; clear r1.
-      assert (r1: i_subst y v c2_dec_e2 = c2_dec_e2) by admit.
-      rewrite r1; clear r1.
-      assert (r1: i_subst y v c_dec_e2 = c_dec_e2) by admit.
-      rewrite r1; clear r1.
-      assert (r1: i_subst y v c1 = c1) by admit.
-      rewrite r1; clear r1.
-      constructor.
-      
+    intros. subst.
+    reflexivity.
+  Qed.
+
+  Let eq_c_seq_def:
+    forall c1 c2 c1' c2',
+    c1 = c1' ->
+    c2 = c2' ->
+    Conc.c_seq c1 c2 = Conc.c_seq c1' c2'.
+  Proof.
+    intros; subst.
+    reflexivity.
+  Qed.
+
+  Let eq_n_seq_def:
+    forall P Q P' Q',
+    P = P' ->
+    Q = Q' ->
+    n_seq P Q = n_seq P' Q'.
+  Proof.
+    intros; subst.
+    reflexivity.
+  Qed.
+
+  Let eq_n_for_def:
+    forall P P' x x' r r' Q Q',
+    P = P' ->
+    x = x' ->
+    r = r' ->
+    Q = Q' ->
+    NFor P x r Q = NFor P' x' r' Q'.
+  Proof.
+    intros.
+    subst.
+    reflexivity.
+  Qed.
+
+  Fixpoint In (x : var) (P : n_inst) {struct P} : Prop :=
+  match P with
+  | NSync c => Conc.In x c
+  | NSeq P Q => In x P \/ In x Q
+  | NFor P y r Q =>
+      In x P \/ RIn x r \/ (x <> y /\ In x Q)
+  end.
+
+  Lemma n_subst_not_in_rw
+     : forall (x : var) P,
+       ~ In x P -> forall v : nexp, subst x v P = P.
+  Proof.
   Admitted.
+
+  Lemma in_inv_subst_eq:
+    forall x v P,
+    In x (subst x v P) ->
+    NIn x v.
+  Proof.
+    induction P; simpl; intros.
+    - eauto using i_in_subst_to_n_in.
+    - destruct H; auto.
+    - destruct H as [H|[H|(?,H)]];
+      eauto using r_in_subst_to_n_in.
+      destruct (Set_VAR.MF.eq_dec x v0) as [?|_]; try contradiction.
+      auto.
+  Qed.
 
   Lemma i_pair_in_n_seq_l:
     forall p c,
@@ -1025,6 +962,313 @@ Section Defs.
     IPairIn p (subst x e2 P).
   Proof.
   Admitted.
+
+  Lemma e_subst_subst_eq_1:
+    forall e1 e2 x e3,
+    n_subst x e1 (n_subst x e2 e3)
+    =
+    n_subst x (n_subst x e1 e2) e3.
+  Proof.
+    induction e3; intros; simpl in *.
+    - reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        reflexivity.
+      }
+      simpl.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        contradiction.
+      }
+      reflexivity.
+    - rewrite IHe3_1; auto.
+      rewrite IHe3_2; auto.
+  Qed.
+
+  Lemma r_subst_subst_eq_1:
+    forall e1 e2 x r,
+    r_subst x e1 (r_subst x e2 r)
+    =
+    r_subst x (n_subst x e1 e2) r.
+  Proof.
+    intros.
+    destruct r as (r1, r2).
+    simpl.
+    rewrite e_subst_subst_eq_1.
+    rewrite e_subst_subst_eq_1.
+    reflexivity.
+  Qed.
+
+  Lemma b_subst_subst_eq_1:
+    forall e1 e2 x b,
+    BExp.b_subst x e1 (BExp.b_subst x e2 b)
+    =
+    BExp.b_subst x (n_subst x e1 e2) b.
+  Proof.
+    induction b; intros; simpl.
+    - reflexivity.
+    - erewrite e_subst_subst_eq_1; eauto.
+      erewrite e_subst_subst_eq_1; eauto.
+    - rewrite IHb1; auto.
+      rewrite IHb2; auto.
+    - rewrite IHb; auto.
+  Qed.
+
+  Lemma i_subst_subst_eq_1:
+    forall e1 e2 x c,
+    i_subst x e1 (i_subst x e2 c) = i_subst x (n_subst x e1 e2) c.
+  Proof.
+    induction c; intros; simpl.
+    - reflexivity.
+    - erewrite b_subst_subst_eq_1; eauto.
+      rewrite IHc1; auto.
+      rewrite IHc2; auto.
+    - rewrite IHc1; auto.
+      rewrite IHc2; auto.
+    - admit.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        admit.
+      }
+      rewrite IHc; auto.
+      admit.
+  Admitted.
+
+  Lemma subst_subst_eq_1:
+    forall e1 e2 x P,
+    subst x e1 (subst x e2 P) = subst x (n_subst x e1 e2) P.
+  Proof.
+    induction P; intros; simpl.
+    - rewrite i_subst_subst_eq_1.
+      reflexivity.
+    - rewrite IHP1.
+      rewrite IHP2.
+      reflexivity.
+    - rewrite IHP1.
+      rewrite r_subst_subst_eq_1.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        reflexivity.
+      }
+      rewrite IHP2.
+      reflexivity.
+  Qed.
+
+  Lemma subst_subst_neq_3
+     : forall P (x y : var) (v1 v2 : nexp),
+       x <> y ->
+       ~ NIn y v1 ->
+       ~ NIn x v2 ->
+       subst x v1 (subst y v2 P) = subst y v2 (subst x v1 P).
+  Proof.
+  Admitted.
+
+
+  Lemma i_pair_in_subst_tr:
+    forall P e(* n*) x,
+    (*
+    NStep e n ->
+    WLang.CanRun (w_subst x e P) ->
+    *)
+    p_subst x e (tr P) = tr (w_subst x e P).
+  Proof.
+    induction P; intros e' y. simpl in *.
+    - auto.
+    - admit.
+    - rename v into x.
+      destruct r as (e1, e2).
+      simpl.
+      destruct (tr P) as (P_x, c_x) eqn:Ht.
+      destruct (Set_VAR.MF.eq_dec y x). {
+        subst.
+        simpl.
+        rewrite Ht.
+        simpl.
+        destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
+        rewrite subst_n_seq.
+        simpl.
+        rewrite c_seq_subst.
+        apply eq_pair_def; auto. {
+          apply eq_n_for_def; auto.
+          apply eq_n_seq_def; auto.
+          rewrite subst_subst_eq_1.
+          reflexivity.
+        }
+        apply eq_c_seq_def. {
+          repeat rewrite i_subst_subst_eq_1.
+          simpl.
+          reflexivity.
+        }
+        repeat rewrite i_subst_subst_eq_1.
+        simpl.
+        reflexivity.
+      }
+      simpl.
+      destruct (Set_VAR.MF.eq_dec y x) as [?|_]; try contradiction.
+      simpl.
+      destruct (tr (w_subst y e' P)) as (P_t, c_t) eqn:Ht'.
+      repeat rewrite subst_n_seq.
+      repeat rewrite c_seq_subst.
+      apply eq_pair_def. {
+        apply eq_n_for_def; auto. {
+          apply eq_n_seq_def; auto.
+          rewrite <- IHP in Ht'.
+          simpl in Ht'.
+          invc Ht'.
+          rewrite subst_subst_neq_3 with (x:=x) (y:=y); auto.
+          - admit.
+          - intros N.
+            apply n_in_subst_to_n_in in N.
+            (* XXX: Assume: NStep e' m *)
+            admit. 
+        }
+        apply eq_n_seq_def. {
+          rewrite <- IHP in Ht'.
+          simpl in Ht'.
+          invc Ht'.
+          rewrite i_subst_subst_neq_3; auto.
+          - (* XXX: Assume NStep e' n *)
+            admit.
+          - intros N.
+            invc N; rename_hyp (NIn _ _) as N; invc N.
+            contradiction.
+        }
+        apply eq_n_seq_def. {
+          rewrite i_subst_subst_neq_3; auto.
+          - (* XXX: Assume NStep e' n *)
+            admit.
+          - intros N.
+            invc N; rename_hyp (NIn _ _) as N; invc N.
+            contradiction.
+        }
+        rewrite <- IHP in Ht'.
+        simpl in Ht'.
+        invc Ht'.
+        reflexivity.
+      }
+      rewrite <- IHP in Ht'.
+      simpl in Ht'.
+      invc Ht'.
+      apply eq_c_seq_def. {
+        admit.
+      }
+      admit.
+  Admitted.
+
+  Lemma tr_i_pair_in_1:
+    forall P,
+    WLang.CanRun P ->
+    forall p,
+    PPairIn p (tr P) ->
+    WLang.IPairIn p P.
+  Proof.
+    intros P H.
+    induction H; intros p Hp; simpl in Hp; try (destruct Hp as [Hp|Hp]).
+    - admit.
+    - admit.
+    - admit.
+    - destruct r as (e1, e2).
+      destruct (tr P) as (P_x, c_x) eqn:Ht.
+      rename_hyp (RHasNext _) as Hr.
+      destruct Hr as (n, Hr).
+      assert (Hx: RPick (e1,e2) n) by eauto using r_first_to_pick.
+      rename_hyp (forall n, _) as IH.
+      simpl in *.
+      destruct Hp as [Hp|Hp]. {
+        invc Hp; rename_hyp (IPairIn _ _) as Hi. {
+          apply i_pair_in_inv_n_seq in Hi.
+          destruct Hi as [Hi|[Hi|Hi]].
+          - constructor; auto.
+          - assert (IPairIn p (subst x (NNum n) P_x)) by admit.
+            assert (IPairIn p (subst x (NNum n) (fst (tr P)))). {
+              rewrite Ht.
+              auto.
+            }
+            
+            assert (WLang.IPairIn p (w_subst x e1 P)) by admit.
+            apply IH with (p:=p) in Hx. {
+              apply WLang.i_pair_in_for_1 with (e:=e1) (n0:=n);
+                eauto using r_first_to_pick, r_first_to_eq.
+              (* Works because:
+                e1 ==> n
+                WLang.IPairIn p (w_subst x (NNum n) P)
+                -------------------------------------
+                WLang.IPairIn p (w_subst x e1 P)
+                *)
+            }
+              (* Works because:
+                e1 ==> n
+                WLang.IPairIn p (w_subst x (NNum n) P)
+                -------------------------------------
+                WLang.IPairIn p (w_subst x e1 P)
+                *)
+            admit.
+      }
+    induction P; simpl; intros.
+
+
+  Lemma i_pair_fst_subst:
+    forall P p x e n,
+    NStep e n ->
+    WLang.CanRun (w_subst x e P) ->
+    IPairIn p (fst (tr (w_subst x e P))) ->
+    IPairIn p (subst x e (fst (tr P))).
+  Proof.
+    induction P; simpl; intros.
+    - assumption.
+    - admit.
+    - destruct r as (e1, e2).
+      simpl.
+      destruct (tr P) as (P_x, c_x) eqn:r1.
+      simpl.
+      rename_hyp (IPairIn _ _) as Hi.
+      rename i into c.
+      rename v into y.
+      assert (r2: i_subst y e c = c) by admit.
+      destruct (Set_VAR.MF.eq_dec x y). {
+        subst.
+        simpl in Hi.
+        rewrite r1 in *.
+        simpl in *.
+        invc Hi.
+        - rename_hyp (IPairIn _ _) as Hi.
+          rewrite subst_n_seq.
+          repeat rewrite r2 in *.
+          apply i_pair_in_inv_n_seq in Hi.
+          destruct Hi as [Hi|[Hi|Hi]].
+          + auto using i_pair_in_for_1, i_pair_in_n_seq_l.
+          + apply i_pair_in_for_1.
+            apply i_pair_in_n_seq_r.
+      }
+  Qed.
+
+
+  Lemma tr_for_1:
+    forall r e n p c1 c2 P x,
+    RPick r n ->
+    NStep e n ->
+    PPairIn p (tr (w_subst x e P)) ->
+    PPairIn p (tr (WFor c1 x r P c2)).
+  Proof.
+    intros.
+    destruct (tr (w_subst x e P)) as (Px, cx) eqn:Ht.
+    destruct (tr (WFor _ _ _ _ _)) as (Pt, ct) eqn:Hx.
+    rename_hyp (PPairIn _ _) as Hi.
+    destruct r as (e1, e2).
+    rename_hyp (RPick _ _) as Hr.
+    apply r_pick_inv_first in Hr.
+    destruct Hr as [Hr|Hr]. {
+      simpl.
+      left.
+      destruct Hi as [Hi|Hi]. {
+        simpl in Hx.
+        destruct (tr P) as (Ptx,Ctx) eqn:r1.
+        invc Hx.
+        apply i_pair_in_for_1.
+        apply i_pair_in_n_seq_r.
+      }
+    simpl.
+  Qed.
+
   (*
   
     a \in P 
@@ -1032,6 +1276,46 @@ Section Defs.
     ------
     a \in Q
     *)
+  Lemma translate2_1:
+    forall a P,
+    WLang.IPairIn a P ->
+    WLang.CanRun P ->
+    ~ WVar TID P ->
+    PPairIn a (tr P).
+  Proof.
+    intros a P H.
+    induction H; intros Hc Hn.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - (* In P[x:=e] *)
+      simpl.
+      destruct r as (e1, e2).
+      destruct (tr P) as (P_x, c_x) eqn:Ht.
+      left.
+      rename_hyp (RPick _ _) as Hr.
+      apply r_pick_inv_first in Hr.
+      destruct Hr as [Hr|Hr]. {
+        eapply i_pair_in_for_1.
+        apply i_pair_in_n_seq_r.
+        eapply i_pair_in_subst; eauto.
+        invc Hr.
+        assumption.
+      }
+      apply i_pair_in_for_2 with (n:=n); auto.
+      rewrite subst_n_seq.
+      apply i_pair_in_for_2 with (n:=n).
+      admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+  Admitted.
+
+
   Lemma translate2_1:
     forall a P,
     WLang.IPairIn a P ->
@@ -1049,6 +1333,9 @@ Section Defs.
     - admit.
     - admit.
     - simpl.
+      rename_hyp (P >> _) as Ht.
+      assert (Hx := Ht).
+      apply tr2_subst with (x:=x) (e:=e) in Hx; auto.
       assert  (Hx := tr2_subst P (P_x, c_x) H8 x e).
       simpl in *.
       apply IHIPairIn in Hx.
