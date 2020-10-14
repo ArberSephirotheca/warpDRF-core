@@ -1042,15 +1042,23 @@ Section Defs.
   Admitted.
 
 
+  Definition NClosed e := exists n, NStep e n.
+
+  Lemma n_closed_to_not_in:
+    forall e,
+    NClosed e ->
+    forall x, ~ NIn x e.
+  Proof.
+    intros e (n, H).
+    eauto using n_step_to_not_in.
+  Qed.
+
   Lemma i_pair_in_subst_tr:
-    forall P e(* n*) x,
-    (*
-    NStep e n ->
-    WLang.CanRun (w_subst x e P) ->
-    *)
+    forall P e x,
+    NClosed e ->
     p_subst x e (tr P) = tr (w_subst x e P).
   Proof.
-    induction P; intros e' y. simpl in *.
+    induction P; intros e' y Hc; simpl in *.
     - auto.
     - admit.
     - rename v into x.
@@ -1090,41 +1098,39 @@ Section Defs.
       apply eq_pair_def. {
         apply eq_n_for_def; auto. {
           apply eq_n_seq_def; auto.
-          rewrite <- IHP in Ht'.
+          rewrite <- IHP in Ht'; auto.
           simpl in Ht'.
           invc Ht'.
           rewrite subst_subst_neq_3 with (x:=x) (y:=y); auto.
           - admit.
           - intros N.
             apply n_in_subst_to_n_in in N.
-            (* XXX: Assume: NStep e' m *)
-            admit. 
+            apply n_closed_to_not_in in N; auto.
+          - auto using n_closed_to_not_in.
         }
         apply eq_n_seq_def. {
-          rewrite <- IHP in Ht'.
+          rewrite <- IHP in Ht'; auto.
           simpl in Ht'.
           invc Ht'.
           rewrite i_subst_subst_neq_3; auto.
-          - (* XXX: Assume NStep e' n *)
-            admit.
+          - auto using n_closed_to_not_in.
           - intros N.
             invc N; rename_hyp (NIn _ _) as N; invc N.
             contradiction.
         }
         apply eq_n_seq_def. {
           rewrite i_subst_subst_neq_3; auto.
-          - (* XXX: Assume NStep e' n *)
-            admit.
+          - auto using n_closed_to_not_in.
           - intros N.
             invc N; rename_hyp (NIn _ _) as N; invc N.
             contradiction.
         }
-        rewrite <- IHP in Ht'.
+        rewrite <- IHP in Ht'; auto.
         simpl in Ht'.
         invc Ht'.
         reflexivity.
       }
-      rewrite <- IHP in Ht'.
+      rewrite <- IHP in Ht'; auto.
       simpl in Ht'.
       invc Ht'.
       apply eq_c_seq_def. {
