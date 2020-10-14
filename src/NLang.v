@@ -1060,7 +1060,18 @@ Section Defs.
   Proof.
     induction P; intros e' y Hc; simpl in *.
     - auto.
-    - admit.
+    - destruct (tr P1) as (P1_x, c1_x) eqn:Ht1.
+      destruct (tr P2) as (P2_x, c2_x) eqn:Ht2.
+      simpl.
+      rewrite <- IHP1; auto; clear IHP1.
+      rewrite <- IHP2; auto; clear IHP2.
+      destruct (p_subst y e' (P1_x, c1_x)) as (xP1_x, xc1_x) eqn:Ht1x.
+      destruct ( p_subst y e' (P2_x, c2_x)) as (xP2_x, xc2_x) eqn:Ht2x.
+      simpl in *.
+      invc Ht1x.
+      invc Ht2x.
+      repeat rewrite subst_n_seq.
+      auto.
     - rename v into x.
       destruct r as (e1, e2).
       simpl.
