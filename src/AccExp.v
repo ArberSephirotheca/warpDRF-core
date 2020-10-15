@@ -119,6 +119,10 @@ Class Access := {
     forall x v v' e,
     NEq v v' ->
     access_eq (access_subst x v e) (access_subst x v' e);
+  access_subst_subst_eq_1:
+    forall (e1 e2 : nexp) (x : Var.VAR.t) a,
+       access_subst x e1 (access_subst x e2 a)
+       = access_subst x (n_subst x e1 e2) a;
 }.
 
 Section Defs.

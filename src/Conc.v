@@ -1521,7 +1521,8 @@ Section C1.
       rewrite IHc2; auto.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.
-    - admit.
+    - rewrite access_subst_subst_eq_1.
+      reflexivity.
     - destruct (Set_VAR.MF.eq_dec x v). {
         subst.
         rewrite r_subst_subst_eq_1.
@@ -1529,7 +1530,7 @@ Section C1.
       }
       rewrite r_subst_subst_eq_1.
       rewrite IHc; auto.
-  Admitted.
+  Qed.
 
   Lemma i_in_subst_to_n_in:
     forall x e c,
