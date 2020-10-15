@@ -7,6 +7,7 @@ Import ListNotations.
 Require Import RangeList.
 Require Import NExp.
 Require Import Tictac.
+Require Import Util.
 
 Section Defs.
   Definition range := (nexp * nexp) % type.
@@ -875,4 +876,44 @@ Section Defs.
     rewrite n_subst_not_in_rw; auto.
   Qed.
 
+  Lemma r_subst_subst_eq_1:
+    forall e1 e2 x r,
+    r_subst x e1 (r_subst x e2 r)
+    =
+    r_subst x (n_subst x e1 e2) r.
+  Proof.
+    intros.
+    destruct r as (r1, r2).
+    simpl.
+    rewrite n_subst_subst_eq_1.
+    rewrite n_subst_subst_eq_1.
+    reflexivity.
+  Qed.
+
+  Lemma r_in_subst_to_n_in:
+    forall x r e,
+    RIn x (r_subst x e r) ->
+    NIn x e.
+  Proof.
+    intros.
+    destruct r as (e1, e2).
+    simpl in *.
+    invc H;
+      rename_hyp (NIn _ _) as Hi;
+      apply n_in_subst_to_n_in in Hi; auto.
+  Qed.
+
+  Lemma r_subst_subst_neq_4:
+    forall r e1 e2 x y,
+    NClosed e1 -> 
+    x <> y ->
+    r_subst y e1 (r_subst x e2 r) =
+    r_subst y e1 (r_subst x (n_subst y e1 e2) r).
+  Proof.
+    intros (e1', e2') e1 e2 x y Hc Hn.
+    simpl.
+    apply eq_pair_def.
+    - rewrite n_subst_subst_neq_4; auto.
+    - rewrite n_subst_subst_neq_4; auto.
+  Qed.
 End Defs.

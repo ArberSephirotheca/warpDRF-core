@@ -1510,4 +1510,115 @@ Section C1.
     reflexivity.
   Qed.
 
+  Lemma i_subst_subst_eq_1:
+    forall e1 e2 x c,
+    i_subst x e1 (i_subst x e2 c) = i_subst x (n_subst x e1 e2) c.
+  Proof.
+    induction c; intros; simpl.
+    - reflexivity.
+    - erewrite b_subst_subst_eq_1; eauto.
+      rewrite IHc1; auto.
+      rewrite IHc2; auto.
+    - rewrite IHc1; auto.
+      rewrite IHc2; auto.
+    - admit.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        rewrite r_subst_subst_eq_1.
+        reflexivity.
+      }
+      rewrite r_subst_subst_eq_1.
+      rewrite IHc; auto.
+  Admitted.
+
+  Lemma i_in_subst_to_n_in:
+    forall x e c,
+    In x (i_subst x e c) ->
+    NIn x e.
+  Proof.
+    induction c; simpl; intros.
+    - contradiction.
+    - destruct H as [H|[H|H]]; eauto using b_in_subst_to_n_in.
+    - destruct H as [H|H]; eauto.
+    - admit.
+  Admitted.
+
+  Lemma i_subst_not_in_rw:
+    forall x c,
+    ~ In x c ->
+    forall v,
+    i_subst x v c = c.
+  Proof.
+    induction c; simpl; intros.
+    - reflexivity.
+    - rewrite IHc1; auto.
+      rewrite IHc2; auto.
+      assert (~ BExp.BIn x b) by intuition.
+      rewrite BExp.b_subst_not_in_rw; auto.
+    - rewrite IHc1; auto.
+      rewrite IHc2; auto.
+    - admit.
+    - rewrite IHc; auto.
+      rewrite r_subst_not_in_rw; auto.
+      destruct (Set_VAR.MF.eq_dec x v); subst; auto.
+  Admitted.
+
+  Lemma c_subst_subst_neq_4:
+    forall c x y e1 e2,
+    x <> y ->
+    NClosed e1 ->
+    NClosed e2 ->
+    i_subst y e1 (i_subst x e2 c) =
+    i_subst y e1 (i_subst x (n_subst y e1 e2) c).
+  Proof.
+    induction c; intros.
+    - reflexivity.
+    - simpl.
+      rewrite IHc1; auto.
+      rewrite IHc2; auto.
+      rewrite b_subst_subst_neq_4; auto.
+    - simpl.
+      rewrite IHc1; auto.
+      rewrite IHc2; auto.
+    - admit.
+    - simpl.
+      assert (r1: n_subst v e1 e2 = e2). {
+        rewrite n_subst_not_in; auto using n_closed_to_not_in.
+      }
+      destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        destruct (Set_VAR.MF.eq_dec x v) as [?|_]; try contradiction.
+        rewrite r_subst_subst_neq_4; auto.
+        rewrite r1.
+        reflexivity.
+      }
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        rewrite r_subst_subst_neq_4; auto.
+      }
+      rewrite IHc; auto.
+      rewrite r_subst_subst_neq_4; auto.
+  Admitted.
+
+  Lemma c_subst_subst_neq_5:
+    forall c x y e1 e2,
+    NClosed e1 ->
+    y <> x ->
+    i_subst y e1 (i_subst x e2 c) =
+    i_subst x (n_subst y e1 e2) (i_subst y e1 c).
+  Proof.
+    induction c; intros; simpl.
+    - reflexivity.
+    - 
+  Admitted.
+
+  Lemma eq_c_seq_def:
+    forall c1 c2 c1' c2',
+    c1 = c1' ->
+    c2 = c2' ->
+    c_seq c1 c2 = c_seq c1' c2'.
+  Proof.
+    intros; subst.
+    reflexivity.
+  Qed.
 End C1.

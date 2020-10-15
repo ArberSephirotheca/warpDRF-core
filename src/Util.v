@@ -2,6 +2,19 @@ Require Import Coq.Lists.List.
 
 Import ListNotations.
 
+Section Eqs.
+  Lemma eq_pair_def:
+    forall A (x1 x2:A) B (y1 y2:B),
+    x1 = x2 ->
+    y1 = y2 ->
+    (x1,y1)=(x2,y2).
+  Proof.
+    intros. subst.
+    reflexivity.
+  Qed.
+
+End Eqs.
+
 Section Ops.
 
   Definition summation l :=

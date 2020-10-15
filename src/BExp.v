@@ -620,5 +620,57 @@ Section SO.
       rewrite IHb; auto.
   Qed.
 
+  Lemma b_in_subst_to_n_in:
+    forall x e b,
+    BIn x (b_subst x e b) ->
+    NIn x e.
+  Proof.
+    induction b; simpl; intros.
+    - invc H.
+    - invc H;
+      eauto using n_in_subst_to_n_in.
+    - invc H; auto.
+    - invc H; auto.
+  Qed.
+
+  Lemma b_subst_subst_eq_1:
+    forall e1 e2 x b,
+    b_subst x e1 (b_subst x e2 b)
+    =
+    b_subst x (n_subst x e1 e2) b.
+  Proof.
+    induction b; intros; simpl.
+    - reflexivity.
+    - erewrite n_subst_subst_eq_1; eauto.
+      erewrite n_subst_subst_eq_1; eauto.
+    - rewrite IHb1; auto.
+      rewrite IHb2; auto.
+    - rewrite IHb; auto.
+  Qed.
+
+  Lemma b_subst_subst_neq_4:
+    forall b e1 e2 x y,
+    x <> y ->
+    NClosed e1 ->
+    b_subst y e1 (b_subst x e2 b) =
+    b_subst y e1 (b_subst x (n_subst y e1 e2) b).
+  Proof.
+    induction b; intros.
+    - reflexivity.
+    - simpl.
+      rewrite n_subst_subst_neq_4; auto.
+      assert (r1: n_subst y e1 (n_subst x e2 n1) =
+              n_subst y e1 (n_subst x (n_subst y e1 e2) n1)). {
+        rewrite n_subst_subst_neq_4; auto.
+      }
+      rewrite r1.
+      reflexivity.
+    - simpl.
+      rewrite IHb1; auto.
+      rewrite IHb2; auto.
+    - simpl.
+      rewrite IHb; auto.
+  Qed.
+
 End SO.
 

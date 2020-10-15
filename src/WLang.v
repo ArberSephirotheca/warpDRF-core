@@ -1038,4 +1038,54 @@ Section Defs.
   Proof.
   Admitted.
 
+  Fixpoint WIn (x:var) P :=
+    match P with
+    | WSync c => Conc.In x c
+    | WSeq P Q => WIn x P \/ WIn x Q
+    | WFor c1 y r P c2 => Conc.In x c1 \/
+      RIn x r \/ (x <> y /\ (WIn x P \/ Conc.In x c2))
+    end.
+
+  Lemma w_in_subst_to_n_in:
+    forall x e P,
+    WIn x (w_subst x e P) ->
+    NIn x e.
+  Proof.
+    induction P; simpl; intros.
+    - eauto using i_in_subst_to_n_in.
+    - intuition.
+    - destruct (Set_VAR.MF.eq_dec x v); subst; invc H;
+      eauto using i_in_subst_to_n_in.
+      + rename_hyp (_ \/ _) as Hx.
+        destruct Hx as [Hx|(Hx,Hy)]; eauto using r_in_subst_to_n_in.
+        contradiction.
+      + rename_hyp (_ \/ _) as Hx.
+        destruct Hx as [Hx|(Hx,[Hy|Hy])]; eauto using r_in_subst_to_n_in.
+        eauto using i_in_subst_to_n_in.
+  Qed.
+
+  Lemma w_subst_not_in_rw:
+    forall x P,
+    ~ WIn x P ->
+    forall v,
+    w_subst x v P = P.
+  Proof.
+    induction P; simpl; intros.
+    - rewrite i_subst_not_in_rw; auto.
+    - assert (~ WIn x P1) by intuition.
+      assert (~ WIn x P2) by intuition.
+      rewrite IHP1; auto.
+      rewrite IHP2; auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        assert (~ Conc.In v i) by intuition.
+        rewrite i_subst_not_in_rw; auto.
+        rewrite r_subst_not_in_rw; auto.
+      }
+      rewrite i_subst_not_in_rw; auto.
+      rewrite r_subst_not_in_rw; auto.
+      assert (~  (WIn x P \/ Conc.In x i0) ) by intuition.
+      rewrite i_subst_not_in_rw; auto.
+      rewrite IHP; auto.
+  Qed.
 End Defs. 

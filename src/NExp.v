@@ -886,5 +886,87 @@ Section SO.
       rewrite IHe2; auto.
   Qed.
 
+  Lemma n_subst_subst_eq_1:
+    forall e1 e2 x e3,
+    n_subst x e1 (n_subst x e2 e3)
+    =
+    n_subst x (n_subst x e1 e2) e3.
+  Proof.
+    induction e3; intros; simpl in *.
+    - reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        reflexivity.
+      }
+      simpl.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        contradiction.
+      }
+      reflexivity.
+    - rewrite IHe3_1; auto.
+      rewrite IHe3_2; auto.
+  Qed.
+
+  Lemma n_in_subst_to_n_in:
+    forall x e n,
+    NIn x (n_subst x e n) ->
+    NIn x e.
+  Proof.
+    induction n; intros; simpl in *.
+    - invc H.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        assumption.
+      }
+      invc H.
+      contradiction.
+    - invc H; auto.
+  Qed.
+
+  Definition NClosed e := exists n, NStep e n.
+
+  Lemma n_closed_to_not_in:
+    forall e,
+    NClosed e ->
+    forall x, ~ NIn x e.
+  Proof.
+    intros e (n, H).
+    eauto using n_step_to_not_in.
+  Qed.
+
+  Lemma n_closed_to_not_in_subst:
+    forall v,
+    NClosed v ->
+    forall x e,
+    ~ NIn x (n_subst x v e).
+  Proof.
+    intros.
+    intros N.
+    apply n_in_subst_to_n_in in N.
+    apply n_closed_to_not_in in N; auto.
+  Qed.
+
+
+  Lemma n_subst_subst_neq_4:
+    forall e3 e1 e2 x y,
+    NClosed e1 -> 
+    x <> y ->
+    n_subst y e1 (n_subst x e2 e3) =
+    n_subst y e1 (n_subst x (n_subst y e1 e2) e3).
+  Proof.
+    induction e3; intros.
+    - reflexivity.
+    - simpl.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        symmetry.
+        rewrite n_subst_not_in; auto using n_closed_to_not_in_subst.
+      }
+      reflexivity.
+    - simpl.
+      rewrite IHe3_1; auto.
+      rewrite IHe3_2; auto.
+  Qed.
+
 End SO.
 
