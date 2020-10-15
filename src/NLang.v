@@ -1053,6 +1053,163 @@ Section Defs.
     eauto using n_step_to_not_in.
   Qed.
 
+  Lemma n_closed_to_not_in_subst:
+    forall v,
+    NClosed v ->
+    forall x e,
+    ~ NIn x (n_subst x v e).
+  Proof.
+    intros.
+    intros N.
+    apply n_in_subst_to_n_in in N.
+    apply n_closed_to_not_in in N; auto.
+  Qed.
+
+  Lemma e_subst_subst_neq_4:
+    forall e3 e1 e2 x y,
+    NClosed e1 -> 
+    x <> y ->
+    n_subst y e1 (n_subst x e2 e3) =
+    n_subst y e1 (n_subst x (n_subst y e1 e2) e3).
+  Proof.
+    induction e3; intros.
+    - reflexivity.
+    - simpl.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        symmetry.
+        rewrite n_subst_not_in; auto using n_closed_to_not_in_subst.
+      }
+      reflexivity.
+    - simpl.
+      rewrite IHe3_1; auto.
+      rewrite IHe3_2; auto.
+  Qed.
+
+  Lemma r_subst_subst_neq_4:
+    forall r e1 e2 x y,
+    NClosed e1 -> 
+    x <> y ->
+    r_subst y e1 (r_subst x e2 r) =
+    r_subst y e1 (r_subst x (n_subst y e1 e2) r).
+  Proof.
+    intros (e1', e2') e1 e2 x y Hc Hn.
+    simpl.
+    apply eq_pair_def.
+    - rewrite e_subst_subst_neq_4; auto.
+    - rewrite e_subst_subst_neq_4; auto.
+  Qed.
+
+  Lemma b_subst_subst_neq_4:
+    forall b e1 e2 x y,
+    x <> y ->
+    NClosed e1 ->
+    BExp.b_subst y e1 (BExp.b_subst x e2 b) =
+    BExp.b_subst y e1 (BExp.b_subst x (n_subst y e1 e2) b).
+  Proof.
+    induction b; intros.
+    - reflexivity.
+    - simpl.
+      rewrite e_subst_subst_neq_4; auto.
+      assert (r1: n_subst y e1 (n_subst x e2 n1) =
+              n_subst y e1 (n_subst x (n_subst y e1 e2) n1)). {
+        rewrite e_subst_subst_neq_4; auto.
+      }
+      rewrite r1.
+      reflexivity.
+    - simpl.
+      rewrite IHb1; auto.
+      rewrite IHb2; auto.
+    - simpl.
+      rewrite IHb; auto.
+  Qed.
+
+  Lemma c_subst_subst_neq_4:
+    forall c x y e1 e2,
+    x <> y ->
+    NClosed e1 ->
+    NClosed e2 ->
+    i_subst y e1 (i_subst x e2 c) =
+    i_subst y e1 (i_subst x (n_subst y e1 e2) c).
+  Proof.
+    induction c; intros.
+    - reflexivity.
+    - simpl.
+      rewrite IHc1; auto.
+      rewrite IHc2; auto.
+      rewrite b_subst_subst_neq_4; auto.
+    - simpl.
+      rewrite IHc1; auto.
+      rewrite IHc2; auto.
+    - admit.
+    - simpl.
+      assert (r1: n_subst v e1 e2 = e2). {
+        rewrite n_subst_not_in; auto using n_closed_to_not_in.
+      }
+      destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        destruct (Set_VAR.MF.eq_dec x v) as [?|_]; try contradiction.
+        rewrite r_subst_subst_neq_4; auto.
+        rewrite r1.
+        reflexivity.
+      }
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        rewrite r_subst_subst_neq_4; auto.
+      }
+      rewrite IHc; auto.
+      rewrite r_subst_subst_neq_4; auto.
+  Admitted.
+
+  Lemma subst_subst_neq_4:
+    forall P x y e1 e2,
+    NClosed e1 ->
+    NClosed e2 ->
+    x <> y ->
+    subst y e1 (subst x e2 P) =
+    subst y e1 (subst x (n_subst y e1 e2) P).
+  Proof.
+    induction P; intros.
+    - simpl.
+      rewrite c_subst_subst_neq_4; auto.
+    - simpl.
+      rewrite IHP1; auto.
+      rewrite IHP2; auto.
+    - simpl.
+      rename v into z.
+      rewrite r_subst_subst_neq_4; auto.
+      destruct (Set_VAR.MF.eq_dec x z). {
+        subst.
+        destruct (Set_VAR.MF.eq_dec y z). {
+          subst.
+          contradiction.
+        }
+        auto.
+      }
+      destruct (Set_VAR.MF.eq_dec y z). {
+        subst.
+        rewrite IHP1; auto.
+        assert (r1: n_subst z e1 e2 = e2). {
+          rewrite n_subst_not_in; auto using n_closed_to_not_in.
+        }
+        rewrite r1.
+        reflexivity.
+      }
+      rewrite IHP1; auto.
+  Qed.
+
+  Lemma c_subst_subst_neq_5:
+    forall c x y e1 e2,
+    NClosed e1 ->
+    y <> x ->
+    i_subst y e1 (i_subst x e2 c) =
+    i_subst x (n_subst y e1 e2) (i_subst y e1 c).
+  Proof.
+    induction c; intros; simpl.
+    - reflexivity.
+    - 
+  Admitted.
+
   Lemma i_pair_in_subst_tr:
     forall P e x,
     NClosed e ->
@@ -1113,7 +1270,9 @@ Section Defs.
           simpl in Ht'.
           invc Ht'.
           rewrite subst_subst_neq_3 with (x:=x) (y:=y); auto.
-          - admit.
+          - rewrite subst_subst_neq_4; auto.
+            (* Show that e1 is closed, which requires P runnable *)
+            admit.
           - intros N.
             apply n_in_subst_to_n_in in N.
             apply n_closed_to_not_in in N; auto.
@@ -1145,9 +1304,9 @@ Section Defs.
       simpl in Ht'.
       invc Ht'.
       apply eq_c_seq_def. {
-        admit.
+        rewrite c_subst_subst_neq_5; auto.
       }
-      admit.
+      rewrite c_subst_subst_neq_5; auto.
   Admitted.
 
   Lemma tr_i_pair_in_1:
