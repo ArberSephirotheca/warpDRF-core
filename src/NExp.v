@@ -923,15 +923,14 @@ Section SO.
     - invc H; auto.
   Qed.
 
-  Definition NClosed e := exists n, NStep e n.
+  Definition NClosed e := forall x, ~ NIn x e.
 
   Lemma n_closed_to_not_in:
     forall e,
     NClosed e ->
     forall x, ~ NIn x e.
   Proof.
-    intros e (n, H).
-    eauto using n_step_to_not_in.
+    auto.
   Qed.
 
   Lemma n_closed_to_not_in_subst:
@@ -941,11 +940,67 @@ Section SO.
     ~ NIn x (n_subst x v e).
   Proof.
     intros.
+    unfold NClosed in H.
     intros N.
     apply n_in_subst_to_n_in in N.
-    apply n_closed_to_not_in in N; auto.
+    assert (H := H x).
+    contradiction.
   Qed.
 
+  Lemma n_closed_var:
+    forall x,
+    ~ NClosed (NVar x).
+  Proof.
+    intros x N.
+    assert (NIn x (NVar x)). {
+      constructor.
+    }
+    assert (N := N x).
+    contradiction.
+  Qed.
+
+  Lemma n_in_num:
+    forall n x,
+    ~ NIn x (NNum n).
+  Proof.
+    intros.
+    intros N.
+    inversion N.
+  Qed.
+
+  Lemma n_closed_inv_bin:
+    forall o e1 e2,
+    NClosed (NBin o e1 e2) ->
+    NClosed e1 /\ NClosed e2.
+  Proof.
+    unfold NClosed; intros; split. {
+      intros.
+      intros N.
+      assert (H:=H x).
+      contradict H.
+      auto using n_in_bin_l.
+    }
+    intros x N.
+    assert (H:=H x).
+    contradict H.
+    auto using n_in_bin_r.
+  Qed.
+
+  Lemma n_closed_to_step:
+    forall e,
+    NClosed e ->
+    exists n, NStep e n.
+  Proof.
+    induction e; intros.
+    - eauto using n_step_num.
+    - contradict H.
+      auto using n_closed_var.
+    - apply n_closed_inv_bin in H.
+      destruct H as (Ha, Hb).
+      destruct IHe1 as (n1, Hn1); auto.
+      destruct IHe2 as (n2, Hn2); auto.
+      eauto using n_step_bin.
+  Qed.
 
   Lemma n_subst_subst_neq_4:
     forall e3 e1 e2 x y,
