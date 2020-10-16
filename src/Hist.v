@@ -1318,13 +1318,10 @@ Section Defs.
     forall x y z a,
     x <> y ->
     x <> z ->
-    access_in x (access_subst z (NVar y) a) ->
-    access_in x a.
+    AFree (access_subst z (NVar y) a) x ->
+    AFree a x.
   Proof.
     intros.
     apply access_in_subst_neq in H1; auto.
-    intros N.
-    inversion N.
-    contradiction.
   Qed.
 End Defs.

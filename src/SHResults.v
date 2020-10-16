@@ -24,8 +24,8 @@ Section Compiler.
 
   Corollary soundness:
     forall m_c m_h i,
-    ~ Conc.In T1 i ->
-    ~ Conc.In T2 i ->
+    ~ Conc.CFree i T1 ->
+    ~ Conc.CFree i T2 ->
     ~ Conc.Var TID i ->
     Hist.MSafeStrong m_h ->
     Conc.RunAll TID_COUNT i m_c ->
@@ -75,11 +75,11 @@ Section Compiler.
     unfold translate, do_proj.
 
     (* Useful results *)
-    assert (t1_nin_p: ~ In T1 (proj i)). {
+    assert (t1_nin_p: ~ SEFree (proj i) T1). {
       intros N.
       apply in_proj_to_in in N; auto using t1_neq_tid.
     }
-    assert (t2_nin_p: ~ In T2 (proj i)). {
+    assert (t2_nin_p: ~ SEFree (proj i) T2). {
       intros N.
       apply in_proj_to_in in N; auto using t2_neq_tid.
     }
@@ -99,11 +99,11 @@ Section Compiler.
       remove_eq T1 T1.
       remove_eq T1 T2.
       rewrite i_subst_subst_trans; auto.
-      assert (~ In T1 (i_subst TID (NVar T2) (proj i))). {
+      assert (~ SEFree (i_subst TID (NVar T2) (proj i)) T1). {
         intros N.
-        apply in_inv_subst_in in N; auto using t1_neq_t2, t1_neq_tid.
+        apply i_free_inv_subst in N; auto using t1_neq_t2, t1_neq_tid.
       }
-      rewrite i_subst_not_in with (x0:=T1); auto.
+      rewrite i_subst_not_free with (x0:=T1); auto.
       (* fix the second biding *)
       apply i_pair_in_decl with (n0:=access_tid x) (n1:=0) (n2:=access_tid y);
         auto using n_step_num with *.
@@ -113,11 +113,11 @@ Section Compiler.
       simpl.
       right.
       split. {
-        rewrite i_subst_not_in. {
+        rewrite i_subst_not_free. {
           apply SHCompiler.t_in_to_i_in; auto.
         }
         intros N.
-        apply in_inv_subst_1 in N; auto.
+        apply se_free_inv_subst_neq_num in N; auto.
       }
       apply SHCompiler.t_in_to_i_in; auto.
     }
@@ -129,11 +129,11 @@ Section Compiler.
     remove_eq T1 T1.
     remove_eq T1 T2.
     rewrite i_subst_subst_trans; auto.
-    assert (~ In T1 (i_subst TID (NVar T2) (proj i))). {
+    assert (~ SEFree (i_subst TID (NVar T2) (proj i)) T1). {
       intros N.
-      apply in_inv_subst_in in N; auto using t1_neq_t2, t1_neq_tid.
+      apply i_free_inv_subst in N; auto using t1_neq_t2, t1_neq_tid.
     }
-    rewrite i_subst_not_in with (x0:=T1); auto.
+    rewrite i_subst_not_free with (x0:=T1); auto.
     (* fix the second biding *)
     apply i_pair_in_decl with (n0:=access_tid y) (n1:=0) (n2:=access_tid x);
       auto using n_step_num with *.
@@ -143,19 +143,19 @@ Section Compiler.
     simpl.
     left.
     split. {
-      rewrite i_subst_not_in. {
+      rewrite i_subst_not_free. {
         apply SHCompiler.t_in_to_i_in; auto.
       }
       intros N.
-      apply in_inv_subst_1 in N; auto.
+      apply se_free_inv_subst_neq_num in N; auto.
     }
     apply SHCompiler.t_in_to_i_in; auto.
   Qed.
 
   Corollary completeness:
     forall m_c m_h i,
-    ~ Conc.In T1 i ->
-    ~ Conc.In T2 i ->
+    ~ Conc.CFree i T1 ->
+    ~ Conc.CFree i T2 ->
     ~ Conc.Var TID i ->
     Hist.Safe m_c ->
     Conc.RunAll TID_COUNT i m_c ->

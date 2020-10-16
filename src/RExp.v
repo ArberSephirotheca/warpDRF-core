@@ -169,8 +169,8 @@ Section Defs.
   Lemma r_subst_subst_neq_3:
     forall e x y v1 v2,
     x <> y ->
-    ~ NIn y v1 ->
-    ~ NIn x v2 ->
+    ~ NFree v1 y ->
+    ~ NFree v2 x ->
     r_subst x v1 (r_subst y v2 e)
     =
     r_subst y v2 (r_subst x v1 e).
@@ -208,7 +208,7 @@ Section Defs.
 
   Lemma r_subst_subst_eq_2:
     forall x r v e,
-    ~ NIn x v ->
+    ~ NFree v x ->
     r_subst x e (r_subst x v r) = r_subst x v r.
   Proof.
     intros.
@@ -218,36 +218,31 @@ Section Defs.
     rewrite n_subst_subst_eq_2; auto.
   Qed.
 
-  Inductive RIn x : range -> Prop :=
-  | r_in_l:
-    forall n1 n2,
-    NIn x n1 ->
-    RIn x (n1, n2)
-  | r_in_r:
-    forall n1 n2,
-    NIn x n2 ->
-    RIn x (n1, n2).
+  Definition RFree r x :=
+    match r with
+    | (e1, e2) => NFree e1 x \/ NFree e2 x
+    end.
 
-  Lemma r_list_to_not_in:
+  Lemma r_list_to_not_free:
     forall r l,
     RList r l ->
     forall x,
-    ~ RIn x r.
+    ~ RFree r x.
   Proof.
     intros.
     inversion H; subst; clear H.
     intros N.
     inversion N; subst; clear N.
-    - apply n_step_to_not_in with (x:=x) in H0.
+    - apply n_step_to_not_free with (x:=x) in H0.
       contradiction.
-    - apply n_step_to_not_in with (x:=x) in H1.
+    - apply n_step_to_not_free with (x:=x) in H1.
       contradiction.
   Qed.
-
-  Lemma not_r_in_to_in:
+(*
+  Lemma r_not_free_to_n_free:
     forall x n1 n2,
-    ~ RIn x (n1, n2) ->
-    ~ NIn x n1 /\ ~ NIn x n2.
+    ~ RFree (n1, n2) x ->
+    ~ NFree n1 x /\ ~ NFree n2 x.
   Proof.
     intros.
     split; intros N.
@@ -256,49 +251,41 @@ Section Defs.
     - contradict H.
       auto using r_in_r.
   Qed.
-
-  Lemma r_subst_not_in:
+*)
+  Lemma r_subst_not_free:
     forall x v r,
-    ~ RIn x r ->
+    ~ RFree r x ->
     r_subst x v r = r.
   Proof.
     intros.
     destruct r as (n1, n2).
-    apply not_r_in_to_in in H.
-    simpl.
-    destruct H as [Ha Hb].
-    apply n_subst_not_in with (v:=v) in Ha.
-    apply n_subst_not_in with (v:=v) in Hb.
-    rewrite Ha.
-    rewrite Hb.
-    reflexivity.
+    simpl in *.
+    rewrite n_subst_not_free with (v:=v); auto.
+    rewrite n_subst_not_free with (v:=v); auto.
   Qed.
 
   Lemma r_subst_subst_trans:
     forall e x v y,
-    ~ RIn x e ->
+    ~ RFree e x ->
     r_subst x v (r_subst y (NVar x) e) = r_subst y v e.
   Proof.
     intros.
     destruct e.
-    apply not_r_in_to_in in H.
-    destruct H.
-    simpl.
+    simpl in *.
     rewrite n_subst_subst_trans; auto.
     rewrite n_subst_subst_trans; auto.
   Qed.
 
-  Lemma in_r_subst_neq:
+  Lemma r_free_subst_neq:
     forall e x y v,
-    RIn x (r_subst y v e) ->
-    ~ NIn x v ->
-    RIn x e.
+    RFree (r_subst y v e) x ->
+    ~ NFree v x ->
+    RFree e x.
   Proof.
     intros.
     destruct e.
-    inversion H; subst; clear H.
-    - apply in_n_subst_neq in H2; auto using r_in_l.
-    - apply in_n_subst_neq in H2; auto using r_in_r.
+    simpl in *.
+    destruct H; eauto using n_free_subst_neq.
   Qed.
 
   Lemma r_list_no_dup:
@@ -311,18 +298,19 @@ Section Defs.
     eauto using range_list_to_no_dup.
   Qed.
 
-  Lemma r_in_subst_eq:
+  Lemma r_free_subst_eq:
     forall x y e,
-    ~ RIn x e ->
-    RIn x (r_subst y (NVar x) e) ->
-    RIn y e.
+    ~ RFree e x ->
+    RFree (r_subst y (NVar x) e) x ->
+    RFree e y.
   Proof.
-    intros x y (nx, ny); simpl; intros.
-    inversion H0; subst; clear H0.
-    - apply n_in_subst_eq in H2; auto using r_in_l.
-    - apply n_in_subst_eq in H2; auto using r_in_r.
+    intros x y (nx, ny); simpl in *; intros.
+    destruct H0.
+    - left.
+      eauto using n_free_subst_eq.
+    - right.
+      eauto using n_free_subst_eq.
   Qed.
-
 
   (* ------------------------ RSTEP --------------------------- *)
 
@@ -860,10 +848,10 @@ Section Defs.
     intros.
     eapply r_pred_def; eauto using n_step_num.
   Qed.
- 
-   Lemma r_subst_not_in_rw:
+ (*
+  Lemma r_subst_not_in_rw:
     forall x e,
-    ~ RIn x e ->
+    ~ RFree e x ->
     forall v,
     r_subst x v e = e.
   Proof.
@@ -874,7 +862,7 @@ Section Defs.
     destruct H.
     rewrite n_subst_not_in_rw; auto.
     rewrite n_subst_not_in_rw; auto.
-  Qed.
+  Qed.*)
 
   Lemma r_subst_subst_eq_1:
     forall e1 e2 x r,
@@ -890,17 +878,15 @@ Section Defs.
     reflexivity.
   Qed.
 
-  Lemma r_in_subst_to_n_in:
+  Lemma r_free_inv_subst_eq:
     forall x r e,
-    RIn x (r_subst x e r) ->
-    NIn x e.
+    RFree (r_subst x e r) x ->
+    NFree e x.
   Proof.
     intros.
     destruct r as (e1, e2).
     simpl in *.
-    invc H;
-      rename_hyp (NIn _ _) as Hi;
-      apply n_in_subst_to_n_in in Hi; auto.
+    destruct H; apply n_free_inv_subst_eq in H; auto.
   Qed.
 
   Lemma r_subst_subst_neq_4:

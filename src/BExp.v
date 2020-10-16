@@ -193,72 +193,27 @@ Section SO.
     reflexivity.
   Qed.
 
-  Inductive BIn (x: var): bexp -> Prop :=
-  | b_in_n_rel_l:
-    forall o n1 n2,
-    NIn x n1 ->
-    BIn x (NRel o n1 n2)
-  | b_in_n_rel_r:
-    forall o n1 n2,
-    NIn x n2 ->
-    BIn x (NRel o n1 n2)
-  | b_in_b_rel_l:
-    forall o b1 b2,
-    BIn x b1 ->
-    BIn x (BRel o b1 b2)
-  | b_in_b_rel_r:
-    forall o b1 b2,
-    BIn x b2 ->
-    BIn x (BRel o b1 b2)
-  | b_in_not:
-    forall b,
-    BIn x b ->
-    BIn x (BNot b).
+  Fixpoint BFree (b:bexp) (x: var): Prop :=
+    match b with
+    | NRel _ n1 n2 => NFree n1 x \/ NFree n2 x
+    | BRel _ b1 b2 => BFree b1 x \/ BFree b2 x
+    | BNot b => BFree b x
+    | BBool _ => False
+    end.
 
-  Lemma not_in_n_rel:
-    forall x o n1 n2,
-    ~ BIn x (NRel o n1 n2) ->
-    ~ NIn x n1 /\ ~ NIn x n2.
-  Proof.
-    intros.
-    split; intros N; contradict H; auto using b_in_n_rel_l, b_in_n_rel_r.
-  Qed.
-
-  Lemma not_in_b_rel:
-    forall x o b1 b2,
-    ~ BIn x (BRel o b1 b2) ->
-    ~ BIn x b1 /\ ~ BIn x b2.
-  Proof.
-    intros.
-    repeat split; intros N; contradict H; auto using b_in_b_rel_l, b_in_b_rel_r.
-  Qed.
-
-  Lemma not_in_not:
-    forall x b,
-    ~ BIn x (BNot b) ->
-    ~ BIn x b.
-  Proof.
-    intros.
-    intros N; contradict H; auto using b_in_not.
-  Qed.
-
-  Lemma b_subst_not_in:
+  Lemma b_subst_not_free:
     forall x v b,
-    ~ BIn x b ->
+    ~ BFree b x ->
     b_subst x v b = b.
   Proof.
     induction b; simpl; intros.
     - reflexivity.
-    - apply not_in_n_rel in H.
-      destruct H.
-      rewrite n_subst_not_in; auto.
-      rewrite n_subst_not_in; auto.
-    - apply not_in_b_rel in H.
-      destruct H.
+    - rewrite n_subst_not_free; auto.
+      rewrite n_subst_not_free; auto.
+    - simpl in *.
       rewrite IHb1; auto.
       rewrite IHb2; auto.
-    - apply not_in_not in H.
-      rewrite IHb; auto.
+    - rewrite IHb; auto.
   Qed.
 
   Lemma b_subst_subst_neq_2:
@@ -281,8 +236,8 @@ Section SO.
   Lemma b_subst_subst_neq_3:
     forall e x y v1 v2,
     x <> y ->
-    ~ NIn y v1 ->
-    ~ NIn x v2 ->
+    ~ NFree v1 y ->
+    ~ NFree v2 x ->
     b_subst x v1 (b_subst y v2 e)
     =
     b_subst y v2 (b_subst x v1 e).
@@ -295,55 +250,31 @@ Section SO.
     - rewrite IHe; auto.
   Qed.
 
-  Lemma in_b_subst_neq:
+  Lemma b_free_subst_neq:
     forall e x y v,
-    BIn x (b_subst y v e) ->
-    ~ NIn x v ->
-    BIn x e.
+    BFree (b_subst y v e) x ->
+    ~ NFree v x ->
+    BFree e x.
   Proof.
-    induction e; simpl; intros; inversion H; subst; rename H into N.
-    - apply in_n_subst_neq in H2; auto using b_in_n_rel_l.
-    - apply in_n_subst_neq in H2; auto using b_in_n_rel_r.
-    - apply IHe1 in H2; auto using b_in_b_rel_l.
-    - apply IHe2 in H2; auto using b_in_b_rel_r.
-    - apply IHe in H2; auto using b_in_not.
-  Qed.
-
-  Lemma not_in_n_bin_n_rel:
-    forall o n1 n2 x,
-    ~ BIn x (NRel o n1 n2) ->
-    ~ NIn x n1 /\ ~ NIn x n2.
-  Proof.
-    intros.
-    split; contradict H; auto using b_in_n_rel_l, b_in_n_rel_r.
-  Qed.
-
-  Lemma not_in_n_bin_b_rel:
-    forall o b1 b2 x,
-    ~ BIn x (BRel o b1 b2) ->
-    ~ BIn x b1 /\ ~ BIn x b2.
-  Proof.
-    intros.
-    split; contradict H; auto using b_in_b_rel_l, b_in_b_rel_r.
+    induction e; simpl; intros.
+    - assumption.
+    - destruct H; eauto using n_free_subst_neq.
+    - destruct H; eauto using n_free_subst_neq.
+    - eauto.
   Qed.
 
   Lemma b_subst_subst_trans:
     forall e x v y,
-    ~ BIn x e ->
+    ~ BFree e x ->
     b_subst x v (b_subst y (NVar x) e) = b_subst y v e.
   Proof.
     induction e; simpl; intros.
     - reflexivity.
-    - apply not_in_n_bin_n_rel in H.
-      destruct H.
+    - rewrite n_subst_subst_trans; auto.
       rewrite n_subst_subst_trans; auto.
-      rewrite n_subst_subst_trans; auto.
-    - apply not_in_n_bin_b_rel in H.
-      destruct H.
-      rewrite IHe1; auto.
+    - rewrite IHe1; auto.
       rewrite IHe2; auto.
-    - apply not_in_not in H.
-      rewrite IHe; auto.
+    - rewrite IHe; auto.
   Qed.
 
   Lemma b_subst_subst_eq:
@@ -363,7 +294,7 @@ Section SO.
 
   Lemma b_subst_subst_eq_2:
     forall x b v e,
-    ~ NIn x v ->
+    ~ NFree v x ->
     b_subst x e (b_subst x v b) = b_subst x v b.
   Proof.
     induction b; intros; simpl.
@@ -599,10 +530,10 @@ Section SO.
       eapply b_eq_proper_6; eauto.
   Qed.
 
-
+(*
   Lemma b_subst_not_in_rw:
     forall x b,
-    ~ BIn x b ->
+    ~ BFree x b ->
     forall v,
     b_subst x v b = b.
   Proof.
@@ -619,18 +550,18 @@ Section SO.
     - apply not_in_not in N.
       rewrite IHb; auto.
   Qed.
-
-  Lemma b_in_subst_to_n_in:
+*)
+  Lemma b_free_inv_subst_eq:
     forall x e b,
-    BIn x (b_subst x e b) ->
-    NIn x e.
+    BFree (b_subst x e b) x ->
+    NFree e x.
   Proof.
     induction b; simpl; intros.
     - invc H.
-    - invc H;
-      eauto using n_in_subst_to_n_in.
-    - invc H; auto.
-    - invc H; auto.
+    - destruct H;
+        eauto using n_free_inv_subst_eq.
+    - destruct H; auto.
+    - auto.
   Qed.
 
   Lemma b_subst_subst_eq_1:

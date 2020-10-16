@@ -8,7 +8,7 @@ Require Import NExp.
 Require Import BExp.
 Require Import AccExp.
 Require Import Tasks.
-
+Require Import Tictac.
 Require Import SymExec.
 Require SymHist.
 
@@ -61,13 +61,12 @@ Section Defs.
   Lemma in_proj_to_in:
     forall x i,
     x <> TID ->
-    In x (proj i) ->
-    Conc.In x i.
+    SEFree (proj i) x ->
+    Conc.CFree i x.
   Proof.
     induction i; simpl; intros; inversion H0; subst; clear H0; auto.
     + destruct H1; auto.
-    + inversion H1; subst; clear H1.
-      contradiction.
+    + contradiction.
     + destruct H1; auto.
   Qed.
 
@@ -329,8 +328,8 @@ Section Defs.
   Lemma t_in_to_i_in_translate:
     forall i,
     ~ Conc.Var TID i ->
-    ~ Conc.In T1 i ->
-    ~ Conc.In T2 i ->
+    ~ Conc.CFree i T1 ->
+    ~ Conc.CFree i T2 ->
     forall a,
     access_tid a < TID_COUNT -> (* needed for the second branch, can we prove this? *)
     TIn a i ->
@@ -341,11 +340,11 @@ Section Defs.
     assert (Hx: access_tid a = 0 \/ access_tid a > 0). {
       destruct (access_tid a); auto with *.
     }
-    assert (t1_nin_p: ~ In T1 (proj i)). {
+    assert (t1_nin_p: ~ SEFree (proj i) T1). {
       intros N.
       apply in_proj_to_in in N; auto using t1_neq_tid.
     }
-    assert (t2_nin_p: ~ In T2 (proj i)). {
+    assert (t2_nin_p: ~ SEFree (proj i) T2). {
       intros N.
       apply in_proj_to_in in N; auto using t2_neq_tid.
     }
@@ -373,14 +372,12 @@ Section Defs.
       apply i_in_seq_r.
       rewrite i_subst_subst_neq; auto using t1_neq_t2.
       rewrite i_subst_subst_trans; auto.
-      rewrite i_subst_not_in. {
+      rewrite i_subst_not_free. {
         rewrite <- Hx.
         apply t_in_to_i_in; auto.
       }
       intros N.
-      apply in_i_subst_neq in N; auto using t1_neq_tid. 
-      intros M.
-      inversion M.
+      apply i_free_subst_neq in N; auto using t1_neq_tid. 
     }
     (*
        We have that access_tid a > 0.
@@ -402,27 +399,24 @@ Section Defs.
     apply i_in_decl with (n:=0) (n1:=0) (n2:=access_tid a); auto using n_step_num.
     simpl.
     apply i_in_seq_l.
-    rewrite i_subst_not_in. {
+    rewrite i_subst_not_free. {
       rewrite i_subst_subst_trans; auto.
       apply t_in_to_i_in; auto.
     }
     intros N.
-    apply in_i_subst_neq in N; auto using t1_neq_t2. {
-      apply in_i_subst_neq in N; auto using t2_neq_tid.
-      intros X.
-      inversion X.
-      contradict H0.
-      auto using t1_neq_t2.
-    }
+    apply i_free_subst_neq in N; auto using t1_neq_t2.
+    apply i_free_subst_neq in N; auto using t2_neq_tid.
     intros X.
     inversion X.
+    contradict H0.
+    auto using t1_neq_t2.
   Qed.
 
   Lemma i_in_translate_to_t_in:
     forall i,
     ~ Conc.Var TID i ->
-    ~ Conc.In T1 i ->
-    ~ Conc.In T2 i ->
+    ~ Conc.CFree i T1 ->
+    ~ Conc.CFree i T2 ->
     forall a,
     IIn a (translate i) ->
     TIn a i /\ access_tid a < TID_COUNT.
@@ -433,11 +427,11 @@ Section Defs.
     inversion Hi; subst; clear Hi.
 
     (* Useful results *)
-    assert (t1_nin_p: ~ In T1 (proj i)). {
+    assert (t1_nin_p: ~ SEFree (proj i) T1). {
       intros N.
       apply in_proj_to_in in N; auto using t1_neq_tid.
     }
-    assert (t2_nin_p: ~ In T2 (proj i)). {
+    assert (t2_nin_p: ~ SEFree (proj i) T2). {
       intros N.
       apply in_proj_to_in in N; auto using t2_neq_tid.
     }
@@ -474,37 +468,33 @@ Section Defs.
       H: 0 <= ?n < _ |- _ => rename n into t2
     end.
 
-    match goal with
-      H: IIn _ _ |- _ => rename H into Hi
-    end.
+    rename_hyp (IIn _ _) as Hi.
     simpl in Hi.
     (* Is a in T1 or in T2? *)
     unfold do_proj in *.
     inversion Hi; subst; clear Hi;
-    match goal with
-      H: IIn _ _ |- _ => rename H into Hi
-    end.
+    rename_hyp (IIn _ _) as Hi.
     - (* a is in T1 *)
-      rewrite i_subst_not_in in Hi. {
+      rewrite i_subst_not_free in Hi. {
         rewrite i_subst_subst_trans in Hi; auto.
         assert (R:  t1 = access_tid a) by eauto using i_in_inv_access_tid.
         rewrite R in Hi.
         auto using i_in_to_t_in with *.
       }
       intros N.
-      apply in_inv_subst_1 in N; auto.
-      apply in_inv_subst_in in N; auto using t1_neq_t2, t2_neq_tid.
+      apply se_free_inv_subst_neq_num in N; auto.
+      apply i_free_inv_subst in N; auto using t1_neq_t2, t2_neq_tid.
     - (* a is in T2 *)
       rewrite i_subst_subst_neq in Hi; auto using t1_neq_t2.
-      rewrite i_subst_not_in in Hi. {
+      rewrite i_subst_not_free in Hi. {
         rewrite i_subst_subst_trans in Hi; auto.
         assert (R: t2 = access_tid a) by eauto using i_in_inv_access_tid.
         rewrite R in Hi.
         auto using i_in_to_t_in with *.
       }
       intros N.
-      apply in_inv_subst_1 in N; auto.
-      apply in_inv_subst_in in N; auto using t1_neq_t2, t1_neq_tid.
+      apply i_free_subst_neq in N; auto using t1_neq_t2.
+      apply i_free_inv_subst in N; auto using t1_neq_t2, t1_neq_tid.
   Qed.
 
 

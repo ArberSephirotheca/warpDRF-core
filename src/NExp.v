@@ -25,13 +25,13 @@ End Defs.
 Section SO.
 
   Definition eval_nbin o :=
-  match o with
-  | NPlus => Nat.add
-  | NMinus => Nat.sub
-  | NMult => Nat.mul
-  | NDiv => Nat.div
-  | NMod => Nat.modulo
-  end.
+    match o with
+    | NPlus => Nat.add
+    | NMinus => Nat.sub
+    | NMult => Nat.mul
+    | NDiv => Nat.div
+    | NMod => Nat.modulo
+    end.
 
   Inductive NStep: nexp -> nat -> Prop :=
   | n_step_num:
@@ -44,11 +44,11 @@ Section SO.
     NStep (NBin o e1 e2) (eval_nbin o n1 n2). 
 
   Fixpoint n_subst x v e :=
-  match e with
-  | NBin o e1 e2 => NBin o (n_subst x v e1) (n_subst x v e2)
-  | NVar y => if VAR.eq_dec x y then v else e  
-  | NNum n => NNum n
-  end.
+    match e with
+    | NBin o e1 e2 => NBin o (n_subst x v e1) (n_subst x v e2)
+    | NVar y => if VAR.eq_dec x y then v else e  
+    | NNum n => NNum n
+    end.
 
   Lemma n_step_subst_next:
     forall x a n1 n2,
@@ -273,101 +273,114 @@ Section SO.
     assumption.
   Qed.
 
-  Inductive NIn (x: var): nexp -> Prop :=
-  | n_in_eq:
-    NIn x (NVar x)
-  | n_in_bin_l:
-    forall o n1 n2,
-    NIn x n1 ->
-    NIn x (NBin o n1 n2)
-  | n_in_bin_r:
-    forall o n1 n2,
-    NIn x n2 ->
-    NIn x (NBin o n1 n2).
+  Fixpoint NFree (e: nexp) (x:var) : Prop := 
+    match e with
+    | NVar y => y = x
+    | NBin _ e1 e2 => NFree e1 x \/ NFree e2 x
+    | NNum _ => False
+    end.
 
-
-  Lemma not_n_in_bin_l:
-    forall x o n1 n2,
-    ~ NIn x (NBin o n1 n2) ->
-    ~ NIn x n1.
-  Proof.
-    intros.
-    intros N.
-    contradict H.
-    constructor; auto.
-  Qed.
-
-  Lemma not_n_in_bin_r:
-    forall x o n1 n2,
-    ~ NIn x (NBin o n1 n2) ->
-    ~ NIn x n2.
-  Proof.
-    intros.
-    intros N.
-    contradict H.
-    apply n_in_bin_r.
-    assumption.
-  Qed.
-
-  Lemma not_n_in_bin:
-    forall x o n1 n2,
-    ~ NIn x (NBin o n1 n2) ->
-    ~ NIn x n1 /\ ~ NIn x n2.
-  Proof.
-    intros.
-    split.
-    - eauto using not_n_in_bin_l.
-    - eauto using not_n_in_bin_r.
-  Qed.
-
-  Lemma n_subst_not_in:
+  Lemma n_subst_not_free:
     forall x v n,
-    ~ NIn x n ->
+    ~ NFree n x ->
     n_subst x v n = n.
   Proof.
     induction n; intros.
     - reflexivity.
-    - assert (x <> v0). {
-        intros N.
-        subst.
-        contradict H.
-        constructor.
-      }
-      simpl.
+    - simpl in *.
       destruct (Set_VAR.MF.eq_dec x v0). {
+        subst.
         contradiction.
       }
       reflexivity.
-    - apply not_n_in_bin in H.
-      destruct H as (Ha, Hb).
-      apply IHn1 in Ha.
-      apply IHn2 in Hb.
-      simpl.
-      rewrite Ha.
-      rewrite Hb.
-      reflexivity.
+    - simpl in *.
+      rewrite IHn1; auto.
+      rewrite IHn2; auto.
   Qed.
 
-  Lemma n_subst_to_not_in:
+  Lemma n_free_inv_subst_eq:
+    forall x e n,
+    NFree (n_subst x e n) x ->
+    NFree e x.
+  Proof.
+    induction n; intros; simpl in *.
+    - invc H.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        assumption.
+      }
+      invc H.
+      contradiction.
+    - invc H; auto.
+  Qed.
+
+  Lemma n_subst_to_not_free:
     forall x v n1 n2,
     n_subst x (NNum v) n1 = n2 ->
-    ~ NIn x n2.
+    ~ NFree n2 x.
   Proof.
-    induction n1; simpl; intros; subst; intros N.
-    - inversion N.
-    - destruct (Set_VAR.MF.eq_dec x v0). {
-        subst.
-        inversion N.
+    intros.
+    intros N.
+    rewrite <- H in N.
+    apply n_free_inv_subst_eq in N.
+    simpl in *.
+    assumption.
+  Qed.
+
+  Lemma n_subst_subst_eq_2:
+    forall x n v e,
+    ~ NFree v x ->
+    n_subst x e (n_subst x v n) = n_subst x v n.
+  Proof.
+    intros.
+    rewrite n_subst_not_free; auto.
+    intros N.
+    apply n_free_inv_subst_eq in N.
+    contradiction.
+  Qed.
+
+  Lemma n_free_subst_neq:
+    forall e x y v,
+    NFree (n_subst y v e) x ->
+    ~ NFree v x ->
+    NFree e x.
+  Proof.
+    induction e; simpl; intros; auto.
+    - destruct (Set_VAR.MF.eq_dec y v). {
+        contradiction.
       }
-      inversion N; subst.
+      auto.
+    - destruct H; eauto.
+  Qed.
+
+  Lemma n_free_inv_subst:
+    forall x y z n,
+    x <> y ->
+    x <> z ->
+    NFree (n_subst z (NVar y) n) x ->
+    NFree n x.
+  Proof.
+    intros.
+    apply n_free_subst_neq in H1; auto.
+  Qed.
+
+  Lemma n_free_subst_eq:
+    forall x y e,
+    ~ NFree e x ->
+    NFree (n_subst y (NVar x) e) x ->
+    NFree e y.
+  Proof.
+    induction e; simpl; intros.
+    - inversion H0.
+    - destruct (Set_VAR.MF.eq_dec y v); auto.
+      simpl in *.
+      subst.
       contradiction.
-    - inversion N; subst; clear N.
-      + remember (n_subst _ _ _) as j.
-        symmetry in Heqj.
-        apply IHn1_1 in H0; auto.
-      + remember (n_subst _ _ _) as j.
-        symmetry in Heqj.
-        apply IHn1_2 in H0; auto.
+    - destruct H0.
+      + left.
+        eauto.
+      + right.
+        eauto.
   Qed.
 
   Lemma n_subst_subst_neq_2:
@@ -426,8 +439,8 @@ Section SO.
   Lemma n_subst_subst_neq_3:
     forall e x y v1 v2,
     x <> y ->
-    ~ NIn y v1 ->
-    ~ NIn x v2 ->
+    ~ NFree v1 y ->
+    ~ NFree v2 x ->
     n_subst x v1 (n_subst y v2 e)
     =
     n_subst y v2 (n_subst x v1 e).
@@ -441,13 +454,13 @@ Section SO.
         }
         simpl.
         destruct (Set_VAR.MF.eq_dec v v) as [_|N]; try contradiction.
-        rewrite n_subst_not_in; auto.
+        rewrite n_subst_not_free; auto.
       }
       destruct (Set_VAR.MF.eq_dec x v). {
         subst.
         simpl.
         destruct (Set_VAR.MF.eq_dec v v) as [_|N]; try contradiction.
-        rewrite n_subst_not_in; auto.
+        rewrite n_subst_not_free; auto.
       }
       simpl.
       destruct (Set_VAR.MF.eq_dec x v). {
@@ -483,24 +496,6 @@ Section SO.
       assert (IHn2 := IHn2 n0 n4).
       rewrite IHn2.
       reflexivity.
-  Qed.
-
-  Lemma n_subst_subst_eq_2:
-    forall x n v e,
-    ~ NIn x v ->
-    n_subst x e (n_subst x v n) = n_subst x v n.
-  Proof.
-    induction n; intros; simpl.
-    - reflexivity.
-    - destruct (Set_VAR.MF.eq_dec x v). {
-        subst.
-        rewrite n_subst_not_in; auto.
-      }
-      simpl.
-      destruct (Set_VAR.MF.eq_dec x v). { contradiction. }
-      reflexivity.
-    - rewrite IHn1; auto.
-      rewrite IHn2; auto.
   Qed.
 
   Lemma n_subst_subst_neq:
@@ -545,7 +540,7 @@ Section SO.
 
   Lemma n_subst_subst_trans:
     forall e x v y,
-    ~ NIn x e ->
+    ~ NFree e x ->
     n_subst x v (n_subst y (NVar x) e) = n_subst y v e.
   Proof.
     induction e; simpl; intros.
@@ -562,80 +557,18 @@ Section SO.
       destruct (Set_VAR.MF.eq_dec x v). {
         subst.
         contradict H.
-        auto using n_in_eq.
+        reflexivity.
       }
       reflexivity.
-    - apply not_n_in_bin in H.
-      destruct H as (Ha, Hb).
+    - simpl in *.
       rewrite IHe1; auto.
       rewrite IHe2; auto.
-  Qed.
-
-  Lemma in_n_subst_neq:
-    forall e x y v,
-    NIn x (n_subst y v e) ->
-    ~ NIn x v ->
-    NIn x e.
-  Proof.
-    induction e; simpl; intros; inversion H; subst; rename H into N.
-    - destruct (Set_VAR.MF.eq_dec y v). {
-        subst.
-        contradiction.
-      }
-      auto.
-    - destruct (Set_VAR.MF.eq_dec y v). {
-        subst.
-        contradiction.
-      }
-      (* contradiction *)
-      inversion H1.
-    - destruct (Set_VAR.MF.eq_dec y v). {
-        subst.
-        contradiction.
-      }
-      (* contradiction *)
-      inversion H1.
-    - subst.
-      apply IHe1 in H2; auto using n_in_bin_l.
-    - apply IHe2 in H2; auto using n_in_bin_r.
-  Qed.
-
-  Lemma n_in_inv_subst:
-    forall x y z n,
-    x <> y ->
-    x <> z ->
-    NIn x (n_subst z (NVar y) n) ->
-    NIn x n.
-  Proof.
-    intros.
-    apply in_n_subst_neq in H1; auto.
-    intros N.
-    inversion N; subst; clear N.
-    contradiction.
-  Qed.
-
-  Lemma n_in_subst_eq:
-    forall x y e,
-    ~ NIn x e ->
-    NIn x (n_subst y (NVar x) e) ->
-    NIn y e.
-  Proof.
-    induction e; simpl; intros.
-    - inversion H0.
-    - destruct (Set_VAR.MF.eq_dec y v). {
-        subst.
-        auto using n_in_eq.
-      }
-      contradiction.
-    - inversion H0; subst; clear H0.
-      + apply IHe1 in H2; auto using n_in_bin_l.
-      + apply IHe2 in H2; auto using n_in_bin_r.
   Qed.
 
   Lemma n_step_inv_subst:
     forall x v e n,
     NStep (n_subst x v e) n ->
-    ~ NIn x e \/ exists n', NStep v n'.
+    ~ NFree e x \/ exists n', NStep v n'.
   Proof.
     induction e; intros; simpl in *.
     - left.
@@ -654,17 +587,17 @@ Section SO.
       inversion N; subst; clear N; contradiction.
   Qed.
 
-  Lemma n_step_to_not_in:
+  Lemma n_step_to_not_free:
     forall e n,
     NStep e n ->
     forall x,
-    ~ NIn x e.
+    ~ NFree e x.
   Proof.
     intros e n H.
     induction H; intros; intros N; inversion N; subst; clear N.
-    - apply IHNStep1 in H2.
+    - apply IHNStep1 in H1.
       auto.
-    - apply IHNStep2 in H2; auto.
+    - apply IHNStep2 in H1; auto.
   Qed.
 
   Inductive IStep: list nexp -> list nat -> Prop :=
@@ -847,43 +780,22 @@ Section SO.
     intros.
     split; intros.
     - edestruct n_step_inv_subst as [Hx|(n', Hx)]; eauto. {
-        rewrite n_subst_not_in in H1; auto.
+        rewrite n_subst_not_free in H1; auto.
         rewrite <- H.
         assumption.
       }
       rewrite <- H in Hx.
-      rewrite n_subst_subst_eq_2 in H1; eauto using n_step_to_not_in.
+      rewrite n_subst_subst_eq_2 in H1; eauto using n_step_to_not_free.
       rewrite <- H.
       assumption.
     - rewrite <- H in H1.
       assert (n0 = n) by eauto using n_step_fun.
       subst.
       edestruct n_step_inv_subst as [Hx|(n', Hx)]; eauto. {
-        rewrite n_subst_not_in;
-        eauto using n_step_to_not_in.
+        rewrite n_subst_not_free;
+        eauto using n_step_to_not_free.
       }
-      rewrite n_subst_subst_eq_2; eauto using n_step_to_not_in.
-  Qed.
-
-
-  Lemma n_subst_not_in_rw:
-    forall x e,
-    ~ NIn x e ->
-    forall v,
-    n_subst x v e = e.
-  Proof.
-    induction e; intros; simpl; rename_hyp (~ _) as N.
-    - reflexivity.
-    - destruct (Set_VAR.MF.eq_dec x v). {
-        subst.
-        contradict N.
-        apply n_in_eq.
-      }
-      reflexivity.
-    - apply not_n_in_bin in N.
-      destruct N as (Ha, Hb).
-      rewrite IHe1; auto.
-      rewrite IHe2; auto.
+      rewrite n_subst_subst_eq_2; eauto using n_step_to_not_free.
   Qed.
 
   Lemma n_subst_subst_eq_1:
@@ -907,42 +819,26 @@ Section SO.
       rewrite IHe3_2; auto.
   Qed.
 
-  Lemma n_in_subst_to_n_in:
-    forall x e n,
-    NIn x (n_subst x e n) ->
-    NIn x e.
-  Proof.
-    induction n; intros; simpl in *.
-    - invc H.
-    - destruct (Set_VAR.MF.eq_dec x v). {
-        subst.
-        assumption.
-      }
-      invc H.
-      contradiction.
-    - invc H; auto.
-  Qed.
+  Definition NClosed e := forall x, ~ NFree e x.
 
-  Definition NClosed e := forall x, ~ NIn x e.
-
-  Lemma n_closed_to_not_in:
+  Lemma n_closed_to_not_free:
     forall e,
     NClosed e ->
-    forall x, ~ NIn x e.
+    forall x, ~ NFree e x.
   Proof.
     auto.
   Qed.
 
-  Lemma n_closed_to_not_in_subst:
+  Lemma n_closed_to_not_free_subst:
     forall v,
     NClosed v ->
     forall x e,
-    ~ NIn x (n_subst x v e).
+    ~ NFree (n_subst x v e) x.
   Proof.
     intros.
     unfold NClosed in H.
     intros N.
-    apply n_in_subst_to_n_in in N.
+    apply n_free_inv_subst_eq in N.
     assert (H := H x).
     contradiction.
   Qed.
@@ -952,16 +848,16 @@ Section SO.
     ~ NClosed (NVar x).
   Proof.
     intros x N.
-    assert (NIn x (NVar x)). {
+    assert (NFree (NVar x) x). {
       constructor.
     }
     assert (N := N x).
     contradiction.
   Qed.
 
-  Lemma n_in_num:
+  Lemma n_free_num:
     forall n x,
-    ~ NIn x (NNum n).
+    ~ NFree (NNum n) x.
   Proof.
     intros.
     intros N.
@@ -978,12 +874,14 @@ Section SO.
       intros N.
       assert (H:=H x).
       contradict H.
-      auto using n_in_bin_l.
+      simpl.
+      intuition.
     }
     intros x N.
     assert (H:=H x).
     contradict H.
-    auto using n_in_bin_r.
+    simpl.
+    intuition.
   Qed.
 
   Lemma n_closed_to_step:
@@ -1015,7 +913,7 @@ Section SO.
       destruct (Set_VAR.MF.eq_dec x v). {
         subst.
         symmetry.
-        rewrite n_subst_not_in; auto using n_closed_to_not_in_subst.
+        rewrite n_subst_not_free; auto using n_closed_to_not_free_subst.
       }
       reflexivity.
     - simpl.

@@ -6,6 +6,7 @@ Require Import RExp.
 Require Import Var.
 Require Import WLang.
 Require Import Tictac.
+Require Import Util.
 Section Defs.
   Context `{T:Tasks}.
   Context {A:Access}.
@@ -717,30 +718,30 @@ Section Defs.
     reflexivity.
   Qed.
 
-  Fixpoint In (x : var) (P : n_inst) {struct P} : Prop :=
-  match P with
-  | NSync c => Conc.In x c
-  | NSeq P Q => In x P \/ In x Q
-  | NFor P y r Q =>
-      In x P \/ RIn x r \/ (x <> y /\ In x Q)
-  end.
-
+  Fixpoint IFree (P : n_inst)  (x : var) {struct P} : Prop :=
+    match P with
+    | NSync c => Conc.CFree c x
+    | NSeq P Q => IFree P x \/ IFree Q x
+    | NFor P y r Q =>
+        IFree P x \/ RFree r x \/ (x <> y /\ IFree Q x)
+    end.
+(*
   Lemma n_subst_not_in_rw
      : forall (x : var) P,
-       ~ In x P -> forall v : nexp, subst x v P = P.
+       ~ PFree x P -> forall v : nexp, subst x v P = P.
   Proof.
   Admitted.
-
-  Lemma in_inv_subst_eq:
+*)
+  Lemma i_free_inv_subst_eq:
     forall x v P,
-    In x (subst x v P) ->
-    NIn x v.
+    IFree (subst x v P) x ->
+    NFree v x.
   Proof.
     induction P; simpl; intros.
-    - eauto using i_in_subst_to_n_in.
+    - eauto using c_free_inv_subst_eq.
     - destruct H; auto.
     - destruct H as [H|[H|(?,H)]];
-      eauto using r_in_subst_to_n_in.
+      eauto using r_free_inv_subst_eq.
       destruct (Set_VAR.MF.eq_dec x v0) as [?|_]; try contradiction.
       auto.
   Qed.
@@ -790,16 +791,15 @@ Section Defs.
       rewrite IHP2.
       reflexivity.
   Qed.
-(*
+
   Lemma subst_subst_neq_3
      : forall P (x y : var) (v1 v2 : nexp),
        x <> y ->
-       ~ NIn y v1 ->
-       ~ NIn x v2 ->
+       ~ NFree v1 y ->
+       ~ NFree v2 x ->
        subst x v1 (subst y v2 P) = subst y v2 (subst x v1 P).
   Proof.
   Admitted.
-*)
 
   Lemma subst_subst_neq_4:
     forall P x y e1 e2,
@@ -830,7 +830,7 @@ Section Defs.
         subst.
         rewrite IHP1; auto.
         assert (r1: n_subst z e1 e2 = e2). {
-          rewrite n_subst_not_in; auto using n_closed_to_not_in.
+          rewrite n_subst_not_free; auto using n_closed_to_not_free.
         }
         rewrite r1.
         reflexivity.
@@ -838,20 +838,51 @@ Section Defs.
       rewrite IHP1; auto.
   Qed.
 
+  Definition WClosed P :=
+    forall x,
+    ~ WFree P x.
+
+  Lemma w_closed_inv_seq:
+    forall P1 P2,
+    WClosed (WSeq P1 P2) ->
+    WClosed P1 /\ WClosed P2.
+  Proof.
+    unfold WClosed.
+    intros.
+    split;
+      simpl in *;
+      intros;
+      assert (H:= H x);
+      intuition.
+  Qed.
+
+  Lemma w_free_dec:
+    forall P x,
+    WFree P x \/ ~ WFree P x.
+  Proof.
+    induction P; intros.
+  Admitted.
+
   Lemma i_pair_in_subst_tr:
     forall P e x,
+    (*forall y, y <> x -> ~ WFree P y -> *)
     NClosed e ->
+    (* [[ P ]] [x := e ] = [[ P[x := e] ]] *)
     p_subst x e (tr P) = tr (w_subst x e P).
   Proof.
-    induction P; intros e' y Hc; simpl in *.
+    induction P; intros e' y (* Hw *) Hc; simpl in *.
     - auto.
-    - destruct (tr P1) as (P1_x, c1_x) eqn:Ht1.
+    - (*apply w_closed_inv_seq in Hw.
+      destruct Hw as (Hw1, Hw2).*)
+      destruct (tr P1) as (P1_x, c1_x) eqn:Ht1.
       destruct (tr P2) as (P2_x, c2_x) eqn:Ht2.
       simpl.
       rewrite <- IHP1; auto; clear IHP1.
+        (*2: { intros z Hn N. apply Hw in Hn. intuition. }*)
       rewrite <- IHP2; auto; clear IHP2.
+        (*2: { intros z Hn N. apply Hw in Hn. intuition. } *)
       destruct (p_subst y e' (P1_x, c1_x)) as (xP1_x, xc1_x) eqn:Ht1x.
-      destruct ( p_subst y e' (P2_x, c2_x)) as (xP2_x, xc2_x) eqn:Ht2x.
+      destruct (p_subst y e' (P2_x, c2_x)) as (xP2_x, xc2_x) eqn:Ht2x.
       simpl in *.
       invc Ht1x.
       invc Ht2x.
@@ -866,7 +897,7 @@ Section Defs.
         simpl.
         rewrite Ht.
         simpl.
-        destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
+        remove_eq x x.
         rewrite subst_n_seq.
         simpl.
         rewrite c_seq_subst.
@@ -886,7 +917,7 @@ Section Defs.
         reflexivity.
       }
       simpl.
-      destruct (Set_VAR.MF.eq_dec y x) as [?|_]; try contradiction.
+      remove_eq y x.
       simpl.
       destruct (tr (w_subst y e' P)) as (P_t, c_t) eqn:Ht'.
       repeat rewrite subst_n_seq.
@@ -894,6 +925,7 @@ Section Defs.
       apply eq_pair_def. {
         apply eq_n_for_def; auto. {
           apply eq_n_seq_def; auto.
+          assert (IHP := IHP e' y).
           rewrite <- IHP in Ht'; auto.
           simpl in Ht'.
           invc Ht'.
@@ -902,26 +934,21 @@ Section Defs.
             (* Show that e1 is closed, which requires P runnable *)
             admit.
           - intros N.
-            apply n_in_subst_to_n_in in N.
-            apply n_closed_to_not_in in N; auto.
-          - auto using n_closed_to_not_in.
+            apply n_free_inv_subst_eq in N.
+            apply n_closed_to_not_free in N; auto.
         }
         apply eq_n_seq_def. {
           rewrite <- IHP in Ht'; auto.
           simpl in Ht'.
           invc Ht'.
           rewrite i_subst_subst_neq_3; auto.
-          - auto using n_closed_to_not_in.
-          - intros N.
-            invc N; rename_hyp (NIn _ _) as N; invc N.
-            contradiction.
+          simpl.
+          intuition.
         }
         apply eq_n_seq_def. {
           rewrite i_subst_subst_neq_3; auto.
-          - auto using n_closed_to_not_in.
-          - intros N.
-            invc N; rename_hyp (NIn _ _) as N; invc N.
-            contradiction.
+          simpl.
+          intuition.
         }
         rewrite <- IHP in Ht'; auto.
         simpl in Ht'.

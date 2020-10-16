@@ -21,7 +21,7 @@ Module OneDim.
 
   Definition E := nexp.
 
-  Definition In := NIn.
+  Definition Free := NFree.
 
   Definition subst := n_subst.
 
@@ -181,22 +181,7 @@ Module OneDim.
     intros.
     auto using NExp.n_subst_subst_neq_2.
   Qed.
-  (*
-    forall x n b,
-    ~ EIn x (n, b) ->
-    ~ NIn x n /\ ~ BIn x b.
-  Proof.
-    intros.
-    split.
-    - intros N.
-      contradict H.
-      constructor.
-      assumption.
-    - intros N.
-      contradict H.
-      eauto using e_in_r.
-  Qed.
-  *)
+(*
   Lemma subst_subst_trans:
     forall e x v y,
     ~ In x e ->
@@ -227,7 +212,7 @@ Module OneDim.
     intros.
     eapply in_n_subst_neq; eauto.
   Qed.
-
+*)
   Lemma step_proper:
     forall (e' e n n' : nexp) (h : list OneDim.A),
   NEq e e' -> NEq n n' -> Step (e, n) h -> Step (e', n') h.
@@ -258,7 +243,7 @@ Instance ONE_DIM : Access := {|
   access_step := OneDim.Step;
   access_safe := OneDim.Safe;
   access_eq := NEq;
-  access_in := NIn;
+  AFree := NFree;
   access_step_fun := OneDim.a_step_fun;
   access_eval1 := OneDim.a_step;
   access_eval1_to_step := OneDim.a_step_to_prop;
@@ -272,9 +257,9 @@ Instance ONE_DIM : Access := {|
   access_subst_subst_eq_2 := n_subst_subst_eq_2;
   access_subst_subst_neq := OneDim.subst_subst_neq;
   access_subst_subst_neq_2 := OneDim.subst_subst_neq_2;
-  access_subst_subst_trans := OneDim.subst_subst_trans;
-  access_subst_not_in := OneDim.subst_not_in;
-  access_in_subst_neq := OneDim.in_subst_neq;
+  access_subst_subst_trans := n_subst_subst_trans;
+  access_subst_not_free := n_subst_not_free;
+  access_in_subst_neq := n_free_subst_neq;
   access_eq_refl := n_eq_refl;
   access_eq_sym := n_eq_sym;
   access_eq_trans := n_eq_trans;

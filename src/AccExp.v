@@ -9,7 +9,7 @@ Require Import Var.
 Class Access := {
   access_exp: Type;
   access_val: Type;
-  access_in: var -> access_exp -> Prop;
+  AFree: access_exp -> var -> Prop;
   access_subst: var -> nexp -> access_exp -> access_exp;
   access_step: (access_exp * nexp) -> list access_val -> Prop;
   access_eval1: (access_exp * nexp) -> option (list access_val);
@@ -60,7 +60,7 @@ Class Access := {
 
   access_subst_subst_eq_2:
     forall x n v e,
-    ~ NIn x v ->
+    ~ NFree v x ->
     access_subst x e (access_subst x v n) = access_subst x v n;
 
   access_subst_subst_neq:
@@ -80,27 +80,27 @@ Class Access := {
   access_subst_subst_neq_3:
     forall e x y v1 v2,
     x <> y ->
-    ~ NIn y v1 ->
-    ~ NIn x v2 ->
+    ~ NFree v1 y ->
+    ~ NFree v2 x ->
     access_subst x v1 (access_subst y v2 e)
     =
     access_subst y v2 (access_subst x v1 e);
 
   access_subst_subst_trans:
     forall e x v y,
-    ~ access_in x e ->
+    ~ AFree e x ->
     access_subst x v (access_subst y (NVar x) e) = access_subst y v e;
 
-  access_subst_not_in:
-    forall x e v,
-    ~ access_in x e ->
+  access_subst_not_free:
+    forall x v e,
+    ~ AFree e x ->
     access_subst x v e = e;
 
   access_in_subst_neq:
     forall e x y v,
-    access_in x (access_subst y v e) ->
-    ~ NIn x v ->
-    access_in x e;
+    AFree (access_subst y v e) x ->
+    ~ NFree v x ->
+    AFree e x;
 
   (* Make sure the equivalence relation is properly specified. *)
   access_eq_refl: forall x, access_eq x x;

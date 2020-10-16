@@ -24,9 +24,9 @@ Section Defs.
     (access_subst x v e, n_subst x v n)
   .
 
-  Definition SIn x (p:access_exp * nexp) :=
+  Definition SFree (p:access_exp * nexp) x :=
     let (e, n) := p in
-    access_in x e \/ NIn x n
+    AFree e x \/ NFree n x
   .
 
   Lemma s_subst_subst_eq:
@@ -68,18 +68,18 @@ Section Defs.
 
   Lemma s_subst_not_in:
     forall x e v,
-    ~ SIn x e ->
+    ~ SFree e x ->
     s_subst x v e = e.
   Proof.
     intros x (e, n) v Hn.
     simpl in *.
-    rewrite access_subst_not_in; auto.
-    rewrite n_subst_not_in; auto.
+    rewrite access_subst_not_free; auto.
+    rewrite n_subst_not_free; auto.
   Qed.
 
   Lemma s_subst_subst_trans:
     forall e x v y,
-    ~ SIn x e ->
+    ~ SFree e x ->
     s_subst x v (s_subst y (NVar x) e) =
     s_subst y v e.
   Proof.
@@ -88,30 +88,30 @@ Section Defs.
     rewrite n_subst_subst_trans; auto.
   Qed.
 
-  Lemma s_in_subst_neq:
+  Lemma s_free_subst_neq:
     forall e x y v,
-    SIn x (s_subst y v e) ->
-    ~ NIn x v ->
-    SIn x e.
+    SFree (s_subst y v e) x ->
+    ~ NFree v x ->
+    SFree e x.
   Proof.
     intros (e, n); simpl; intros.
     destruct H as [H|H].
     - eauto using access_in_subst_neq.
-    - eauto using in_n_subst_neq.
+    - eauto using n_free_subst_neq.
   Qed.
 
   Instance SymAcc: AccessInst := {
     access_inst_type := (access_exp * nexp) % type ;
     access_inst_subst := s_subst;
     access_inst_step := access_step;
-    access_inst_in := SIn;
+    SFree := SFree;
     access_inst_step_fun := access_step_fun;
     access_inst_subst_subst_eq := s_subst_subst_eq;
     access_inst_subst_subst_neq := s_subst_subst_neq;
     access_inst_subst_subst_neq_2 := s_subst_subst_neq_2;
-    access_inst_subst_not_in := s_subst_not_in;
+    access_inst_subst_not_free := s_subst_not_in;
     access_inst_subst_subst_trans := s_subst_subst_trans;
-    access_inst_in_subst_neq := s_in_subst_neq;
+    access_inst_in_subst_neq := s_free_subst_neq;
   }.
   Variable CurTask : nat.
   Fixpoint translate (i:Conc.inst) : SymExec.inst (I:=SymAcc) :=

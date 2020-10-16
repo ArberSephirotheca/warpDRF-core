@@ -64,8 +64,8 @@ Section Defs.
   Lemma w_subst_subst_neq_3:
     forall P x y v1 v2,
     x <> y ->
-    ~ NIn y v1 ->
-    ~ NIn x v2 ->
+    ~ NFree v1 y ->
+    ~ NFree v2 x ->
     w_subst x v1 (w_subst y v2 P)
     =
     w_subst y v2 (w_subst x v1 P).
@@ -550,9 +550,9 @@ Section Defs.
       assert (H1 := H1 _ H4 y (w_subst v e Q) n0 e1 Hn).
       assert (ILast a (w_subst y e2 (w_subst v e Q))). {
         apply H1; auto.
-        rewrite w_subst_subst_neq_3; eauto using n_step_to_not_in.
+        rewrite w_subst_subst_neq_3; eauto using n_step_to_not_free.
       }
-      rewrite w_subst_subst_neq_3; eauto using n_step_to_not_in.
+      rewrite w_subst_subst_neq_3; eauto using n_step_to_not_free.
   - destruct P0; inversion HeqQ; subst; clear HeqQ; simpl.
     rename x0 into y.
     rename v into z.
@@ -568,9 +568,9 @@ Section Defs.
     + rewrite r1.
       auto.
     + intros e He.
-      assert (~ NIn z e2) by eauto using n_step_to_not_in.
-      assert (~ NIn y e) by eauto using n_step_to_not_in.
-      assert (~ NIn z e1) by eauto using n_step_to_not_in.
+      assert (~ NFree e2 z) by eauto using n_step_to_not_free.
+      assert (~ NFree e y) by eauto using n_step_to_not_free.
+      assert (~ NFree e1 z) by eauto using n_step_to_not_free.
       rewrite Conc.i_subst_subst_neq_3; auto.
       assert (Hi : CIn a (Conc.i_subst z e (Conc.i_subst y e1 i0))) by eauto.
       rewrite Conc.i_subst_subst_neq_3 in Hi; auto.
@@ -1038,54 +1038,54 @@ Section Defs.
   Proof.
   Admitted.
 
-  Fixpoint WIn (x:var) P :=
+  Fixpoint WFree P (x:var) :=
     match P with
-    | WSync c => Conc.In x c
-    | WSeq P Q => WIn x P \/ WIn x Q
-    | WFor c1 y r P c2 => Conc.In x c1 \/
-      RIn x r \/ (x <> y /\ (WIn x P \/ Conc.In x c2))
+    | WSync c => CFree c x
+    | WSeq P Q => WFree P x \/ WFree Q x
+    | WFor c1 y r P c2 => CFree c1 x \/
+      RFree r x \/ (x <> y /\ (WFree P x \/ CFree c2 x))
     end.
 
-  Lemma w_in_subst_to_n_in:
+  Lemma w_free_inv_subst_eq:
     forall x e P,
-    WIn x (w_subst x e P) ->
-    NIn x e.
+    WFree (w_subst x e P) x ->
+    NFree e x.
   Proof.
     induction P; simpl; intros.
-    - eauto using i_in_subst_to_n_in.
+    - eauto using c_free_inv_subst_eq.
     - intuition.
     - destruct (Set_VAR.MF.eq_dec x v); subst; invc H;
-      eauto using i_in_subst_to_n_in.
+      eauto using c_free_inv_subst_eq.
       + rename_hyp (_ \/ _) as Hx.
-        destruct Hx as [Hx|(Hx,Hy)]; eauto using r_in_subst_to_n_in.
+        destruct Hx as [Hx|(Hx,Hy)]; eauto using r_free_inv_subst_eq.
         contradiction.
       + rename_hyp (_ \/ _) as Hx.
-        destruct Hx as [Hx|(Hx,[Hy|Hy])]; eauto using r_in_subst_to_n_in.
-        eauto using i_in_subst_to_n_in.
+        destruct Hx as [Hx|(Hx,[Hy|Hy])]; eauto using r_free_inv_subst_eq.
+        eauto using c_free_inv_subst_eq.
   Qed.
 
-  Lemma w_subst_not_in_rw:
+  Lemma w_subst_not_free:
     forall x P,
-    ~ WIn x P ->
+    ~ WFree P x ->
     forall v,
     w_subst x v P = P.
   Proof.
     induction P; simpl; intros.
-    - rewrite i_subst_not_in_rw; auto.
-    - assert (~ WIn x P1) by intuition.
-      assert (~ WIn x P2) by intuition.
+    - rewrite c_subst_not_free; auto.
+    - assert (~ WFree P1 x) by intuition.
+      assert (~ WFree P2 x) by intuition.
       rewrite IHP1; auto.
       rewrite IHP2; auto.
     - destruct (Set_VAR.MF.eq_dec x v). {
         subst.
-        assert (~ Conc.In v i) by intuition.
-        rewrite i_subst_not_in_rw; auto.
-        rewrite r_subst_not_in_rw; auto.
+        assert (~ CFree i v) by intuition.
+        rewrite c_subst_not_free; auto.
+        rewrite r_subst_not_free; auto.
       }
-      rewrite i_subst_not_in_rw; auto.
-      rewrite r_subst_not_in_rw; auto.
-      assert (~  (WIn x P \/ Conc.In x i0) ) by intuition.
-      rewrite i_subst_not_in_rw; auto.
+      rewrite c_subst_not_free; auto.
+      rewrite r_subst_not_free; auto.
+      assert (~  (WFree P x \/ CFree i0 x) ) by intuition.
+      rewrite c_subst_not_free; auto.
       rewrite IHP; auto.
   Qed.
 End Defs. 

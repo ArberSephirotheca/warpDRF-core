@@ -38,13 +38,13 @@ Section C1.
 
   Notation history := (list access_val).
 
-  Fixpoint In (x:var) i :=
-  match i with
+  Fixpoint CFree c (x:var) :=
+  match c with
   | Skip => False
-  | MemAcc e => access_in x e
-  | If b i j => BIn x b \/ In x i \/ In x j
-  | Seq i j => In x i \/ In x j
-  | For y r i => x = y \/ RIn x r \/ In x i
+  | MemAcc e => AFree e x
+  | If b i j => BFree b x \/ CFree i x \/ CFree j x
+  | Seq i j => CFree i x \/ CFree j x
+  | For y r i => x = y \/ RFree r x \/ CFree i x
   end.
 
   Fixpoint Var x i :=
@@ -58,7 +58,7 @@ Section C1.
   match i with
   | Skip | MemAcc _ => False
   | If _ i j | Seq i j => InRange x i \/ InRange x j
-  | For _ r i => RIn x r \/ InRange x i
+  | For _ r i => RFree r x \/ InRange x i
   end.
 
   Infix ";;" := Seq (at level 50).
@@ -107,7 +107,7 @@ Section C1.
 
   Lemma i_subst_subst_eq_2
      : forall (x : var) i (v e : nexp),
-       ~ NIn x v -> i_subst x e (i_subst x v i) = i_subst x v i.
+       ~ NFree v x -> i_subst x e (i_subst x v i) = i_subst x v i.
   Proof.
     induction i; intros; simpl.
     - reflexivity.
@@ -153,8 +153,8 @@ Section C1.
   Lemma i_subst_subst_neq_3:
     forall c x y v1 v2,
     x <> y ->
-    ~ NIn y v1 ->
-    ~ NIn x v2 ->
+    ~ NFree v1 y ->
+    ~ NFree v2 x ->
     i_subst x v1 (i_subst y v2 c)
     =
     i_subst y v2 (i_subst x v1 c).
@@ -185,7 +185,7 @@ Section C1.
 
   Lemma var_subst_inv:
     forall y x e i,
-    ~ NIn y e ->
+    ~ NFree e y ->
     Var y (i_subst x e i) ->
     Var y i.
   Proof.
@@ -210,29 +210,21 @@ Section C1.
     InRange y i.
   Proof.
     induction i; simpl; intros; auto; try (destruct H; auto).
-    - apply in_r_subst_neq in H; auto.
-      intros N.
-      inversion N.
+    - apply r_free_subst_neq in H; auto.
     - destruct (Set_VAR.MF.eq_dec x v); auto.
   Qed.
 
-  Lemma in_subst_inv_1:
+  Lemma c_free_inv_subst_1:
     forall y x n i,
-    In y (i_subst x (NNum n) i) ->
-    In y i.
+    CFree (i_subst x (NNum n) i) y ->
+    CFree i y.
   Proof.
     induction i; simpl; intros; auto; try (destruct H; auto).
-    - apply in_b_subst_neq in H; auto.
-      intros N.
-      inversion N.
+    - apply b_free_subst_neq in H; auto.
     - destruct H; auto.
     - eapply access_in_subst_neq; eauto.
-      intros N.
-      inversion N.
     - destruct H; auto.
-      + apply in_r_subst_neq in H; eauto.
-        intros N.
-        inversion N.
+      + apply r_free_subst_neq in H; eauto.
       + destruct (Set_VAR.MF.eq_dec x v); auto.
   Qed.
 
@@ -403,8 +395,8 @@ Section C1.
       econstructor; eauto.
     - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
       econstructor; eauto.
-      assert (~ NIn x (NNum n)) by (intros N; inversion N).
-      assert (~ NIn y v) by eauto using n_step_to_not_in.
+      assert (~ NFree (NNum n) x) by auto using n_free_num.
+      assert (~ NFree v y) by eauto using n_step_to_not_free.
       rewrite i_subst_subst_neq_3; eauto.
   Qed.
 
@@ -437,8 +429,7 @@ Section C1.
         eapply s_i_in_for_eq; eauto.
       }
       assert (r1: i_subst x (NNum n) (i_subst y v i_src) = i_subst y v (i_subst x (NNum n) i_src)). {
-        rewrite i_subst_subst_neq_3; eauto using n_step_to_not_in.
-        intros N; inversion N.
+        rewrite i_subst_subst_neq_3; eauto using n_step_to_not_free.
       }
       eapply IHHi in r1; eauto.
       eapply s_i_in_for_neq; eauto.
@@ -455,9 +446,9 @@ Section C1.
     intros.
     assert (r1: NEq v v') by eauto using n_eq_def.
     unfold BData in *.
-    assert (~ NIn x (NNum n1)) by (intros B; inversion B).
-    assert (~ NIn TID v') by eauto using n_step_to_not_in.
-    assert (~ NIn TID v) by eauto using n_step_to_not_in.
+    assert (~ NFree (NNum n1) x) by auto using n_free_num.
+    assert (~ NFree v' TID) by eauto using n_step_to_not_free.
+    assert (~ NFree v TID) by eauto using n_step_to_not_free.
     rewrite b_subst_subst_neq_3; auto.
     rewrite b_subst_subst_neq_3 in H2; auto.
     rewrite <- r1.
@@ -475,9 +466,9 @@ Section C1.
     intros.
     assert (r1: NEq v v') by eauto using n_eq_def.
     unfold NData in *.
-    assert (~ NIn x (NNum n1)) by (intros B; inversion B).
-    assert (~ NIn TID v') by eauto using n_step_to_not_in.
-    assert (~ NIn TID v) by eauto using n_step_to_not_in.
+    assert (~ NFree (NNum n1) x) by auto using n_free_num.
+    assert (~ NFree v' TID) by eauto using n_step_to_not_free.
+    assert (~ NFree v TID) by eauto using n_step_to_not_free.
     rewrite n_subst_subst_neq_3; auto.
     rewrite n_subst_subst_neq_3 in H2; auto.
     rewrite <- r1.
@@ -521,9 +512,9 @@ Section C1.
       exists l.
       split; auto.
       eapply access_step_proper; eauto.
-      + assert (~ NIn x (NNum (access_tid a))) by (intros N; inversion N).
-        assert (~ NIn TID v) by eauto using n_step_to_not_in.
-        assert (~ NIn TID v') by eauto using n_step_to_not_in.
+      + assert (~ NFree (NNum (access_tid a)) x) by auto using n_free_num.
+        assert (~ NFree v TID) by eauto using n_step_to_not_free.
+        assert (~ NFree v' TID) by eauto using n_step_to_not_free.
         rewrite access_subst_subst_neq_3; auto.
         rewrite access_subst_subst_neq_3 with (x0:=TID) (y:=x); auto.
         rewrite r1.
@@ -701,9 +692,7 @@ Section C1.
       apply x_run_for_cons_neq with (n1:=n1) (n2:=n2); auto.
       + apply IHRun1; auto.
         rewrite i_subst_subst_neq_3; auto.
-        * intros N.
-          inversion N.
-        * eauto using n_step_to_not_in.
+        eauto using n_step_to_not_free.
       + apply IHRun2; auto.
         simpl.
         destruct (Set_VAR.MF.eq_dec y z). {
@@ -749,8 +738,7 @@ Section C1.
         eauto.
       }
       rewrite i_subst_subst_neq_3 in Hx; auto.
-      + eauto using n_step_to_not_in.
-      + intros N; inversion N.
+      eauto using n_step_to_not_free.
     - destruct (Set_VAR.MF.eq_dec x y). {
         subst.
         eapply run_for_nil; eauto.
@@ -1152,8 +1140,8 @@ Section C1.
   Lemma c_run_subst:
     forall x e e' c h,
     ~ Var TID c ->
-    ~ NIn TID e ->
-    ~ NIn TID e' ->
+    ~ NFree e TID ->
+    ~ NFree e' TID ->
     x <> TID ->
     forall n,
     NStep e n ->
@@ -1164,9 +1152,6 @@ Section C1.
     intros.
     apply run_all_impl with (c1:=i_subst x e c); auto.
     intros.
-    assert (~ NIn x (NNum n0)). {
-      intros N; inversion N.
-    }
     rewrite i_subst_subst_neq_3; auto.
     rewrite i_subst_subst_neq_3 in H7; auto.
     apply run_subst with (e1:=e)(n:=n); eauto.
@@ -1532,21 +1517,21 @@ Section C1.
       rewrite IHc; auto.
   Qed.
 
-  Lemma i_in_subst_to_n_in:
+  Lemma c_free_inv_subst_eq:
     forall x e c,
-    In x (i_subst x e c) ->
-    NIn x e.
+    CFree (i_subst x e c) x ->
+    NFree e x. 
   Proof.
     induction c; simpl; intros.
     - contradiction.
-    - destruct H as [H|[H|H]]; eauto using b_in_subst_to_n_in.
+    - destruct H as [H|[H|H]]; eauto using b_free_inv_subst_eq.
     - destruct H as [H|H]; eauto.
     - admit.
   Admitted.
 
-  Lemma i_subst_not_in_rw:
+  Lemma c_subst_not_free:
     forall x c,
-    ~ In x c ->
+    ~ CFree c x ->
     forall v,
     i_subst x v c = c.
   Proof.
@@ -1554,13 +1539,13 @@ Section C1.
     - reflexivity.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.
-      assert (~ BExp.BIn x b) by intuition.
-      rewrite BExp.b_subst_not_in_rw; auto.
+      assert (~ BExp.BFree b x) by intuition.
+      rewrite BExp.b_subst_not_free; auto.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.
     - admit.
     - rewrite IHc; auto.
-      rewrite r_subst_not_in_rw; auto.
+      rewrite r_subst_not_free; auto.
       destruct (Set_VAR.MF.eq_dec x v); subst; auto.
   Admitted.
 
@@ -1584,7 +1569,7 @@ Section C1.
     - admit.
     - simpl.
       assert (r1: n_subst v e1 e2 = e2). {
-        rewrite n_subst_not_in; auto using n_closed_to_not_in.
+        rewrite n_subst_not_free; auto using n_closed_to_not_free.
       }
       destruct (Set_VAR.MF.eq_dec y v). {
         subst.

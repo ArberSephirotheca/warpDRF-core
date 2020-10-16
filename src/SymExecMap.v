@@ -327,7 +327,7 @@ Section Defs.
 
   Lemma decl_map_inv_i_subst_eq:
     forall x y i n1 n2 m1,
-    ~ In x i ->
+    ~ SEFree i x ->
     DeclMap x (i_subst y (NVar x) i) n1 n2 m1 ->
     DeclMap y i n1 n2 m1.
   Proof.
@@ -363,7 +363,7 @@ Section Defs.
 
   Let i_subst_not_in_decl_rw:
     forall x n1 y n2 i hs,
-    ~ In x i ->
+    ~ SEFree i x ->
     x <> y ->
     FRun (i_subst x (NNum n2) (Decl y (NNum n1, NVar x) i)) hs ->
     FRun (Decl y (NNum n1, NNum n2) i) hs.
@@ -376,12 +376,12 @@ Section Defs.
     destruct (Set_VAR.MF.eq_dec x x) as [_|?].
     2: { contradiction. }
     destruct (Set_VAR.MF.eq_dec x y) as [?|_]. { contradiction. }
-    rewrite i_subst_not_in in Hr; auto.
+    rewrite i_subst_not_free in Hr; auto.
   Qed.
 
   Lemma branch_map_inv_decl_not_in:
     forall l n1 i ms x y,
-    ~ In x i ->
+    ~ SEFree i x ->
     x <> y ->
     l <> [] ->
     BranchMap x (Decl y (NNum n1, NVar x) i) l ms ->
@@ -430,7 +430,7 @@ Section Defs.
 
   Lemma decl_map_inv_decl_not_in:
     forall n1 n2 n3 i ms x y,
-    ~ In x i ->
+    ~ SEFree i x ->
     x <> y ->
     n2 < n3 ->
     DeclMap x (Decl y (NNum n1, NVar x) i) n2 n3 ms ->
@@ -445,7 +445,7 @@ Section Defs.
 
   Lemma branch_map_decl:
     forall l n1 i hs x y,
-    ~ In x i ->
+    ~ SEFree i x ->
     x <> y ->
     l <> [] ->
     NoDup l ->
@@ -464,14 +464,14 @@ Section Defs.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
       eapply f_run_decl_map_eq; eauto.
-      rewrite i_subst_not_in; auto.
+      rewrite i_subst_not_free; auto.
     }
     apply map_cons.
     - simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
       eapply f_run_decl_map_eq; eauto.
-      rewrite i_subst_not_in; auto.
+      rewrite i_subst_not_free; auto.
     - assumption.
     - apply IHl; auto.
       intros N; inversion N.
@@ -479,7 +479,7 @@ Section Defs.
 
   Lemma decl_map_decl:
     forall n1 n2 n3 i j hs m x y,
-    ~ In x i ->
+    ~ SEFree i x ->
     x <> y ->
     n2 < n3 ->
     FRun j m ->
@@ -561,9 +561,9 @@ Section Defs.
     auto.
   Qed.
 
-  Lemma branch_map_not_in:
+  Lemma branch_map_not_free:
     forall x i m l,
-    ~ In x i ->
+    ~ SEFree i x ->
     FRun i m ->
     NoDup l ->
     BranchMap x i l (repeat m (length l)).
@@ -573,12 +573,12 @@ Section Defs.
     - intros.
       inversion H1; subst; clear H1.
       apply map_cons; auto.
-      rewrite i_subst_not_in; auto.
+      rewrite i_subst_not_free; auto.
   Qed.
 
   Lemma branch_map_inv_not_in:
     forall x i m l ms,
-    ~ In x i ->
+    ~ SEFree i x ->
     FRun i m ->
     BranchMap x i l ms ->
     EEqList (repeat m (length l)) ms.
@@ -591,7 +591,7 @@ Section Defs.
       inversion H1; subst; clear H1.
       apply IHl in H7; auto with *.
       simpl.
-      rewrite i_subst_not_in in H4; auto.
+      rewrite i_subst_not_free in H4; auto.
       apply e_eq_list_cons; auto.
       eauto using f_run_fun.
   Qed.
@@ -602,7 +602,7 @@ Section Defs.
   Proof.
     intros.
     eapply f_run_decl_map.
-    - apply branch_map_not_in.
+    - apply branch_map_not_free.
       + intros N.
         inversion N.
       + apply f_run_skip_eq.
