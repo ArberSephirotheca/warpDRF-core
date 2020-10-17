@@ -855,6 +855,14 @@ Section SO.
     contradiction.
   Qed.
 
+  Lemma n_closed_num:
+    forall n,
+    NClosed (NNum n).
+  Proof.
+    intros n x N.
+    invc N.
+  Qed.
+
   Lemma n_free_num:
     forall n x,
     ~ NFree (NNum n) x.
