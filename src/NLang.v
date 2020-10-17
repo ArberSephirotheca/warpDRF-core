@@ -585,9 +585,9 @@ Section Defs.
               simpl.
               auto.
             }
-            rewrite i_pair_in_subst_tr in Hy.
+            rewrite i_pair_in_subst_tr in Hy; auto using n_closed_num.
             apply IH in Hy; auto.
-            eapply WLang.i_pair_in_for_1 with (e:=NNum n); eauto using n_closed_num.
+            eapply WLang.i_pair_in_for_1 with (e:=NNum n); eauto using n_step_num.
           - admit.
         }
         rename n0 into m.
