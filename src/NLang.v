@@ -7,6 +7,12 @@ Require Import Var.
 Require Import WLang.
 Require Import Tictac.
 Require Import Util.
+Import NExpNotations.
+Import RExpNotations.
+Import CLangNotations.
+Open Scope exp_scope.
+Open Scope lang_scope.
+
 Section Defs.
   Context `{T:Tasks}.
   Context {A:Access}.
@@ -45,35 +51,6 @@ Section Defs.
     | NFor i x r j => NFor (n_seq c i) x r j
     end.
 
-  Lemma n_seq_seq:
-    forall i c c',
-    n_seq (Conc.Seq c c') i = n_seq c (n_seq c' i).
-  Proof.
-    induction i; intros.
-    - simpl.
-      reflexivity.
-    - simpl.
-      rewrite IHi1.
-      auto.
-    - simpl.
-      rewrite IHi1.
-      reflexivity.
-  Qed.
-
-
-  Lemma n_seq_c_seq:
-    forall i c1 c2,
-    n_seq (c_seq c1 c2) i = n_seq c1 (n_seq c2 i).
-  Proof.
-    induction i; intros; simpl.
-    - rewrite c_seq_seq.
-      auto.
-    - rewrite IHi1.
-      auto.
-    - rewrite IHi1.
-      auto.
-  Qed.
-
   Definition p_seq (i:p_inst) (j:p_inst) :=
    match i, j with
     | (i,ci), (j, cj) => (NSeq i (n_seq ci j), cj)
@@ -108,6 +85,58 @@ Section Defs.
     IPairIn p (subst x (NNum n) j) ->
     IPairIn p (NFor i x r j)
   .
+
+End Defs.
+
+
+Module PLangNotations.
+  Import Conc.CLangNotations.
+  Infix ";" := NSeq (at level 50, only printing)
+    : lang_scope.
+  Notation "c [ x := v ]" := (subst x v c) (at level 30, only printing)
+    : lang_scope.
+  Infix ";;" := n_seq (at level 50, only printing)
+    : lang_scope.
+  Notation "P1 ';' 'for' x 'in' r '{' P2 '}' " := (NFor P1 x r P2) (at level 50, only printing)
+    : lang_scope.
+  Infix "∈" := IPairIn (at level 30, only printing)
+    : lang_scope.
+End PLangNotations.
+
+Open Scope lang_scope.
+
+Section Props.
+  Context `{T:Tasks}.
+  Context {A:Access}.
+
+  Lemma n_seq_seq:
+    forall i c c',
+    n_seq (Conc.Seq c c') i = n_seq c (n_seq c' i).
+  Proof.
+    induction i; intros.
+    - simpl.
+      reflexivity.
+    - simpl.
+      rewrite IHi1.
+      auto.
+    - simpl.
+      rewrite IHi1.
+      reflexivity.
+  Qed.
+
+
+  Lemma n_seq_c_seq:
+    forall i c1 c2,
+    n_seq (c_seq c1 c2) i = n_seq c1 (n_seq c2 i).
+  Proof.
+    induction i; intros; simpl.
+    - rewrite c_seq_seq.
+      auto.
+    - rewrite IHi1.
+      auto.
+    - rewrite IHi1.
+      auto.
+  Qed.
 
 
   (*
@@ -387,25 +416,89 @@ Section Defs.
        subst x v1 (subst y v2 P) = subst y v2 (subst x v1 P).
   Proof.
   Admitted.
-
-  Lemma subst_subst_neq_4:
+(*
+  Lemma n_subst_subst_neq_5:
+    forall e3 e1 e2 x y,
+    NClosed e1 ->
+    y <> x ->
+    n_subst y e1 (n_subst x e2 e3) =
+    n_subst x (n_subst y e1 e2) (n_subst y e1 e3).
+  Proof.
+    induction e3; simpl; intros.
+    - reflexivity.
+    - rename v into z.
+      remove_eq x z. {
+        (* x = z *)
+        remove_eq y z. {
+          rewrite n_subst_not_free with (x:=x); auto.
+          admit.
+          (* n_subst y e1 e2 = e1 *)
+        }
+        remove_eq x z. {
+          reflexivity.
+        }
+        (* n_subst y e1 e2 = NVar z *)
+        admit.
+      }
+      remove_eq y z. {
+        rewrite n_subst_not_free with (x:=x); auto.
+      }
+      remove_eq x z. {
+        (* NVar z = n_subst y e1 e2 *)
+        admit.
+      }
+      reflexivity.
+  Qed.
+*)
+(*
+  Lemma subst_subst_neq_5:
     forall P x y e1 e2,
     NClosed e1 ->
     NClosed e2 ->
+    subst y e1 (subst x e2 P) = subst x (n_subst y e1 e2) (subst y e1 P).
+  Proof.
+    induction P; intros.
+    - admit.
+    - admit.
+    - simpl.
+      rename v into z.
+      remove_eq y z. {
+        remove_eq x z. {
+          rewrite IHP1; auto.
+          apply eq_n_for_def; auto.
+          admit.
+        }
+        apply eq_n_for_def; auto.
+      }
+  Qed.
+*)
+(*
+  Lemma subst_subst_neq_4:
+    forall P x y e1 e2,
+    NClosed e1 ->
     x <> y ->
     subst y e1 (subst x e2 P) =
-    subst y e1 (subst x (n_subst y e1 e2) P).
+    subst x (n_subst y e1 e2) (subst y e1 P).
   Proof.
     induction P; intros.
     - simpl.
-      rewrite c_subst_subst_neq_4; auto.
+      admit.
     - simpl.
       rewrite IHP1; auto.
       rewrite IHP2; auto.
-    - simpl.
-      rename v into z.
+    - rename v into z.
+      simpl.
+      apply eq_n_for_def; auto. {
+        admit.
+      }
+      remove_eq y z. {
+        remove_eq x z. {
+          reflexivity.
+        }
+        (* y = z /\ x <> z *)
+      }
       rewrite r_subst_subst_neq_4; auto.
-      destruct (Set_VAR.MF.eq_dec x z). {
+      remove_eq x z. {
         subst.
         destruct (Set_VAR.MF.eq_dec y z). {
           subst.
@@ -423,7 +516,7 @@ Section Defs.
         reflexivity.
       }
       rewrite IHP1; auto.
-  Qed.
+  Qed.*)
 
   Definition WClosed P :=
     forall x,
@@ -452,15 +545,16 @@ Section Defs.
 
   Lemma i_pair_in_subst_tr:
     forall P e x,
+    WClosed (w_subst x e P) ->
     (*forall y, y <> x -> ~ WFree P y -> *)
     NClosed e ->
     (* [[ P ]] [x := e ] = [[ P[x := e] ]] *)
     p_subst x e (tr P) = tr (w_subst x e P).
   Proof.
-    induction P; intros e' y (* Hw *) Hc; simpl in *.
+    induction P; intros e' y Hw Hc; simpl in *.
     - auto.
-    - (*apply w_closed_inv_seq in Hw.
-      destruct Hw as (Hw1, Hw2).*)
+    - apply w_closed_inv_seq in Hw.
+      destruct Hw as (Hw1, Hw2).
       destruct (tr P1) as (P1_x, c1_x) eqn:Ht1.
       destruct (tr P2) as (P2_x, c2_x) eqn:Ht2.
       simpl.
@@ -512,13 +606,11 @@ Section Defs.
       apply eq_pair_def. {
         apply eq_n_for_def; auto. {
           apply eq_n_seq_def; auto.
-          assert (IHP := IHP e' y).
-          rewrite <- IHP in Ht'; auto.
+          rewrite <- IHP in Ht'; auto. 2: { admit. }
           simpl in Ht'.
           invc Ht'.
           rewrite subst_subst_neq_3 with (x:=x) (y:=y); auto.
-          - rewrite subst_subst_neq_4; auto.
-            (* Show that e1 is closed, which requires P runnable *)
+          - (* Show that e1 is closed, which requires P runnable *)
             admit.
           - intros N.
             apply n_free_inv_subst_eq in N.
@@ -551,6 +643,7 @@ Section Defs.
       rewrite c_subst_subst_neq_5; auto.
   Admitted.
 
+
   Lemma tr_i_pair_in_1:
     forall P,
     WLang.CanRun P ->
@@ -576,21 +669,16 @@ Section Defs.
           apply i_pair_in_inv_n_seq in Hp.
           destruct Hp as [Hp|[Hp|Hp]].
           - constructor; auto.
-          - assert (IPairIn p (subst x (NNum n) P_x)). {
+          - eapply WLang.i_pair_in_for_1 with (e:=NNum n); eauto using n_step_num.
+            apply IH; auto.
+            assert (IPairIn p (subst x (NNum n) P_x)). {
               eauto using i_pair_in_subst, n_step_num.
             }
-            assert (Hy: PPairIn p (p_subst x (NNum n) (tr P))). {
-              unfold PPairIn.
-              rewrite Ht.
-              simpl.
-              auto.
-            }
-            rewrite i_pair_in_subst_tr in Hy; auto using n_closed_num.
-            apply IH in Hy; auto.
-            eapply WLang.i_pair_in_for_1 with (e:=NNum n); eauto using n_step_num.
+            (*rewrite i_pair_in_subst_tr in Hy; auto using n_closed_num.*)
+            admit.
           - admit.
         }
         rename n0 into m.
   Admitted.
 
-End Defs.
+End Props.

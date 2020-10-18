@@ -903,3 +903,9 @@ Section Defs.
     - rewrite n_subst_subst_neq_4; auto.
   Qed.
 End Defs.
+
+Module RExpNotations.
+  Import NExpNotations.
+  Notation "x '∈'  r " := (RPick r x) (at level 30, only printing) : exp_scope.
+  Notation "r [ x := v ]" := (r_subst x v r) (at level 30, only printing) : exp_scope. 
+End RExpNotations.

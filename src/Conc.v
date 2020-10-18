@@ -11,7 +11,11 @@ Require Import Tasks.
 Require Import PairInUtil.
 Require Hist.
 
+Import NExpNotations.
+Import RExpNotations.
 Import ListNotations.
+
+Open Scope exp_scope.
 
 Section C1.
   Context {A:Access}.
@@ -1553,7 +1557,7 @@ Section C1.
     forall c x y e1 e2,
     x <> y ->
     NClosed e1 ->
-    NClosed e2 ->
+    (*NClosed e2 ->*)
     i_subst y e1 (i_subst x e2 c) =
     i_subst y e1 (i_subst x (n_subst y e1 e2) c).
   Proof.
@@ -1570,6 +1574,7 @@ Section C1.
     - simpl.
       assert (r1: n_subst v e1 e2 = e2). {
         rewrite n_subst_not_free; auto using n_closed_to_not_free.
+        admit.
       }
       destruct (Set_VAR.MF.eq_dec y v). {
         subst.
@@ -1608,3 +1613,13 @@ Section C1.
     reflexivity.
   Qed.
 End C1.
+
+Module CLangNotations.
+  Declare Scope lang_scope.
+  Notation  "'FOR' x '∈' r '{' c '}' " := (For x r c) : lang_scope. 
+  Infix ";" := Seq (at level 50, only printing) : lang_scope.
+  Notation "c [ x := v ]" := (i_subst x v c) (at level 30, only printing) : lang_scope. 
+  Infix ";;" := c_seq (at level 50, only printing) : lang_scope.
+  Infix "∈" := CIn (at level 30, only printing) : lang_scope.
+  Infix "∈" := CPairIn (at level 30, only printing) : lang_scope.
+End CLangNotations.

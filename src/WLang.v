@@ -1088,4 +1088,18 @@ Section Defs.
       rewrite c_subst_not_free; auto.
       rewrite IHP; auto.
   Qed.
-End Defs. 
+End Defs.
+
+Module ALangNotations.
+  Import Conc.CLangNotations.
+  Infix ";" := WSeq (at level 50, only printing)
+    : lang_scope.
+  Notation "c [ x := v ]" := (i_subst x v c) (at level 30, only printing)
+    : lang_scope. 
+  Infix ";;" := w_seq (at level 50, only printing)
+    : lang_scope.
+  Notation "c1 ';' 'for' x 'in' r '{' P ',' c2 '}' " := (WFor c1 x r P c2) (at level 50, only printing)
+    : lang_scope.
+  Infix "∈" := IPairIn (at level 30, only printing)
+    : lang_scope.
+End ALangNotations.

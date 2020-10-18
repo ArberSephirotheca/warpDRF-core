@@ -931,3 +931,16 @@ Section SO.
 
 End SO.
 
+Module NExpNotations.
+  Declare Scope exp_scope.
+  Infix "-" := (NBin NMinus)  (at level 50, left associativity, only printing) : exp_scope. 
+  Infix "+" := (NBin NPlus)  (at level 50, left associativity, only printing) : exp_scope. 
+  Infix "*" := (NBin NPlus)  (at level 40, left associativity, only printing) : exp_scope. 
+  Infix "/" := (NBin NPlus)  (at level 40, left associativity, only printing) : exp_scope. 
+  Infix "%" := (NBin NPlus)  (at level 40, left associativity, only printing) : exp_scope. 
+  Coercion NNum : nat >-> nexp.
+  Coercion NVar : var >-> nexp.
+  Notation "e [ x := v ]" := (n_subst x v e) (at level 30, only printing) : exp_scope. 
+  Infix "=?" := Set_VAR.MF.eq_dec (at level 60, only printing) : exp_scope.
+End NExpNotations.
+
