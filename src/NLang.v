@@ -613,13 +613,41 @@ Section Props.
       rewrite IHP2; auto.
   Qed.
 
+  Fixpoint Distinct P :=
+    match P with
+    | NSync _ => True
+    | NSeq P Q => Distinct P /\ Distinct Q
+    | NFor P x _ Q => Distinct P /\ ~ Var x Q /\ Distinct Q
+    end.
+
+  Definition PDistinct (P:p_inst) :=
+    let (P, c) := P in
+    Distinct P /\ Conc.Distinct c.
+
+  Lemma tr_distinct_l:
+    forall x P P_x c_x,
+    Var x P_x ->
+    tr P = (P_x, c_x) ->
+    WVar x P.
+  Proof.
+  Admitted.
+
+  Lemma tr_distinct_r:
+    forall x P P_x c_x,
+    Conc.Var x c_x ->
+    tr P = (P_x, c_x) ->
+    WVar x P.
+  Proof.
+  Admitted.
+
   Lemma tr_subst:
     forall P e x,
     NClosed e ->
+    ~ WVar x P ->
     (* [[ P ]] [x := e ] = [[ P[x := e] ]] *)
     p_subst x e (tr P) = tr (w_subst x e P).
   Proof.
-    induction P; intros e' y Hc; simpl in *.
+    induction P; intros e' y Hc Hd; simpl in *.
     - auto.
     - destruct (tr P1) as (P1_x, c1_x) eqn:Ht1.
       destruct (tr P2) as (P2_x, c2_x) eqn:Ht2.
@@ -637,7 +665,14 @@ Section Props.
       destruct r as (e1, e2).
       simpl.
       destruct (tr P) as (P_x, c_x) eqn:Ht.
-      assert (~ Var y P_x) by admit.
+      assert (~ Var y P_x). {
+        intros N.
+        eapply tr_distinct_l with (x:=y) in N; eauto.
+      }
+      assert (~ Conc.Var y c_x). {
+        intros N.
+        eapply tr_distinct_r with (x:=y) in N; eauto.
+      }
       destruct (Set_VAR.MF.eq_dec y x). {
         subst.
         simpl.
@@ -671,11 +706,13 @@ Section Props.
         apply eq_n_for_def; auto. {
           apply eq_n_seq_def; auto.
           rewrite <- IHP in Ht'; auto.
+          2: { intuition. }
           invc Ht'.
           rewrite subst_subst_neq_5; auto.
         }
         apply eq_n_seq_def. {
           rewrite <- IHP in Ht'; auto.
+          2: { intuition. }
           simpl in Ht'.
           invc Ht'.
           rewrite i_subst_subst_neq_3; auto.
@@ -688,19 +725,21 @@ Section Props.
           intuition.
         }
         rewrite <- IHP in Ht'; auto.
+        2: { intuition. }
         simpl in Ht'.
         invc Ht'.
         reflexivity.
       }
       rewrite <- IHP in Ht'; auto.
+      2: { intuition. }
       simpl in Ht'.
       invc Ht'.
       apply eq_c_seq_def. {
         rewrite c_subst_subst_neq_5; auto.
       }
       rewrite c_subst_subst_neq_5; auto.
-  Admitted.
-
+      intuition.
+  Qed.
 
   Lemma tr_i_pair_in_1:
     forall P,
