@@ -575,13 +575,12 @@ Section Props.
     forall P x y e1 e2,
     y <> x ->
     NClosed e1 ->
-    ~ Var y P -> 
-    (* ~ NFree e2 y -> *)
+    ~ Var y P ->
     subst y e1 (subst x e2 P) = subst x (n_subst y e1 e2) (subst y e1 P).
   Proof.
     induction P; intros.
     - simpl.
-      admit.
+      rewrite Conc.c_subst_subst_neq_5; auto.
     - simpl in *.
       rewrite IHP1; auto.
       rewrite IHP2; auto.
@@ -612,9 +611,9 @@ Section Props.
         reflexivity.
       }
       rewrite IHP2; auto.
-  Admitted.
+  Qed.
 
-  Lemma i_pair_in_subst_tr:
+  Lemma tr_subst:
     forall P e x,
     NClosed e ->
     (* [[ P ]] [x := e ] = [[ P[x := e] ]] *)
