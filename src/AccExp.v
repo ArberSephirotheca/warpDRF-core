@@ -123,6 +123,13 @@ Class Access := {
     forall (e1 e2 : nexp) (x : Var.VAR.t) a,
        access_subst x e1 (access_subst x e2 a)
        = access_subst x (n_subst x e1 e2) a;
+
+  access_subst_subst_neq_5:
+    forall e3 x y e1 e2,
+    NClosed e1 ->
+    x <> y ->
+    access_subst y e1 (access_subst x e2 e3) =
+    access_subst x (n_subst y e1 e2) (access_subst y e1 e3)
 }.
 
 Section Defs.

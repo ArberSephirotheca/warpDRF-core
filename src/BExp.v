@@ -603,5 +603,20 @@ Section SO.
       rewrite IHb; auto.
   Qed.
 
+  Lemma b_subst_subst_neq_5:
+    forall b x y e1 e2,
+    NClosed e1 ->
+    x <> y ->
+    b_subst y e1 (b_subst x e2 b) =
+    b_subst x (n_subst y e1 e2) (b_subst y e1 b).
+  Proof.
+    induction b; intros; simpl.
+    - reflexivity.
+    - rewrite n_subst_subst_neq_5; auto.
+      rewrite n_subst_subst_neq_5 with (e3:=n1); auto.
+    - rewrite IHb1; auto.
+      rewrite IHb2; auto.
+    - rewrite IHb; auto.
+  Qed.
 End SO.
 

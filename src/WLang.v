@@ -164,6 +164,18 @@ Section Defs.
       WVar x P \/ Conc.Var x c2
     end.
 
+  Fixpoint Distinct P :=
+    match P with
+    | WSync _ => True
+    | WSeq P Q => Distinct P /\ Distinct Q
+    | WFor c1 x _ P c2 =>
+      Conc.Distinct c1
+      /\ ~ WVar x P
+      /\ ~ Var x c2
+      /\ Distinct P
+      /\ Conc.Distinct c2
+    end.
+
   Lemma wvar_subst_inv_1:
     forall y x n i,
     WVar y (w_subst x (NNum n) i) ->

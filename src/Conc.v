@@ -1595,13 +1595,30 @@ Section C1.
     forall c x y e1 e2,
     NClosed e1 ->
     y <> x ->
+    ~ Var y c -> 
     i_subst y e1 (i_subst x e2 c) =
     i_subst x (n_subst y e1 e2) (i_subst y e1 c).
   Proof.
-    induction c; intros; simpl.
+    induction c; intros; simpl in *.
     - reflexivity.
-    - 
-  Admitted.
+    - rewrite b_subst_subst_neq_5; auto.
+      rewrite IHc1; auto.
+      rewrite IHc2; auto.
+    - rewrite IHc1; auto.
+      rewrite IHc2; auto.
+    - rewrite access_subst_subst_neq_5; auto.
+    - rename v into z.
+      rewrite <- r_subst_subst_neq_5; auto.
+      destruct (Set_VAR.MF.eq_dec y z). {
+        subst.
+        intuition.
+      }
+      destruct (Set_VAR.MF.eq_dec x z). {
+        subst.
+        intuition.
+      }
+      rewrite IHc; auto.
+  Qed.
 
   Lemma eq_c_seq_def:
     forall c1 c2 c1' c2',
@@ -1612,6 +1629,13 @@ Section C1.
     intros; subst.
     reflexivity.
   Qed.
+
+  Fixpoint Distinct (c:inst) :=
+    match c with
+    | Skip | MemAcc _ => True
+    | If _ c1 c2 | Seq c1 c2 => Distinct c1 /\ Distinct c2
+    | For x _ c => ~ Var x c /\ Distinct c
+    end.
 End C1.
 
 Module CLangNotations.

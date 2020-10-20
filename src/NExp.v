@@ -929,6 +929,42 @@ Section SO.
       rewrite IHe3_2; auto.
   Qed.
 
+  Lemma n_subst_subst_neq_5:
+    forall e3 x y e1 e2,
+    NClosed e1 ->
+    x <> y ->
+    n_subst y e1 (n_subst x e2 e3) =
+    n_subst x (n_subst y e1 e2) (n_subst y e1 e3).
+  Proof.
+    induction e3; intros; simpl.
+    - reflexivity.
+    - rename v into z.
+      (* e3 = z *)
+      destruct (Set_VAR.MF.eq_dec x z). {
+        subst.
+        (* e3 = z = x *)
+        destruct (Set_VAR.MF.eq_dec y z). {
+          subst.
+          contradiction.
+        }
+        simpl.
+        destruct (Set_VAR.MF.eq_dec z z) as [_|?]; try contradiction.
+        reflexivity.
+      }
+      destruct (Set_VAR.MF.eq_dec y z). {
+        subst.
+        simpl.
+        destruct (Set_VAR.MF.eq_dec z z) as [_|?]; try contradiction.
+        rewrite n_subst_not_free; auto.
+      }
+      simpl.
+      destruct (Set_VAR.MF.eq_dec y z) as [?|_]; try contradiction.
+      destruct (Set_VAR.MF.eq_dec x z) as [?|_]; try contradiction.
+      reflexivity.
+    - rewrite IHe3_1; auto.
+      rewrite IHe3_2; auto.
+  Qed.
+
 End SO.
 
 Module NExpNotations.

@@ -902,6 +902,19 @@ Section Defs.
     - rewrite n_subst_subst_neq_4; auto.
     - rewrite n_subst_subst_neq_4; auto.
   Qed.
+
+  Lemma r_subst_subst_neq_5:
+    forall r x y e1 e2,
+    NClosed e1 ->
+    x <> y ->
+    r_subst y e1 (r_subst x e2 r) =
+    r_subst x (n_subst y e1 e2) (r_subst y e1 r).
+  Proof.
+    intros (e1', e2') x y e1 e2 Hc Hn.
+    simpl.
+    rewrite n_subst_subst_neq_5; auto.
+    rewrite n_subst_subst_neq_5 with (e3:=e2'); auto.
+  Qed.
 End Defs.
 
 Module RExpNotations.

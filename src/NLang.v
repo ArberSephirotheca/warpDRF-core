@@ -7,19 +7,24 @@ Require Import Var.
 Require Import WLang.
 Require Import Tictac.
 Require Import Util.
+Require Import Coq.Lists.List.
+
+Import ListNotations.
 Import NExpNotations.
 Import RExpNotations.
 Import CLangNotations.
+
 Open Scope exp_scope.
 Open Scope lang_scope.
 
 Section Defs.
   Context `{T:Tasks}.
-  Context {A:Access}.
+  Context `{A:Access}.
+
   Inductive n_inst :=
   | NSync: Conc.inst -> n_inst
   | NSeq: n_inst -> n_inst -> n_inst
-  | NFor : n_inst -> var -> range -> n_inst -> n_inst.
+  | NFor : n_inst -> var -> range -> n_inst -> n_inst.  
 
   Fixpoint subst x v i :=
     match i with
@@ -106,6 +111,8 @@ End PLangNotations.
 Open Scope lang_scope.
 
 Section Props.
+  Import PLangNotations.
+  Import ALangNotations.
   Context `{T:Tasks}.
   Context {A:Access}.
 
@@ -543,25 +550,83 @@ Section Props.
     induction P; intros.
   Admitted.
 
+  Definition IClosed P :=
+    forall x,
+    ~ IFree P x.
+
+  Definition RClosed r :=
+    forall x,
+    ~ RFree r x.
+
+  Lemma i_closed_inv_r:
+    forall P v r Q,
+    IClosed (NFor P v r Q) ->
+    RClosed r.
+  Proof.
+    unfold IClosed, RClosed.
+    intros.
+    intros N.
+    assert (H := H x).
+    simpl in *.
+    intuition.
+  Qed.
+
+  Lemma subst_subst_neq_5:
+    forall P x y e1 e2,
+    y <> x ->
+    NClosed e1 ->
+    ~ Var y P -> 
+    (* ~ NFree e2 y -> *)
+    subst y e1 (subst x e2 P) = subst x (n_subst y e1 e2) (subst y e1 P).
+  Proof.
+    induction P; intros.
+    - simpl.
+      admit.
+    - simpl in *.
+      rewrite IHP1; auto.
+      rewrite IHP2; auto.
+    - simpl in *.
+      rename v into z.
+      (* P = NFor P z r Q *) 
+      simpl in *.
+      rewrite IHP1; auto.
+      apply eq_n_for_def; auto. {
+        rewrite r_subst_subst_neq_5; auto.
+      }
+      destruct (Set_VAR.MF.eq_dec y z). {
+        subst.
+        (* z = y *)
+        destruct (Set_VAR.MF.eq_dec x z). {
+          subst.
+          contradiction.
+        }
+        rename z into y.
+        intuition.
+        (* P = P; for y \in r { Q } *)
+        (* subst y e1 (subst x e2 P) != subst x e1 (subst x e2 P) *)
+        (* z <> x *)
+        (* rewrite n_subst_not_free; auto. *)
+      }
+      destruct (Set_VAR.MF.eq_dec x z). {
+        subst.
+        reflexivity.
+      }
+      rewrite IHP2; auto.
+  Admitted.
+
   Lemma i_pair_in_subst_tr:
     forall P e x,
-    WClosed (w_subst x e P) ->
-    (*forall y, y <> x -> ~ WFree P y -> *)
     NClosed e ->
     (* [[ P ]] [x := e ] = [[ P[x := e] ]] *)
     p_subst x e (tr P) = tr (w_subst x e P).
   Proof.
-    induction P; intros e' y Hw Hc; simpl in *.
+    induction P; intros e' y Hc; simpl in *.
     - auto.
-    - apply w_closed_inv_seq in Hw.
-      destruct Hw as (Hw1, Hw2).
-      destruct (tr P1) as (P1_x, c1_x) eqn:Ht1.
+    - destruct (tr P1) as (P1_x, c1_x) eqn:Ht1.
       destruct (tr P2) as (P2_x, c2_x) eqn:Ht2.
       simpl.
       rewrite <- IHP1; auto; clear IHP1.
-        (*2: { intros z Hn N. apply Hw in Hn. intuition. }*)
       rewrite <- IHP2; auto; clear IHP2.
-        (*2: { intros z Hn N. apply Hw in Hn. intuition. } *)
       destruct (p_subst y e' (P1_x, c1_x)) as (xP1_x, xc1_x) eqn:Ht1x.
       destruct (p_subst y e' (P2_x, c2_x)) as (xP2_x, xc2_x) eqn:Ht2x.
       simpl in *.
@@ -573,14 +638,13 @@ Section Props.
       destruct r as (e1, e2).
       simpl.
       destruct (tr P) as (P_x, c_x) eqn:Ht.
+      assert (~ Var y P_x) by admit.
       destruct (Set_VAR.MF.eq_dec y x). {
         subst.
         simpl.
         rewrite Ht.
-        simpl.
         remove_eq x x.
         rewrite subst_n_seq.
-        simpl.
         rewrite c_seq_subst.
         apply eq_pair_def; auto. {
           apply eq_n_for_def; auto.
@@ -598,6 +662,7 @@ Section Props.
         reflexivity.
       }
       simpl.
+      (* y <> x *)
       remove_eq y x.
       simpl.
       destruct (tr (w_subst y e' P)) as (P_t, c_t) eqn:Ht'.
@@ -606,15 +671,9 @@ Section Props.
       apply eq_pair_def. {
         apply eq_n_for_def; auto. {
           apply eq_n_seq_def; auto.
-          rewrite <- IHP in Ht'; auto. 2: { admit. }
-          simpl in Ht'.
+          rewrite <- IHP in Ht'; auto.
           invc Ht'.
-          rewrite subst_subst_neq_3 with (x:=x) (y:=y); auto.
-          - (* Show that e1 is closed, which requires P runnable *)
-            admit.
-          - intros N.
-            apply n_free_inv_subst_eq in N.
-            apply n_closed_to_not_free in N; auto.
+          rewrite subst_subst_neq_5; auto.
         }
         apply eq_n_seq_def. {
           rewrite <- IHP in Ht'; auto.
@@ -674,11 +733,249 @@ Section Props.
             assert (IPairIn p (subst x (NNum n) P_x)). {
               eauto using i_pair_in_subst, n_step_num.
             }
-            (*rewrite i_pair_in_subst_tr in Hy; auto using n_closed_num.*)
-            admit.
+            rewrite <- i_pair_in_subst_tr. 2: { auto using n_closed_num. }
+            rewrite Ht.
+            simpl.
+            auto.
           - admit.
         }
         rename n0 into m.
+  Admitted.
+
+  Import VHist.
+  Open Scope vhist_scope.
+
+  Inductive r_inst :=
+  | RSync: Conc.inst -> r_inst
+  | RSeq: r_inst -> r_inst -> r_inst
+  | RFor: var -> range -> r_inst -> r_inst.
+
+  Fixpoint n_to_r (n:n_inst) : r_inst :=
+    match n with
+    | NSync c => RSync c
+    | NSeq P Q => RSeq (n_to_r P) (n_to_r Q)
+    | NFor P x r Q => RSeq (n_to_r P) (RFor x r (n_to_r Q))
+    end.
+
+  Fixpoint r_subst x v i :=
+    match i with
+    | RSync c => RSync (Conc.i_subst x v c)
+    | RSeq P Q => RSeq (r_subst x v P) (r_subst x v Q)
+    | RFor y r P =>
+      let P' := if VAR.eq_dec x y
+        then P
+        else r_subst x v P
+      in
+      RFor y (RExp.r_subst x v r) P'
+    end.
+
+  Notation history := (list access_val).
+
+  Inductive Run: r_inst -> list (list access_val) -> Prop :=
+  | run_sync:
+    forall c h,
+    Conc.RunAll TID_COUNT c h ->
+    Run (RSync c) [h]
+  | run_seq:
+    forall P Q mh_P mh_Q mh,
+    Run P mh_P ->
+    Run Q mh_Q ->
+    mh_P ++ mh_Q = mh ->
+    Run (RSeq P Q) mh
+  | run_for_step:
+    forall r r' n m1 m2 m3 x P,
+    RStep r n r' ->
+    Run (r_subst x (NNum n) P) m1 ->
+    Run (RFor x r' P) m2 ->
+    m1 ++ m2 = m3 ->
+    Run (RFor x r P) m3
+  | run_for_empty:
+    forall r x P,
+    REmpty r ->
+    Run (RFor x r P) [].
+
+  Inductive PRun: p_inst -> list history -> Prop :=
+  | p_run_def:
+    forall h1 h2 m P c,
+    Run (n_to_r P) h1 ->
+    CRun c h2 ->
+    m = h1 ++ [h2] ->
+    PRun (P, c) m.
+
+  Lemma i_subst_c_seq:
+    forall c1 c2 x v,
+    i_subst x v (Conc.c_seq c1 c2) = Conc.c_seq (Conc.i_subst x v c1) (Conc.i_subst x v c2).
+  Proof.
+  Admitted.
+
+  Lemma eq_run_def:
+    forall P Q h1 h2,
+    Run P h1 ->
+    h1 = h2 ->
+    P = Q ->
+    Run Q h2.
+  Proof.
+    intros.
+    subst.
+    assumption.
+  Qed.
+
+
+  Lemma eq_r_seq_def:
+    forall P P' Q Q',
+    P = P' ->
+    Q = Q' ->
+    RSeq P Q = RSeq P' Q'.
+  Proof.
+    intros.
+    subst.
+    reflexivity.
+  Qed.
+
+  Lemma eq_n_to_r_def:
+    forall x x',
+    x = x' ->
+    n_to_r x = n_to_r x'.
+  Proof.
+    intros.
+    subst.
+    reflexivity.
+  Qed.
+(*
+  Lemma run_tr_subst:
+    forall P x v Px cx h1 h2,
+    Run (n_to_r (subst x v Px)) h1 ->
+    CRun (i_subst x v cx) h2 ->
+    tr P = (Px, cx) ->
+    PRun (tr (w_subst x v P)) (h1 ++ [h2]).
+  Proof.
+    induction P; intros.
+    - simpl in *.
+      invc H1.
+      simpl in *.
+      econstructor; eauto.
+    - simpl in *.
+      admit.
+    - rename v into z.
+      rename v0 into v.
+      rename i into c1.
+      rename i0 into c2.
+      simpl in *.
+      destruct r as (e1, e2).
+      destruct (tr P) as (P_x, c_x) eqn:Ht.
+      invc H1.
+      destruct (Set_VAR.MF.eq_dec x z). {
+        subst.
+        simpl in *.
+        rewrite Ht.
+        remove_eq z z. {
+          apply p_run_def with (h1:=h1) (h2:=h2); auto. {
+            rewrite subst_n_seq in *.
+            rewrite subst_subst_eq_1 in H.
+            auto.
+          }
+          rewrite i_subst_c_seq in *.
+          repeat rewrite i_subst_subst_eq_1 in H0.
+          simpl in *.
+          assumption.
+        }
+      }
+      simpl.
+      destruct (tr (w_subst x v P)) as (Px', cx') eqn:Ht'.
+      simpl.
+      apply p_run_def with (h1:=h1) (h2:=h2); auto. {
+        simpl in *.
+        remove_eq x z.
+        rewrite subst_n_seq in *.
+        eapply eq_run_def; eauto.
+        apply eq_r_seq_def; auto. {
+          apply eq_n_to_r_def.
+          apply eq_n_seq_def; auto.
+        }
+        admit.
+      }
+      split; auto.
+  Qed.
+*)
+  Lemma c_run_inv_c_seq:
+    forall c1 c2 h,
+    CRun (Conc.c_seq c1 c2) h ->
+    exists h1 h2,
+    CRun c1 h1 /\ CRun c2 h2 /\ h = h1 ++ h2.
+  Proof.
+  Admitted.
+
+  Lemma run_inv_n_seq:
+    forall c P m,
+    Run (n_to_r (n_seq c P)) m ->
+    exists h1 h2 m', CRun c h1 /\ Run (n_to_r P) (h2 :: m') /\ m = (h1 ++ h2) :: m'.   
+  Proof.
+  Admitted.
+
+
+  Theorem sound:
+    forall P m,
+    WRun P m ->
+    forall m',
+    PRun (tr P) m' ->
+    VHist.vhist_to_list m = m'.
+  Proof.
+    intros P m H; induction H; simpl; intros m' Hr2.
+    - invc Hr2; simpl in *.
+      rename_hyp (Run (RSync _) _) as Hr.
+      invc Hr.
+      admit.
+    - admit.
+    - destruct r as (e1, e2).
+      destruct (tr P) as (Px, cx) eqn:Ht.
+      simpl in *.
+      invc Hr2.
+      simpl in *.
+      rename_hyp (Run _ _) as Hr.
+      invc Hr.
+      simpl in *.
+      rewrite Ht in *.
+      rename_hyp (RStep _ _ _) as Hs.
+      invc Hs.
+      simpl in *.
+      rename_hyp (CRun (Conc.c_seq _ _) _) as Hr.
+      apply c_run_inv_c_seq in Hr.
+      destruct Hr as (h_cx, (h_c2, (Hr_cx, (Hr_c2, ?)))).
+      subst.
+      rename_hyp (Run (n_to_r _) _) as Hr.
+      apply run_inv_n_seq in Hr.
+      destruct Hr as (h_c1, (h_Px, (m_c1_Px, (Hr_c1, (Hr_Px, Ha))))).
+      subst.
+      remember (h_Px :: m_c1_Px) as h_px.
+      (*
+      assert (PRun (tr (w_subst x n P)) (h_px ++ [h_cx])). {
+        clear H7 H12 H5 H9.
+        clear Heqh_px Hr_c1.
+      }
+      invc Hr2. {
+        assert (IHWRun2 := IHWRun2 ([h_cx ++ h_c2])).
+        admit.
+        (*
+        rename_hyp (Run (n_seq _ _) _) as H_c1.
+        apply run_inv_n_seq in H_c1. 2: { admit. }
+        destruct H_c1 as (c1_h1, (c1_h2, (H_c1, (H_c2, eq1)))).
+        *)
+      }
+      rewrite subst_n_seq in *.
+      *)
+      admit.
+    - destruct r as (e1, e2).
+      destruct (tr P) as (Px, cx) eqn:Ht.
+      simpl in *.
+      destruct Hr2 as (h1', (h2', (Hr2, (Hr3,?)))).
+      subst.
+      apply run_inv_c_seq in Hr3.
+      destruct Hr3 as (h_cx, (h_c2, (Hr_cx, (Hr_c2, ?)))).
+      subst.
+      apply run_for_inv_empty in Hr2. 2: { admit. }
+      apply run_inv_n_seq in Hr2. 2: { admit. }
+      destruct Hr2 as (h_c1, (h_Px, (Hr_c1, (Hr_Px, ?)))).
+      assert (IHWRun := IHWRun (h1' ++ [h_cx])).
   Admitted.
 
 End Props.
