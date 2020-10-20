@@ -624,13 +624,136 @@ Section Props.
     let (P, c) := P in
     Distinct P /\ Conc.Distinct c.
 
-  Lemma tr_distinct_l:
+  Definition PVar x (P:p_inst) :=
+    let (P, c) := P in
+    Var x P \/ Conc.Var x c.
+
+  Lemma c_var_inv_c_seq:
+    forall x c1 c2,
+    Conc.Var x (Conc.c_seq c1 c2) ->
+    Conc.Var x c1 \/ Conc.Var x c2.
+  Proof.
+    induction c1; simpl; intros; try (intuition; fail).
+    apply IHc1_1 in H.
+    intuition.
+    apply IHc1_2 in H0.
+    intuition.
+  Qed.
+
+  Lemma var_inv_n_seq:
+    forall x P c,
+    Var x (n_seq c P) ->
+    Conc.Var x c \/ Var x P.
+  Proof.
+    induction P; simpl; intros.
+    - apply c_var_inv_c_seq in H.
+      intuition.
+    - intuition.
+      apply IHP1 in H0.
+      intuition.
+    - intuition.
+      apply IHP1 in H.
+      intuition.
+  Qed.
+
+  Lemma c_var_inv_subst:
+    forall c x y v,
+    Conc.Var x (i_subst y v c) ->
+    Conc.Var x c.
+  Proof.
+    induction c; simpl; intros; try (intuition; fail).
+    - intuition; eauto.
+    - intuition; eauto.
+    - intuition.
+      rename v into z.
+      destruct (Set_VAR.MF.eq_dec y z). {
+        intuition.
+      }
+      intuition.
+      rename_hyp (Conc.Var _ (i_subst _ _ _)) as Hc.
+      apply IHc in Hc.
+      intuition.
+  Qed.
+
+  Lemma var_inv_subst:
+    forall x y (v:nexp) P,
+    Var x (subst y v P) ->
+    Var x P.
+  Proof.
+    induction P; simpl; intros.
+    - eauto using c_var_inv_subst.
+    - intuition.
+    - intuition.
+      destruct (Set_VAR.MF.eq_dec x v0). {
+        intuition.
+      }
+      intuition.
+      destruct (Set_VAR.MF.eq_dec y v0). {
+        subst.
+        intuition.
+      }
+      intuition.
+  Qed.
+
+  Lemma var_inv_tr:
+    forall x P,
+    PVar x (tr P) ->
+    WVar x P.
+  Proof.
+    induction P; simpl; intros; try (intuition; fail).
+    - destruct (tr P1) as (P1', c1).
+      destruct (tr P2) as (P2', c2).
+      simpl in *.
+      destruct H as [[H|H]|H]; auto.
+      apply var_inv_n_seq in H.
+      intuition.
+    - destruct r as (e1, e2).
+      destruct (tr P) as (Px, cx).
+      simpl in *.
+      intuition.
+      + rename_hyp (Var _ (n_seq _ _)) as Hc.
+        apply var_inv_n_seq in Hc.
+        intuition.
+        rename_hyp (Var _ (subst _ _ _)) as Hv.
+        apply var_inv_subst in Hv.
+        intuition.
+      + rename_hyp (Var _ (n_seq _ _)) as Hv.
+        apply var_inv_n_seq in Hv.
+        intuition.
+        rename_hyp (Conc.Var _ _) as Hc.
+        apply c_var_inv_subst in Hc.
+        intuition.
+        rename_hyp (Var _ (n_seq _ _)) as Hc.
+        apply var_inv_n_seq in Hc.
+        intuition.
+        rename_hyp (Conc.Var _ _) as Hc.
+        apply c_var_inv_subst in Hc.
+        intuition.
+      + rename_hyp (Conc.Var _ (Conc.c_seq _ _ )) as Hc.
+        apply c_var_inv_c_seq in Hc.
+        intuition.
+        * rename_hyp (Conc.Var _ (i_subst _ _ _)) as Hc.
+          apply c_var_inv_subst in Hc.
+          intuition.
+        * rename_hyp (Conc.Var _ (i_subst _ _ _)) as Hc.
+          apply c_var_inv_subst in Hc.
+          intuition.
+  Qed.
+
+  Lemma var_inv_tr_l:
     forall x P P_x c_x,
     Var x P_x ->
     tr P = (P_x, c_x) ->
     WVar x P.
   Proof.
-  Admitted.
+    intros.
+    assert (PVar x (tr P)). {
+      rewrite H0.
+      simpl.
+      auto.
+    }
+    auto using var_inv_tr.
+  Qed.
 
   Lemma tr_distinct_r:
     forall x P P_x c_x,
@@ -638,7 +761,14 @@ Section Props.
     tr P = (P_x, c_x) ->
     WVar x P.
   Proof.
-  Admitted.
+    intros.
+    assert (PVar x (tr P)). {
+      rewrite H0.
+      simpl.
+      auto.
+    }
+    auto using var_inv_tr.
+  Qed.
 
   Lemma tr_subst:
     forall P e x,
