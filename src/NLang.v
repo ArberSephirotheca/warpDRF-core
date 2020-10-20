@@ -253,12 +253,30 @@ Section Props.
     (* TODO: PROVE ME PLEASE *)
   Admitted.
 
+  Lemma c_subst_c_seq:
+    forall x v c1 c2,
+    i_subst x v (Conc.c_seq c1 c2)
+    = Conc.c_seq (i_subst x v c1) (i_subst x v c2).
+  Proof.
+    induction c1; simpl; intros; auto.
+    rewrite IHc1_1.
+    rewrite IHc1_2.
+    auto.
+  Qed.
+
   Lemma subst_n_seq:
-    forall x v c P,
+    forall P x v c,
     subst x v (n_seq c P) =
       n_seq (Conc.i_subst x v c) (subst x v P).
   Proof.
-  Admitted.
+    induction P; simpl; intros.
+    - rewrite c_subst_c_seq.
+      auto.
+    - rewrite IHP1.
+      auto.
+    - rewrite IHP1.
+      auto.
+  Qed.
 
   Lemma p_pair_in_sync:
     forall a c,
@@ -423,107 +441,6 @@ Section Props.
        subst x v1 (subst y v2 P) = subst y v2 (subst x v1 P).
   Proof.
   Admitted.
-(*
-  Lemma n_subst_subst_neq_5:
-    forall e3 e1 e2 x y,
-    NClosed e1 ->
-    y <> x ->
-    n_subst y e1 (n_subst x e2 e3) =
-    n_subst x (n_subst y e1 e2) (n_subst y e1 e3).
-  Proof.
-    induction e3; simpl; intros.
-    - reflexivity.
-    - rename v into z.
-      remove_eq x z. {
-        (* x = z *)
-        remove_eq y z. {
-          rewrite n_subst_not_free with (x:=x); auto.
-          admit.
-          (* n_subst y e1 e2 = e1 *)
-        }
-        remove_eq x z. {
-          reflexivity.
-        }
-        (* n_subst y e1 e2 = NVar z *)
-        admit.
-      }
-      remove_eq y z. {
-        rewrite n_subst_not_free with (x:=x); auto.
-      }
-      remove_eq x z. {
-        (* NVar z = n_subst y e1 e2 *)
-        admit.
-      }
-      reflexivity.
-  Qed.
-*)
-(*
-  Lemma subst_subst_neq_5:
-    forall P x y e1 e2,
-    NClosed e1 ->
-    NClosed e2 ->
-    subst y e1 (subst x e2 P) = subst x (n_subst y e1 e2) (subst y e1 P).
-  Proof.
-    induction P; intros.
-    - admit.
-    - admit.
-    - simpl.
-      rename v into z.
-      remove_eq y z. {
-        remove_eq x z. {
-          rewrite IHP1; auto.
-          apply eq_n_for_def; auto.
-          admit.
-        }
-        apply eq_n_for_def; auto.
-      }
-  Qed.
-*)
-(*
-  Lemma subst_subst_neq_4:
-    forall P x y e1 e2,
-    NClosed e1 ->
-    x <> y ->
-    subst y e1 (subst x e2 P) =
-    subst x (n_subst y e1 e2) (subst y e1 P).
-  Proof.
-    induction P; intros.
-    - simpl.
-      admit.
-    - simpl.
-      rewrite IHP1; auto.
-      rewrite IHP2; auto.
-    - rename v into z.
-      simpl.
-      apply eq_n_for_def; auto. {
-        admit.
-      }
-      remove_eq y z. {
-        remove_eq x z. {
-          reflexivity.
-        }
-        (* y = z /\ x <> z *)
-      }
-      rewrite r_subst_subst_neq_4; auto.
-      remove_eq x z. {
-        subst.
-        destruct (Set_VAR.MF.eq_dec y z). {
-          subst.
-          contradiction.
-        }
-        auto.
-      }
-      destruct (Set_VAR.MF.eq_dec y z). {
-        subst.
-        rewrite IHP1; auto.
-        assert (r1: n_subst z e1 e2 = e2). {
-          rewrite n_subst_not_free; auto using n_closed_to_not_free.
-        }
-        rewrite r1.
-        reflexivity.
-      }
-      rewrite IHP1; auto.
-  Qed.*)
 
   Definition WClosed P :=
     forall x,
@@ -755,7 +672,7 @@ Section Props.
     auto using var_inv_tr.
   Qed.
 
-  Lemma tr_distinct_r:
+  Lemma var_inv_tr_r:
     forall x P P_x c_x,
     Conc.Var x c_x ->
     tr P = (P_x, c_x) ->
@@ -797,11 +714,11 @@ Section Props.
       destruct (tr P) as (P_x, c_x) eqn:Ht.
       assert (~ Var y P_x). {
         intros N.
-        eapply tr_distinct_l with (x:=y) in N; eauto.
+        eapply var_inv_tr_l with (x:=y) in N; eauto.
       }
       assert (~ Conc.Var y c_x). {
         intros N.
-        eapply tr_distinct_r with (x:=y) in N; eauto.
+        eapply var_inv_tr_r with (x:=y) in N; eauto.
       }
       destruct (Set_VAR.MF.eq_dec y x). {
         subst.
@@ -901,7 +818,8 @@ Section Props.
             assert (IPairIn p (subst x (NNum n) P_x)). {
               eauto using i_pair_in_subst, n_step_num.
             }
-            rewrite <- i_pair_in_subst_tr. 2: { auto using n_closed_num. }
+            rewrite <- tr_subst; auto using n_closed_num.
+            2: { admit. }
             rewrite Ht.
             simpl.
             auto.
@@ -1009,62 +927,7 @@ Section Props.
     subst.
     reflexivity.
   Qed.
-(*
-  Lemma run_tr_subst:
-    forall P x v Px cx h1 h2,
-    Run (n_to_r (subst x v Px)) h1 ->
-    CRun (i_subst x v cx) h2 ->
-    tr P = (Px, cx) ->
-    PRun (tr (w_subst x v P)) (h1 ++ [h2]).
-  Proof.
-    induction P; intros.
-    - simpl in *.
-      invc H1.
-      simpl in *.
-      econstructor; eauto.
-    - simpl in *.
-      admit.
-    - rename v into z.
-      rename v0 into v.
-      rename i into c1.
-      rename i0 into c2.
-      simpl in *.
-      destruct r as (e1, e2).
-      destruct (tr P) as (P_x, c_x) eqn:Ht.
-      invc H1.
-      destruct (Set_VAR.MF.eq_dec x z). {
-        subst.
-        simpl in *.
-        rewrite Ht.
-        remove_eq z z. {
-          apply p_run_def with (h1:=h1) (h2:=h2); auto. {
-            rewrite subst_n_seq in *.
-            rewrite subst_subst_eq_1 in H.
-            auto.
-          }
-          rewrite i_subst_c_seq in *.
-          repeat rewrite i_subst_subst_eq_1 in H0.
-          simpl in *.
-          assumption.
-        }
-      }
-      simpl.
-      destruct (tr (w_subst x v P)) as (Px', cx') eqn:Ht'.
-      simpl.
-      apply p_run_def with (h1:=h1) (h2:=h2); auto. {
-        simpl in *.
-        remove_eq x z.
-        rewrite subst_n_seq in *.
-        eapply eq_run_def; eauto.
-        apply eq_r_seq_def; auto. {
-          apply eq_n_to_r_def.
-          apply eq_n_seq_def; auto.
-        }
-        admit.
-      }
-      split; auto.
-  Qed.
-*)
+
   Lemma c_run_inv_c_seq:
     forall c1 c2 h,
     CRun (Conc.c_seq c1 c2) h ->
@@ -1080,6 +943,27 @@ Section Props.
   Proof.
   Admitted.
 
+  Lemma v_prefix_prefix:
+    forall h1 h2 m,
+    v_prefix h1 (v_prefix h2 m) = v_prefix (h1 ++ h2) m.
+  Proof.
+    destruct m; intros; simpl; auto.
+    - rewrite app_assoc.
+      reflexivity.
+    - rewrite app_assoc.
+      reflexivity.
+  Qed.
+
+  Lemma v_prefix_seq:
+    forall h m1 m2,
+    v_prefix h (v_seq m1 m2) =
+    v_seq (v_prefix h m1) m2.
+  Proof.
+    induction m1; simpl; intros.
+    - rewrite v_prefix_prefix.
+      auto.
+    - reflexivity.
+  Qed.
 
   Theorem sound:
     forall P m,
@@ -1135,15 +1019,43 @@ Section Props.
     - destruct r as (e1, e2).
       destruct (tr P) as (Px, cx) eqn:Ht.
       simpl in *.
-      destruct Hr2 as (h1', (h2', (Hr2, (Hr3,?)))).
+      invc Hr2.
+      rename_hyp (Run _ _) as Hr1.
+      invc Hr1.
+      rename_hyp (Run (n_to_r (n_seq _ _)) _) as Hr1.
+      apply run_inv_n_seq in Hr1.
+      destruct Hr1 as (h_c1, (h_P_e1, (m, (H_c1, (H_P_e2, ?))))).
       subst.
-      apply run_inv_c_seq in Hr3.
-      destruct Hr3 as (h_cx, (h_c2, (Hr_cx, (Hr_c2, ?)))).
+      assert (mh_Q = []) by admit.
       subst.
-      apply run_for_inv_empty in Hr2. 2: { admit. }
-      apply run_inv_n_seq in Hr2. 2: { admit. }
-      destruct Hr2 as (h_c1, (h_Px, (Hr_c1, (Hr_Px, ?)))).
-      assert (IHWRun := IHWRun (h1' ++ [h_cx])).
+      rename_hyp (Run (RFor _ _ _) _) as Hr2.
+      clear Hr2.
+      rewrite <- app_nil_end in *.
+      rename_hyp (CRun (Conc.c_seq _ _) _) as Hc.
+      apply c_run_inv_c_seq in Hc.
+      destruct Hc as (h_cx_e1, (h_c2_e1, (H_cx_e1, (H_c2_e1, ?)))).
+      subst.
+      assert (Hp:  PRun (tr (w_subst x n P)) ((h_P_e1 :: m) ++ [h_cx_e1]) ). {
+        destruct (tr (w_subst _ _ _)) as (Px', cx') eqn:Ht'.
+        rewrite <- tr_subst in Ht'.
+        2: { admit. }
+        2: { admit. }
+        rewrite Ht in *.
+        simpl in Ht'.
+        invc Ht'.
+        eapply p_run_def; eauto.
+        - admit.
+        - admit.
+      }
+      rename h1 into h_c1'.
+      rename m1 into m_P_e1'.
+      rename h2 into m_c2_e1'.
+      rename h_P_e1 into h_Px_e1.
+      rename m into m_Px_e1.
+      remember ((h_Px_e1 :: m_Px_e1) ++ [h_cx_e1]) as h_Px_e1'.
+      rewrite v_prefix_seq.
+      assert (IHWRun := IHWRun _ Hp); clear Hp.
+      subst.
   Admitted.
 
 End Props.
