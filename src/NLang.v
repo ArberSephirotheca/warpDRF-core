@@ -933,6 +933,29 @@ Section Props.
     - lia.
   Qed.
 
+  Lemma i_first_in_tr_for_1:
+    forall v r n P x P_x c_x,
+    CanRun (w_subst x (NNum n) P) ->
+    tr P = (P_x, c_x) ->
+    NStep v n ->
+    RPick r n ->
+    ~ WVar x P ->
+    forall a,
+    IFirst a (subst x v P_x) ->
+    WLang.IFirst a (w_subst x v P).
+  Proof.
+    intros.
+    apply tr_to_subst with (x:=x) (v:=v) in H0;
+      eauto using n_step_to_closed.
+    assert (CanRun (w_subst x v P)). {
+      eauto using can_run_subst.
+    }
+    apply i_first_tr; auto.
+    rewrite H0.
+    simpl.
+    assumption.
+  Qed.
+
   Lemma tr_i_pair_in_1:
     forall P,
     CanRun P ->
@@ -969,26 +992,8 @@ Section Props.
             eapply WLang.i_pair_in_for_first_2; eauto.
             destruct p as (a1, a2).
             simpl in *.
-            apply tr_to_subst with (x:=x) (v:=e1) in Ht.
-            2: { eauto using n_step_to_closed. }
-            2: { auto. }
-            assert (CanRun (w_subst x e1 P)). {
-              assert (CanRun (w_subst x (NNum n) P)) by eauto.
-              eauto using can_run_subst.
-            }
-            intuition.
-            + left.
-              split; auto.
-              apply i_first_tr; auto.
-              rewrite Ht.
-              simpl.
-              assumption.
-            + right.
-              split; auto.
-              apply i_first_tr; auto.
-              rewrite Ht.
-              simpl.
-              assumption.
+            intuition;
+             eauto using i_first_in_tr_for_1.
         }
         rename n0 into m.
         repeat rewrite subst_n_seq in Hp.
@@ -1025,6 +1030,7 @@ Section Props.
           * destruct p as (a1, a2).
             simpl in *.
             rename_hyp (RPick _ m) as Hi.
+            assert (Hp_n1 := Hi).
             apply r_pick_impl_3 in Hi.
             destruct Hi as (n1, (?, Hi)).
             subst.
@@ -1048,11 +1054,14 @@ Section Props.
               left.
               split; auto.
               (* a2 \in IFirst (P_x [m]) *)
-              admit. (* easy *)
+              eapply i_first_in_tr_for_1 with (n:=S n1);
+                eauto using n_step_num, r_pick_impl.
             }
             (* a2 \in c2[m - 1] /\ a1 \in IFirst (P_x [ m] ) *)
-            admit.
-            (* easy *)
+            simpl.
+            right; split; auto.
+            eapply i_first_in_tr_for_1 with (n:=S n1);
+              eauto using n_step_num, r_pick_impl.
         + destruct p as (a1, a2).
           simpl in *.
           destruct Hp as [(Hp1, Hp2)|(Hp1, Hp2)]. {
