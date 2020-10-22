@@ -355,6 +355,16 @@ Section Props.
       auto.
   Qed.
 
+  Lemma c_pair_in_subst:
+    forall p x e1 c n,
+    NStep e1 n ->
+    CPairIn p (i_subst x e1 c) ->
+    forall e2,
+    NStep e2 n ->
+    CPairIn p (i_subst x e2 c).
+  Proof.
+  Admitted.
+
   Lemma i_pair_in_subst:
     forall p x e1 P n,
     NStep e1 n ->
@@ -836,6 +846,31 @@ Section Props.
     auto.
   Qed.
 
+  Lemma i_pair_in_tr_for_2:
+    forall p c1 x r P c2,
+    (forall n,
+     RPick r n ->
+     forall p,
+     PPairIn p (tr (w_subst x n P)) -> WLang.IPairIn p (w_subst x n P)) ->
+    ~ WVar x P ->
+    forall P_x c_x,
+    tr P = (P_x, c_x) ->
+    forall e n,
+    RPick r n ->
+    NStep e n ->
+    CPairIn p (i_subst x e c_x) ->
+    WLang.IPairIn p (WFor c1 x r P c2).
+  Proof.
+    intros.
+    eapply WLang.i_pair_in_for_1 with (e0:=NNum n); eauto using n_step_num.
+    apply H; auto.
+    apply tr_to_subst with (x:=x) (v:=NNum n) in H1; auto using n_closed_num.
+    rewrite H1.
+    simpl.
+    right.
+    eapply c_pair_in_subst; eauto using n_step_num.
+  Qed.
+
   Lemma n_step_inv_succ:
     forall e n,
     NStep (NBin NPlus (NNum 1) e) n -> 
@@ -866,12 +901,13 @@ Section Props.
   Lemma tr_i_pair_in_1:
     forall P,
     CanRun P ->
+    WLang.Distinct P ->
     forall p,
     PPairIn p (tr P) ->
     WLang.IPairIn p P.
   Proof.
     intros P H.
-    induction H; intros p Hp; simpl in Hp; try (destruct Hp as [Hp|Hp]).
+    induction H; intros Hd p Hp; simpl in Hp; try (destruct Hp as [Hp|Hp]).
     - admit.
     - admit.
     - admit.
@@ -883,7 +919,8 @@ Section Props.
       assert (Hx: RPick (e1,e2) n) by eauto using r_first_to_pick.
       rename_hyp (forall n, _) as IH.
       simpl in *.
-      destruct Hp as [Hp|Hp]. {
+      intuition. {
+        rename_hyp (IPairIn _ _) as Hp.
         invc Hp; rename_hyp (IPairIn _ _) as Hp. {
           apply i_pair_in_inv_n_seq in Hp.
           destruct Hp as [Hp|[Hp|Hp]].
@@ -891,6 +928,8 @@ Section Props.
             constructor; auto.
           - (* p \in Px [e1] *)
             eapply i_pair_in_tr_for_1; eauto.
+            intros.
+            eapply IH; auto.
             admit.
           - (* a1 \in c1 /\ a2 \in P[e1] *)
             eapply WLang.i_pair_in_for_first_2; eauto.
@@ -922,7 +961,13 @@ Section Props.
         apply i_pair_in_inv_n_seq in Hp.
         destruct Hp as [Hp|[Hp|Hp]].
         + (* p \in cx [m - 1] *)
-          admit.
+          eapply i_pair_in_tr_for_2 with (e:=m - 1) (n:=m - 1); eauto using n_step_num.
+          * admit.
+          * admit.
+          * rewrite i_subst_subst_eq_1 in Hp.
+            simpl in Hp.
+            remove_eq x x.
+            admit.
         + apply i_pair_in_inv_n_seq in Hp.
           destruct Hp as [Hp|[Hp|Hp]].
           * (* p \in c2 [m - 1] *)

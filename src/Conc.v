@@ -188,25 +188,13 @@ Section C1.
       rewrite IHc; auto.
   Qed.
 
-  Lemma var_subst_inv:
+  Lemma var_inv_subst:
     forall y x e i,
-    ~ NFree e y ->
     Var y (i_subst x e i) ->
     Var y i.
   Proof.
-    induction i; simpl; intros Hn Hv; simpl in *; auto; try intuition.
+    induction i; simpl; intros; auto; intuition.
     destruct (Set_VAR.MF.eq_dec x v); auto.
-  Qed.
-
-  Lemma var_subst_inv_1:
-    forall y x n i,
-    Var y (i_subst x (NNum n) i) ->
-    Var y i.
-  Proof.
-    intros.
-    eapply var_subst_inv; eauto.
-    intros N.
-    inversion N.
   Qed.
 
   Lemma in_range_subst_inv_1:
@@ -878,7 +866,7 @@ Section C1.
           }
           rewrite i_subst_subst_neq; auto.
         * intros N.
-          apply var_subst_inv_1 in N.
+          apply var_inv_subst in N.
           auto.
       + auto.
     - destruct i0; inversion Heqj; subst; clear Heqj.
@@ -906,7 +894,7 @@ Section C1.
       + rewrite i_subst_subst_neq; auto.
         apply IHSRun1.
         intros N.
-        apply var_subst_inv_1 in N.
+        apply var_inv_subst in N.
         auto.
       + remove_eq TID x.
         apply IHSRun2.
@@ -1602,6 +1590,23 @@ Section C1.
     | For x _ c => ~ Var x c /\ Distinct c
     end.
 
+  Lemma distinct_subst:
+    forall c,
+    Distinct c ->
+    forall x v,
+    Distinct (i_subst x v c).
+  Proof.
+    induction c; simpl; auto; intros.
+    - intuition.
+    - intuition.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        intuition.
+      }
+      intuition.
+      apply var_inv_subst in H2.
+      intuition.
+  Qed.
 
   Lemma c_subst_c_seq:
     forall x v c1 c2,

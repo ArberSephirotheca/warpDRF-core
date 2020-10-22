@@ -2,13 +2,13 @@
 src/Tictac.v
 src/StringUtil.v
 src/RangeList.v
+src/Util.v
 src/Tid.v
 src/Loc.v
 src/Var.v
 src/NExp.v
 src/BExp.v
 src/RExp.v
-src/Util.v
 src/InUtil.v
 src/PairInUtil.v
 src/NList.v
@@ -18,11 +18,6 @@ src/AccExpImpl.v
 src/Tasks.v
 src/Hist.v
 src/VHist.v
-src/ALang.v
-src/PhaseExp.v
-src/AccSym.v
-src/ALangTy.v
-src/Phased.v
 src/NSync.v
 src/MultiHist.v
 src/Conc.v

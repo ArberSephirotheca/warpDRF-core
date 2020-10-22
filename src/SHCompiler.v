@@ -153,7 +153,7 @@ Section Defs.
       assert (TID <> v) by auto.
       apply IHHi.
       + intros N.
-        apply Conc.var_subst_inv_1 in N.
+        apply Conc.var_inv_subst in N.
         auto.
       + rewrite i_subst_proj_rw; auto.
   Qed.
@@ -185,7 +185,7 @@ Section Defs.
       rewrite <- i_subst_proj_rw; auto.
       apply IHHi.
       intros N.
-      apply Conc.var_subst_inv_1 in N.
+      apply Conc.var_inv_subst in N.
       auto.
   Qed.
 

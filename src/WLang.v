@@ -176,21 +176,21 @@ Section Defs.
       /\ Conc.Distinct c2
     end.
 
-  Lemma wvar_subst_inv_1:
-    forall y x n i,
-    WVar y (w_subst x (NNum n) i) ->
+  Lemma wvar_inv_subst:
+    forall y x v i,
+    WVar y (w_subst x v i) ->
     WVar y i.
   Proof.
     induction i; simpl; intros; auto.
-    - eauto using Conc.var_subst_inv_1.
-    - destruct H; auto.
-    - destruct (Set_VAR.MF.eq_dec x v); simpl in *. {
+    - eauto using Conc.var_inv_subst.
+    - intuition.
+    - destruct (Set_VAR.MF.eq_dec x v0); simpl in *. {
         intuition.
-        eauto using Conc.var_subst_inv_1.
+        eauto using Conc.var_inv_subst.
       }
       intuition.
-      + eauto using Conc.var_subst_inv_1.
-      + eauto using Conc.var_subst_inv_1.
+      + eauto using Conc.var_inv_subst.
+      + eauto using Conc.var_inv_subst.
   Qed.
 
   Lemma wrun_one:
@@ -374,7 +374,7 @@ Section Defs.
       apply first_inv_in_seq in Hi.
       destruct Hi as [Hi|(h', (?, Hi))]. {
         apply IHWRun1 in Hi; auto.
-        2: { intros N. intuition. apply wvar_subst_inv_1 in N. intuition.  }
+        2: { intros N. intuition. apply wvar_inv_subst in N. intuition.  }
         eapply i_first_for_2; eauto using r_step_to_first.
       }
       subst.
@@ -393,7 +393,7 @@ Section Defs.
         eapply i_first_for_2; eauto using r_one_to_first.
         apply IHWRun; auto.
         intros N.
-        apply wvar_subst_inv_1 in N.
+        apply wvar_inv_subst in N.
         intuition.
       }
       subst.
@@ -434,7 +434,7 @@ Section Defs.
       subst.
       apply first_in_prefix_r.
       apply IHWRun1 in H12.
-      2: { intros N. apply wvar_subst_inv_1 in N. intuition. }
+      2: { intros N. apply wvar_inv_subst in N. intuition. }
       auto using first_in_seq_l.
     - simpl in *.
       inversion H5; subst; clear H5. {
@@ -446,7 +446,7 @@ Section Defs.
       assert (n0 = n) by eauto using r_first_fun.
       subst.
       apply IHWRun in H12.
-      2: { intros N. apply wvar_subst_inv_1 in N. intuition. }
+      2: { intros N. apply wvar_inv_subst in N. intuition. }
       auto using first_in_seq_l, first_in_prefix_r, first_in_seq_l.
   Qed.
 
@@ -473,10 +473,10 @@ Section Defs.
     match goal with
     | [  |- ~ WVar TID (w_subst _ _ _) ]  =>
       let N := fresh in
-      intros N; apply wvar_subst_inv_1 in N; intuition
+      intros N; apply wvar_inv_subst in N; intuition
     | [  |- ~ Conc.Var TID (Conc.i_subst _ _ _) ] =>
       let N := fresh in
-      intros N; apply Conc.var_subst_inv_1 in N; intuition
+      intros N; apply Conc.var_inv_subst in N; intuition
     | [ |- ~ WVar TID _ ] => simpl in *; intuition
    end.
 
@@ -1123,7 +1123,7 @@ Section Defs.
       simpl in *.
       assert (Hw: ~ WVar y (w_subst x (NNum n) P) ). {
         intros N.
-        apply wvar_subst_inv_1 in N.
+        apply wvar_inv_subst in N.
         intuition.
       }
       assert (IHGetFirst := IHGetFirst y v Hc Hw).
@@ -1324,6 +1324,34 @@ Section Defs.
     - eauto using get_first_2.
     - eauto using get_first_1.
   Qed.
+
+  Lemma distinct_subst:
+    forall P,
+    Distinct P ->
+    forall x v,
+    Distinct (w_subst x v P).
+  Proof.
+    induction P; simpl; intros; auto. {
+      destruct H; eauto.
+    }
+    destruct (Set_VAR.MF.eq_dec x v). {
+      subst.
+      simpl.
+      intuition.
+      eauto using distinct_subst.
+    }
+    simpl.
+    intuition.
+    - eauto using distinct_subst.
+    - rename_hyp (WVar v _) as Hv.
+      apply wvar_inv_subst in Hv.
+      contradiction.
+    - rename_hyp (Var v _) as Hv.
+      apply var_inv_subst in Hv.
+      contradiction.
+    - auto using Conc.distinct_subst.
+  Qed.
+
 (*
   Lemma w_free_dec:
     forall P x,
