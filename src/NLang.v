@@ -929,18 +929,17 @@ Section Props.
           - (* p \in Px [e1] *)
             eapply i_pair_in_tr_for_1; eauto.
             intros.
-            eapply IH; auto.
-            admit.
+            eapply IH; auto using WLang.distinct_subst.
           - (* a1 \in c1 /\ a2 \in P[e1] *)
             eapply WLang.i_pair_in_for_first_2; eauto.
             destruct p as (a1, a2).
             simpl in *.
             apply tr_to_subst with (x:=x) (v:=e1) in Ht.
-            2: { admit. }
-            2: { admit. }
+            2: { eauto using n_step_to_closed. }
+            2: { auto. }
             assert (CanRun (w_subst x e1 P)). {
               assert (CanRun (w_subst x (NNum n) P)) by eauto.
-              admit.
+              eauto using can_run_subst.
             }
             intuition.
             + left.
@@ -962,12 +961,14 @@ Section Props.
         destruct Hp as [Hp|[Hp|Hp]].
         + (* p \in cx [m - 1] *)
           eapply i_pair_in_tr_for_2 with (e:=m - 1) (n:=m - 1); eauto using n_step_num.
-          * admit.
+          * intros.
+            apply IH; auto using WLang.distinct_subst.
           * admit.
           * rewrite i_subst_subst_eq_1 in Hp.
             simpl in Hp.
             remove_eq x x.
-            admit.
+            eapply c_pair_in_subst with (e1:=NBin NMinus m 1); eauto using n_step_num.
+            apply n_step_bin; auto using n_step_num.
         + apply i_pair_in_inv_n_seq in Hp.
           destruct Hp as [Hp|[Hp|Hp]].
           * (* p \in c2 [m - 1] *)

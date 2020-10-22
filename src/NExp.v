@@ -908,6 +908,16 @@ Section SO.
       eauto using n_step_bin.
   Qed.
 
+  Lemma n_step_to_closed:
+    forall e n,
+    NStep e n ->
+    NClosed e.
+  Proof.
+    intros.
+    unfold NClosed.
+    eauto using n_step_to_not_free.
+  Qed.
+
   Lemma n_subst_subst_neq_4:
     forall e3 e1 e2 x y,
     NClosed e1 -> 

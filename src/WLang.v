@@ -150,6 +150,16 @@ Section Defs.
     (forall n, RPick r n -> CanRun (w_subst x (NNum n) P)) -> 
     CanRun (WFor c1 x r P c2).
 
+  Lemma can_run_subst:
+    forall x n P,
+    CanRun (w_subst x (NNum n) P) ->
+    forall v,
+    NStep v n ->
+    CanRun (w_subst x v P).
+  Proof.
+    (* TODO: PROVE ME PLEASE *)
+  Admitted.
+
   Definition WEq P Q :=
     forall h,
     WRun P h <-> WRun Q h.
