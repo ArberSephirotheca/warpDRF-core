@@ -913,6 +913,26 @@ Section Props.
     lia.
   Qed.
 
+  Lemma r_pick_impl_3:
+    forall e1 e2 m,
+    RPick ((NBin NPlus 1 e1), e2) m ->
+    exists n, m = S n /\ RPick2 (e1, e2) n.
+  Proof.
+    intros.
+    invc H.
+    apply n_step_inv_succ in H2.
+    destruct H2 as (n', (Hn1, ?)).
+    subst.
+    destruct m. {
+      lia.
+    }
+    exists m.
+    split; auto.
+    eapply r_pick2_def; eauto.
+    - lia.
+    - lia.
+  Qed.
+
   Lemma tr_i_pair_in_1:
     forall P,
     CanRun P ->
@@ -1004,8 +1024,30 @@ Section Props.
             apply IH; auto using WLang.distinct_subst.
           * destruct p as (a1, a2).
             simpl in *.
-            destruct Hp as [(Hp1, Hp2)|(Hp1, Hp2)]. {
+            rename_hyp (RPick _ m) as Hi.
+            apply r_pick_impl_3 in Hi.
+            destruct Hi as (n1, (?, Hi)).
+            subst.
+            apply i_pair_in_for_mid_1 with (n0:=n1) (e:=(NBin NMinus (S n1) 1)) (e':=NNum (S n1));
+              auto using n_step_num. {
+              assert (rx : S n1 - 1 = n1) by lia.
+              assert (Hn1: NStep (NBin NMinus (S n1) 1) (S n1 - 1)). {
+                apply n_step_bin; auto using n_step_num.
+              }
+              remember ((NBin NMinus (S n1) 1)) as e.
+              rewrite rx in Hn1.
+              assumption.
+            }
+            destruct Hp as [(Hp1, Hp2)|(Hp1, Hp2)];
+              rewrite i_subst_subst_eq_1 in Hp1;
+              simpl in Hp1;
+              remove_eq x x.
+            {
               (* a1 \in c2[m - 1] /\ a2 \in IFirst (P_x [m]) *)
+              simpl.
+              left.
+              split; auto.
+              (* a2 \in IFirst (P_x [m]) *)
               admit. (* easy *)
             }
             (* a2 \in c2[m - 1] /\ a1 \in IFirst (P_x [ m] ) *)
