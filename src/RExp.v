@@ -547,6 +547,21 @@ Section Defs.
     n1 < S n2 ->
     RLast (e1, e2) n2.
 
+  Lemma r_last_fun:
+    forall r n,
+    RLast r n ->
+    forall n',
+    RLast r n' ->
+    n' = n.
+  Proof.
+    intros.
+    invc H.
+    invc H0.
+    assert (x: S n = S n') by eauto using n_step_fun.
+    invc x.
+    reflexivity.
+  Qed.
+
   Lemma r_step_last:
     forall r1 n1 n r2,
     RStep r1 n1 r2 ->

@@ -1362,6 +1362,80 @@ Section Defs.
     - auto using Conc.distinct_subst.
   Qed.
 
+  Inductive GetLast : w_inst -> inst -> Prop :=
+  | get_last_sync:
+    forall c,
+    GetLast (WSync c) Skip
+  | get_last_seq:
+    forall P c Q,
+    GetLast Q c ->
+    GetLast (WSeq P Q) c
+  | get_last_for:
+    forall c1 x r P n c2 c,
+    RLast r n ->
+    GetLast (w_subst x (NNum n) P) c ->
+    GetLast (WFor c1 x r P c2) (Conc.c_seq c (i_subst x (NNum n) c2)).
+
+  Lemma get_last_1:
+    forall P c,
+    GetLast P c ->
+    forall a,
+    ~ WVar TID P ->
+    CIn a c ->
+    ILast a P.
+  Proof.
+    intros P c H.
+    induction H; intros a Hv Hc.
+    - apply c_in_skip in Hc.
+      contradiction.
+    - constructor.
+      simpl in *.
+      auto.
+    - simpl in *.
+      apply c_in_inv_c_seq in Hc.
+      destruct Hc. {
+        eapply i_last_for_1; eauto.
+        intros.
+        apply i_last_w_subst with (e1:=NNum n) (n:=n); auto using n_step_num.
+        apply IHGetLast; auto.
+        intros N.
+        apply wvar_inv_subst in N.
+        intuition.
+      }
+      eapply i_last_for_2; eauto.
+      intros.
+      apply c_in_subst with (v:=NNum n) (n0:=n); auto using n_step_num.
+  Qed.
+
+  Lemma get_last_2:
+    forall P a,
+    ILast a P ->
+    forall c,
+    GetLast P c ->
+    CIn a c.
+  Proof.
+    intros P a H.
+    induction H; intros c Hg; invc Hg.
+    - auto.
+    - assert (n0 = n) by eauto using r_last_fun.
+      subst.
+      eauto using c_in_c_seq_l, n_step_num.
+    - assert (n0 = n) by eauto using r_last_fun.
+      subst.
+      eauto using c_in_c_seq_r, n_step_num.
+  Qed.
+
+  Corollary get_last_spec:
+    forall P c,
+    GetLast P c ->
+    ~ WVar TID P ->
+    forall a,
+    ILast a P <-> CIn a c.
+  Proof.
+    split; intros.
+    - eauto using get_last_2.
+    - eauto using get_last_1.
+  Qed.
 (*
   Lemma w_free_dec:
     forall P x,
