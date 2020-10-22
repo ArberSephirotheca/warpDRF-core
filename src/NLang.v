@@ -253,17 +253,6 @@ Section Props.
     (* TODO: PROVE ME PLEASE *)
   Admitted.
 
-  Lemma c_subst_c_seq:
-    forall x v c1 c2,
-    i_subst x v (Conc.c_seq c1 c2)
-    = Conc.c_seq (i_subst x v c1) (i_subst x v c2).
-  Proof.
-    induction c1; simpl; intros; auto.
-    rewrite IHc1_1.
-    rewrite IHc1_2.
-    auto.
-  Qed.
-
   Lemma subst_n_seq:
     forall P x v c,
     subst x v (n_seq c P) =
@@ -442,38 +431,9 @@ Section Props.
   Proof.
   Admitted.
 
-  Definition WClosed P :=
-    forall x,
-    ~ WFree P x.
-
-  Lemma w_closed_inv_seq:
-    forall P1 P2,
-    WClosed (WSeq P1 P2) ->
-    WClosed P1 /\ WClosed P2.
-  Proof.
-    unfold WClosed.
-    intros.
-    split;
-      simpl in *;
-      intros;
-      assert (H:= H x);
-      intuition.
-  Qed.
-
-  Lemma w_free_dec:
-    forall P x,
-    WFree P x \/ ~ WFree P x.
-  Proof.
-    induction P; intros.
-  Admitted.
-
   Definition IClosed P :=
     forall x,
     ~ IFree P x.
-
-  Definition RClosed r :=
-    forall x,
-    ~ RFree r x.
 
   Lemma i_closed_inv_r:
     forall P v r Q,
@@ -570,25 +530,6 @@ Section Props.
       intuition.
     - intuition.
       apply IHP1 in H.
-      intuition.
-  Qed.
-
-  Lemma c_var_inv_subst:
-    forall c x y v,
-    Conc.Var x (i_subst y v c) ->
-    Conc.Var x c.
-  Proof.
-    induction c; simpl; intros; try (intuition; fail).
-    - intuition; eauto.
-    - intuition; eauto.
-    - intuition.
-      rename v into z.
-      destruct (Set_VAR.MF.eq_dec y z). {
-        intuition.
-      }
-      intuition.
-      rename_hyp (Conc.Var _ (i_subst _ _ _)) as Hc.
-      apply IHc in Hc.
       intuition.
   Qed.
 
@@ -788,9 +729,135 @@ Section Props.
       intuition.
   Qed.
 
+  Lemma tr_to_subst:
+    forall P P_x c_x,
+    tr P = (P_x, c_x) ->
+    forall x v,
+    NClosed v ->
+    ~ WVar x P ->
+    tr (w_subst x v P) = (subst x v P_x, i_subst x v c_x).
+  Proof.
+    intros.
+    rewrite <- tr_subst; auto.
+    rewrite H.
+    auto.
+  Qed.
+
+(*
+  Fixpoint tr_first (P:w_inst) :=
+    match P with
+    | WSync c => c
+    | WSeq P _ => tr_first P
+    | WFor c1 x (e1, e2) P _ =>
+      Conc.c_seq c1 (i_subst x e1 (tr_first P))
+    end.
+*)
+
+  Lemma i_first_n_seq_l:
+    forall a c,
+    CIn a c ->
+    forall P,
+    IFirst a (n_seq c P).
+  Proof.
+  Admitted.
+
+  Lemma i_first_n_seq_r:
+    forall a P,
+    IFirst a P ->
+    forall c,
+    IFirst a (n_seq c P).
+  Proof.
+  Admitted.
+
+  Lemma get_first_3:
+    forall P c,
+    GetFirst P c ->
+    forall a,
+    CIn a c ->
+    IFirst a (fst (tr P)).
+  Proof.
+    intros P c H.
+    induction H; simpl; intros a Hc.
+    - constructor.
+      auto.
+    - admit.
+    - destruct r as (e1, e2).
+      destruct (tr P) as (Px, cx) eqn:Ht.
+      simpl.
+      apply c_in_inv_c_seq in Hc.
+      constructor.
+      destruct Hc as [Hc|Hc]. {
+        auto using i_first_n_seq_l.
+      }
+      apply IHGetFirst in Hc.
+      apply tr_to_subst with (x:=x) (v:=NNum n) in Ht.
+      2: { admit. }
+      2: { admit. }
+      rewrite Ht in Hc.
+      simpl in Hc.
+      apply i_first_n_seq_r.
+  Admitted.
+
+  Lemma get_first_4:
+    forall P c,
+    GetFirst P c ->
+    forall a,
+    IFirst a (fst (tr P)) ->
+    CIn a c.
+  Proof.
+    intros P c H.
+    induction H; simpl; intros a Hf; invc Hf.
+    - assumption.
+    - destruct (tr P).
+      destruct (tr Q).
+      invc H0.
+    - admit.
+    - destruct (tr P) as (P_t, c_P) eqn:HP.
+      destruct (tr Q) as (Q_t, c_Q) eqn:HQ.
+      simpl in *.
+      invc H0.
+    - destruct r, (tr P).
+      invc H1.
+    - destruct r, (tr P).
+      invc H1.
+    - destruct r as (e1, e2).
+      destruct (tr P) as (P_t, c_P) eqn:HP.
+      simpl in *.
+      invc H1.
+      rename_hyp (IFirst _ _) as Hi.
+      apply i_first_inv_n_seq in Hi.
+      destruct Hi as [Hi|Hi].
+      + auto using c_in_c_seq_l.
+      + apply c_in_c_seq_r.
+        apply IHGetFirst.
+        apply tr_to_subst with (x:=x) (v:=NNum n) in HP.
+        2: { admit. }
+        2: { admit. }
+        rewrite HP.
+        simpl.
+        admit.
+  Admitted.
+
+  Corollary i_first_tr:
+    forall P,
+    CanRun P ->
+    forall a,
+    IFirst a (fst (tr P)) <->
+    WLang.IFirst a P.
+  Proof.
+    intros P Hc.
+    apply get_first_exists in Hc.
+    destruct Hc as (c, Hg).
+    split; intros.
+    - eapply get_first_4 in H; eauto.
+      rewrite get_first_spec; eauto.
+    - eapply get_first_3; eauto.
+      rewrite <- get_first_spec; eauto.
+  Qed.
+
   Lemma tr_i_pair_in_1:
     forall P,
-    WLang.CanRun P ->
+    CanRun P ->
     forall p,
     PPairIn p (tr P) ->
     WLang.IPairIn p P.
@@ -823,7 +890,29 @@ Section Props.
             rewrite Ht.
             simpl.
             auto.
-          - admit.
+          - eapply WLang.i_pair_in_for_first_2; eauto.
+            destruct p as (a1, a2).
+            simpl in *.
+            apply tr_to_subst with (x:=x) (v:=e1) in Ht.
+            2: { admit. }
+            2: { admit. }
+            assert (CanRun (w_subst x e1 P)). {
+              assert (CanRun (w_subst x (NNum n) P)) by eauto.
+              admit.
+            }
+            intuition.
+            + left.
+              split; auto.
+              apply i_first_tr; auto.
+              rewrite Ht.
+              simpl.
+              assumption.
+            + right.
+              split; auto.
+              apply i_first_tr; auto.
+              rewrite Ht.
+              simpl.
+              assumption.
         }
         rename n0 into m.
   Admitted.
@@ -1056,6 +1145,7 @@ Section Props.
       rewrite v_prefix_seq.
       assert (IHWRun := IHWRun _ Hp); clear Hp.
       subst.
+      
   Admitted.
 
 End Props.

@@ -1100,6 +1100,286 @@ Section Defs.
       rewrite c_subst_not_free; auto.
       rewrite IHP; auto.
   Qed.
+(*
+  Fixpoint get_first (P:w_inst) :=
+    match P with
+    | WSync c => Some c
+    | WSeq P _ => get_first P
+    | WFor c1 x (e1,e2) P _ =>
+      match n_step e1, n_step e2, get_first P with
+      | Some n1, Some n2, Some c =>
+        if Nat.ltb n1 n2 then
+          Some (Conc.c_seq c1 (i_subst x (NNum n1) c))
+        else
+          None
+      | _, _, _ => None
+      end
+    end.
+*)
+  Inductive GetFirst : w_inst -> inst -> Prop :=
+  | get_first_sync:
+    forall c,
+    GetFirst (WSync c) c
+  | get_first_seq:
+    forall P c Q,
+    GetFirst P c ->
+    GetFirst (WSeq P Q) c
+  | get_first_for:
+    forall c1 x r P n c2 c,
+    RFirst r n ->
+    GetFirst (w_subst x (NNum n) P) c ->
+    GetFirst (WFor c1 x r P c2) (Conc.c_seq c1 c).
+
+  Lemma get_first_fun:
+    forall P c,
+    GetFirst P c ->
+    forall c',
+    GetFirst P c' ->
+    c' = c.
+  Proof.
+    intros P c H.
+    induction H; intros c' Hg; invc Hg; auto.
+    assert (n0 = n) by eauto using r_first_fun.
+    subst.
+    assert (c4 = c) by eauto.
+    subst.
+    reflexivity.
+  Qed.
+
+  Lemma get_first_subst:
+    forall P c,
+    GetFirst P c ->
+    forall x v,
+    NClosed v ->
+    ~ WVar x P ->
+    GetFirst (w_subst x v P) (i_subst x v c).
+  Proof.
+    intros P c H.
+    induction H; intros y v Hc Hv.
+    - simpl.
+      constructor.
+    - simpl in *.
+      apply get_first_seq.
+      eauto.
+    - simpl.
+      destruct (Set_VAR.MF.eq_dec y x). {
+        subst.
+        simpl in *.
+        intuition.
+      }
+      assert (Hn : NClosed (NNum n)) by auto using n_closed_num.
+      simpl in *.
+      assert (Hw: ~ WVar y (w_subst x (NNum n) P) ). {
+        intros N.
+        apply wvar_subst_inv_1 in N.
+        intuition.
+      }
+      assert (IHGetFirst := IHGetFirst y v Hc Hw).
+      rewrite Conc.c_subst_c_seq.
+      apply get_first_for with (n:=n).
+      + auto using r_first_subst.
+      + rewrite w_subst_subst_neq_3; auto.
+  Qed.
+(*
+  Lemma get_first_to_prop:
+    forall P,
+    Distinct P ->
+    forall c,
+    get_first P = Some c ->
+    GetFirst P c.
+  Proof.
+    induction P; simpl; intros Hd c Heq.
+    - invc Heq; constructor.
+    - destruct Hd.
+      constructor; auto.
+    - destruct r as (e1, e2).
+      destruct (n_step e1) as [n1|] eqn:Hn1; try (invc Heq; fail).
+      destruct (get_first P) as [c'|] eqn:Hg.
+      2: { destruct (n_step e2); invc Heq. }
+      destruct (n_step e2) as [n2|] eqn:Hn2; try (invc Heq; fail).
+      destruct (Nat.ltb n1 n2) eqn:Hlb; invc Heq.
+      apply get_first_for with (n:=n1); auto. {
+        apply r_first_def with (n2:=n2); auto using n_step_to_prop.
+        apply PeanoNat.Nat.ltb_lt.
+        assumption.
+      }
+      assert (Hd_P: Distinct P) by intuition.
+      assert (IHP := IHP Hd_P c' eq_refl).
+      apply get_first_subst; auto.
+      + auto using n_closed_num.
+      + intuition.
+  Qed.
+
+  Lemma get_first_from_prop:
+    forall P c,
+    GetFirst P c ->
+    Distinct P ->
+    get_first P = Some c.
+  Proof.
+    intros P c H.
+    induction H; simpl; intros Hd; auto. {
+      destruct Hd; auto.
+    }
+    destruct r as (e1, e2).
+    destruct (n_step e1) as [n1|] eqn:Hn1.
+    2:{
+      invc H.
+      assert (r1: n_step e1 = Some n) by auto using prop_to_n_step.
+      rewrite r1 in *.
+      inversion Hn1.
+    }
+    assert (n = n1). {
+      invc H.
+      assert (r1: n_step e1 = Some n) by auto using prop_to_n_step.
+      rewrite r1 in *.
+      invc Hn1.
+      reflexivity.
+    }
+    subst.
+    destruct (n_step e2) as [n2|] eqn:Hn2.
+    2: {
+      invc H.
+      assert (r1: n_step e2 = Some n2) by auto using prop_to_n_step.
+      rewrite r1 in *.
+      inversion Hn2.
+    }
+    destruct (get_first P) as [c'|] eqn:Hg. {
+      destruct (Nat.ltb n1 n2) eqn:Hlt. {
+        assert (c = i_subst x (NNum n1) c'). {
+          assert (gf: GetFirst P c'). {
+            apply get_first_to_prop; auto.
+            intuition.
+          }
+          apply get_first_subst with (x:=x) (v:=NNum n1) in gf.
+          - eauto using get_first_fun.
+          - auto using n_closed_num.
+          - intuition.
+        }
+        subst.
+        reflexivity.
+      }
+      assert (n1 < n2). {
+        invc H.
+        assert (n3 = n2). {
+          eauto using n_step_fun, n_step_to_prop.
+        }
+        subst.
+        assumption.
+      }
+      assert (n1 >= n2). {
+        apply PeanoNat.Nat.ltb_ge.
+        auto.
+      }
+      lia.
+    }
+  Qed.
+*)
+  Definition WClosed P :=
+    forall x,
+    ~ WFree P x.
+
+  Lemma w_closed_inv_seq:
+    forall P1 P2,
+    WClosed (WSeq P1 P2) ->
+    WClosed P1 /\ WClosed P2.
+  Proof.
+    unfold WClosed.
+    intros.
+    split;
+      simpl in *;
+      intros;
+      assert (H:= H x);
+      intuition.
+  Qed.
+
+  Lemma w_closed_inv_for:
+    forall c1 x r P c2,
+    WClosed (WFor c1 x r P c2) ->
+    CClosed c1
+    /\ RClosed r
+    /\ (forall y, x <> y ->  ~ WFree P y)
+    /\ (forall y, x <> y -> ~ CFree c2 y).
+  Proof.
+    intros.
+    unfold WClosed in H.
+    simpl in *.
+    repeat split; intros y n; assert (H := H y); intuition.
+  Qed.
+
+  Lemma get_first_exists:
+    forall P,
+    CanRun P ->
+    exists c, GetFirst P c.
+  Proof.
+    intros P H.
+    induction H.
+    - eexists.
+      constructor.
+    - destruct IHCanRun1 as (c, Hg).
+      eexists.
+      constructor.
+      eauto.
+    - destruct H as (n, Hp).
+      assert (RPick r n) by eauto using r_first_to_pick.
+      assert (Hg : exists c, GetFirst (w_subst x (NNum n) P) c). {
+        eauto.
+      }
+      destruct Hg as (c, Hg).
+      eexists.
+      apply get_first_for with (n:=n); eauto.
+  Qed.
+
+  Lemma get_first_1:
+    forall P c,
+    GetFirst P c ->
+    forall a,
+    CIn a c ->
+    IFirst a P.
+  Proof.
+    intros P c H.
+    induction H; intros a Hi.
+    - constructor; auto.
+    - constructor.
+      auto.
+    - apply c_in_inv_c_seq in Hi.
+      destruct Hi as [Hi|Hi].
+      + auto using i_first_for_1.
+      + eauto using i_first_for_2.
+  Qed.
+
+  Lemma get_first_2:
+    forall P a,
+    IFirst a P ->
+    forall c,
+    GetFirst P c ->
+    CIn a c.
+  Proof.
+    intros P a H.
+    induction H; intros c_out Hg; invc Hg; auto.
+    - eauto using c_in_c_seq_l.
+    - assert (n0 = n) by eauto using r_first_fun.
+      subst.
+      eauto using c_in_c_seq_r.
+  Qed.
+
+  Corollary get_first_spec:
+    forall P c,
+    GetFirst P c ->
+    forall a,
+    IFirst a P <-> CIn a c.
+  Proof.
+    split; intros.
+    - eauto using get_first_2.
+    - eauto using get_first_1.
+  Qed.
+(*
+  Lemma w_free_dec:
+    forall P x,
+    WFree P x \/ ~ WFree P x.
+  Proof.
+    induction P; intros.
+  Admitted.
+*)
 End Defs.
 
 Module ALangNotations.

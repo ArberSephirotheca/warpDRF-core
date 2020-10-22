@@ -915,6 +915,37 @@ Section Defs.
     rewrite n_subst_subst_neq_5; auto.
     rewrite n_subst_subst_neq_5 with (e3:=e2'); auto.
   Qed.
+
+  Definition RClosed r :=
+    forall x,
+    ~ RFree r x.
+
+
+  Lemma r_first_to_closed:
+    forall r n,
+    RFirst r n ->
+    RClosed r.
+  Proof.
+    intros.
+    destruct r as (e1, e2).
+    invc H.
+    intros x N.
+    destruct N as [N|N];
+      contradict N;
+      eauto using n_step_to_not_free.
+  Qed.
+
+  Lemma r_first_subst:
+    forall r n,
+    RFirst r n ->
+    forall x v,
+    RFirst (r_subst x v r) n.
+  Proof.
+    intros.
+    assert (Hx := H).
+    apply r_first_to_closed in H.
+    rewrite r_subst_not_free; auto.
+  Qed.
 End Defs.
 
 Module RExpNotations.

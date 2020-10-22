@@ -9,6 +9,7 @@ Require Import AccExp.
 Require Import Util.
 Require Import Tasks.
 Require Import PairInUtil.
+Require Import Tictac.
 Require Hist.
 
 Import NExpNotations.
@@ -1636,6 +1637,40 @@ Section C1.
     | If _ c1 c2 | Seq c1 c2 => Distinct c1 /\ Distinct c2
     | For x _ c => ~ Var x c /\ Distinct c
     end.
+
+
+  Lemma c_subst_c_seq:
+    forall x v c1 c2,
+    i_subst x v (c_seq c1 c2)
+    = c_seq (i_subst x v c1) (i_subst x v c2).
+  Proof.
+    induction c1; simpl; intros; auto.
+    rewrite IHc1_1.
+    rewrite IHc1_2.
+    auto.
+  Qed.
+
+  Definition CClosed P :=
+    forall x, ~ CFree P x.
+
+  Lemma c_var_inv_subst:
+    forall c x y v,
+    Var x (i_subst y v c) ->
+    Var x c.
+  Proof.
+    induction c; simpl; intros; try (intuition; fail).
+    - intuition; eauto.
+    - intuition; eauto.
+    - intuition.
+      rename v into z.
+      destruct (Set_VAR.MF.eq_dec y z). {
+        intuition.
+      }
+      intuition.
+      rename_hyp (Var _ (i_subst _ _ _)) as Hc.
+      apply IHc in Hc.
+      intuition.
+  Qed.
 End C1.
 
 Module CLangNotations.
