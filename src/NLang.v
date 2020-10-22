@@ -987,11 +987,21 @@ Section Props.
         + apply i_pair_in_inv_n_seq in Hp.
           destruct Hp as [Hp|[Hp|Hp]].
           * (* p \in c2 [m - 1] *)
-            admit.
+            rewrite i_subst_subst_eq_1 in Hp.
+            simpl in Hp.
+            remove_eq x x.
+            eapply WLang.i_pair_in_for_2 with (n0:=m - 1); eauto using n_step_num. {
+              auto using r_pick_impl_2.
+            }
+            apply c_pair_in_subst with (e1:=(NBin NMinus m 1)) (n:=m - 1);
+              auto using n_step_num.
+            simpl.
+            apply n_step_bin; auto using n_step_num.
           * (* p \in Px [m] *)
             clear Hx.
             eapply i_pair_in_tr_for_1 with (e:=NNum m); eauto using n_step_num, r_pick_impl.
-            admit.
+            intros.
+            apply IH; auto using WLang.distinct_subst.
           * destruct p as (a1, a2).
             simpl in *.
             destruct Hp as [(Hp1, Hp2)|(Hp1, Hp2)]. {
