@@ -8,6 +8,7 @@ Require Import WLang.
 Require Import Tictac.
 Require Import Util.
 Require Import Coq.Lists.List.
+Require Import Coq.micromega.Lia.
 
 Import ListNotations.
 Import NExpNotations.
@@ -808,6 +809,60 @@ Section Props.
       rewrite <- get_first_spec; eauto.
   Qed.
 
+  Lemma i_pair_in_tr_for_1:
+    forall p c1 x r P c2,
+    (forall n,
+     RPick r n ->
+     forall p,
+     PPairIn p (tr (w_subst x n P)) -> WLang.IPairIn p (w_subst x n P)) ->
+    ~ WVar x P ->
+    forall P_x c_x,
+    tr P = (P_x, c_x) ->
+    forall e n,
+    RPick r n ->
+    NStep e n ->
+    IPairIn p (subst x e P_x) ->
+    WLang.IPairIn p (WFor c1 x r P c2).
+  Proof.
+    intros.
+    eapply WLang.i_pair_in_for_1 with (e0:=NNum n); eauto using n_step_num.
+    apply H; auto.
+    assert (IPairIn p (subst x (NNum n) P_x)). {
+      eauto using i_pair_in_subst, n_step_num.
+    }
+    rewrite <- tr_subst; auto using n_closed_num.
+    rewrite H1.
+    simpl.
+    auto.
+  Qed.
+
+  Lemma n_step_inv_succ:
+    forall e n,
+    NStep (NBin NPlus (NNum 1) e) n -> 
+    exists n', NStep e n' /\ n = S n'.
+  Proof.
+    intros.
+    invc H.
+    assert (n1 = 1) by eauto using n_step_num, n_step_fun.
+    subst.
+    exists n2.
+    split; eauto.
+  Qed.
+
+  Lemma r_pick_impl:
+    forall e1 e2 n,
+    RPick (NBin NPlus (NNum 1) e1, e2) n ->
+    RPick (e1, e2) n.
+  Proof.
+    intros.
+    invc H.
+    apply n_step_inv_succ in H2.
+    destruct H2 as (n', (Hn1, ?)).
+    subst.
+    eapply r_pick_def; eauto.
+    lia.
+  Qed.
+
   Lemma tr_i_pair_in_1:
     forall P,
     CanRun P ->
@@ -832,18 +887,13 @@ Section Props.
         invc Hp; rename_hyp (IPairIn _ _) as Hp. {
           apply i_pair_in_inv_n_seq in Hp.
           destruct Hp as [Hp|[Hp|Hp]].
-          - constructor; auto.
-          - eapply WLang.i_pair_in_for_1 with (e:=NNum n); eauto using n_step_num.
-            apply IH; auto.
-            assert (IPairIn p (subst x (NNum n) P_x)). {
-              eauto using i_pair_in_subst, n_step_num.
-            }
-            rewrite <- tr_subst; auto using n_closed_num.
-            2: { admit. }
-            rewrite Ht.
-            simpl.
-            auto.
-          - eapply WLang.i_pair_in_for_first_2; eauto.
+          - (* p \in c1 *)
+            constructor; auto.
+          - (* p \in Px [e1] *)
+            eapply i_pair_in_tr_for_1; eauto.
+            admit.
+          - (* a1 \in c1 /\ a2 \in P[e1] *)
+            eapply WLang.i_pair_in_for_first_2; eauto.
             destruct p as (a1, a2).
             simpl in *.
             apply tr_to_subst with (x:=x) (v:=e1) in Ht.
@@ -878,6 +928,8 @@ Section Props.
           * (* p \in c2 [m - 1] *)
             admit.
           * (* p \in Px [m] *)
+            clear Hx.
+            eapply i_pair_in_tr_for_1 with (e:=NNum m); eauto using n_step_num, r_pick_impl.
             admit.
           * destruct p as (a1, a2).
             simpl in *.
