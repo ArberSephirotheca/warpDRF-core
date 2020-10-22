@@ -193,17 +193,6 @@ Section Defs.
       + eauto using Conc.var_subst_inv_1.
   Qed.
 
-  Lemma wvar_subst_not_in:
-    forall x P y e n,
-    NStep e n ->
-    ~ WVar x P ->
-    ~ WVar x (w_subst y e P).
-  Proof.
-    (* This one might be a long one, since we would need to prove a similar
-       result for Conc, NExp, BExp, and access_exp. *)
-    (* TODO: PROVE ME PLEASE *)
-  Admitted.
-
   Lemma wrun_one:
     forall i h,
     ~ WRun i {{h}}.
@@ -329,24 +318,6 @@ Section Defs.
     }
     eauto using r_one_to_has_next.
   Qed.
-
-
-  Lemma can_run_subst:
-    forall x e e' P,
-(* (* These assumptions might be useful *)
-    ~ Var TID P ->
-    ~ NIn TID e ->
-    ~ NIn TID e' ->
-    x <> TID ->
-    *)
-    forall n,
-    NStep e n ->
-    NStep e' n ->
-    CanRun (w_subst x e P) ->
-    CanRun (w_subst x e' P).
-  Proof.
-    (* TODO: PROVE ME PLEASE *)
-  Admitted.
 
   (* ------------------ IFIRST --------------------------------------- *)
 
@@ -479,18 +450,6 @@ Section Defs.
       auto using first_in_seq_l, first_in_prefix_r, first_in_seq_l.
   Qed.
 
-  Lemma i_first_w_subst:
-    forall a P x e1 n,
-    NStep e1 n ->
-    IFirst a (w_subst x e1 P) ->
-    forall e2,
-    NStep e2 n ->
-    x <> TID ->
-    IFirst a (w_subst x e2 P).
-  Proof.
-    (* See i_last_w_subst for an example *)
-    (* TODO: PROVE ME PLEASE *)
-  Admitted.
   (* ------------------ ILAST --------------------------------------- *)
 
   Inductive ILast (a: access_val) : w_inst -> Prop :=
@@ -1042,13 +1001,6 @@ Section Defs.
    | WSeq i j => WSeq (w_seq c i) j
    | WFor c1 x r P c2 => WFor (c_seq c c1) x r P c2
    end.
-
-  Lemma i_pair_in_inv_w_seq:
-    forall a c P,
-    IPairIn a (w_seq c P) ->
-    CPairIn a c \/ IPairIn a P \/ OneOf a (inl c) (inr P).
-  Proof.
-  Admitted.
 
   Fixpoint WFree P (x:var) :=
     match P with

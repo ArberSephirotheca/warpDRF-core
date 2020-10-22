@@ -215,14 +215,6 @@ Section Props.
     reflexivity.
   Qed.
 
-  Lemma p_first_inv_p_seq:
-    forall a P Q,
-    PFirst a (p_seq P Q) ->
-    PFirst a P.
-  Proof.
-    (* TODO: PROVE ME PLEASE *)
-  Admitted.
-
   Lemma i_first_inv_n_seq:
     forall a c P,
     IFirst a (n_seq c P) ->
@@ -241,14 +233,6 @@ Section Props.
     forall a c P,
     IPairIn a (n_seq c P) ->
     CPairIn a c \/ IPairIn a P \/ NOneOf a c P.
-  Proof.
-  Admitted.
-
-
-  Lemma p_pair_in_inv_p_seq:
-    forall a P Q,
-    PPairIn a (p_seq P Q) ->
-    PPairIn a P \/ PPairIn a Q \/ POneOf a P Q.
   Proof.
     (* TODO: PROVE ME PLEASE *)
   Admitted.
@@ -355,13 +339,7 @@ Section Props.
     | NFor P y r Q =>
         IFree P x \/ RFree r x \/ (x <> y /\ IFree Q x)
     end.
-(*
-  Lemma n_subst_not_in_rw
-     : forall (x : var) P,
-       ~ PFree x P -> forall v : nexp, subst x v P = P.
-  Proof.
-  Admitted.
-*)
+
   Lemma i_free_inv_subst_eq:
     forall x v P,
     IFree (subst x v P) x ->
@@ -375,22 +353,6 @@ Section Props.
       destruct (Set_VAR.MF.eq_dec x v0) as [?|_]; try contradiction.
       auto.
   Qed.
-
-  Lemma i_pair_in_n_seq_l:
-    forall p c,
-    CPairIn p c ->
-    forall P,
-    IPairIn p (n_seq c P).
-  Proof.
-  Admitted.
-
-  Lemma i_pair_in_n_seq_r:
-    forall p P,
-    IPairIn p P ->
-    forall c,
-    IPairIn p (n_seq c P).
-  Proof.
-  Admitted.
 
   Lemma i_pair_in_subst:
     forall p x e1 P n,
@@ -421,15 +383,6 @@ Section Props.
       rewrite IHP2.
       reflexivity.
   Qed.
-
-  Lemma subst_subst_neq_3
-     : forall P (x y : var) (v1 v2 : nexp),
-       x <> y ->
-       ~ NFree v1 y ->
-       ~ NFree v2 x ->
-       subst x v1 (subst y v2 P) = subst y v2 (subst x v1 P).
-  Proof.
-  Admitted.
 
   Definition IClosed P :=
     forall x,

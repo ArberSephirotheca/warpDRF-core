@@ -1532,6 +1532,7 @@ Section C1.
     - destruct H as [H|[H|H]]; eauto using b_free_inv_subst_eq.
     - destruct H as [H|H]; eauto.
     - admit.
+      (* TODO: PROVE ME *)
   Admitted.
 
   Lemma c_subst_not_free:
@@ -1548,48 +1549,11 @@ Section C1.
       rewrite BExp.b_subst_not_free; auto.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.
-    - admit.
+    - (* TODO: PROVE ME *)
+      admit.
     - rewrite IHc; auto.
       rewrite r_subst_not_free; auto.
       destruct (Set_VAR.MF.eq_dec x v); subst; auto.
-  Admitted.
-
-  Lemma c_subst_subst_neq_4:
-    forall c x y e1 e2,
-    x <> y ->
-    NClosed e1 ->
-    (*NClosed e2 ->*)
-    i_subst y e1 (i_subst x e2 c) =
-    i_subst y e1 (i_subst x (n_subst y e1 e2) c).
-  Proof.
-    induction c; intros.
-    - reflexivity.
-    - simpl.
-      rewrite IHc1; auto.
-      rewrite IHc2; auto.
-      rewrite b_subst_subst_neq_4; auto.
-    - simpl.
-      rewrite IHc1; auto.
-      rewrite IHc2; auto.
-    - admit.
-    - simpl.
-      assert (r1: n_subst v e1 e2 = e2). {
-        rewrite n_subst_not_free; auto using n_closed_to_not_free.
-        admit.
-      }
-      destruct (Set_VAR.MF.eq_dec y v). {
-        subst.
-        destruct (Set_VAR.MF.eq_dec x v) as [?|_]; try contradiction.
-        rewrite r_subst_subst_neq_4; auto.
-        rewrite r1.
-        reflexivity.
-      }
-      destruct (Set_VAR.MF.eq_dec x v). {
-        subst.
-        rewrite r_subst_subst_neq_4; auto.
-      }
-      rewrite IHc; auto.
-      rewrite r_subst_subst_neq_4; auto.
   Admitted.
 
   Lemma c_subst_subst_neq_5:
