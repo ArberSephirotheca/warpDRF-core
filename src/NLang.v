@@ -898,6 +898,21 @@ Section Props.
     lia.
   Qed.
 
+  Lemma r_pick_impl_2:
+    forall e1 e2 m,
+    RPick ((NBin NPlus 1 e1), e2) m ->
+    RPick (e1, e2) (Nat.sub m 1).
+  Proof.
+    intros.
+    invc H.
+    rename_hyp (NStep _ n1) as Hn1.
+    apply n_step_inv_succ in Hn1.
+    destruct Hn1 as (n', (Hn1, ?)).
+    subst.
+    eapply r_pick_def; eauto.
+    lia.
+  Qed.
+
   Lemma tr_i_pair_in_1:
     forall P,
     CanRun P ->
@@ -963,7 +978,7 @@ Section Props.
           eapply i_pair_in_tr_for_2 with (e:=m - 1) (n:=m - 1); eauto using n_step_num.
           * intros.
             apply IH; auto using WLang.distinct_subst.
-          * admit.
+          * auto using r_pick_impl_2.
           * rewrite i_subst_subst_eq_1 in Hp.
             simpl in Hp.
             remove_eq x x.
