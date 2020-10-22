@@ -956,6 +956,20 @@ Section Props.
     assumption.
   Qed.
 
+  Lemma n_step_succ_minus_one:
+    forall n,
+    NStep (NBin NMinus (S n) 1) n.
+  Proof.
+    intros.
+    assert (NStep (NBin NMinus (S n) 1) (S n - 1)) by
+      (apply n_step_bin; auto using n_step_num).
+    remember (S n - 1) as nx.
+    assert (r1: nx = n) by lia.
+    remember (NBin NMinus (S n) 1) as e.
+    rewrite r1 in H.
+    assumption.
+  Qed.
+
   Lemma tr_i_pair_in_1:
     forall P,
     CanRun P ->
@@ -1034,16 +1048,10 @@ Section Props.
             apply r_pick_impl_3 in Hi.
             destruct Hi as (n1, (?, Hi)).
             subst.
-            apply i_pair_in_for_mid_1 with (n0:=n1) (e:=(NBin NMinus (S n1) 1)) (e':=NNum (S n1));
-              auto using n_step_num. {
-              assert (rx : S n1 - 1 = n1) by lia.
-              assert (Hn1: NStep (NBin NMinus (S n1) 1) (S n1 - 1)). {
-                apply n_step_bin; auto using n_step_num.
-              }
-              remember ((NBin NMinus (S n1) 1)) as e.
-              rewrite rx in Hn1.
-              assumption.
-            }
+            apply i_pair_in_for_mid_1 with
+              (n0:=n1) (e:=(NBin NMinus (S n1) 1)) (e':=NNum (S n1));
+              auto using n_step_num, n_step_succ_minus_one
+            .
             destruct Hp as [(Hp1, Hp2)|(Hp1, Hp2)];
               rewrite i_subst_subst_eq_1 in Hp1;
               simpl in Hp1;
@@ -1064,8 +1072,28 @@ Section Props.
               eauto using n_step_num, r_pick_impl.
         + destruct p as (a1, a2).
           simpl in *.
-          destruct Hp as [(Hp1, Hp2)|(Hp1, Hp2)]. {
-            (* a1 \in cx[m - 1] /\ a2 \in c2[m - 1] \/ a2 \in P[m] *)
+          rename_hyp (RPick _ m) as Hi.
+          assert (Hp_n1 := Hi).
+          apply r_pick_impl_3 in Hi.
+          destruct Hi as (n1, (?, Hi)).
+          subst.
+          destruct Hp as [(Hp1, Hp2)|(Hp1, Hp2)];
+            rewrite i_subst_subst_eq_1 in Hp1;
+            simpl in Hp1;
+            remove_eq x x
+          . {
+            apply i_first_inv_n_seq in Hp2.
+            destruct Hp2 as [Hp2|Hp2]. {
+              (* a1 \in cx[m - 1] /\ a2 \in c2[m - 1] *)
+              admit.
+            }
+            (* a1 \in cx[m - 1] /\ a2 \in P[m] *)
+            eapply WLang.i_pair_in_for_mid_2 with
+              (n0:=n1)
+              (e:=(NBin NMinus (S n1) 1)) (e':=NNum (S n1));
+              eauto using n_step_num, n_step_succ_minus_one.
+            simpl.
+            left.
             admit.
           }
           (* a2 \in cx[m - 1] /\ a1 \in c2[m - 1] \/ a2 \in P[m] *)
