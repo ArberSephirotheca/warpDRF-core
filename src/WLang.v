@@ -1062,6 +1062,38 @@ Section Defs.
       rewrite c_subst_not_free; auto.
       rewrite IHP; auto.
   Qed.
+
+  Definition WClosed P :=
+    forall x,
+    ~ WFree P x.
+
+  Lemma w_closed_inv_seq:
+    forall P1 P2,
+    WClosed (WSeq P1 P2) ->
+    WClosed P1 /\ WClosed P2.
+  Proof.
+    unfold WClosed.
+    intros.
+    split;
+      simpl in *;
+      intros;
+      assert (H:= H x);
+      intuition.
+  Qed.
+
+  Lemma w_closed_inv_for:
+    forall c1 x r P c2,
+    WClosed (WFor c1 x r P c2) ->
+    CClosed c1
+    /\ RClosed r
+    /\ (forall y, x <> y ->  ~ WFree P y)
+    /\ (forall y, x <> y -> ~ CFree c2 y).
+  Proof.
+    intros.
+    unfold WClosed in H.
+    simpl in *.
+    repeat split; intros y n; assert (H := H y); intuition.
+  Qed.
 (*
   Fixpoint get_first (P:w_inst) :=
     match P with
@@ -1078,6 +1110,7 @@ Section Defs.
       end
     end.
 *)
+
   Inductive GetFirst : w_inst -> inst -> Prop :=
   | get_first_sync:
     forall c,
@@ -1236,37 +1269,6 @@ Section Defs.
     }
   Qed.
 *)
-  Definition WClosed P :=
-    forall x,
-    ~ WFree P x.
-
-  Lemma w_closed_inv_seq:
-    forall P1 P2,
-    WClosed (WSeq P1 P2) ->
-    WClosed P1 /\ WClosed P2.
-  Proof.
-    unfold WClosed.
-    intros.
-    split;
-      simpl in *;
-      intros;
-      assert (H:= H x);
-      intuition.
-  Qed.
-
-  Lemma w_closed_inv_for:
-    forall c1 x r P c2,
-    WClosed (WFor c1 x r P c2) ->
-    CClosed c1
-    /\ RClosed r
-    /\ (forall y, x <> y ->  ~ WFree P y)
-    /\ (forall y, x <> y -> ~ CFree c2 y).
-  Proof.
-    intros.
-    unfold WClosed in H.
-    simpl in *.
-    repeat split; intros y n; assert (H := H y); intuition.
-  Qed.
 
   Lemma get_first_exists:
     forall P,
@@ -1436,6 +1438,30 @@ Section Defs.
     - eauto using get_last_2.
     - eauto using get_last_1.
   Qed.
+
+  Lemma get_last_exists:
+    forall P,
+    CanRun P ->
+    exists c, GetLast P c.
+  Proof.
+    intros P H.
+    induction H.
+    - eexists.
+      constructor.
+    - destruct IHCanRun2 as (c, Hg).
+      eexists.
+      constructor.
+      eauto.
+    - edestruct r_has_next_to_last as (n, Hl); eauto.
+      assert (RPick r n) by eauto using r_last_to_pick.
+      assert (Hg : exists c, GetLast (w_subst x (NNum n) P) c). {
+        eauto.
+      }
+      destruct Hg as (c, Hg).
+      eexists.
+      apply get_last_for with (n:=n); eauto.
+  Qed.
+
 (*
   Lemma w_free_dec:
     forall P x,
