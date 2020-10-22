@@ -933,7 +933,7 @@ Section Props.
     - lia.
   Qed.
 
-  Lemma i_first_in_tr_for_1:
+  Lemma i_first_tr_1:
     forall v r n P x P_x c_x,
     CanRun (w_subst x (NNum n) P) ->
     tr P = (P_x, c_x) ->
@@ -955,6 +955,20 @@ Section Props.
     simpl.
     assumption.
   Qed.
+
+  Lemma i_last_tr_1:
+    forall v r n P x P_x c_x,
+    CanRun (w_subst x (NNum n) P) ->
+    tr P = (P_x, c_x) ->
+    NStep v n ->
+    RPick r n ->
+    ~ WVar x P ->
+    forall a,
+    CIn a (i_subst x v c_x) ->
+    WLang.ILast a (w_subst x v P).
+  Proof.
+    intros.
+  Admitted.
 
   Lemma n_step_succ_minus_one:
     forall n,
@@ -1007,7 +1021,7 @@ Section Props.
             destruct p as (a1, a2).
             simpl in *.
             intuition;
-             eauto using i_first_in_tr_for_1.
+             eauto using i_first_tr_1.
         }
         rename n0 into m.
         repeat rewrite subst_n_seq in Hp.
@@ -1062,13 +1076,13 @@ Section Props.
               left.
               split; auto.
               (* a2 \in IFirst (P_x [m]) *)
-              eapply i_first_in_tr_for_1 with (n:=S n1);
+              eapply i_first_tr_1 with (n:=S n1);
                 eauto using n_step_num, r_pick_impl.
             }
             (* a2 \in c2[m - 1] /\ a1 \in IFirst (P_x [ m] ) *)
             simpl.
             right; split; auto.
-            eapply i_first_in_tr_for_1 with (n:=S n1);
+            eapply i_first_tr_1 with (n:=S n1);
               eauto using n_step_num, r_pick_impl.
         + destruct p as (a1, a2).
           simpl in *.
@@ -1085,6 +1099,17 @@ Section Props.
             apply i_first_inv_n_seq in Hp2.
             destruct Hp2 as [Hp2|Hp2]. {
               (* a1 \in cx[m - 1] /\ a2 \in c2[m - 1] *)
+              rewrite i_subst_subst_eq_1 in Hp2; simpl in Hp2; remove_eq x x.
+              apply WLang.i_pair_in_for_3
+                with (n0:=S n1) (e:=(NBin NMinus (S n1) 1));
+                auto using r_pick_impl.
+              simpl.
+              left.
+              split; auto.
+              (*
+              eapply i_last_tr_1 with (n:=n1) (r:=(NBin NPlus 1 e1, e2) ); eauto using n_step, n_step_succ_minus_one, r_pick_impl_2.
+              *)
+              (* a \in cx /\ a \in c2 *)
               admit.
             }
             (* a1 \in cx[m - 1] /\ a2 \in P[m] *)
@@ -1094,10 +1119,36 @@ Section Props.
               eauto using n_step_num, n_step_succ_minus_one.
             simpl.
             left.
+            split. {
+              admit.
+            }
+            eapply i_first_in_tr_for_1 with (n:=S n1);
+              eauto using n_step_num, r_pick_impl.
+          }
+          apply i_first_inv_n_seq in Hp2.
+          destruct Hp2 as [Hp2|Hp2]. {
+            rewrite i_subst_subst_eq_1 in Hp2; simpl in Hp2; remove_eq x x.
+            apply WLang.i_pair_in_for_3
+              with (n0:=S n1) (e:=(NBin NMinus (S n1) 1));
+              auto using r_pick_impl.
+            simpl.
+            right.
+            split; auto.
+            (* a2 \in cx [m] *)
             admit.
           }
-          (* a2 \in cx[m - 1] /\ a1 \in c2[m - 1] \/ a2 \in P[m] *)
-          admit.
+          (* a2 \in cx[m - 1] /\ a2 \in P[m] *)
+            eapply WLang.i_pair_in_for_mid_2 with
+              (n0:=n1)
+              (e:=(NBin NMinus (S n1) 1)) (e':=NNum (S n1));
+              eauto using n_step_num, n_step_succ_minus_one.
+            simpl.
+            right.
+            split. {
+              admit.
+            }
+            eapply i_first_in_tr_for_1 with (n:=S n1);
+              eauto using n_step_num, r_pick_impl.
      }
      (* p \in cx [ e2 - 1] \/ p \in c2[ e2 - 1] *)
   Admitted.
