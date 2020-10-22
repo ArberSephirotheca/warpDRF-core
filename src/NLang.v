@@ -868,6 +868,36 @@ Section Props.
               assumption.
         }
         rename n0 into m.
+        repeat rewrite subst_n_seq in Hp.
+        apply i_pair_in_inv_n_seq in Hp.
+        destruct Hp as [Hp|[Hp|Hp]].
+        + (* p \in cx [m - 1] *)
+          admit.
+        + apply i_pair_in_inv_n_seq in Hp.
+          destruct Hp as [Hp|[Hp|Hp]].
+          * (* p \in c2 [m - 1] *)
+            admit.
+          * (* p \in Px [m] *)
+            admit.
+          * destruct p as (a1, a2).
+            simpl in *.
+            destruct Hp as [(Hp1, Hp2)|(Hp1, Hp2)]. {
+              (* a1 \in c2[m - 1] /\ a2 \in IFirst (P_x [m]) *)
+              admit. (* easy *)
+            }
+            (* a2 \in c2[m - 1] /\ a1 \in IFirst (P_x [ m] ) *)
+            admit.
+            (* easy *)
+        + destruct p as (a1, a2).
+          simpl in *.
+          destruct Hp as [(Hp1, Hp2)|(Hp1, Hp2)]. {
+            (* a1 \in cx[m - 1] /\ a2 \in c2[m - 1] \/ a2 \in P[m] *)
+            admit.
+          }
+          (* a2 \in cx[m - 1] /\ a1 \in c2[m - 1] \/ a2 \in P[m] *)
+          admit.
+     }
+     (* p \in cx [ e2 - 1] \/ p \in c2[ e2 - 1] *)
   Admitted.
 
   Import VHist.
