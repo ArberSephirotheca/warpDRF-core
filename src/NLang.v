@@ -744,6 +744,8 @@ Section Props.
   Proof.
   Admitted.
 
+  (* ----------------------- GET FIRST ------------------------ *)
+
   Lemma get_first_tr_1:
     forall P c,
     GetFirst P c ->
@@ -853,6 +855,46 @@ Section Props.
     - eapply get_first_tr_1; eauto.
       rewrite <- get_first_spec; eauto.
   Qed.
+
+  (* -------------------------------- GET LAST ------------------------ *)
+
+  Lemma get_last_tr_1:
+    forall P c,
+    GetLast P c ->
+    WLang.Distinct P ->
+    ~ WVar TID P ->
+    forall a,
+    CIn a c ->
+    CIn a (snd (tr P)).
+  Proof.
+    intros P c H.
+    induction H; simpl; intros Hd Htid a Hc.
+    - assumption.
+    - destruct (tr P) as (P',c_p) eqn:Ht1.
+      destruct (tr Q) as (Q',c_q) eqn:Ht2.
+      intuition.
+    - destruct r as (e1, e2).
+      destruct (tr P) as (P',c_p) eqn:Ht1.
+      simpl.
+      apply c_in_inv_c_seq in Hc.
+      apply tr_to_subst with (x:=x) (v:=NNum n) in Ht1;
+        eauto using n_step_to_closed, n_step_num.
+      2: { intuition. }
+      destruct Hc as [Hc|Hc].
+      + apply c_in_c_seq_l.
+        apply IHGetLast in Hc; clear IHGetLast.
+        2: { apply WLang.distinct_subst. intuition. }
+        2: { intros N. apply wvar_inv_subst in N. intuition. }
+        rewrite Ht1 in Hc.
+        simpl in *.
+        apply c_in_subst with (v:=NNum n) (n0 := n);
+          eauto using n_step_num, r_last_to_eq.
+      + apply c_in_c_seq_r.
+        apply c_in_subst with (v:=NNum n) (n0 := n);
+          eauto using n_step_num, r_last_to_eq.
+  Qed.
+
+  (* -------------------- IPairIn Translation ------------------------ *)
 
   Lemma i_pair_in_tr_for_1:
     forall p c1 x r P c2,
