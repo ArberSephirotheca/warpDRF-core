@@ -1184,8 +1184,26 @@ Section Props.
       destruct (tr P) as (P', c1) eqn:Ht1.
       destruct (tr Q) as (Q', c2) eqn:Ht2.
       simpl in *.
-      destruct Hp. {
-        admit.
+      destruct Hd as (Hd1, Hd2).
+      destruct Hp as [Hp|Hp]. {
+        invc Hp. {
+          apply WLang.i_pair_in_seq_l.
+          auto.
+        }
+        rename_hyp (IPairIn _ _) as Hp.
+        apply i_pair_in_inv_n_seq in Hp.
+        destruct Hp as [Hp|[Hp|Hp]].
+        - apply WLang.i_pair_in_seq_l.
+          auto.
+        - apply WLang.i_pair_in_seq_r.
+          auto.
+        - destruct p as (a1, a2).
+          simpl in *.
+          destruct Hp as [(Hp1, Hp2)|(Hp1,Hp2)]; apply WLang.i_pair_in_seq_both; simpl.
+          + left.
+            admit.
+          + right.
+            admit.
       }
       apply WLang.i_pair_in_seq_r.
       apply IHCanRun2; auto.
