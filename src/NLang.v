@@ -178,7 +178,7 @@ Section Props.
     IFirst a (NFor P x r Q)
   .
 
-  Definition PFirst a (P:p_inst) :=
+  Definition  PFirst a (P:p_inst) :=
     match P with
     | (Q, _) => IFirst a Q
     end.
@@ -733,18 +733,34 @@ Section Props.
   Proof.
   Admitted.
 
-  Lemma get_first_3:
+  Lemma i_first_subst:
+    forall a x v1 P,
+    IFirst a (subst x v1 P) ->
+    forall n,
+    NStep v1 n ->
+    forall v2,
+    NStep v2 n ->
+    IFirst a (subst x v2 P).
+  Proof.
+  Admitted.
+
+  Lemma get_first_tr_1:
     forall P c,
     GetFirst P c ->
+    WLang.Distinct P ->
     forall a,
     CIn a c ->
     IFirst a (fst (tr P)).
   Proof.
     intros P c H.
-    induction H; simpl; intros a Hc.
+    induction H; simpl; intros Hd a Hc.
     - constructor.
       auto.
-    - admit.
+    - destruct (tr P) as (Px1, cx1) eqn:Ht1.
+      destruct (tr Q) as (Px2, cx2) eqn:Ht2.
+      simpl.
+      apply i_first_seq.
+      intuition.
     - destruct r as (e1, e2).
       destruct (tr P) as (Px, cx) eqn:Ht.
       simpl.
@@ -755,14 +771,19 @@ Section Props.
       }
       apply IHGetFirst in Hc.
       apply tr_to_subst with (x:=x) (v:=NNum n) in Ht.
-      2: { admit. }
-      2: { admit. }
+      2: { eauto using n_step_to_closed, n_step_num. }
+      2: { intuition. }
+      2: { apply WLang.distinct_subst. intuition. }
       rewrite Ht in Hc.
       simpl in Hc.
       apply i_first_n_seq_r.
-  Admitted.
+      apply i_first_subst with
+        (v1:=NNum n) (n:=n);
+        auto using n_step_num.
+      eauto using r_first_to_eq.
+  Qed.
 
-  Lemma get_first_4:
+  Lemma get_first_tr_2:
     forall P c,
     GetFirst P c ->
     forall a,
@@ -775,7 +796,11 @@ Section Props.
     - destruct (tr P).
       destruct (tr Q).
       invc H0.
-    - admit.
+    - destruct (tr P) as (Px1, cx1) eqn:Ht1.
+      destruct (tr Q) as (Px2, cx2) eqn:Ht2.
+      simpl in *.
+      invc H0.
+      eauto.
     - destruct (tr P) as (P_t, c_P) eqn:HP.
       destruct (tr Q) as (Q_t, c_Q) eqn:HQ.
       simpl in *.
@@ -805,17 +830,18 @@ Section Props.
   Corollary i_first_tr:
     forall P,
     CanRun P ->
+    WLang.Distinct P ->
     forall a,
     IFirst a (fst (tr P)) <->
     WLang.IFirst a P.
   Proof.
-    intros P Hc.
+    intros P Hc Hd.
     apply get_first_exists in Hc.
     destruct Hc as (c, Hg).
     split; intros.
-    - eapply get_first_4 in H; eauto.
+    - eapply get_first_tr_2 in H; eauto.
       rewrite get_first_spec; eauto.
-    - eapply get_first_3; eauto.
+    - eapply get_first_tr_1; eauto.
       rewrite <- get_first_spec; eauto.
   Qed.
 
@@ -884,7 +910,7 @@ Section Props.
     split; eauto.
   Qed.
 
-  Lemma r_pick_impl:
+  Lemma r_pick_impl_1:
     forall e1 e2 n,
     RPick (NBin NPlus (NNum 1) e1, e2) n ->
     RPick (e1, e2) n.
@@ -935,6 +961,7 @@ Section Props.
 
   Lemma i_first_tr_1:
     forall v r n P x P_x c_x,
+    WLang.Distinct P ->
     CanRun (w_subst x (NNum n) P) ->
     tr P = (P_x, c_x) ->
     NStep v n ->
@@ -945,13 +972,16 @@ Section Props.
     WLang.IFirst a (w_subst x v P).
   Proof.
     intros.
-    apply tr_to_subst with (x:=x) (v:=v) in H0;
+    rename_hyp (tr _ = _) as Ht.
+    apply tr_to_subst with (x:=x) (v:=v) in Ht;
       eauto using n_step_to_closed.
     assert (CanRun (w_subst x v P)). {
       eauto using can_run_subst.
     }
-    apply i_first_tr; auto.
-    rewrite H0.
+    apply i_first_tr; auto. {
+      auto using distinct_subst.
+    }
+    rewrite Ht.
     simpl.
     assumption.
   Qed.
@@ -1052,7 +1082,8 @@ Section Props.
             apply n_step_bin; auto using n_step_num.
           * (* p \in Px [m] *)
             clear Hx.
-            eapply i_pair_in_tr_for_1 with (e:=NNum m); eauto using n_step_num, r_pick_impl.
+            eapply i_pair_in_tr_for_1 with (e:=NNum m);
+              eauto using n_step_num, r_pick_impl_1.
             intros.
             apply IH; auto using WLang.distinct_subst.
           * destruct p as (a1, a2).
@@ -1077,13 +1108,13 @@ Section Props.
               split; auto.
               (* a2 \in IFirst (P_x [m]) *)
               eapply i_first_tr_1 with (n:=S n1);
-                eauto using n_step_num, r_pick_impl.
+                eauto using n_step_num, r_pick_impl_1.
             }
             (* a2 \in c2[m - 1] /\ a1 \in IFirst (P_x [ m] ) *)
             simpl.
             right; split; auto.
             eapply i_first_tr_1 with (n:=S n1);
-              eauto using n_step_num, r_pick_impl.
+              eauto using n_step_num, r_pick_impl_1.
         + destruct p as (a1, a2).
           simpl in *.
           rename_hyp (RPick _ m) as Hi.
@@ -1102,7 +1133,7 @@ Section Props.
               rewrite i_subst_subst_eq_1 in Hp2; simpl in Hp2; remove_eq x x.
               apply WLang.i_pair_in_for_3
                 with (n0:=S n1) (e:=(NBin NMinus (S n1) 1));
-                auto using r_pick_impl.
+                auto using r_pick_impl_1.
               simpl.
               left.
               split; auto.
@@ -1122,15 +1153,15 @@ Section Props.
             split. {
               admit.
             }
-            eapply i_first_in_tr_for_1 with (n:=S n1);
-              eauto using n_step_num, r_pick_impl.
+            eapply i_first_tr_1 with (n:=S n1);
+              eauto using n_step_num, r_pick_impl_1.
           }
           apply i_first_inv_n_seq in Hp2.
           destruct Hp2 as [Hp2|Hp2]. {
             rewrite i_subst_subst_eq_1 in Hp2; simpl in Hp2; remove_eq x x.
             apply WLang.i_pair_in_for_3
               with (n0:=S n1) (e:=(NBin NMinus (S n1) 1));
-              auto using r_pick_impl.
+              auto using r_pick_impl_1.
             simpl.
             right.
             split; auto.
@@ -1147,8 +1178,8 @@ Section Props.
             split. {
               admit.
             }
-            eapply i_first_in_tr_for_1 with (n:=S n1);
-              eauto using n_step_num, r_pick_impl.
+            eapply i_first_tr_1 with (n:=S n1);
+              eauto using n_step_num, r_pick_impl_1.
      }
      (* p \in cx [ e2 - 1] \/ p \in c2[ e2 - 1] *)
   Admitted.
