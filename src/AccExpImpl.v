@@ -268,6 +268,7 @@ Instance ONE_DIM : Access := {|
   access_subst_subst_neq_3 := n_subst_subst_neq_3;
   access_subst_subst_neq_5 := n_subst_subst_neq_5;
   access_subst_subst_eq_1 := n_subst_subst_eq_1;
+  access_free_inv_subst_eq := n_free_inv_subst_eq;
 |}.
 
 

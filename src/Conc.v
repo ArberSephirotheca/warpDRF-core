@@ -1499,14 +1499,23 @@ Section C1.
   Qed.
 
   Lemma c_pair_in_subst:
-    forall p x e1 c n,
-    NStep e1 n ->
+    forall p x e1 c,
+    x <> TID ->
     CPairIn p (i_subst x e1 c) ->
+    forall n,
+    NStep e1 n ->
     forall e2,
     NStep e2 n ->
     CPairIn p (i_subst x e2 c).
   Proof.
-  Admitted.
+    intros.
+    invc H0.
+    rename_hyp (CIn a1 _) as Hc1.
+    rename_hyp (CIn a2 _) as Hc2.
+    eapply c_in_subst in Hc1; eauto.
+    eapply c_in_subst in Hc2; eauto.
+    eauto using c_pair_in_def.
+  Qed.
 
   Lemma c_seq_subst:
     forall x v c1 c2,
