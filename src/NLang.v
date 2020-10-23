@@ -1359,9 +1359,17 @@ Section Props.
        apply wvar_inv_subst in N.
        intuition.
      + (* cx /\ c2 *)
-       admit.
+       apply WLang.i_pair_in_for_3
+         with (n0:=n2) (e:=(NBin NMinus e2 (NNum 1)));
+         auto using r_pick_impl_1.
+       simpl.
+       eauto using i_last_tr_1.
      + (* c2 /\ cx *)
-       admit.
+       apply WLang.i_pair_in_for_3
+         with (n0:=n2) (e:=(NBin NMinus e2 (NNum 1)));
+         auto using r_pick_impl_1.
+       simpl.
+       eauto using i_last_tr_1.
      + (* c2 /\ c2 *)
        apply WLang.i_pair_in_for_2 with
         (e:=NBin NMinus e2 (NNum 1)) (n0:=n2);
