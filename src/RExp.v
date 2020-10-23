@@ -457,6 +457,17 @@ Section Defs.
     S n < n2 ->
     RPick2 (e1, e2) n.
 
+  Lemma r_pick2_to_pick:
+    forall r n,
+    RPick2 r n ->
+    RPick r n.
+  Proof.
+    intros.
+    invc H.
+    eapply r_pick_def; eauto.
+    lia.
+  Qed.
+
   Lemma r_first_to_has_next:
     forall r n,
     RFirst r n ->

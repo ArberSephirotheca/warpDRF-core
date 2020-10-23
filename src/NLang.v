@@ -1129,22 +1129,6 @@ Section Props.
     - lia.
   Qed.
 
-
-
-  Lemma i_last_tr_1:
-    forall v r n P x P_x c_x,
-    CanRun (w_subst x (NNum n) P) ->
-    tr P = (P_x, c_x) ->
-    NStep v n ->
-    RPick r n ->
-    ~ WVar x P ->
-    forall a,
-    CIn a (i_subst x v c_x) ->
-    WLang.ILast a (w_subst x v P).
-  Proof.
-    intros.
-  Admitted.
-
   Lemma n_step_succ_minus_one:
     forall n,
     NStep (NBin NMinus (S n) 1) n.
@@ -1163,22 +1147,24 @@ Section Props.
     forall P,
     CanRun P ->
     WLang.Distinct P ->
+    ~ WVar TID P -> 
     forall p,
     PPairIn p (tr P) ->
     WLang.IPairIn p P.
   Proof.
     intros P H.
-    induction H; intros Hd p Hp; simpl in Hp; try (destruct Hp as [Hp|Hp]).
+    induction H; intros Hd H_tid p Hp; simpl in Hp; try (destruct Hp as [Hp|Hp]).
     - admit.
     - admit.
     - admit.
-    - destruct r as (e1, e2).
+    - simpl in *.
+      destruct r as (e1, e2).
       destruct (tr P) as (P_x, c_x) eqn:Ht.
       rename_hyp (RHasNext _) as Hr.
       destruct Hr as (n, Hr).
       assert (NStep e1 n) by eauto using r_first_to_eq.
       assert (Hx: RPick (e1,e2) n) by eauto using r_first_to_pick.
-      rename_hyp (forall n, _) as IH.
+      rename_hyp (forall n, RPick (e1, e2) n -> _) as IH.
       simpl in *.
       intuition. {
         rename_hyp (IPairIn _ _) as Hp.
@@ -1191,6 +1177,9 @@ Section Props.
             eapply i_pair_in_tr_for_1; eauto.
             intros.
             eapply IH; auto using WLang.distinct_subst.
+            intros N.
+            apply wvar_inv_subst in N.
+            intuition.
           - (* a1 \in c1 /\ a2 \in P[e1] *)
             eapply WLang.i_pair_in_for_first_2; eauto.
             destruct p as (a1, a2).
@@ -1206,6 +1195,9 @@ Section Props.
           eapply i_pair_in_tr_for_2 with (e:=m - 1) (n:=m - 1); eauto using n_step_num.
           * intros.
             apply IH; auto using WLang.distinct_subst.
+            intros N.
+            apply WLang.wvar_inv_subst in N.
+            intuition.
           * auto using r_pick_impl_2.
           * rewrite i_subst_subst_eq_1 in Hp.
             simpl in Hp.
@@ -1231,6 +1223,9 @@ Section Props.
               eauto using n_step_num, r_pick_impl_1.
             intros.
             apply IH; auto using WLang.distinct_subst.
+            intros N.
+            apply wvar_inv_subst in N.
+            intuition.
           * destruct p as (a1, a2).
             simpl in *.
             rename_hyp (RPick _ m) as Hi.
@@ -1282,11 +1277,10 @@ Section Props.
               simpl.
               left.
               split; auto.
-              (*
-              eapply i_last_tr_1 with (n:=n1) (r:=(NBin NPlus 1 e1, e2) ); eauto using n_step, n_step_succ_minus_one, r_pick_impl_2.
-              *)
-              (* a \in cx /\ a \in c2 *)
-              admit.
+              eapply i_last_tr_1 with (n:=n1) (r:=(e1, e2) );
+                eauto using n_step, n_step_succ_minus_one, r_pick_impl_2.
+              - eauto using r_pick2_to_pick.
+              - eauto using r_pick2_to_pick.
             }
             (* a1 \in cx[m - 1] /\ a2 \in P[m] *)
             eapply WLang.i_pair_in_for_mid_2 with
