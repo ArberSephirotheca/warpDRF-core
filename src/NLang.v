@@ -775,7 +775,13 @@ Section Props.
     forall P,
     IFirst a (n_seq c P).
   Proof.
-  Admitted.
+    induction P; simpl; intros.
+    - constructor.
+      auto using c_in_c_seq_l.
+    - auto using i_first_seq.
+    - constructor.
+      auto.
+  Qed.
 
   Lemma i_first_n_seq_r:
     forall a P,
