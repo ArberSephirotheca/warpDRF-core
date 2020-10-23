@@ -1498,6 +1498,16 @@ Section C1.
     intuition.
   Qed.
 
+  Lemma c_pair_in_subst:
+    forall p x e1 c n,
+    NStep e1 n ->
+    CPairIn p (i_subst x e1 c) ->
+    forall e2,
+    NStep e2 n ->
+    CPairIn p (i_subst x e2 c).
+  Proof.
+  Admitted.
+
   Lemma c_seq_subst:
     forall x v c1 c2,
     i_subst x v (c_seq c1 c2) = c_seq (i_subst x v c1) (i_subst x v c2).

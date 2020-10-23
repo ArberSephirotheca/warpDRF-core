@@ -355,16 +355,6 @@ Section Props.
       auto.
   Qed.
 
-  Lemma c_pair_in_subst:
-    forall p x e1 c n,
-    NStep e1 n ->
-    CPairIn p (i_subst x e1 c) ->
-    forall e2,
-    NStep e2 n ->
-    CPairIn p (i_subst x e2 c).
-  Proof.
-  Admitted.
-
   Lemma i_pair_in_subst:
     forall p x e1 P n,
     NStep e1 n ->
