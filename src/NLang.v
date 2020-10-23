@@ -1179,7 +1179,17 @@ Section Props.
       assumption.
     - apply c_pair_in_skip in Hp.
       contradiction.
-    - admit.
+    - rename i into P.
+      rename j into Q.
+      destruct (tr P) as (P', c1) eqn:Ht1.
+      destruct (tr Q) as (Q', c2) eqn:Ht2.
+      simpl in *.
+      destruct Hp. {
+        admit.
+      }
+      apply WLang.i_pair_in_seq_r.
+      apply IHCanRun2; auto.
+      intuition.
     - simpl in *.
       destruct r as (e1, e2).
       destruct (tr P) as (P_x, c_x) eqn:Ht.
