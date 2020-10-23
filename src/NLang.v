@@ -1129,6 +1129,26 @@ Section Props.
     - lia.
   Qed.
 
+  Lemma r_pick_impl_4:
+    forall e1 e2 n,
+    RPick (e1, e2) n ->
+    exists m, RPick (e1, e2) m /\ NStep (NBin NMinus e2 (NNum 1)) m.
+  Proof.
+    intros.
+    invc H.
+    destruct n2. {
+      lia.
+    }
+    exists n2.
+    split. {
+      eapply r_pick_def; eauto.
+      lia.
+    }
+    assert (rx: n2 = S n2 - 1) by lia.
+    rewrite rx.
+    apply n_step_bin; auto using n_step_num.
+  Qed.
+
   Lemma n_step_succ_minus_one:
     forall n,
     NStep (NBin NMinus (S n) 1) n.
@@ -1322,6 +1342,30 @@ Section Props.
               eauto using n_step_num, r_pick_impl_1.
      }
      (* p \in cx [ e2 - 1] \/ p \in c2[ e2 - 1] *)
+     rename_hyp (CPairIn _ _) as Hi.
+     apply c_pair_inv_c_seq in Hi.
+     destruct p as (a1, a2).
+     destruct Hi as (Ha, Hb).
+     unfold Conc.OneOf in *.
+     edestruct r_pick_impl_4 as (n2,(Hpick, Hn2)); eauto.
+     intuition.
+     + (* cx /\ cx *) 
+       eapply i_pair_in_tr_for_2 with
+        (e:=NBin NMinus e2 (NNum 1)) (n:=n2);
+        eauto using n_step_num, c_pair_in_def.
+       intros.
+       apply IH; auto using WLang.distinct_subst.
+       intros N.
+       apply wvar_inv_subst in N.
+       intuition.
+     + (* cx /\ c2 *)
+       admit.
+     + (* c2 /\ cx *)
+       admit.
+     + (* c2 /\ c2 *)
+       apply WLang.i_pair_in_for_2 with
+        (e:=NBin NMinus e2 (NNum 1)) (n0:=n2);
+        auto using c_pair_in_def.
   Admitted.
 
   Import VHist.

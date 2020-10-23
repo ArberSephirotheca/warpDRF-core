@@ -558,6 +558,10 @@ Section Defs.
     n1 < S n2 ->
     RLast (e1, e2) n2.
 
+
+  (* ------------------------------ RPick --------------------------- *)
+
+  (* ------------------------------ RLast --------------------------- *)
   Lemma r_last_fun:
     forall r n,
     RLast r n ->
@@ -572,6 +576,50 @@ Section Defs.
     invc x.
     reflexivity.
   Qed.
+
+  Lemma r_last_to_pick:
+    forall r n,
+    RLast r n ->
+    RPick r n.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    eapply r_pick_def; eauto.
+    lia.
+  Qed.
+
+  Lemma r_last_to_eq:
+    forall e1 e2 n,
+    RLast (e1, e2) n ->
+    NStep (NBin NMinus e2 (NNum 1)) n.
+  Proof.
+    intros.
+    inversion H; subst; clear H.
+    assert (R1: n = eval_nbin NMinus (S n) 1). {
+      simpl.
+      lia.
+    }
+    rewrite R1.
+    apply n_step_bin; auto.
+    auto using n_step_num.
+  Qed.
+
+  Lemma r_last_proper:
+    forall e1 e1' e2 e2' n,
+    NEq e1 e1' ->
+    NEq e2 e2' ->
+    RLast (e1, e2) n ->
+    RLast (e1', e2') n.
+  Proof.
+    intros.
+    inversion H1; subst; clear H1.
+    rewrite H in H4.
+    rewrite H0 in H5.
+    eauto using r_last_def.
+  Qed.
+
+
+  (* ------------------------------------- *)
 
   Lemma r_step_last:
     forall r1 n1 n r2,
@@ -689,33 +737,6 @@ Section Defs.
     lia.
   Qed.
 
-  Lemma r_last_to_pick:
-    forall r n,
-    RLast r n ->
-    RPick r n.
-  Proof.
-    intros.
-    inversion H; subst; clear H.
-    eapply r_pick_def; eauto.
-    lia.
-  Qed.
-
-  Lemma r_last_to_eq:
-    forall e1 e2 n,
-    RLast (e1, e2) n ->
-    NStep (NBin NMinus e2 (NNum 1)) n.
-  Proof.
-    intros.
-    inversion H; subst; clear H.
-    assert (R1: n = eval_nbin NMinus (S n) 1). {
-      simpl.
-      lia.
-    }
-    rewrite R1.
-    apply n_step_bin; auto.
-    auto using n_step_num.
-  Qed.
-
   Lemma r_first_to_eq:
     forall e1 e2 n,
     RFirst (e1, e2) n ->
@@ -766,20 +787,6 @@ Section Defs.
     eapply r_pick_def; eauto.
   Qed.
 
-
-  Lemma r_last_proper:
-    forall e1 e1' e2 e2' n,
-    NEq e1 e1' ->
-    NEq e2 e2' ->
-    RLast (e1, e2) n ->
-    RLast (e1', e2') n.
-  Proof.
-    intros.
-    inversion H1; subst; clear H1.
-    rewrite H in H4.
-    rewrite H0 in H5.
-    eauto using r_last_def.
-  Qed.
 
   Definition RDefined (r:range) :=
     let (e1, e2) := r in

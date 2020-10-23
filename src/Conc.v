@@ -10,6 +10,7 @@ Require Import Util.
 Require Import Tasks.
 Require Import PairInUtil.
 Require Import Tictac.
+
 Require Hist.
 
 Import NExpNotations.
@@ -1476,6 +1477,25 @@ Section C1.
     inversion H; subst; clear H.
     apply i_in_inv_c_seq in H1.
     destruct H1 as [Hi|Hi]; eauto using c_in_def.
+  Qed.
+
+  Definition OneOf a c1 c2 :=
+    CIn a c1 \/ CIn a c2.
+
+  Lemma c_pair_inv_c_seq:
+    forall p c1 c2,
+    CPairIn p (c_seq c1 c2) ->
+    let (a1, a2) := p in
+    OneOf a1 c1 c2 /\
+    OneOf a2 c1 c2.
+  Proof.
+    intros.
+    invc H.
+    apply c_in_inv_c_seq in H0.
+    apply c_in_inv_c_seq in H1.
+    unfold OneOf.
+    simpl.
+    intuition.
   Qed.
 
   Lemma c_seq_subst:
