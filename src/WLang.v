@@ -1022,20 +1022,22 @@ Section Defs.
 
   Lemma w_free_inv_subst_eq:
     forall x e P,
+    ~ WVar x P ->
     WFree (w_subst x e P) x ->
     NFree e x.
   Proof.
     induction P; simpl; intros.
-    - eauto using c_free_inv_subst_eq.
+    - eapply c_free_inv_subst_eq; eauto.
     - intuition.
-    - destruct (Set_VAR.MF.eq_dec x v); subst; invc H;
-      eauto using c_free_inv_subst_eq.
-      + rename_hyp (_ \/ _) as Hx.
-        destruct Hx as [Hx|(Hx,Hy)]; eauto using r_free_inv_subst_eq.
-        contradiction.
-      + rename_hyp (_ \/ _) as Hx.
-        destruct Hx as [Hx|(Hx,[Hy|Hy])]; eauto using r_free_inv_subst_eq.
-        eauto using c_free_inv_subst_eq.
+    - rename_hyp (WFree _ _) as Hw.
+      destruct (Set_VAR.MF.eq_dec x v); simpl in *. {
+        subst.
+        intuition.
+      }
+      intuition.
+      + eauto using c_free_inv_subst_eq.
+      + eauto using r_free_inv_subst_eq.
+      + eauto using c_free_inv_subst_eq.
   Qed.
 
   Lemma w_subst_not_free:

@@ -129,7 +129,12 @@ Class Access := {
     NClosed e1 ->
     x <> y ->
     access_subst y e1 (access_subst x e2 e3) =
-    access_subst x (n_subst y e1 e2) (access_subst y e1 e3)
+    access_subst x (n_subst y e1 e2) (access_subst y e1 e3);
+
+  access_free_inv_subst_eq:
+    forall x e a,
+    AFree (access_subst x e a) x ->
+    NFree e x;
 }.
 
 Section Defs.

@@ -1542,16 +1542,25 @@ Section C1.
 
   Lemma c_free_inv_subst_eq:
     forall x e c,
+    ~ Var x c ->
     CFree (i_subst x e c) x ->
     NFree e x. 
   Proof.
     induction c; simpl; intros.
     - contradiction.
-    - destruct H as [H|[H|H]]; eauto using b_free_inv_subst_eq.
-    - destruct H as [H|H]; eauto.
-    - admit.
-      (* TODO: PROVE ME *)
-  Admitted.
+    - rename_hyp (_ \/ _) as Hi.
+      destruct Hi as [Hi|[Hi|Hi]]; eauto using b_free_inv_subst_eq.
+    - rename_hyp (_ \/ _) as Hi.
+      destruct Hi as [Hi|Hi]; eauto.
+    - eauto using access_free_inv_subst_eq.
+    - intuition.
+      + eauto using r_free_inv_subst_eq.
+      + destruct (Set_VAR.MF.eq_dec x v). {
+          subst.
+          contradiction.
+        }
+        auto.
+  Qed.
 
   Lemma c_subst_not_free:
     forall x c,

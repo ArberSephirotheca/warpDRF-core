@@ -404,16 +404,17 @@ Section Props.
 
   Lemma i_free_inv_subst_eq:
     forall x v P,
+    ~ Var x P ->
     IFree (subst x v P) x ->
     NFree v x.
   Proof.
     induction P; simpl; intros.
     - eauto using c_free_inv_subst_eq.
-    - destruct H; auto.
-    - destruct H as [H|[H|(?,H)]];
-      eauto using r_free_inv_subst_eq.
-      destruct (Set_VAR.MF.eq_dec x v0) as [?|_]; try contradiction.
-      auto.
+    - intuition.
+    - intuition.
+      + eauto using r_free_inv_subst_eq.
+      + destruct (Set_VAR.MF.eq_dec x v0) as [?|_]; try contradiction.
+        auto.
   Qed.
 
   Lemma i_pair_in_subst:
