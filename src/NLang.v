@@ -786,12 +786,13 @@ Section Props.
   Lemma get_first_tr_2:
     forall P c,
     GetFirst P c ->
+    WLang.Distinct P ->
     forall a,
     IFirst a (fst (tr P)) ->
     CIn a c.
   Proof.
     intros P c H.
-    induction H; simpl; intros a Hf; invc Hf.
+    induction H; simpl; intros Hd a Hf; invc Hf.
     - assumption.
     - destruct (tr P).
       destruct (tr Q).
@@ -799,11 +800,13 @@ Section Props.
     - destruct (tr P) as (Px1, cx1) eqn:Ht1.
       destruct (tr Q) as (Px2, cx2) eqn:Ht2.
       simpl in *.
+      destruct Hd.
       invc H0.
       eauto.
     - destruct (tr P) as (P_t, c_P) eqn:HP.
       destruct (tr Q) as (Q_t, c_Q) eqn:HQ.
       simpl in *.
+      destruct Hd.
       invc H0.
     - destruct r, (tr P).
       invc H1.
@@ -818,14 +821,20 @@ Section Props.
       destruct Hi as [Hi|Hi].
       + auto using c_in_c_seq_l.
       + apply c_in_c_seq_r.
-        apply IHGetFirst.
+        apply IHGetFirst. {
+          apply WLang.distinct_subst.
+          intuition.
+        }
         apply tr_to_subst with (x:=x) (v:=NNum n) in HP.
-        2: { admit. }
-        2: { admit. }
+        2: { eauto using n_step_to_closed, n_step_num. }
+        2: { intuition. }
         rewrite HP.
         simpl.
-        admit.
-  Admitted.
+        apply i_first_subst with
+          (v1:=e1) (n:=n); auto.
+        eapply r_first_to_eq; eauto.
+        auto using n_step_num.
+  Qed.
 
   Corollary i_first_tr:
     forall P,
