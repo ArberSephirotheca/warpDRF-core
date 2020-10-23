@@ -856,6 +856,33 @@ Section Props.
       rewrite <- get_first_spec; eauto.
   Qed.
 
+  Lemma i_first_tr_1:
+    forall v r n P x P_x c_x,
+    WLang.Distinct P ->
+    CanRun (w_subst x (NNum n) P) ->
+    tr P = (P_x, c_x) ->
+    NStep v n ->
+    RPick r n ->
+    ~ WVar x P ->
+    forall a,
+    IFirst a (subst x v P_x) ->
+    WLang.IFirst a (w_subst x v P).
+  Proof.
+    intros.
+    rename_hyp (tr _ = _) as Ht.
+    apply tr_to_subst with (x:=x) (v:=v) in Ht;
+      eauto using n_step_to_closed.
+    assert (CanRun (w_subst x v P)). {
+      eauto using can_run_subst.
+    }
+    apply i_first_tr; auto. {
+      auto using distinct_subst.
+    }
+    rewrite Ht.
+    simpl.
+    assumption.
+  Qed.
+
   (* -------------------------------- GET LAST ------------------------ *)
 
   Lemma get_last_tr_1:
@@ -892,6 +919,98 @@ Section Props.
       + apply c_in_c_seq_r.
         apply c_in_subst with (v:=NNum n) (n0 := n);
           eauto using n_step_num, r_last_to_eq.
+  Qed.
+
+  Lemma get_last_tr_2:
+    forall P c,
+    GetLast P c ->
+    WLang.Distinct P ->
+    ~ WVar TID P ->
+    forall a,
+    CIn a (snd (tr P)) ->
+    CIn a c.
+  Proof.
+    intros P c H.
+    induction H; simpl; intros Hd Hv a Hf; invc Hf.
+    - invc H0.
+    - destruct (tr P).
+      destruct (tr Q) as (Q',c_q) eqn:Ht2.
+      intuition.
+      simpl in *.
+      auto using c_in_def.
+    - simpl in *.
+      destruct r as (e1, e2).
+      destruct (tr P) as (P',c_p) eqn:Ht1.
+      simpl in *.
+      apply tr_to_subst with (x:=x) (v:=NNum n) in Ht1;
+        eauto using n_step_to_closed, n_step_num.
+      2: { intuition. }
+      rename_hyp (IIn _ _) as Hi.
+      apply i_in_inv_c_seq in Hi.
+      destruct Hi as [Hi|Hi].
+      + apply c_in_c_seq_l.
+        apply c_in_def in Hi; auto.
+        rewrite Ht1 in *.
+        simpl in *.
+        apply IHGetLast; clear IHGetLast.
+        * intuition.
+          auto using WLang.distinct_subst.
+        * intros N. apply wvar_inv_subst in N. intuition.
+        * apply c_in_subst with (v:=NBin NMinus e2 1) (n0 := n);
+          eauto using n_step_num, r_last_to_eq.
+      + apply c_in_def in Hi; auto.
+        apply c_in_c_seq_r.
+        apply c_in_subst with (v:=NBin NMinus e2 1) (n0 := n);
+          eauto using n_step_num, r_last_to_eq.
+  Qed.
+
+  Corollary i_last_tr:
+    forall P,
+    CanRun P ->
+    WLang.Distinct P ->
+    ~ WVar TID P ->
+    forall a,
+    CIn a (snd (tr P)) <->
+    WLang.ILast a P.
+  Proof.
+    intros P Hc Hd Hv.
+    apply get_last_exists in Hc.
+    destruct Hc as (c, Hg).
+    split; intros.
+    - eapply get_last_tr_2 in H; eauto.
+      rewrite get_last_spec; eauto.
+    - eapply get_last_tr_1; eauto.
+      rewrite <- get_last_spec; eauto.
+  Qed.
+
+  Lemma i_last_tr_1:
+    forall v r n P x P_x c_x,
+    WLang.Distinct P ->
+    CanRun (w_subst x (NNum n) P) ->
+    tr P = (P_x, c_x) ->
+    NStep v n ->
+    RPick r n ->
+    ~ WVar TID P ->
+    ~ WVar x P ->
+    forall a,
+    CIn a (i_subst x v c_x) ->
+    WLang.ILast a (w_subst x v P).
+  Proof.
+    intros.
+    rename_hyp (tr _ = _) as Ht.
+    apply tr_to_subst with (x:=x) (v:=v) in Ht;
+      eauto using n_step_to_closed.
+    assert (CanRun (w_subst x v P)). {
+      eauto using can_run_subst.
+    }
+    apply i_last_tr; auto.
+    - auto using distinct_subst.
+    - intros N.
+      apply wvar_inv_subst in N.
+      intuition.
+    - rewrite Ht.
+      simpl.
+      assumption.
   Qed.
 
   (* -------------------- IPairIn Translation ------------------------ *)
@@ -1010,32 +1129,7 @@ Section Props.
     - lia.
   Qed.
 
-  Lemma i_first_tr_1:
-    forall v r n P x P_x c_x,
-    WLang.Distinct P ->
-    CanRun (w_subst x (NNum n) P) ->
-    tr P = (P_x, c_x) ->
-    NStep v n ->
-    RPick r n ->
-    ~ WVar x P ->
-    forall a,
-    IFirst a (subst x v P_x) ->
-    WLang.IFirst a (w_subst x v P).
-  Proof.
-    intros.
-    rename_hyp (tr _ = _) as Ht.
-    apply tr_to_subst with (x:=x) (v:=v) in Ht;
-      eauto using n_step_to_closed.
-    assert (CanRun (w_subst x v P)). {
-      eauto using can_run_subst.
-    }
-    apply i_first_tr; auto. {
-      auto using distinct_subst.
-    }
-    rewrite Ht.
-    simpl.
-    assumption.
-  Qed.
+
 
   Lemma i_last_tr_1:
     forall v r n P x P_x c_x,
