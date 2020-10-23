@@ -221,8 +221,29 @@ Section Props.
     IFirst a (n_seq c P) ->
     CIn a c \/ IFirst a P.
   Proof.
-    (* TODO: PROVE ME PLEASE *)
-  Admitted.
+    intros a c P H.
+    remember (n_seq _ _) as Q.
+    generalize dependent c.
+    generalize dependent P.
+    induction H; intros P' c' Heq; simpl in Heq.
+    - destruct P'; simpl in Heq; invc Heq.
+      apply c_in_inv_c_seq in H.
+      intuition.
+      right.
+      auto using i_first_sync.
+    - destruct P'; simpl in Heq; invc Heq.
+      assert (IHIFirst := IHIFirst _ _ eq_refl).
+      intuition.
+      right.
+      constructor.
+      assumption.
+    - destruct P'; simpl in Heq; invc Heq.
+      assert (IHIFirst := IHIFirst _ _ eq_refl).
+      intuition.
+      right.
+      constructor.
+      assumption.
+  Qed.
 
   Definition NOneOf (p:access_val*access_val) c P :=
     let (a1, a2) := p in
