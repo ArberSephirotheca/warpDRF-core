@@ -417,6 +417,17 @@ Section Props.
         auto.
   Qed.
 
+  Lemma i_first_subst:
+    forall a x v1 P,
+    IFirst a (subst x v1 P) ->
+    forall n,
+    NStep v1 n ->
+    forall v2,
+    NStep v2 n ->
+    IFirst a (subst x v2 P).
+  Proof.
+  Admitted.
+
   Lemma i_pair_in_subst:
     forall p x e1 P n,
     NStep e1 n ->
@@ -795,17 +806,6 @@ Section Props.
     + auto.
   Qed.
 
-  Lemma i_first_subst:
-    forall a x v1 P,
-    IFirst a (subst x v1 P) ->
-    forall n,
-    NStep v1 n ->
-    forall v2,
-    NStep v2 n ->
-    IFirst a (subst x v2 P).
-  Proof.
-  Admitted.
-
   (* ----------------------- GET FIRST ------------------------ *)
 
   Lemma get_first_tr_1:
@@ -1111,6 +1111,7 @@ Section Props.
      forall p,
      PPairIn p (tr (w_subst x n P)) -> WLang.IPairIn p (w_subst x n P)) ->
     ~ WVar x P ->
+    TID <> x ->
     forall P_x c_x,
     tr P = (P_x, c_x) ->
     forall e n,
@@ -1122,8 +1123,8 @@ Section Props.
     intros.
     eapply WLang.i_pair_in_for_1 with (e0:=NNum n); eauto using n_step_num.
     apply H; auto.
-    apply tr_to_subst with (x:=x) (v:=NNum n) in H1; auto using n_closed_num.
-    rewrite H1.
+    apply tr_to_subst with (x:=x) (v:=NNum n) in H2; auto using n_closed_num.
+    rewrite H2.
     simpl.
     right.
     eapply c_pair_in_subst; eauto using n_step_num.
