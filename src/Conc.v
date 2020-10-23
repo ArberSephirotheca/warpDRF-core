@@ -1482,7 +1482,7 @@ Section C1.
   Definition OneOf a c1 c2 :=
     CIn a c1 \/ CIn a c2.
 
-  Lemma c_pair_inv_c_seq:
+  Lemma c_pair_in_inv_c_seq:
     forall p c1 c2,
     CPairIn p (c_seq c1 c2) ->
     let (a1, a2) := p in

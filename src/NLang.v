@@ -256,8 +256,48 @@ Section Props.
     IPairIn a (n_seq c P) ->
     CPairIn a c \/ IPairIn a P \/ NOneOf a c P.
   Proof.
-    (* TODO: PROVE ME PLEASE *)
-  Admitted.
+    intros a c P H.
+    remember (n_seq _ _) as Q.
+    generalize dependent c.
+    generalize dependent P.
+    induction H; intros P' c' Heq; simpl in Heq; destruct P'; simpl in Heq; invc Heq.
+    - apply c_pair_in_inv_c_seq in H.
+      destruct a as (a1, a2).
+      unfold Conc.OneOf in *.
+      simpl.
+      intuition.
+      + auto using c_pair_in_def.
+      + right.
+        right.
+        auto using i_first_sync.
+      + right.
+        right.
+        auto using i_first_sync.
+      + auto using i_pair_in_sync, c_pair_in_def.
+    - assert (IHIPairIn := IHIPairIn _ _ eq_refl).
+      intuition.
+      + auto using i_pair_in_seq_l.
+      + unfold NOneOf in *.
+        destruct a as (a1, a2).
+        intuition.
+        * right.
+          auto using i_first_seq.
+        * right.
+          auto using i_first_seq.
+    - eauto using i_pair_in_seq_r.
+    - assert (IHIPairIn := IHIPairIn _ _ eq_refl).
+      intuition.
+      + auto using i_pair_in_for_1.
+      + unfold NOneOf in *.
+        destruct a as (a1, a2).
+        intuition.
+        * right.
+          auto using i_first_for.
+        * right.
+          auto using i_first_for.
+    - right.
+      eauto using i_pair_in_for_2.
+  Qed.
 
   Lemma subst_n_seq:
     forall P x v c,
