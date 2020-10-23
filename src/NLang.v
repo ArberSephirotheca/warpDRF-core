@@ -1174,8 +1174,11 @@ Section Props.
   Proof.
     intros P H.
     induction H; intros Hd H_tid p Hp; simpl in Hp; try (destruct Hp as [Hp|Hp]).
-    - admit.
-    - admit.
+    - invc Hp.
+      constructor.
+      assumption.
+    - apply c_pair_in_skip in Hp.
+      contradiction.
     - admit.
     - simpl in *.
       destruct r as (e1, e2).
