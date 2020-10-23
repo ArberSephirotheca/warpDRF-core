@@ -1201,13 +1201,26 @@ Section Props.
           simpl in *.
           destruct Hp as [(Hp1, Hp2)|(Hp1,Hp2)]; apply WLang.i_pair_in_seq_both; simpl.
           + left.
-            admit.
+            split. {
+              apply i_last_tr; auto.
+              rewrite Ht1.
+              auto.
+            }
+            apply i_first_tr; auto.
+            rewrite Ht2.
+            auto.
           + right.
-            admit.
+            split. {
+              apply i_last_tr; auto.
+              rewrite Ht1.
+              auto.
+            }
+            apply i_first_tr; auto.
+            rewrite Ht2.
+            auto.
       }
       apply WLang.i_pair_in_seq_r.
-      apply IHCanRun2; auto.
-      intuition.
+      auto.
     - simpl in *.
       destruct r as (e1, e2).
       destruct (tr P) as (P_x, c_x) eqn:Ht.
@@ -1405,8 +1418,8 @@ Section Props.
        apply WLang.i_pair_in_for_2 with
         (e:=NBin NMinus e2 (NNum 1)) (n0:=n2);
         auto using c_pair_in_def.
-  Admitted.
-
+  Qed.
+(*
   Import VHist.
   Open Scope vhist_scope.
 
@@ -1637,5 +1650,5 @@ Section Props.
       subst.
       
   Admitted.
-
+*)
 End Props.
