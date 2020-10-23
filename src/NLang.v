@@ -1317,7 +1317,7 @@ Section Props.
           * rewrite i_subst_subst_eq_1 in Hp.
             simpl in Hp.
             remove_eq x x.
-            eapply c_pair_in_subst with (e1:=NBin NMinus m 1); eauto using n_step_num.
+            eapply c_pair_in_subst with (e3:=NBin NMinus m 1); eauto using n_step_num.
             apply n_step_bin; auto using n_step_num.
         + apply i_pair_in_inv_n_seq in Hp.
           destruct Hp as [Hp|[Hp|Hp]].
@@ -1328,7 +1328,7 @@ Section Props.
             eapply WLang.i_pair_in_for_2 with (n0:=m - 1); eauto using n_step_num. {
               auto using r_pick_impl_2.
             }
-            apply c_pair_in_subst with (e1:=(NBin NMinus m 1)) (n:=m - 1);
+            apply c_pair_in_subst with (e3:=(NBin NMinus m 1)) (n0:=m - 1);
               auto using n_step_num.
             simpl.
             apply n_step_bin; auto using n_step_num.
@@ -1438,7 +1438,7 @@ Section Props.
      }
      (* p \in cx [ e2 - 1] \/ p \in c2[ e2 - 1] *)
      rename_hyp (CPairIn _ _) as Hi.
-     apply c_pair_inv_c_seq in Hi.
+     apply c_pair_in_inv_c_seq in Hi.
      destruct p as (a1, a2).
      destruct Hi as (Ha, Hb).
      unfold Conc.OneOf in *.
@@ -1470,7 +1470,7 @@ Section Props.
         (e:=NBin NMinus e2 (NNum 1)) (n0:=n2);
         auto using c_pair_in_def.
   Qed.
-(*
+
   Import VHist.
   Open Scope vhist_scope.
 
@@ -1531,175 +1531,4 @@ Section Props.
     m = h1 ++ [h2] ->
     PRun (P, c) m.
 
-  Lemma i_subst_c_seq:
-    forall c1 c2 x v,
-    i_subst x v (Conc.c_seq c1 c2) = Conc.c_seq (Conc.i_subst x v c1) (Conc.i_subst x v c2).
-  Proof.
-  Admitted.
-
-  Lemma eq_run_def:
-    forall P Q h1 h2,
-    Run P h1 ->
-    h1 = h2 ->
-    P = Q ->
-    Run Q h2.
-  Proof.
-    intros.
-    subst.
-    assumption.
-  Qed.
-
-
-  Lemma eq_r_seq_def:
-    forall P P' Q Q',
-    P = P' ->
-    Q = Q' ->
-    RSeq P Q = RSeq P' Q'.
-  Proof.
-    intros.
-    subst.
-    reflexivity.
-  Qed.
-
-  Lemma eq_n_to_r_def:
-    forall x x',
-    x = x' ->
-    n_to_r x = n_to_r x'.
-  Proof.
-    intros.
-    subst.
-    reflexivity.
-  Qed.
-
-  Lemma c_run_inv_c_seq:
-    forall c1 c2 h,
-    CRun (Conc.c_seq c1 c2) h ->
-    exists h1 h2,
-    CRun c1 h1 /\ CRun c2 h2 /\ h = h1 ++ h2.
-  Proof.
-  Admitted.
-
-  Lemma run_inv_n_seq:
-    forall c P m,
-    Run (n_to_r (n_seq c P)) m ->
-    exists h1 h2 m', CRun c h1 /\ Run (n_to_r P) (h2 :: m') /\ m = (h1 ++ h2) :: m'.   
-  Proof.
-  Admitted.
-
-  Lemma v_prefix_prefix:
-    forall h1 h2 m,
-    v_prefix h1 (v_prefix h2 m) = v_prefix (h1 ++ h2) m.
-  Proof.
-    destruct m; intros; simpl; auto.
-    - rewrite app_assoc.
-      reflexivity.
-    - rewrite app_assoc.
-      reflexivity.
-  Qed.
-
-  Lemma v_prefix_seq:
-    forall h m1 m2,
-    v_prefix h (v_seq m1 m2) =
-    v_seq (v_prefix h m1) m2.
-  Proof.
-    induction m1; simpl; intros.
-    - rewrite v_prefix_prefix.
-      auto.
-    - reflexivity.
-  Qed.
-
-  Theorem sound:
-    forall P m,
-    WRun P m ->
-    forall m',
-    PRun (tr P) m' ->
-    VHist.vhist_to_list m = m'.
-  Proof.
-    intros P m H; induction H; simpl; intros m' Hr2.
-    - invc Hr2; simpl in *.
-      rename_hyp (Run (RSync _) _) as Hr.
-      invc Hr.
-      admit.
-    - admit.
-    - destruct r as (e1, e2).
-      destruct (tr P) as (Px, cx) eqn:Ht.
-      simpl in *.
-      invc Hr2.
-      simpl in *.
-      rename_hyp (Run _ _) as Hr.
-      invc Hr.
-      simpl in *.
-      rewrite Ht in *.
-      rename_hyp (RStep _ _ _) as Hs.
-      invc Hs.
-      simpl in *.
-      rename_hyp (CRun (Conc.c_seq _ _) _) as Hr.
-      apply c_run_inv_c_seq in Hr.
-      destruct Hr as (h_cx, (h_c2, (Hr_cx, (Hr_c2, ?)))).
-      subst.
-      rename_hyp (Run (n_to_r _) _) as Hr.
-      apply run_inv_n_seq in Hr.
-      destruct Hr as (h_c1, (h_Px, (m_c1_Px, (Hr_c1, (Hr_Px, Ha))))).
-      subst.
-      remember (h_Px :: m_c1_Px) as h_px.
-      (*
-      assert (PRun (tr (w_subst x n P)) (h_px ++ [h_cx])). {
-        clear H7 H12 H5 H9.
-        clear Heqh_px Hr_c1.
-      }
-      invc Hr2. {
-        assert (IHWRun2 := IHWRun2 ([h_cx ++ h_c2])).
-        admit.
-        (*
-        rename_hyp (Run (n_seq _ _) _) as H_c1.
-        apply run_inv_n_seq in H_c1. 2: { admit. }
-        destruct H_c1 as (c1_h1, (c1_h2, (H_c1, (H_c2, eq1)))).
-        *)
-      }
-      rewrite subst_n_seq in *.
-      *)
-      admit.
-    - destruct r as (e1, e2).
-      destruct (tr P) as (Px, cx) eqn:Ht.
-      simpl in *.
-      invc Hr2.
-      rename_hyp (Run _ _) as Hr1.
-      invc Hr1.
-      rename_hyp (Run (n_to_r (n_seq _ _)) _) as Hr1.
-      apply run_inv_n_seq in Hr1.
-      destruct Hr1 as (h_c1, (h_P_e1, (m, (H_c1, (H_P_e2, ?))))).
-      subst.
-      assert (mh_Q = []) by admit.
-      subst.
-      rename_hyp (Run (RFor _ _ _) _) as Hr2.
-      clear Hr2.
-      rewrite <- app_nil_end in *.
-      rename_hyp (CRun (Conc.c_seq _ _) _) as Hc.
-      apply c_run_inv_c_seq in Hc.
-      destruct Hc as (h_cx_e1, (h_c2_e1, (H_cx_e1, (H_c2_e1, ?)))).
-      subst.
-      assert (Hp:  PRun (tr (w_subst x n P)) ((h_P_e1 :: m) ++ [h_cx_e1]) ). {
-        destruct (tr (w_subst _ _ _)) as (Px', cx') eqn:Ht'.
-        rewrite <- tr_subst in Ht'.
-        2: { admit. }
-        2: { admit. }
-        rewrite Ht in *.
-        simpl in Ht'.
-        invc Ht'.
-        eapply p_run_def; eauto.
-        - admit.
-        - admit.
-      }
-      rename h1 into h_c1'.
-      rename m1 into m_P_e1'.
-      rename h2 into m_c2_e1'.
-      rename h_P_e1 into h_Px_e1.
-      rename m into m_Px_e1.
-      remember ((h_Px_e1 :: m_Px_e1) ++ [h_cx_e1]) as h_Px_e1'.
-      rewrite v_prefix_seq.
-      assert (IHWRun := IHWRun _ Hp); clear Hp.
-      subst.
-      
-  Admitted.
-*)
 End Props.
