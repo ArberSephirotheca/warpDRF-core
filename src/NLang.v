@@ -1278,9 +1278,7 @@ Section Props.
               left.
               split; auto.
               eapply i_last_tr_1 with (n:=n1) (r:=(e1, e2) );
-                eauto using n_step, n_step_succ_minus_one, r_pick_impl_2.
-              - eauto using r_pick2_to_pick.
-              - eauto using r_pick2_to_pick.
+                eauto using n_step, n_step_succ_minus_one, r_pick_impl_2, r_pick2_to_pick.
             }
             (* a1 \in cx[m - 1] /\ a2 \in P[m] *)
             eapply WLang.i_pair_in_for_mid_2 with
@@ -1290,7 +1288,8 @@ Section Props.
             simpl.
             left.
             split. {
-              admit.
+              eapply i_last_tr_1 with (n:=n1) (r:=(e1, e2) );
+                eauto using n_step, n_step_succ_minus_one, r_pick_impl_2, r_pick2_to_pick.
             }
             eapply i_first_tr_1 with (n:=S n1);
               eauto using n_step_num, r_pick_impl_1.
@@ -1305,7 +1304,8 @@ Section Props.
             right.
             split; auto.
             (* a2 \in cx [m] *)
-            admit.
+            eapply i_last_tr_1 with (n:=n1) (r:=(e1, e2) );
+              eauto using n_step, n_step_succ_minus_one, r_pick_impl_2, r_pick2_to_pick.
           }
           (* a2 \in cx[m - 1] /\ a2 \in P[m] *)
             eapply WLang.i_pair_in_for_mid_2 with
@@ -1315,7 +1315,8 @@ Section Props.
             simpl.
             right.
             split. {
-              admit.
+              eapply i_last_tr_1 with (n:=n1) (r:=(e1, e2) );
+                eauto using n_step, n_step_succ_minus_one, r_pick_impl_2, r_pick2_to_pick.
             }
             eapply i_first_tr_1 with (n:=S n1);
               eauto using n_step_num, r_pick_impl_1.
