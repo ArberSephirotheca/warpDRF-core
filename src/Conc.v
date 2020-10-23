@@ -1576,12 +1576,11 @@ Section C1.
       rewrite BExp.b_subst_not_free; auto.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.
-    - (* TODO: PROVE ME *)
-      admit.
+    - rewrite access_subst_not_free; auto.
     - rewrite IHc; auto.
       rewrite r_subst_not_free; auto.
       destruct (Set_VAR.MF.eq_dec x v); subst; auto.
-  Admitted.
+  Qed.
 
   Lemma c_subst_subst_neq_5:
     forall c x y e1 e2,
