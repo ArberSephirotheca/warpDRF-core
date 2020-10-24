@@ -15,6 +15,7 @@ src/NList.v
 src/AccExp.v
 src/WLang.v
 src/AccExpImpl.v
+src/NLang.v
 src/Tasks.v
 src/Hist.v
 src/VHist.v

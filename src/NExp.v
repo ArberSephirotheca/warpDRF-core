@@ -975,6 +975,17 @@ Section SO.
       rewrite IHe3_2; auto.
   Qed.
 
+  Lemma n_eq_def:
+    forall e1 e2 n,
+    NStep e1 n ->
+    NStep e2 n ->
+    NEq e1 e2.
+  Proof.
+    intros.
+    split; intros;
+      assert (n0 = n) by eauto using n_step_fun; subst; auto.
+  Qed.
+
 End SO.
 
 Module NExpNotations.

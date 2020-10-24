@@ -792,6 +792,8 @@ Section Defs.
     let (e1, e2) := r in
     (exists n1, NStep e1 n1) /\ (exists n2, NStep e2 n2).
 
+  (* ------------------------- HAS NEXT ------------------- *)
+
   Lemma r_has_next_to_last:
     forall r,
     RHasNext r ->
@@ -817,16 +819,59 @@ Section Defs.
     eauto.
   Qed.
 
-  Lemma n_eq_def:
-    forall e1 e2 n,
-    NStep e1 n ->
-    NStep e2 n ->
-    NEq e1 e2.
+  Lemma r_pick_subst:
+    forall x v1 r n,
+    RPick (r_subst x v1 r) n ->
+    forall v2 m,
+    NStep v1 m ->
+    NStep v2 m ->
+    RPick (r_subst x v2 r) n.
   Proof.
     intros.
-    split; intros;
-      assert (n0 = n) by eauto using n_step_fun; subst; auto. 
+    invc H.
+    destruct r as (e1', e2').
+    simpl in *.
+    rename_hyp ((_,_) = _) as Hx.
+    invc Hx.
+    assert (rx: NEq v1 v2) by eauto using n_eq_def.
+    rewrite rx in *.
+    eauto using r_pick_def.
   Qed.
+
+  Lemma r_first_subst:
+    forall x v1 r n,
+    RFirst (r_subst x v1 r) n ->
+    forall v2 m,
+    NStep v1 m ->
+    NStep v2 m ->
+    RFirst (r_subst x v2 r) n.
+  Proof.
+    intros.
+    invc H.
+    destruct r as (e1', e2').
+    simpl in *.
+    rename_hyp ((_,_) = _) as Hx.
+    invc Hx.
+    assert (rx: NEq v1 v2) by eauto using n_eq_def.
+    rewrite rx in *.
+    eauto using r_first_def.
+  Qed.
+
+  Lemma r_has_next_subst:
+    forall x v1 r,
+    RHasNext (r_subst x v1 r) ->
+    forall v2 n,
+    NStep v1 n ->
+    NStep v2 n ->
+    RHasNext (r_subst x v2 r).
+  Proof.
+    intros.
+    destruct H as (n', Hr).
+    eapply r_first_subst in Hr; eauto.
+    unfold RHasNext.
+    eauto.
+  Qed.
+  (* ---------------------- NEq -------------------------------- *)
 
   Global Instance n_eq_proper_5: Proper (NEq * NEq ==> eq ==> iff) RLast.
   Proof.
@@ -968,7 +1013,7 @@ Section Defs.
       eauto using n_step_to_not_free.
   Qed.
 
-  Lemma r_first_subst:
+  Lemma r_first_subst_1:
     forall r n,
     RFirst r n ->
     forall x v,

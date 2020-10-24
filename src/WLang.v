@@ -150,15 +150,145 @@ Section Defs.
     (forall n, RPick r n -> CanRun (w_subst x (NNum n) P)) -> 
     CanRun (WFor c1 x r P c2).
 
-  Lemma can_run_subst:
-    forall x n P,
-    CanRun (w_subst x (NNum n) P) ->
-    forall v,
-    NStep v n ->
-    CanRun (w_subst x v P).
+  Section X_CanRun.
+    Variable x:var.
+    Variable v:nexp.
+
+  Inductive X_CanRun: w_inst -> Prop :=
+  | x_can_run_sync:
+    forall c,
+    X_CanRun (WSync c)
+  | x_can_run_seq:
+    forall i j,
+    X_CanRun i -> 
+    X_CanRun j ->
+    X_CanRun (WSeq i j)
+  | x_can_run_for:
+    forall y r P c1 c2,
+    RHasNext (r_subst x v r) ->
+    (forall n, RPick (r_subst x v r) n -> X_CanRun (w_subst y (NNum n) P)) -> 
+    X_CanRun (WFor c1 y r P c2).
+  End X_CanRun.
+
+  Lemma x_can_run_subst:
+    forall x v1 P,
+    X_CanRun x v1 P ->
+    forall v2 n,
+    NStep v1 n ->
+    NStep v2 n ->
+    X_CanRun x v2 P.
   Proof.
-    (* TODO: PROVE ME PLEASE *)
-  Admitted.
+    intros x v1 p H.
+    induction H; intros v2 n Hn1 Hn2.
+    - apply x_can_run_sync.
+    - apply x_can_run_seq; eauto.
+    - constructor.
+      + eauto using r_has_next_subst.
+      + eauto using r_pick_subst.
+  Qed.
+
+  Lemma w_subst_subst_eq_1:
+    forall e1 e2 x P,
+    w_subst x e1 (w_subst x e2 P) = w_subst x (n_subst x e1 e2) P.
+  Proof.
+    induction P; intros; simpl.
+    - rewrite i_subst_subst_eq_1.
+      auto.
+    - rewrite IHP1.
+      rewrite IHP2.
+      reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        simpl.
+        remove_eq v v.
+        rewrite i_subst_subst_eq_1.
+        rewrite r_subst_subst_eq_1.
+        reflexivity.
+      }
+      simpl.
+      remove_eq x v.
+      repeat rewrite i_subst_subst_eq_1.
+      rewrite r_subst_subst_eq_1.
+      rewrite IHP.
+      reflexivity.
+  Qed.
+
+  Lemma x_can_run_spec:
+    forall x v P,
+    NClosed v ->
+    X_CanRun x v P <-> CanRun (w_subst x v P).
+  Proof.
+    split; intros. {
+      generalize dependent H.
+      induction H0; intros; simpl.
+      - constructor.
+      - constructor; auto.
+      - destruct (Set_VAR.MF.eq_dec x y). {
+          subst.
+          constructor; auto.
+          intros.
+          rename_hyp (forall n, _ -> _ -> CanRun _) as Hx.
+          rename_hyp (RPick _ _) as Hp.
+          apply Hx in Hp; auto.
+          rewrite w_subst_subst_eq_1 in Hp.
+          simpl in *.
+          assumption.
+        }
+        constructor; auto.
+        intros.
+        rename_hyp (forall n, _ -> _ -> CanRun _) as Hx.
+        rename_hyp (RPick _ _) as Hp.
+        apply Hx in Hp; auto.
+        rewrite w_subst_subst_neq_3; auto.
+    }
+    remember (w_subst _ _ _) as Q.
+    generalize dependent x.
+    generalize dependent v.
+    generalize dependent P.
+    induction H0;
+      intros P_in v Hv y Heq;
+      destruct P_in;
+      simpl in Heq;
+      try (invc Heq; fail);
+      try (rename v0 into x).
+    - invc Heq.
+      constructor.
+    - destruct (Set_VAR.MF.eq_dec y x); invc Heq.
+    - invc Heq.
+      constructor; eauto.
+    - destruct (Set_VAR.MF.eq_dec y x); invc Heq.
+    - rename v0 into x'.
+      destruct (Set_VAR.MF.eq_dec y x'); invc Heq. {
+        constructor; auto.
+        intros.
+        rename_hyp (forall n, RPick _ _ -> forall P v, _ -> _) as Hx.
+        rename_hyp (RPick _ _) as Hp.
+        eapply Hx in Hp; eauto.
+        rewrite w_subst_subst_eq_1.
+        simpl.
+        auto.
+      }
+      constructor; auto.
+      intros.
+      rename_hyp (forall n, RPick _ _ -> forall P v, _ -> _) as Hx.
+      rename_hyp (RPick _ _) as Hp.
+      eapply Hx in Hp; eauto.
+      rewrite w_subst_subst_neq_3; eauto.
+  Qed.
+
+  Lemma can_run_subst:
+    forall x v1 P,
+    CanRun (w_subst x v1 P) ->
+    forall v2 n,
+    NStep v1 n ->
+    NStep v2 n ->
+    CanRun (w_subst x v2 P).
+  Proof.
+    intros.
+    apply x_can_run_spec; eauto using n_step_to_closed.
+    apply x_can_run_spec in H; eauto using n_step_to_closed.
+    eauto using x_can_run_subst.
+  Qed.
 
   Definition WEq P Q :=
     forall h,
@@ -1174,7 +1304,7 @@ Section Defs.
       assert (IHGetFirst := IHGetFirst y v Hc Hw).
       rewrite Conc.c_subst_c_seq.
       apply get_first_for with (n:=n).
-      + auto using r_first_subst.
+      + auto using r_first_subst_1.
       + rewrite w_subst_subst_neq_3; auto.
   Qed.
 (*

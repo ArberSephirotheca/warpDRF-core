@@ -935,7 +935,7 @@ Section Props.
     apply tr_to_subst with (x:=x) (v:=v) in Ht;
       eauto using n_step_to_closed.
     assert (CanRun (w_subst x v P)). {
-      eauto using can_run_subst.
+      eapply can_run_subst; eauto using n_step_num.
     }
     apply i_first_tr; auto. {
       auto using distinct_subst.
@@ -1063,7 +1063,7 @@ Section Props.
     apply tr_to_subst with (x:=x) (v:=v) in Ht;
       eauto using n_step_to_closed.
     assert (CanRun (w_subst x v P)). {
-      eauto using can_run_subst.
+      eapply can_run_subst; eauto using n_step_num.
     }
     apply i_last_tr; auto.
     - auto using distinct_subst.
