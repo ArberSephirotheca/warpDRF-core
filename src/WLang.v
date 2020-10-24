@@ -1594,14 +1594,6 @@ Section Defs.
       apply get_last_for with (n:=n); eauto.
   Qed.
 
-(*
-  Lemma w_free_dec:
-    forall P x,
-    WFree P x \/ ~ WFree P x.
-  Proof.
-    induction P; intros.
-  Admitted.
-*)
 End Defs.
 
 Module ALangNotations.
