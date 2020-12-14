@@ -18,7 +18,8 @@ src/Hist.v
 src/Conc.v
 src/WLang.v
 src/AccExpImpl.v
-src/NLang.v
+src/AlignLang.v
+src/Align.v
 src/SetTh.v
 src/MultiHist.v
 #src/ConcImpl.v

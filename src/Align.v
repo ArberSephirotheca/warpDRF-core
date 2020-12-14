@@ -1,0 +1,812 @@
+Require Import AccExp.
+Require Import Tasks.
+Require Import Var.
+Require Import WLang.
+Require Import Conc.
+Require Import NExp.
+Require Import Tictac.
+Require Import AlignLang.
+Require Import Util.
+Require Import RExp.
+
+Section Props.
+  Context `{T:Tasks}.
+  Context `{A:Access}.
+  Fixpoint align (w:w_inst) : p_inst :=
+    match w with
+    | WSync c => (NSync c, Conc.Skip)
+    | WSeq P Q =>
+      let (P', c1) := align P in
+      let (Q', c2) := align Q in
+      (NSeq P' (n_seq c1 Q'), c2)
+    | WFor c1 x (e1, e2) P c2 =>
+      let (P_x, c_x) := align P in
+      let P_e1 := subst x e1 P_x in
+      let c_e1 := i_subst x e1 c_x in
+      let dec_x := NBin NMinus (NVar x) (NNum 1) in
+      let dec_e2 := NBin NMinus e2 (NNum 1) in
+      let c_dec_x := i_subst x dec_x c_x in
+      let c2_dec_x := i_subst x dec_x c2 in
+      let c_dec_e2 := i_subst x dec_e2 c_x in
+      let c2_dec_e2 := i_subst x dec_e2 c2 in
+      (NFor (n_seq c1 P_e1) x (NBin NPlus (NNum 1) e1, e2)
+                        (n_seq c_dec_x (n_seq c2_dec_x P_x)),
+                     Conc.c_seq c_dec_e2 c2_dec_e2)
+    end.
+
+
+  Lemma var_inv_align:
+    forall x P,
+    PVar x (align P) ->
+    WVar x P.
+  Proof.
+    induction P; simpl; intros; try (intuition; fail).
+    - destruct (align P1) as (P1', c1).
+      destruct (align P2) as (P2', c2).
+      simpl in *.
+      destruct H as [[H|H]|H]; auto.
+      apply var_inv_n_seq in H.
+      intuition.
+    - destruct r as (e1, e2).
+      destruct (align P) as (Px, cx).
+      simpl in *.
+      intuition.
+      + rename_hyp (Var _ (n_seq _ _)) as Hc.
+        apply var_inv_n_seq in Hc.
+        intuition.
+        rename_hyp (Var _ (subst _ _ _)) as Hv.
+        apply var_inv_subst in Hv.
+        intuition.
+      + rename_hyp (Var _ (n_seq _ _)) as Hv.
+        apply var_inv_n_seq in Hv.
+        intuition.
+        rename_hyp (Conc.Var _ _) as Hc.
+        apply c_var_inv_subst in Hc.
+        intuition.
+        rename_hyp (Var _ (n_seq _ _)) as Hc.
+        apply var_inv_n_seq in Hc.
+        intuition.
+        rename_hyp (Conc.Var _ _) as Hc.
+        apply c_var_inv_subst in Hc.
+        intuition.
+      + rename_hyp (Conc.Var _ (Conc.c_seq _ _ )) as Hc.
+        apply c_var_inv_c_seq in Hc.
+        intuition.
+        * rename_hyp (Conc.Var _ (i_subst _ _ _)) as Hc.
+          apply c_var_inv_subst in Hc.
+          intuition.
+        * rename_hyp (Conc.Var _ (i_subst _ _ _)) as Hc.
+          apply c_var_inv_subst in Hc.
+          intuition.
+  Qed.
+
+  Lemma var_inv_align_l:
+    forall x P P_x c_x,
+    Var x P_x ->
+    align P = (P_x, c_x) ->
+    WVar x P.
+  Proof.
+    intros.
+    assert (PVar x (align P)). {
+      rewrite H0.
+      simpl.
+      auto.
+    }
+    auto using var_inv_align.
+  Qed.
+
+  Lemma var_inv_align_r:
+    forall x P P_x c_x,
+    Conc.Var x c_x ->
+    align P = (P_x, c_x) ->
+    WVar x P.
+  Proof.
+    intros.
+    assert (PVar x (align P)). {
+      rewrite H0.
+      simpl.
+      auto.
+    }
+    auto using var_inv_align.
+  Qed.
+
+  Lemma align_subst:
+    forall P e x,
+    NClosed e ->
+    ~ WVar x P ->
+    (* [[ P ]] [x := e ] = [[ P[x := e] ]] *)
+    p_subst x e (align P) = align (w_subst x e P).
+  Proof.
+    induction P; intros e' y Hc Hd; simpl in *.
+    - auto.
+    - destruct (align P1) as (P1_x, c1_x) eqn:Ht1.
+      destruct (align P2) as (P2_x, c2_x) eqn:Ht2.
+      simpl.
+      rewrite <- IHP1; auto; clear IHP1.
+      rewrite <- IHP2; auto; clear IHP2.
+      destruct (p_subst y e' (P1_x, c1_x)) as (xP1_x, xc1_x) eqn:Ht1x.
+      destruct (p_subst y e' (P2_x, c2_x)) as (xP2_x, xc2_x) eqn:Ht2x.
+      simpl in *.
+      invc Ht1x.
+      invc Ht2x.
+      repeat rewrite subst_n_seq.
+      auto.
+    - rename v into x.
+      destruct r as (e1, e2).
+      simpl.
+      destruct (align P) as (P_x, c_x) eqn:Ht.
+      assert (~ Var y P_x). {
+        intros N.
+        eapply var_inv_align_l with (x:=y) in N; eauto.
+      }
+      assert (~ Conc.Var y c_x). {
+        intros N.
+        eapply var_inv_align_r with (x:=y) in N; eauto.
+      }
+      destruct (Set_VAR.MF.eq_dec y x). {
+        subst.
+        simpl.
+        rewrite Ht.
+        remove_eq x x.
+        rewrite subst_n_seq.
+        rewrite c_seq_subst.
+        apply eq_pair_def; auto. {
+          apply eq_n_for_def; auto.
+          apply eq_n_seq_def; auto.
+          rewrite subst_subst_eq_1.
+          reflexivity.
+        }
+        apply eq_c_seq_def. {
+          repeat rewrite i_subst_subst_eq_1.
+          simpl.
+          reflexivity.
+        }
+        repeat rewrite i_subst_subst_eq_1.
+        simpl.
+        reflexivity.
+      }
+      simpl.
+      (* y <> x *)
+      remove_eq y x.
+      simpl.
+      destruct (align (w_subst y e' P)) as (P_t, c_t) eqn:Ht'.
+      repeat rewrite subst_n_seq.
+      repeat rewrite c_seq_subst.
+      apply eq_pair_def. {
+        apply eq_n_for_def; auto. {
+          apply eq_n_seq_def; auto.
+          rewrite <- IHP in Ht'; auto.
+          2: { intuition. }
+          invc Ht'.
+          rewrite subst_subst_neq_5; auto.
+        }
+        apply eq_n_seq_def. {
+          rewrite <- IHP in Ht'; auto.
+          2: { intuition. }
+          simpl in Ht'.
+          invc Ht'.
+          rewrite i_subst_subst_neq_3; auto.
+          simpl.
+          intuition.
+        }
+        apply eq_n_seq_def. {
+          rewrite i_subst_subst_neq_3; auto.
+          simpl.
+          intuition.
+        }
+        rewrite <- IHP in Ht'; auto.
+        2: { intuition. }
+        simpl in Ht'.
+        invc Ht'.
+        reflexivity.
+      }
+      rewrite <- IHP in Ht'; auto.
+      2: { intuition. }
+      simpl in Ht'.
+      invc Ht'.
+      apply eq_c_seq_def. {
+        rewrite c_subst_subst_neq_5; auto.
+      }
+      rewrite c_subst_subst_neq_5; auto.
+      intuition.
+  Qed.
+
+  Lemma align_to_subst:
+    forall P P_x c_x,
+    align P = (P_x, c_x) ->
+    forall x v,
+    NClosed v ->
+    ~ WVar x P ->
+    align (w_subst x v P) = (subst x v P_x, i_subst x v c_x).
+  Proof.
+    intros.
+    rewrite <- align_subst; auto.
+    rewrite H.
+    auto.
+  Qed.
+
+  (* ----------------------- GET FIRST ------------------------ *)
+
+  Lemma get_first_align_1:
+    forall P c,
+    GetFirst P c ->
+    WLang.Distinct P ->
+    forall a,
+    CIn a c ->
+    IFirst a (fst (align P)).
+  Proof.
+    intros P c H.
+    induction H; simpl; intros Hd a Hc.
+    - constructor.
+      auto.
+    - destruct (align P) as (Px1, cx1) eqn:Ht1.
+      destruct (align Q) as (Px2, cx2) eqn:Ht2.
+      simpl.
+      apply i_first_seq.
+      intuition.
+    - destruct r as (e1, e2).
+      destruct (align P) as (Px, cx) eqn:Ht.
+      simpl.
+      apply c_in_inv_c_seq in Hc.
+      constructor.
+      destruct Hc as [Hc|Hc]. {
+        auto using i_first_n_seq_l.
+      }
+      apply IHGetFirst in Hc.
+      apply align_to_subst with (x:=x) (v:=NNum n) in Ht.
+      2: { eauto using n_step_to_closed, n_step_num. }
+      2: { intuition. }
+      2: { apply WLang.distinct_subst. intuition. }
+      rewrite Ht in Hc.
+      simpl in Hc.
+      apply i_first_n_seq_r.
+      apply i_first_subst with
+        (v1:=NNum n) (n0:=n);
+        auto using n_step_num.
+      eauto using r_first_to_eq.
+  Qed.
+
+  Lemma get_first_align_2:
+    forall P c,
+    GetFirst P c ->
+    WLang.Distinct P ->
+    forall a,
+    IFirst a (fst (align P)) ->
+    CIn a c.
+  Proof.
+    intros P c H.
+    induction H; simpl; intros Hd a Hf; invc Hf.
+    - assumption.
+    - destruct (align P).
+      destruct (align Q).
+      invc H0.
+    - destruct (align P) as (Px1, cx1) eqn:Ht1.
+      destruct (align Q) as (Px2, cx2) eqn:Ht2.
+      simpl in *.
+      destruct Hd.
+      invc H0.
+      eauto.
+    - destruct (align P) as (P_t, c_P) eqn:HP.
+      destruct (align Q) as (Q_t, c_Q) eqn:HQ.
+      simpl in *.
+      destruct Hd.
+      invc H0.
+    - destruct r, (align P).
+      invc H1.
+    - destruct r, (align P).
+      invc H1.
+    - destruct r as (e1, e2).
+      destruct (align P) as (P_t, c_P) eqn:HP.
+      simpl in *.
+      invc H1.
+      rename_hyp (IFirst _ _) as Hi.
+      apply i_first_inv_n_seq in Hi.
+      destruct Hi as [Hi|Hi].
+      + auto using c_in_c_seq_l.
+      + apply c_in_c_seq_r.
+        apply IHGetFirst. {
+          apply WLang.distinct_subst.
+          intuition.
+        }
+        apply align_to_subst with (x:=x) (v:=NNum n) in HP.
+        2: { eauto using n_step_to_closed, n_step_num. }
+        2: { intuition. }
+        rewrite HP.
+        simpl.
+        apply i_first_subst with
+          (v1:=e1) (n0:=n); auto.
+        eapply r_first_to_eq; eauto.
+        auto using n_step_num.
+  Qed.
+
+  Corollary i_first_align:
+    forall P,
+    CanRun P ->
+    WLang.Distinct P ->
+    forall a,
+    IFirst a (fst (align P)) <->
+    WLang.IFirst a P.
+  Proof.
+    intros P Hc Hd.
+    apply get_first_exists in Hc.
+    destruct Hc as (c, Hg).
+    split; intros.
+    - eapply get_first_align_2 in H; eauto.
+      rewrite get_first_spec; eauto.
+    - eapply get_first_align_1; eauto.
+      rewrite <- get_first_spec; eauto.
+  Qed.
+
+  Lemma i_first_align_1:
+    forall v r n P x P_x c_x,
+    WLang.Distinct P ->
+    CanRun (w_subst x (NNum n) P) ->
+    align P = (P_x, c_x) ->
+    NStep v n ->
+    RPick r n ->
+    ~ WVar x P ->
+    forall a,
+    IFirst a (subst x v P_x) ->
+    WLang.IFirst a (w_subst x v P).
+  Proof.
+    intros.
+    rename_hyp (align _ = _) as Ht.
+    apply align_to_subst with (x:=x) (v:=v) in Ht;
+      eauto using n_step_to_closed.
+    assert (CanRun (w_subst x v P)). {
+      eapply can_run_subst; eauto using n_step_num.
+    }
+    apply i_first_align; auto. {
+      auto using WLang.distinct_subst.
+    }
+    rewrite Ht.
+    simpl.
+    assumption.
+  Qed.
+
+  (* -------------------------------- GET LAST ------------------------ *)
+
+  Lemma get_last_align_1:
+    forall P c,
+    GetLast P c ->
+    WLang.Distinct P ->
+    ~ WVar TID P ->
+    forall a,
+    CIn a c ->
+    CIn a (snd (align P)).
+  Proof.
+    intros P c H.
+    induction H; simpl; intros Hd Htid a Hc.
+    - assumption.
+    - destruct (align P) as (P',c_p) eqn:Ht1.
+      destruct (align Q) as (Q',c_q) eqn:Ht2.
+      intuition.
+    - destruct r as (e1, e2).
+      destruct (align P) as (P',c_p) eqn:Ht1.
+      simpl.
+      apply c_in_inv_c_seq in Hc.
+      apply align_to_subst with (x:=x) (v:=NNum n) in Ht1;
+        eauto using n_step_to_closed, n_step_num.
+      2: { intuition. }
+      destruct Hc as [Hc|Hc].
+      + apply c_in_c_seq_l.
+        apply IHGetLast in Hc; clear IHGetLast.
+        2: { apply WLang.distinct_subst. intuition. }
+        2: { intros N. apply wvar_inv_subst in N. intuition. }
+        rewrite Ht1 in Hc.
+        simpl in *.
+        apply c_in_subst with (v:=NNum n) (n0 := n);
+          eauto using n_step_num, r_last_to_eq.
+      + apply c_in_c_seq_r.
+        apply c_in_subst with (v:=NNum n) (n0 := n);
+          eauto using n_step_num, r_last_to_eq.
+  Qed.
+
+  Lemma get_last_align_2:
+    forall P c,
+    GetLast P c ->
+    WLang.Distinct P ->
+    ~ WVar TID P ->
+    forall a,
+    CIn a (snd (align P)) ->
+    CIn a c.
+  Proof.
+    intros P c H.
+    induction H; simpl; intros Hd Hv a Hf; invc Hf.
+    - invc H0.
+    - destruct (align P).
+      destruct (align Q) as (Q',c_q) eqn:Ht2.
+      intuition.
+      simpl in *.
+      auto using c_in_def.
+    - simpl in *.
+      destruct r as (e1, e2).
+      destruct (align P) as (P',c_p) eqn:Ht1.
+      simpl in *.
+      apply align_to_subst with (x:=x) (v:=NNum n) in Ht1;
+        eauto using n_step_to_closed, n_step_num.
+      2: { intuition. }
+      rename_hyp (IIn _ _) as Hi.
+      apply i_in_inv_c_seq in Hi.
+      destruct Hi as [Hi|Hi].
+      + apply c_in_c_seq_l.
+        apply c_in_def in Hi; auto.
+        rewrite Ht1 in *.
+        simpl in *.
+        apply IHGetLast; clear IHGetLast.
+        * intuition.
+          auto using WLang.distinct_subst.
+        * intros N. apply wvar_inv_subst in N. intuition.
+        * apply c_in_subst with (v:=NBin NMinus e2 (NNum 1)) (n0 := n);
+          eauto using n_step_num, r_last_to_eq.
+      + apply c_in_def in Hi; auto.
+        apply c_in_c_seq_r.
+        apply c_in_subst with (v:=NBin NMinus e2 (NNum 1)) (n0 := n);
+          eauto using n_step_num, r_last_to_eq.
+  Qed.
+
+  Corollary i_last_align:
+    forall P,
+    CanRun P ->
+    WLang.Distinct P ->
+    ~ WVar TID P ->
+    forall a,
+    CIn a (snd (align P)) <->
+    WLang.ILast a P.
+  Proof.
+    intros P Hc Hd Hv.
+    apply get_last_exists in Hc.
+    destruct Hc as (c, Hg).
+    split; intros.
+    - eapply get_last_align_2 in H; eauto.
+      rewrite get_last_spec; eauto.
+    - eapply get_last_align_1; eauto.
+      rewrite <- get_last_spec; eauto.
+  Qed.
+
+  Lemma i_last_align_1:
+    forall v r n P x P_x c_x,
+    WLang.Distinct P ->
+    CanRun (w_subst x (NNum n) P) ->
+    align P = (P_x, c_x) ->
+    NStep v n ->
+    RPick r n ->
+    ~ WVar TID P ->
+    ~ WVar x P ->
+    forall a,
+    CIn a (i_subst x v c_x) ->
+    WLang.ILast a (w_subst x v P).
+  Proof.
+    intros.
+    rename_hyp (align _ = _) as Ht.
+    apply align_to_subst with (x:=x) (v:=v) in Ht;
+      eauto using n_step_to_closed.
+    assert (CanRun (w_subst x v P)). {
+      eapply can_run_subst; eauto using n_step_num.
+    }
+    apply i_last_align; auto.
+    - auto using WLang.distinct_subst.
+    - intros N.
+      apply wvar_inv_subst in N.
+      intuition.
+    - rewrite Ht.
+      simpl.
+      assumption.
+  Qed.
+
+  (* -------------------- IPairIn Translation ------------------------ *)
+
+  Lemma i_pair_in_align_for_1:
+    forall p c1 x r P c2,
+    (forall n,
+     RPick r n ->
+     forall p,
+     PPairIn p (align (w_subst x (NNum n) P)) -> WLang.IPairIn p (w_subst x (NNum n) P)) ->
+    ~ WVar x P ->
+    forall P_x c_x,
+    align P = (P_x, c_x) ->
+    forall e n,
+    RPick r n ->
+    NStep e n ->
+    IPairIn p (subst x e P_x) ->
+    WLang.IPairIn p (WFor c1 x r P c2).
+  Proof.
+    intros.
+    eapply WLang.i_pair_in_for_1 with (e0:=NNum n); eauto using n_step_num.
+    apply H; auto.
+    assert (IPairIn p (subst x (NNum n) P_x)). {
+      eauto using i_pair_in_subst, n_step_num.
+    }
+    rewrite <- align_subst; auto using n_closed_num.
+    rewrite H1.
+    simpl.
+    auto.
+  Qed.
+
+  Import PLangNotations.
+
+  Lemma i_pair_in_align_for_2:
+    forall p c1 x r P c2,
+    (forall n,
+     RPick r n ->
+     forall p,
+     PPairIn p (align (w_subst x (NNum n) P)) -> WLang.IPairIn p (w_subst x (NNum n) P)) ->
+    ~ WVar x P ->
+    TID <> x ->
+    forall P_x c_x,
+    align P = (P_x, c_x) ->
+    forall e n,
+    RPick r n ->
+    NStep e n ->
+    CPairIn p (i_subst x e c_x) ->
+    WLang.IPairIn p (WFor c1 x r P c2).
+  Proof.
+    intros.
+    eapply WLang.i_pair_in_for_1 with (e0:=NNum n); eauto using n_step_num.
+    apply H; auto.
+    apply align_to_subst with (x:=x) (v:=NNum n) in H2; auto using n_closed_num.
+    rewrite H2.
+    simpl.
+    right.
+    eapply c_pair_in_subst; eauto using n_step_num.
+  Qed.
+
+  Import NExpNotations.
+
+  Lemma align_i_pair_in_1:
+    forall P,
+    CanRun P ->
+    WLang.Distinct P ->
+    ~ WVar TID P -> 
+    forall p,
+    PPairIn p (align P) ->
+    WLang.IPairIn p P.
+  Proof.
+    intros P H.
+    induction H; intros Hd H_tid p Hp; simpl in Hp; try (destruct Hp as [Hp|Hp]).
+    - invc Hp.
+      constructor.
+      assumption.
+    - apply c_pair_in_skip in Hp.
+      contradiction.
+    - rename i into P.
+      rename j into Q.
+      destruct (align P) as (P', c1) eqn:Ht1.
+      destruct (align Q) as (Q', c2) eqn:Ht2.
+      simpl in *.
+      destruct Hd as (Hd1, Hd2).
+      destruct Hp as [Hp|Hp]. {
+        invc Hp. {
+          apply WLang.i_pair_in_seq_l.
+          auto.
+        }
+        rename_hyp (IPairIn _ _) as Hp.
+        apply i_pair_in_inv_n_seq in Hp.
+        destruct Hp as [Hp|[Hp|Hp]].
+        - apply WLang.i_pair_in_seq_l.
+          auto.
+        - apply WLang.i_pair_in_seq_r.
+          auto.
+        - destruct p as (a1, a2).
+          simpl in *.
+          destruct Hp as [(Hp1, Hp2)|(Hp1,Hp2)]; apply WLang.i_pair_in_seq_both; simpl.
+          + left.
+            split. {
+              apply i_last_align; auto.
+              rewrite Ht1.
+              auto.
+            }
+            apply i_first_align; auto.
+            rewrite Ht2.
+            auto.
+          + right.
+            split. {
+              apply i_last_align; auto.
+              rewrite Ht1.
+              auto.
+            }
+            apply i_first_align; auto.
+            rewrite Ht2.
+            auto.
+      }
+      apply WLang.i_pair_in_seq_r.
+      auto.
+    - simpl in *.
+      destruct r as (e1, e2).
+      destruct (align P) as (P_x, c_x) eqn:Ht.
+      rename_hyp (RHasNext _) as Hr.
+      destruct Hr as (n, Hr).
+      assert (NStep e1 n) by eauto using r_first_to_eq.
+      assert (Hx: RPick (e1,e2) n) by eauto using r_first_to_pick.
+      rename_hyp (forall n, RPick (e1, e2) n -> _) as IH.
+      simpl in *.
+      intuition. {
+        rename_hyp (IPairIn _ _) as Hp.
+        invc Hp; rename_hyp (IPairIn _ _) as Hp. {
+          apply i_pair_in_inv_n_seq in Hp.
+          destruct Hp as [Hp|[Hp|Hp]].
+          - (* p \in c1 *)
+            constructor; auto.
+          - (* p \in Px [e1] *)
+            eapply i_pair_in_align_for_1; eauto.
+            intros.
+            eapply IH; auto using WLang.distinct_subst.
+            intros N.
+            apply wvar_inv_subst in N.
+            intuition.
+          - (* a1 \in c1 /\ a2 \in P[e1] *)
+            eapply WLang.i_pair_in_for_first_2; eauto.
+            destruct p as (a1, a2).
+            simpl in *.
+            intuition;
+             eauto using i_first_align_1.
+        }
+        rename n0 into m.
+        repeat rewrite subst_n_seq in Hp.
+        apply i_pair_in_inv_n_seq in Hp.
+        destruct Hp as [Hp|[Hp|Hp]].
+        + (* p \in cx [m - 1] *)
+          eapply i_pair_in_align_for_2 with (e:=m - 1) (n:=m - 1); eauto using n_step_num.
+          * intros.
+            apply IH; auto using WLang.distinct_subst.
+            intros N.
+            apply WLang.wvar_inv_subst in N.
+            intuition.
+          * auto using r_pick_impl_2.
+          * rewrite i_subst_subst_eq_1 in Hp.
+            simpl in Hp.
+            remove_eq x x.
+            eapply c_pair_in_subst with (e3:=NBin NMinus m 1); eauto using n_step_num.
+            apply n_step_bin; auto using n_step_num.
+        + apply i_pair_in_inv_n_seq in Hp.
+          destruct Hp as [Hp|[Hp|Hp]].
+          * (* p \in c2 [m - 1] *)
+            rewrite i_subst_subst_eq_1 in Hp.
+            simpl in Hp.
+            remove_eq x x.
+            eapply WLang.i_pair_in_for_2 with (n0:=m - 1); eauto using n_step_num. {
+              auto using r_pick_impl_2.
+            }
+            apply c_pair_in_subst with (e3:=(NBin NMinus m 1)) (n0:=m - 1);
+              auto using n_step_num.
+            simpl.
+            apply n_step_bin; auto using n_step_num.
+          * (* p \in Px [m] *)
+            clear Hx.
+            eapply i_pair_in_align_for_1 with (e:=NNum m);
+              eauto using n_step_num, r_pick_impl_1.
+            intros.
+            apply IH; auto using WLang.distinct_subst.
+            intros N.
+            apply wvar_inv_subst in N.
+            intuition.
+          * destruct p as (a1, a2).
+            simpl in *.
+            rename_hyp (RPick _ m) as Hi.
+            assert (Hp_n1 := Hi).
+            apply r_pick_impl_3 in Hi.
+            destruct Hi as (n1, (?, Hi)).
+            subst.
+            apply i_pair_in_for_mid_1 with
+              (n0:=n1) (e:=(NBin NMinus (S n1) 1)) (e':=NNum (S n1));
+              auto using n_step_num, n_step_succ_minus_one
+            .
+            destruct Hp as [(Hp1, Hp2)|(Hp1, Hp2)];
+              rewrite i_subst_subst_eq_1 in Hp1;
+              simpl in Hp1;
+              remove_eq x x.
+            {
+              (* a1 \in c2[m - 1] /\ a2 \in IFirst (P_x [m]) *)
+              simpl.
+              left.
+              split; auto.
+              (* a2 \in IFirst (P_x [m]) *)
+              eapply i_first_align_1 with (n:=S n1);
+                eauto using n_step_num, r_pick_impl_1.
+            }
+            (* a2 \in c2[m - 1] /\ a1 \in IFirst (P_x [ m] ) *)
+            simpl.
+            right; split; auto.
+            eapply i_first_align_1 with (n:=S n1);
+              eauto using n_step_num, r_pick_impl_1.
+        + destruct p as (a1, a2).
+          simpl in *.
+          rename_hyp (RPick _ m) as Hi.
+          assert (Hp_n1 := Hi).
+          apply r_pick_impl_3 in Hi.
+          destruct Hi as (n1, (?, Hi)).
+          subst.
+          destruct Hp as [(Hp1, Hp2)|(Hp1, Hp2)];
+            rewrite i_subst_subst_eq_1 in Hp1;
+            simpl in Hp1;
+            remove_eq x x
+          . {
+            apply i_first_inv_n_seq in Hp2.
+            destruct Hp2 as [Hp2|Hp2]. {
+              (* a1 \in cx[m - 1] /\ a2 \in c2[m - 1] *)
+              rewrite i_subst_subst_eq_1 in Hp2; simpl in Hp2; remove_eq x x.
+              apply WLang.i_pair_in_for_3
+                with (n0:=S n1) (e:=(NBin NMinus (S n1) 1));
+                auto using r_pick_impl_1.
+              simpl.
+              left.
+              split; auto.
+              eapply i_last_align_1 with (n:=n1) (r:=(e1, e2) );
+                eauto using n_step, n_step_succ_minus_one, r_pick_impl_2, r_pick2_to_pick.
+            }
+            (* a1 \in cx[m - 1] /\ a2 \in P[m] *)
+            eapply WLang.i_pair_in_for_mid_2 with
+              (n0:=n1)
+              (e:=(NBin NMinus (S n1) 1)) (e':=NNum (S n1));
+              eauto using n_step_num, n_step_succ_minus_one.
+            simpl.
+            left.
+            split. {
+              eapply i_last_align_1 with (n:=n1) (r:=(e1, e2) );
+                eauto using n_step, n_step_succ_minus_one, r_pick_impl_2, r_pick2_to_pick.
+            }
+            eapply i_first_align_1 with (n:=S n1);
+              eauto using n_step_num, r_pick_impl_1.
+          }
+          apply i_first_inv_n_seq in Hp2.
+          destruct Hp2 as [Hp2|Hp2]. {
+            rewrite i_subst_subst_eq_1 in Hp2; simpl in Hp2; remove_eq x x.
+            apply WLang.i_pair_in_for_3
+              with (n0:=S n1) (e:=(NBin NMinus (S n1) 1));
+              auto using r_pick_impl_1.
+            simpl.
+            right.
+            split; auto.
+            (* a2 \in cx [m] *)
+            eapply i_last_align_1 with (n:=n1) (r:=(e1, e2) );
+              eauto using n_step, n_step_succ_minus_one, r_pick_impl_2, r_pick2_to_pick.
+          }
+          (* a2 \in cx[m - 1] /\ a2 \in P[m] *)
+            eapply WLang.i_pair_in_for_mid_2 with
+              (n0:=n1)
+              (e:=(NBin NMinus (S n1) 1)) (e':=NNum (S n1));
+              eauto using n_step_num, n_step_succ_minus_one.
+            simpl.
+            right.
+            split. {
+              eapply i_last_align_1 with (n:=n1) (r:=(e1, e2) );
+                eauto using n_step, n_step_succ_minus_one, r_pick_impl_2, r_pick2_to_pick.
+            }
+            eapply i_first_align_1 with (n:=S n1);
+              eauto using n_step_num, r_pick_impl_1.
+     }
+     (* p \in cx [ e2 - 1] \/ p \in c2[ e2 - 1] *)
+     rename_hyp (CPairIn _ _) as Hi.
+     apply c_pair_in_inv_c_seq in Hi.
+     destruct p as (a1, a2).
+     destruct Hi as (Ha, Hb).
+     unfold Conc.OneOf in *.
+     edestruct r_pick_impl_4 as (n2,(Hpick, Hn2)); eauto.
+     intuition.
+     + (* cx /\ cx *) 
+       eapply i_pair_in_align_for_2 with
+        (e:=NBin NMinus e2 (NNum 1)) (n:=n2);
+        eauto using n_step_num, c_pair_in_def.
+       intros.
+       apply IH; auto using WLang.distinct_subst.
+       intros N.
+       apply wvar_inv_subst in N.
+       intuition.
+     + (* cx /\ c2 *)
+       apply WLang.i_pair_in_for_3
+         with (n0:=n2) (e:=(NBin NMinus e2 (NNum 1)));
+         auto using r_pick_impl_1.
+       simpl.
+       eauto using i_last_align_1.
+     + (* c2 /\ cx *)
+       apply WLang.i_pair_in_for_3
+         with (n0:=n2) (e:=(NBin NMinus e2 (NNum 1)));
+         auto using r_pick_impl_1.
+       simpl.
+       eauto using i_last_align_1.
+     + (* c2 /\ c2 *)
+       apply WLang.i_pair_in_for_2 with
+        (e:=NBin NMinus e2 (NNum 1)) (n0:=n2);
+        auto using c_pair_in_def.
+  Qed.
+End Props.

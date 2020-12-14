@@ -1024,6 +1024,76 @@ Section Defs.
     apply r_first_to_closed in H.
     rewrite r_subst_not_free; auto.
   Qed.
+
+
+  Lemma r_pick_impl_1:
+    forall e1 e2 n,
+    RPick (NBin NPlus (NNum 1) e1, e2) n ->
+    RPick (e1, e2) n.
+  Proof.
+    intros.
+    invc H.
+    apply n_step_inv_succ in H2.
+    destruct H2 as (n', (Hn1, ?)).
+    subst.
+    eapply r_pick_def; eauto.
+    lia.
+  Qed.
+
+  Lemma r_pick_impl_2:
+    forall e1 e2 m,
+    RPick ((NBin NPlus (NNum 1) e1), e2) m ->
+    RPick (e1, e2) (Nat.sub m 1).
+  Proof.
+    intros.
+    invc H.
+    rename_hyp (NStep _ n1) as Hn1.
+    apply n_step_inv_succ in Hn1.
+    destruct Hn1 as (n', (Hn1, ?)).
+    subst.
+    eapply r_pick_def; eauto.
+    lia.
+  Qed.
+
+  Lemma r_pick_impl_3:
+    forall e1 e2 m,
+    RPick ((NBin NPlus (NNum 1) e1), e2) m ->
+    exists n, m = S n /\ RPick2 (e1, e2) n.
+  Proof.
+    intros.
+    invc H.
+    apply n_step_inv_succ in H2.
+    destruct H2 as (n', (Hn1, ?)).
+    subst.
+    destruct m. {
+      lia.
+    }
+    exists m.
+    split; auto.
+    eapply r_pick2_def; eauto.
+    - lia.
+    - lia.
+  Qed.
+
+  Lemma r_pick_impl_4:
+    forall e1 e2 n,
+    RPick (e1, e2) n ->
+    exists m, RPick (e1, e2) m /\ NStep (NBin NMinus e2 (NNum 1)) m.
+  Proof.
+    intros.
+    invc H.
+    destruct n2. {
+      lia.
+    }
+    exists n2.
+    split. {
+      eapply r_pick_def; eauto.
+      lia.
+    }
+    assert (rx: n2 = S n2 - 1) by lia.
+    rewrite rx.
+    apply n_step_bin; auto using n_step_num.
+  Qed.
 End Defs.
 
 Module RExpNotations.

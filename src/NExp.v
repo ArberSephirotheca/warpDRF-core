@@ -986,6 +986,33 @@ Section SO.
       assert (n0 = n) by eauto using n_step_fun; subst; auto.
   Qed.
 
+  Lemma n_step_inv_succ:
+    forall e n,
+    NStep (NBin NPlus (NNum 1) e) n -> 
+    exists n', NStep e n' /\ n = S n'.
+  Proof.
+    intros.
+    invc H.
+    assert (n1 = 1) by eauto using n_step_num, n_step_fun.
+    subst.
+    exists n2.
+    split; eauto.
+  Qed.
+
+  Lemma n_step_succ_minus_one:
+    forall n,
+    NStep (NBin NMinus (NNum (S n)) (NNum 1)) n.
+  Proof.
+    intros.
+    assert (NStep (NBin NMinus (NNum (S n)) (NNum 1)) (S n - 1)) by
+      (apply n_step_bin; auto using n_step_num).
+    remember (S n - 1) as nx.
+    assert (r1: nx = n) by lia.
+    remember (NBin NMinus (NNum (S n)) (NNum 1)) as e.
+    rewrite r1 in H.
+    assumption.
+  Qed.
+
 End SO.
 
 Module NExpNotations.
