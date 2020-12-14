@@ -1016,7 +1016,7 @@ Section Defs.
     - eauto using i_pair_in_for_mid_2, r_step_pick2_rev.
   Qed.
 
-
+  (** Proving the correctness of IPairIn *)
 
   Lemma i_pair_in_1:
     forall i h,

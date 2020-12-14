@@ -154,4 +154,3 @@ Section Defs.
   Qed.
 
 End Defs.
-
