@@ -179,5 +179,20 @@ Section Compiler.
     - eapply Conc.run_all_i_in_to_in in Hxi; eauto.
     - eapply Conc.run_all_i_in_to_in in Hyi; eauto.
   Qed.
+
+  Corollary correctness:
+    forall m_c m_h i,
+    ~ Conc.CFree i T1 ->
+    ~ Conc.CFree i T2 ->
+    ~ Conc.Var TID i ->
+    Conc.RunAll TID_COUNT i m_c ->
+    Run (translate i) m_h ->
+    Hist.Safe m_c <-> Hist.MSafeStrong m_h.
+  Proof.
+    split; intros. {
+      eapply completeness; eauto.
+    }
+    eapply soundness; eauto.
+  Qed.
 End Defs.
 End Compiler.
