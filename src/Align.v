@@ -809,4 +809,24 @@ Section Props.
         (e:=NBin NMinus e2 (NNum 1)) (n0:=n2);
         auto using c_pair_in_def.
   Qed.
+
+  Definition DRF (P:p_inst) :=
+    forall p,
+    PPairIn p P ->
+    access_safe (fst p) (snd p).
+
+  Corollary drf_1:
+    forall P,
+    CanRun P ->
+    WLang.Distinct P ->
+    ~ WVar TID P ->
+    WLang.DRF P ->
+    DRF (align P).
+  Proof.
+    intros.
+    unfold DRF, WLang.DRF.
+    intros.
+    apply align_i_pair_in_1 in H3; auto.
+  Qed.
+
 End Props.

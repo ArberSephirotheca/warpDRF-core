@@ -1226,22 +1226,6 @@ Section Defs.
     simpl in *.
     repeat split; intros y n; assert (H := H y); intuition.
   Qed.
-(*
-  Fixpoint get_first (P:w_inst) :=
-    match P with
-    | WSync c => Some c
-    | WSeq P _ => get_first P
-    | WFor c1 x (e1,e2) P _ =>
-      match n_step e1, n_step e2, get_first P with
-      | Some n1, Some n2, Some c =>
-        if Nat.ltb n1 n2 then
-          Some (Conc.c_seq c1 (i_subst x (NNum n1) c))
-        else
-          None
-      | _, _, _ => None
-      end
-    end.
-*)
 
   Inductive GetFirst : w_inst -> inst -> Prop :=
   | get_first_sync:
@@ -1307,100 +1291,6 @@ Section Defs.
       + auto using r_first_subst_1.
       + rewrite w_subst_subst_neq_3; auto.
   Qed.
-(*
-  Lemma get_first_to_prop:
-    forall P,
-    Distinct P ->
-    forall c,
-    get_first P = Some c ->
-    GetFirst P c.
-  Proof.
-    induction P; simpl; intros Hd c Heq.
-    - invc Heq; constructor.
-    - destruct Hd.
-      constructor; auto.
-    - destruct r as (e1, e2).
-      destruct (n_step e1) as [n1|] eqn:Hn1; try (invc Heq; fail).
-      destruct (get_first P) as [c'|] eqn:Hg.
-      2: { destruct (n_step e2); invc Heq. }
-      destruct (n_step e2) as [n2|] eqn:Hn2; try (invc Heq; fail).
-      destruct (Nat.ltb n1 n2) eqn:Hlb; invc Heq.
-      apply get_first_for with (n:=n1); auto. {
-        apply r_first_def with (n2:=n2); auto using n_step_to_prop.
-        apply PeanoNat.Nat.ltb_lt.
-        assumption.
-      }
-      assert (Hd_P: Distinct P) by intuition.
-      assert (IHP := IHP Hd_P c' eq_refl).
-      apply get_first_subst; auto.
-      + auto using n_closed_num.
-      + intuition.
-  Qed.
-
-  Lemma get_first_from_prop:
-    forall P c,
-    GetFirst P c ->
-    Distinct P ->
-    get_first P = Some c.
-  Proof.
-    intros P c H.
-    induction H; simpl; intros Hd; auto. {
-      destruct Hd; auto.
-    }
-    destruct r as (e1, e2).
-    destruct (n_step e1) as [n1|] eqn:Hn1.
-    2:{
-      invc H.
-      assert (r1: n_step e1 = Some n) by auto using prop_to_n_step.
-      rewrite r1 in *.
-      inversion Hn1.
-    }
-    assert (n = n1). {
-      invc H.
-      assert (r1: n_step e1 = Some n) by auto using prop_to_n_step.
-      rewrite r1 in *.
-      invc Hn1.
-      reflexivity.
-    }
-    subst.
-    destruct (n_step e2) as [n2|] eqn:Hn2.
-    2: {
-      invc H.
-      assert (r1: n_step e2 = Some n2) by auto using prop_to_n_step.
-      rewrite r1 in *.
-      inversion Hn2.
-    }
-    destruct (get_first P) as [c'|] eqn:Hg. {
-      destruct (Nat.ltb n1 n2) eqn:Hlt. {
-        assert (c = i_subst x (NNum n1) c'). {
-          assert (gf: GetFirst P c'). {
-            apply get_first_to_prop; auto.
-            intuition.
-          }
-          apply get_first_subst with (x:=x) (v:=NNum n1) in gf.
-          - eauto using get_first_fun.
-          - auto using n_closed_num.
-          - intuition.
-        }
-        subst.
-        reflexivity.
-      }
-      assert (n1 < n2). {
-        invc H.
-        assert (n3 = n2). {
-          eauto using n_step_fun, n_step_to_prop.
-        }
-        subst.
-        assumption.
-      }
-      assert (n1 >= n2). {
-        apply PeanoNat.Nat.ltb_ge.
-        auto.
-      }
-      lia.
-    }
-  Qed.
-*)
 
   Lemma get_first_exists:
     forall P,
@@ -1593,6 +1483,11 @@ Section Defs.
       eexists.
       apply get_last_for with (n:=n); eauto.
   Qed.
+
+  Definition DRF P :=
+    forall p,
+    IPairIn p P ->
+    access_safe (fst p) (snd p).
 
 End Defs.
 
