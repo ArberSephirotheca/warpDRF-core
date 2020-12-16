@@ -810,11 +810,6 @@ Section Props.
         auto using c_pair_in_def.
   Qed.
 
-  Definition DRF (P:p_inst) :=
-    forall p,
-    PPairIn p P ->
-    access_safe (fst p) (snd p).
-
   Corollary drf_1:
     forall P,
     CanRun P ->

@@ -118,6 +118,11 @@ Section Defs.
     IFirst a (NFor P x r Q)
   .
 
+  Definition DRF (P:p_inst) :=
+    forall p,
+    PPairIn p P ->
+    access_safe (fst p) (snd p).
+
 End Defs.
 
 
@@ -543,6 +548,26 @@ Section Props.
       intuition.
   Qed.
 
+
+  Lemma distinct_subst:
+    forall P,
+    Distinct P ->
+    forall x v,
+    Distinct (subst x v P).
+  Proof.
+    induction P; simpl; intros; auto. {
+      destruct H; eauto.
+    }
+    destruct (Set_VAR.MF.eq_dec x v). {
+      subst.
+      intuition.
+    }
+    simpl.
+    intuition.
+    rename_hyp (Var v _) as Hv.
+    apply var_inv_subst in Hv.
+    contradiction.
+  Qed.
 
   Lemma i_first_n_seq_l:
     forall a c,
