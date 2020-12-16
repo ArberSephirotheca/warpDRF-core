@@ -224,35 +224,112 @@ Section Defs.
     auto.
   Qed.
 
+  Inductive CanRun: n_inst -> Prop :=
+  | can_run_sync:
+    forall c,
+    CanRun (NSync c)
+  | can_run_seq:
+    forall P Q,
+    CanRun P ->
+    CanRun Q ->
+    CanRun (NSeq P Q)
+  | can_run_for:
+    forall P Q x r,
+    CanRun P ->
+    (forall n, RPick r n -> CanRun (subst x (NNum n) Q)) ->
+    CanRun (NFor P x r Q).
+
+  Lemma in_ph_subst:
+    forall P ph,
+    In ph (a_split P) ->
+    forall x n,
+    ~ Var x P ->
+    In (ph_subst x (NNum n) ph) (a_split (subst x (NNum n) P)).
+  Proof.
+    induction P; intros.
+    - simpl in *.
+      intuition.
+      subst.
+      auto.
+    - simpl in *.
+      rewrite in_app_iff in *.
+      destruct H as [H|H]. {
+        left.
+        apply IHP1; auto.
+      }
+      right.
+      apply IHP2; auto.
+    - simpl in *.
+      rename v into y.
+      intuition.
+      destruct (Set_VAR.MF.eq_dec x y). {
+        contradiction.
+      }
+      rewrite in_app_iff in *.
+      destruct H as [H|H]. {
+        eauto.
+      }
+      right.
+      rewrite in_map_iff in *.
+      destruct H as (ph', (?, Hi)).
+      subst.
+      simpl.
+      destruct (Set_VAR.MF.eq_dec x y). {
+        contradiction.
+      }
+      exists  (ph_subst x (NNum n) ph').
+      split; auto.
+  Qed.
+
+
+  Lemma i_pair_in_ph:
+    forall P,
+    CanRun P ->
+    forall ph,
+    In ph (a_split P) ->
+    forall p,
+    PPairIn p ph ->
+    IPairIn p P.
+  Proof.
+    intros P H.
+    induction H; intros ph Hi p Hp.
+    - admit.
+    - simpl in *.
+      admit.
+    - simpl in *.
+      rewrite in_app_iff in Hi.
+      destruct Hi as [Hi|Hi]. {
+        admit.
+      }
+      apply in_map_iff in Hi.
+      destruct Hi as (ph', (?, Hi)).
+      subst.
+      invc Hp.
+      apply H1 with (n:=n) in H6; auto. {
+        eapply i_pair_in_for_2; eauto.
+      }
+      apply in_ph_subst; auto.
+  Admitted.
+
   Theorem drf_2:
     forall P,
+    CanRun (fst P) ->
     AlignLang.DRF P ->
     DRF (split P).
   Proof.
     unfold DRF, AlignLang.DRF.
     intros.
-    apply H.
-    rename_hyp (In _ _) as H_split.
-    rename_hyp (PPairIn _ _) as Hin. 
-    invc Hin. {
-      
-    }
+    apply H0.
     destruct P as (P, c).
-    simpl in *.
-    destruct H0. {
+    rename_hyp (In _ _) as Hi.
+    destruct Hi as [Hi|Hi]. {
       subst.
-      invc H1.
-      unfold AlignLang.DRF in *.
-      simpl in *.
-      apply H.
+      simpl.
+      invc H2.
       auto.
     }
-    apply H.
-    simpl.
     left.
-    clear H.
-    rename P0 into ph.
-    unfold AlignLang.DRF in H.
+    eapply i_pair_in_ph; eauto.
   Qed.
 
 End Defs.
