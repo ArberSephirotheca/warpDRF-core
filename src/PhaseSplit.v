@@ -165,108 +165,78 @@ Section Defs.
       apply p_pair_in_decl with (n:=n); auto.
   Qed.
 
-  Lemma in_ph_split:
-    forall P p ph,
-    PPairIn p ph ->
-    ASplit P ph ->
-    IPairIn p P.
-  Proof.
-    induction P; intros.
-    - admit.
-    - admit.
-    - invc H0. {
-        admit.
-      }
-      invc H.
-      assert (IHP2 
-    intros p ph H.
-    induction H; intros P' Hi. {
-      admit.
-    }
-    destruct P'.
-    - invc Hi.
-    - invc Hi.
-      rewr
+  Inductive PhasePairIn (p:access_val * access_val) : phase -> n_inst -> Prop :=
+  | ph_pair_in_sync:
+    forall c,
+    Conc.CPairIn p c ->
+    PhasePairIn p (Phase c) (NSync c)
+  | ph_pair_in_seq_l:
+    forall ph P Q,
+    PhasePairIn p ph P ->
+    PhasePairIn p ph (NSeq P Q)
+  | ph_pair_in_seq_r:
+    forall ph P Q,
+    PhasePairIn p ph Q ->
+    PhasePairIn p ph (NSeq P Q)
+  | p_pair_in_for_1:
+    forall x r P Q ph,
+    PhasePairIn p ph P ->
+    PhasePairIn p ph (NFor P x r Q)
+  | p_pair_in_for_2:
+    forall x r P Q ph n,
+    RPick r n ->
+    PhasePairIn p (ph_subst x (NNum n) ph) (subst x (NNum n) Q) ->
+    PhasePairIn p (Decl x r ph) (NFor P x r Q).
 
-    intros P ph H.
-    induction H; intros.
-    - invc H.
-      constructor.
-      assumption.
-    - auto using i_pair_in_seq_l.
-    - auto using i_pair_in_seq_r.
-    - auto using i_pair_in_for_1.
-    - invc H0.
-      eapply i_pair_in_for_2; eauto.
-      invc 	H3.
-  Qed.
-
-(*
-  Lemma in_ph_split:
-    forall P ph,
-    In ph (a_split P) ->
-    forall p,
-    PPairIn p ph ->
-    IPairIn p P.
-*)
-(*
-  Lemma in_ph_split:
-    forall p P,
-    InPhases p (a_split P) ->
+  Lemma in_phases_2:
+    forall p P ph,
+    PhasePairIn p ph P ->
     IPairIn p P.
   Proof.
     intros.
-    remember (a_split _) as l.
-    generalize dependent P.
-    destruct H as (ph, (Hl, Hi)).
-    generalize dependent p.
-    generalize dependent ph.
-    induction l; intros. {
-      contradiction.
-    }
-    simpl in *.
-    destruct P.
-    - simpl in *.
-      invc Heql; subst.
-      destruct Hl; try contradiction.
-      subst.
-      clear IHl.
-      admit.
-    - destruct Hl. {
-        simpl in *.
-        subst.
-    destruc
-    induction P; simpl; intros H p Hi.
-    - destruct H as [H|?]; try contradiction.
-      subst.
-      invc Hi.
-      constructor.
-      assumption.
-    - apply in_app_iff in H.
-      destruct H as [H|H]. {
-        auto using i_pair_in_seq_l.
-      }
-      auto using i_pair_in_seq_r.
-    - apply in_app_iff in H.
-      destruct H as [H|H]. {
-        auto using i_pair_in_for_1.
-      }
-      clear IHP1.
-      apply in_map_iff in H.
-      destruct H as (ph', (Hd, Hi2)).
-      subst.
-      invc Hi.
-      eapply i_pair_in_for_2; eauto.
+    induction H;
+      eauto using
+        i_pair_in_seq_l,
+        i_pair_in_seq_r,
+        i_pair_in_for_1,
+        i_pair_in_sync,
+        i_pair_in_for_2.
   Qed.
-*)
+
   Theorem drf_1:
+    forall P,
+    DRF (split P) ->
+    Distinct (fst P) ->
+    AlignLang.DRF P.
+  Proof.
+    unfold DRF, AlignLang.DRF.
+    intros.
+    destruct P as (P, c).
+    rename_hyp (AlignLang.PPairIn _ _) as Hi.
+    simpl in *.
+    destruct Hi as [Hi|Hi]. {
+      apply in_phases_1 in Hi; auto.
+      destruct Hi as (ph, (Ha, Hb)).
+      eapply H; eauto.
+    }
+    eapply H; eauto.
+    constructor.
+    auto.
+  Qed.
+
+  Theorem drf_2:
     forall P,
     AlignLang.DRF P ->
     DRF (split P).
   Proof.
+    unfold DRF, AlignLang.DRF.
     intros.
-    unfold DRF.
-    intros.
+    apply H.
+    rename_hyp (In _ _) as H_split.
+    rename_hyp (PPairIn _ _) as Hin. 
+    invc Hin. {
+      
+    }
     destruct P as (P, c).
     simpl in *.
     destruct H0. {
