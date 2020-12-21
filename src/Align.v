@@ -967,4 +967,15 @@ Section Props.
     auto using w_pair_to_a_pair.
   Qed.
 
+  Corollary drf:
+    forall P,
+    CanRun P ->
+    WLang.Distinct P ->
+    ~ WVar TID P ->
+    DRF (align P) <-> WLang.DRF P.
+  Proof.
+    intros.
+    split; auto using drf_1, drf_2.
+  Qed.
+
 End Props.
