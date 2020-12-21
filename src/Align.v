@@ -850,6 +850,21 @@ Section Props.
     - eauto using i_pair_in_for_1.
   Qed.
 
+  Lemma i_pair_in_n_seq_1:
+    forall P a1 c a2, 
+    CIn a1 c ->
+    IFirst a2 P ->
+    IPairIn (a1, a2) (n_seq c P).
+  Proof.
+    induction P; simpl; intros a1 c a2 Hi Hf; invc Hf.
+    - assert (CPairIn (a1, a2) (Conc.c_seq c i)). {
+        auto using c_pair_in_def, c_in_c_seq_l, c_in_c_seq_r.
+      }
+      auto using i_pair_in_sync.
+    - auto using i_pair_in_seq_l.
+    - auto using i_pair_in_for_1.
+  Qed.
+
   (* ---------------------------------------------------------------- *)
 
   Lemma w_pair_to_a_pair:
@@ -894,8 +909,13 @@ Section Props.
         apply i_last_align in hl; auto.
         rewrite r1 in hl.
         simpl in *.
+        rename_hyp (WLang.IFirst _ _) as hf.
+        assert (IFirst a2 (fst (align Q))). {
+          apply i_first_align; auto.
+        }
+        rewrite r2 in *.
+        auto using i_pair_in_n_seq_1, i_pair_in_seq_r.
       }
-      
       admit.
     - admit.
     - admit.
