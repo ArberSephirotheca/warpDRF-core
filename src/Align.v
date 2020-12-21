@@ -855,17 +855,22 @@ Section Props.
   Lemma w_pair_to_a_pair:
     forall p P,
     WLang.IPairIn p P ->
+    CanRun P ->
+    WLang.Distinct P ->
+    ~ WVar TID P ->
     PPairIn p (align P).
   Proof.
     intros p P H.
-    induction H; simpl; intros.
+    induction H; intros Hc Hd Hv; simpl in *.
     - left.
       constructor.
       auto.
     - destruct (align i) as (P, c_P) eqn:r1.
       destruct (align j) as (Q, c_Q) eqn:r2.
       simpl in *.
-      destruct IHIPairIn as [Hi|Hi]. {
+      invc Hc.
+      destruct Hd.
+      destruct IHIPairIn as [Hi|Hi]; auto. {
         left.
         constructor.
         auto.
@@ -874,15 +879,19 @@ Section Props.
     - destruct (align i) as (P, c_P) eqn:r1.
       destruct (align j) as (Q, c_Q) eqn:r2.
       simpl in *.
+      invc Hc.
+      destruct Hd.
       destruct IHIPairIn as [Hi|Hi];
         auto using i_pair_in_seq_r, i_pair_in_n_seq_r.
     - destruct (align P) as (P', c_P) eqn:r1.
       destruct (align Q) as (Q', c_Q) eqn:r2.
       destruct p as (a1, a2).
       simpl in *.
+      invc Hc.
+      destruct Hd.
       intuition. {
         rename_hyp (ILast _ _) as hl.
-        apply i_last_align in hl.
+        apply i_last_align in hl; auto.
         rewrite r1 in hl.
         simpl in *.
       }
