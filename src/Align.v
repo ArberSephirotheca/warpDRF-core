@@ -944,27 +944,27 @@ Section Props.
       auto using i_pair_in_n_seq_2, i_pair_in_seq_r.
     - destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
       invc Hc.
+      admit.
     - admit.
     - admit.
     - admit.
     - admit.
     - admit.
     - admit.
-  Qed.
+  Admitted.
 
   Corollary drf_2:
     forall P,
-(*    CanRun P ->
+    CanRun P ->
     WLang.Distinct P ->
-    ~ WVar TID P -> *)
+    ~ WVar TID P ->
     DRF (align P) ->
     WLang.DRF P.
   Proof.
     unfold DRF, WLang.DRF.
     intros.
-    apply H; clear H.
-    apply align_i_pair_in_1 in H3; auto.
+    apply H2; clear H2.
+    auto using w_pair_to_a_pair.
   Qed.
 
-  
 End Props.
