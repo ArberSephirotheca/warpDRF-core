@@ -63,27 +63,6 @@ Section Defs.
   Definition InPhases p (l:list phase) :=
     exists ph, List.In ph l /\ PPairIn p ph. 
 
-  Inductive ASplit: n_inst -> phase -> Prop :=
-  | a_split_phase:
-    forall c,
-    ASplit (NSync c) (Phase c)
-  | a_split_seq_l:
-    forall ph P Q,
-    ASplit P ph ->
-    ASplit (NSeq P Q) ph
-  | a_split_seq_r:
-    forall ph P Q,
-    ASplit Q ph ->
-    ASplit (NSeq P Q) ph
-  | a_split_for_1:
-    forall P Q x r ph,
-    ASplit P ph ->
-    ASplit (NFor P x r Q) ph
-  | a_split_for_2:
-    forall P Q x r ph,
-    ASplit Q ph -> 
-    ASplit (NFor P x r Q) (Decl x r ph).
-
   Lemma map_subst_reorder:
     forall x v y r l,
     x <> y ->

@@ -1498,6 +1498,26 @@ Section C1.
     intuition.
   Qed.
 
+  Lemma c_pair_in_c_seq_l:
+    forall a c1 c2,
+    CPairIn a c1 ->
+    CPairIn a (c_seq c1 c2).
+  Proof.
+    induction c1; intros; simpl; auto using c_pair_in_seq_l.
+    invc H.
+    apply c_in_inv_seq in H0.
+    apply c_in_inv_seq in H1.
+    intuition; auto using c_pair_in_def, c_in_c_seq_l, c_in_c_seq_r.
+  Qed.
+
+  Lemma c_pair_in_c_seq_r:
+    forall a c1 c2,
+    CPairIn a c2 ->
+    CPairIn a (c_seq c1 c2).
+  Proof.
+    induction c1; intros; simpl; auto using c_pair_in_seq_r.
+  Qed.
+
   Lemma c_pair_in_subst:
     forall p x e1 c,
     x <> TID ->

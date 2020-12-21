@@ -824,4 +824,84 @@ Section Props.
     apply align_i_pair_in_1 in H3; auto.
   Qed.
 
+  Lemma i_pair_in_n_seq_r:
+    forall p P,
+    IPairIn p P ->
+    forall c,
+    IPairIn p (n_seq c P).
+  Proof.
+    intros p P H.
+    induction H; intros c'; simpl.
+    - auto using i_pair_in_sync, c_pair_in_c_seq_r.
+    - eauto using i_pair_in_seq_l, c_pair_in_seq_l.
+    - eauto using i_pair_in_seq_r, c_pair_in_seq_r.
+    - auto using i_pair_in_for_1.
+    - eauto using i_pair_in_for_2, c_pair_in_seq_l.
+  Qed.
+
+  Lemma i_pair_in_n_seq_l:
+    forall P p c,
+    CPairIn p c ->
+    IPairIn p (n_seq c P).
+  Proof.
+    induction P; intros; simpl.
+    - auto using i_pair_in_sync, c_pair_in_c_seq_l.
+    - eauto using i_pair_in_seq_l.
+    - eauto using i_pair_in_for_1.
+  Qed.
+
+  (* ---------------------------------------------------------------- *)
+
+  Lemma w_pair_to_a_pair:
+    forall p P,
+    WLang.IPairIn p P ->
+    PPairIn p (align P).
+  Proof.
+    intros p P H.
+    induction H; simpl; intros.
+    - left.
+      constructor.
+      auto.
+    - destruct (align i) as (P, c_P) eqn:r1.
+      destruct (align j) as (Q, c_Q) eqn:r2.
+      simpl in *.
+      destruct IHIPairIn as [Hi|Hi]. {
+        left.
+        constructor.
+        auto.
+      }
+      auto using i_pair_in_seq_r, i_pair_in_n_seq_l.
+    - destruct (align i) as (P, c_P) eqn:r1.
+      destruct (align j) as (Q, c_Q) eqn:r2.
+      simpl in *.
+      destruct IHIPairIn as [Hi|Hi]. {
+        left.
+        apply i_pair_in_seq_r.
+      }
+      admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+  Qed.
+
+  Corollary drf_2:
+    forall P,
+(*    CanRun P ->
+    WLang.Distinct P ->
+    ~ WVar TID P -> *)
+    DRF (align P) ->
+    WLang.DRF P.
+  Proof.
+    unfold DRF, WLang.DRF.
+    intros.
+    apply H; clear H.
+    apply align_i_pair_in_1 in H3; auto.
+  Qed.
+
+  
 End Props.
