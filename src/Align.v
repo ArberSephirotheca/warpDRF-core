@@ -944,6 +944,53 @@ Section Props.
       auto using i_pair_in_n_seq_2, i_pair_in_seq_r.
     - destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
       invc Hc.
+      destruct r as (e1, e2).
+      destruct (align P) as (P_x, c_x) eqn:r1.
+      assert (Hx1: CanRun (w_subst x e P)). {
+        assert (Hx1: CanRun (w_subst x n P)). {
+          auto.
+        }
+        eapply can_run_subst; eauto using n_step_num.
+      }
+      assert (Hx2: WLang.Distinct (w_subst x e P)). {
+        auto using WLang.distinct_subst.
+      }
+      assert (Hx3: ~ WVar TID (w_subst x e P)). {
+        intros N.
+        apply WLang.wvar_inv_subst in N.
+        intuition.
+      }
+      assert (IHIPairIn := IHIPairIn Hx1 Hx2 Hx3); clear Hx1 Hx2 Hx3.
+      apply align_to_subst with (x:=x) (v:=e) in r1.
+      2: { eauto using n_step_to_closed. }
+      2: { intuition. }
+      rewrite r1 in IHIPairIn.
+      simpl in *.
+      destruct IHIPairIn as [Hp|Hp]. {
+        left.
+        (* Are we in the first phase or phase n+1? *)
+        rename_hyp (RPick _ _) as hp.
+        apply r_pick_inv_first in hp.
+        destruct hp as [hp|hp]. {
+          (* first phase *)
+          apply i_pair_in_for_1.
+          apply i_pair_in_n_seq_r.
+          eauto using i_pair_in_subst, r_first_to_eq.
+        }
+        (* n + 1 *)
+        apply i_pair_in_for_2 with (n0:=n); auto.
+        rewrite subst_n_seq.
+        apply i_pair_in_n_seq_r.
+        rewrite subst_n_seq.
+        apply i_pair_in_n_seq_r.
+        eapply i_pair_in_subst; eauto using n_step_num.
+      }
+      (* since this is the end of the loop's body, then either
+         it's inside the loop or it is the last iteration *)
+      rename_hyp (RPick _ _) as hp.
+      apply r_pick_inv_last in hp.
+      left.
+      simpl in *.
       admit.
     - admit.
     - admit.
