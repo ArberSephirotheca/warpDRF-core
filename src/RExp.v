@@ -907,6 +907,27 @@ Section Defs.
     rewrite r1.
     apply n_step_plus; auto using n_step_num.
   Qed.
+
+  Lemma r_pick_inv_last:
+    forall e1 e2 n,
+    RPick (e1, e2) n ->
+    RLast (e1, e2) n \/ RPick (e1, NBin NMinus e2  (NNum 1)) n.
+  Proof.
+    intros.
+    invc H.
+    assert (X: n = n2 - 1 \/ (n1 <= n < n2 - 1)) by lia.
+    destruct X as [X|X]. {
+      subst.
+      left.
+      eapply r_last_def; eauto; try lia.
+      assert (r1: S (n2 - 1) = n2) by lia.
+      rewrite r1.
+      assumption.
+    }
+    right.
+    eapply r_pick_def; eauto.
+    apply n_step_minus; auto using n_step_num.
+  Qed.
  
   (* ------------------------------------ RPRED ------------------- *)
 

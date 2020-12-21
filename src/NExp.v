@@ -183,6 +183,19 @@ Section SO.
     assumption.
   Qed.
 
+  Lemma n_step_minus:
+    forall n1 n2 e1 e2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    NStep (NBin NMinus e1 e2) (n1 - n2).
+  Proof.
+    intros.
+    assert (NStep (NBin NMinus e1 e2) (eval_nbin NMinus n1 n2))
+      by auto using n_step_bin.
+    unfold eval_nbin in *.
+    assumption.
+  Qed.
+
   Lemma n_step_add:
     forall n1 n2 e1 e2,
     NStep e1 n1 ->

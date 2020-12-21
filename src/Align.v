@@ -989,7 +989,20 @@ Section Props.
          it's inside the loop or it is the last iteration *)
       rename_hyp (RPick _ _) as hp.
       apply r_pick_inv_last in hp.
+      destruct hp as [hp|hp]. {
+        (* last iteration *)
+        right.
+        apply c_pair_in_c_seq_l.
+        eapply c_pair_in_subst; eauto using r_last_to_eq.
+      }
       left.
+      apply r_pick_inv_first in hp.
+      destruct hp as [hp|hp]. {
+        eapply i_pair_in_for_2 with (n0:=S n).
+        - admit.
+        - 
+      }
+      eapply i_pair_in_for_2 with (n0:=S n).
       simpl in *.
       admit.
     - admit.
