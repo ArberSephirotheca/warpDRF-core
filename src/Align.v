@@ -8,6 +8,7 @@ Require Import Tictac.
 Require Import AlignLang.
 Require Import Util.
 Require Import RExp.
+Require Import Lia.
 
 Section Props.
   Context `{T:Tasks}.
@@ -995,16 +996,34 @@ Section Props.
         apply c_pair_in_c_seq_l.
         eapply c_pair_in_subst; eauto using r_last_to_eq.
       }
+      (* All but last iteration *)
       left.
-      apply r_pick_inv_first in hp.
-      destruct hp as [hp|hp]. {
-        eapply i_pair_in_for_2 with (n0:=S n).
-        - admit.
-        - 
+      eapply i_pair_in_for_2 with (n0:=S n). {
+        invc hp.
+        destruct n2. {
+          lia.
+        }
+        rename_hyp (NStep _ (S n2)) as hn.
+        apply n_step_inv_dec in hn.
+        apply r_pick_def with (n1:=S n1) (n2:=S (S n2)); auto.
+        - assert (r2: S n1 = 1 + n1). {
+            lia.
+          }
+          rewrite r2.
+          apply n_step_add; auto using n_step_num.
+        - lia.
       }
-      eapply i_pair_in_for_2 with (n0:=S n).
-      simpl in *.
-      admit.
+      rewrite n_seq_subst.
+      apply i_pair_in_n_seq_l.
+      rewrite i_subst_subst_eq_1.
+      simpl.
+      destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
+      eapply c_pair_in_subst; eauto.
+      assert (rx : S n - 1 = n) by lia.
+      rewrite <- rx.
+      apply n_step_minus; auto using n_step_num.
+      rewrite rx.
+      auto using n_step_num.
     - admit.
     - admit.
     - admit.

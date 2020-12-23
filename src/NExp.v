@@ -244,6 +244,21 @@ Section SO.
     reflexivity.
   Qed.
 
+  Lemma n_step_inv_nbin:
+    forall o e1 e2 n,
+    NStep (NBin o e1 e2) n ->
+    exists n1 n2,
+    NStep e1 n1 /\
+    NStep e2 n2 /\
+    n = eval_nbin o n1 n2.
+  Proof.
+    intros.
+    invc H.
+    exists n1.
+    exists n2.
+    auto.
+  Qed.
+
   Lemma n_step_inv_add_num:
     forall n1 n2 n3,
     NStep (NBin NPlus (NNum n1) (NNum n2)) n3 ->
@@ -999,7 +1014,7 @@ Section SO.
       assert (n0 = n) by eauto using n_step_fun; subst; auto.
   Qed.
 
-  Lemma n_step_inv_succ:
+  Lemma n_step_inv_succ_l:
     forall e n,
     NStep (NBin NPlus (NNum 1) e) n -> 
     exists n', NStep e n' /\ n = S n'.
@@ -1010,6 +1025,21 @@ Section SO.
     subst.
     exists n2.
     split; eauto.
+  Qed.
+
+  Lemma n_step_inv_succ_r:
+    forall e n,
+    NStep (NBin NPlus e (NNum 1)) n -> 
+    exists n', NStep e n' /\ n = S n'.
+  Proof.
+    intros.
+    invc H.
+    assert (n2 = 1) by eauto using n_step_num, n_step_fun.
+    subst.
+    exists n1.
+    split; eauto.
+    simpl.
+    lia.
   Qed.
 
   Lemma n_step_succ_minus_one:
@@ -1026,6 +1056,28 @@ Section SO.
     assumption.
   Qed.
 
+  Lemma n_step_inv_dec:
+    forall e n,
+    NStep (NBin NMinus e (NNum 1)) (S n) ->
+    NStep e (S (S n)).
+  Proof.
+    intros.
+    apply n_step_inv_nbin in H.
+    destruct H as (n1, (n2, (Hn1, (Hn2, ?)))).
+    simpl in *.
+    invc Hn2.
+    destruct n1. {
+      simpl.
+      invc H.
+    }
+    simpl in *.
+    destruct n1. {
+      invc H.
+    }
+    simpl in *.
+    invc H.
+    assumption.
+  Qed.
 End SO.
 
 Module NExpNotations.

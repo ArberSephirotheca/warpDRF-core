@@ -1054,7 +1054,7 @@ Section Defs.
   Proof.
     intros.
     invc H.
-    apply n_step_inv_succ in H2.
+    apply n_step_inv_succ_l in H2.
     destruct H2 as (n', (Hn1, ?)).
     subst.
     eapply r_pick_def; eauto.
@@ -1069,7 +1069,7 @@ Section Defs.
     intros.
     invc H.
     rename_hyp (NStep _ n1) as Hn1.
-    apply n_step_inv_succ in Hn1.
+    apply n_step_inv_succ_l in Hn1.
     destruct Hn1 as (n', (Hn1, ?)).
     subst.
     eapply r_pick_def; eauto.
@@ -1083,7 +1083,7 @@ Section Defs.
   Proof.
     intros.
     invc H.
-    apply n_step_inv_succ in H2.
+    apply n_step_inv_succ_l in H2.
     destruct H2 as (n', (Hn1, ?)).
     subst.
     destruct m. {
