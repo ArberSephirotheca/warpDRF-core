@@ -10,7 +10,6 @@ Require Import Recdef.
 Require Omega.
 Require Import Var.
 Require Import Tid.
-Require Import Loc.
 Require Import NExp.
 Require Import BExp.
 Require Import AccExp.

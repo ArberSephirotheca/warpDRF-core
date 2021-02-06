@@ -1,29 +1,37 @@
-# Major result
 
-A state in `Conc` is safe if, and only if, a state in `SymHist` is safe
-## Proof
+# Languages
 
-`Conc + Hist.Safe <-> LoopFree + Hist.MSafe  <-> SymHist + Hist.StrongSafe`
+* `Conc.v`: unsynchronized protocols
+* `WLang.v`: well-formed protocols
+* `SymHist.v` + `SymExec.v`: symbolic traces
+* `AlignLang.v`: aligned language
 
-1. Prove that `Conc` is safe if, and only if `LoopFree` is safe (`LoopFree.v`)
-2. Prove that if `LoopFree` is safe, then `SymHist` is safe (`SHComplete.v`)
-3. Prove that if `SymHist` is safe, then `LoopFree` is safe (`SHSound.v`)
+# Barrier aligning
+* `Align.v`: barrier aligning (function align) + proofs
 
-# Module overview
-* `Acc.v`: theory of accesses (abstraction over access expressions)
-* `Tasks.v`: declares special variables `TID`, `T1`, and `T2`, which are all different from each other and `TID_COUNT >= 2`
-* `Exp.v`: numeric and boolean expressions
-* `Conc.v`: multithreaded code with loops
-* `ConcImpl.v`: implementation of `Conc`
-* `LoopFree.v`: runs `Conc1` but handles loops as variable declaration, ie, running each iteration in its own independent execution thread; proof that `Conc` is safe iff `LoopFree` is safe
-* `SymHist.v`: a sequential symbolic history
-* `SHCompiler.v`: takes a `LoopFree` program and outputs a `SymHist` program
-* `SHSound.v`: proves that if `SymHist` is safe, then `LoopFree` is safe
-* `SHComplete.v`: proves that if `LoopFree` is safe, then `SymHist` is safe
-* `MultiHist`: theories on multi-histories
+# Barrier splitting
+* `SHCompiler.v`: barrier splitting (just projection)
+* `SHResults.v`: barrier splitting (completeness and correctness)
+* `PhaseSplit.v`: the barrier splitting function + language
+
 # Misc
-* `Var.v` and `Tid.v` and `Loc.v`: meta variables
-* `StringUtil.v`: utilities on strings
-* `SetTh.v`: theorems on sets (inclusion, equivalence, rewriting on those)
-* `Util.v`: theorems on lists and son on
-* `RangeList.v`: a sequence that starts in `n1` and goes up to `n2` (but does not include `n2`)
+* `AccExp.v`: theory of accesses (abstraction over access expressions)
+* `AccExpImpl.v`: one dimensional arrays
+* `Tasks.v`: declares special variables `TID`, `T1`, and `T2`, which are all
+  different from each other and `TID_COUNT >= 2`
+* `NExp.v`: numeric expressions
+* `BExp.v`: boolean expressions
+* `RExp.v`: range expressions
+* `Hist.v`: notions of DRF on history/multi history
+* `MultiHist.v`: memory equivalence lemmas
+* `Var.v`: a variable data type
+* `VHist.v`: notion of histories used in symbolic traces
+* `ConcImpl.v`: implementation of usync
+* `Loc.v`: data type to represent locations (unused)
+* `InUtil.v`: membership on lists
+* `PairInUtil.v`: pair member on lists
+* `Util.v`: remaining properties
+* `SetTh.v`: set theory results
+* `StringUtil.v`: string results
+* `TicTac.v`: tactics
+* `Tid.v`: task identifier

@@ -1024,7 +1024,11 @@ Section Props.
       apply n_step_minus; auto using n_step_num.
       rewrite rx.
       auto using n_step_num.
-    - admit.
+    - destruct r as (e1, e2).
+      destruct (align P) as (P_x, c_x) eqn:r1.
+      simpl.
+      right.
+      admit.
     - admit.
     - admit.
     - admit.

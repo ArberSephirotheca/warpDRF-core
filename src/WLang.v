@@ -14,11 +14,9 @@ Require Import Tasks.
 Require Import InUtil.
 Require Import PairInUtil.
 Require Import VHist.
-Require Import RangeList.
 Require Import Conc.
 Require Import Tictac.
 
-Require RangeList.
 Require Import Lia.
 
 Import ListNotations.

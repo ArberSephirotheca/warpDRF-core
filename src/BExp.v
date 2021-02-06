@@ -1,6 +1,5 @@
 Require Import Coq.Lists.List.
 Require Import Var.
-Require Import RangeList.
 Import ListNotations.
 Require Coq.omega.Omega.
 Require Import NExp.
@@ -619,4 +618,3 @@ Section SO.
     - rewrite IHb; auto.
   Qed.
 End SO.
-

@@ -4,7 +4,6 @@ Require Import Coq.micromega.Lia.
 
 Import ListNotations.
 
-Require Import RangeList.
 Require Import NExp.
 Require Import Tictac.
 Require Import Util.
@@ -12,145 +11,9 @@ Require Import Util.
 Section Defs.
   Definition range := (nexp * nexp) % type.
 
-  Inductive RList: range -> list nat -> Prop :=
-  | r_list_def:
-    forall e1 e2 n1 n2 l,
-    NStep e1 n1 ->
-    NStep e2 n2 ->
-    RangeList n1 n2 l ->
-    RList (e1, e2) l.
-
   Definition r_subst x v (r:range) :=
   let (n1, n2) := r in
   (n_subst x v n1, n_subst x v n2).
-
-  Definition r_list (r:range) :=
-    let (e1, e2) := r in
-    match n_step e1, n_step e2 with
-    | Some n1, Some n2 => Some (range_list n1 n2)
-    | _, _ => None
-    end.
-
-  Lemma r_list_to_prop:
-    forall r l,
-    r_list r = Some l ->
-    RList r l.
-  Proof.
-    intros.
-    destruct r as (e1, e2).
-    simpl in *.
-    destruct (n_step e1) eqn:He1. {
-      destruct (n_step e2) eqn:He2. {
-        apply n_step_to_prop in He1.
-        apply n_step_to_prop in He2.
-        inversion H; subst; clear H.
-        remember (range_list _ _).
-        symmetry in Heql.
-        apply range_list_to_prop in Heql.
-        eauto using r_list_def.
-      }
-      inversion H.
-    }
-    inversion H.
-  Qed.
-
-  Lemma prop_to_r_list:
-    forall r l,
-    RList r l ->
-    r_list r = Some l.
-  Proof.
-    intros.
-    destruct r as (e1, e2).
-    inversion H; subst; clear H.
-    apply prop_to_n_step in H2.
-    apply prop_to_n_step in H3.
-    apply prop_to_range_list in H5.
-    simpl.
-    rewrite H2.
-    rewrite H3.
-    rewrite H5.
-    reflexivity.
-  Qed.
-
-  Lemma r_list_fun:
-    forall r n1 n2,
-    RList r n1 ->
-    RList r n2 ->
-    n1 = n2.
-  Proof.
-    intros.
-    apply prop_to_r_list in H.
-    apply prop_to_r_list in H0.
-    rewrite H in *.
-    inversion H0.
-    auto.
-  Qed.
-
-  Lemma r_list_to_range_list:
-    forall n1 n2 l,
-    RList (NNum n1, NNum n2) l ->
-    l = range_list n1 n2.
-  Proof.
-    intros.
-    inversion H; subst; clear H.
-    inversion H2; subst.
-    inversion H3; subst; clear H2 H3.
-    apply prop_to_range_list in H5.
-    auto.
-  Qed.
-
-
-  Lemma r_list_range_list:
-    forall n1 n2,
-    RList (NNum n1, NNum n2) (range_list n1 n2).
-  Proof.
-    intros.
-    remember (range_list _ _).
-    apply r_list_def with (n1:=n1) (n2:=n2); auto using n_step_num.
-    apply range_list_to_prop.
-    auto.
-  Qed.
-
-  Lemma r_list_cons:
-    forall e1 e2 n1 n2 l,
-    NStep e1 n1 ->
-    NStep e2 n2 ->
-    n1 < n2 ->
-    RList (NNum (S n1), NNum n2) l ->
-    RList (e1, e2) (n1 :: l).
-  Proof.
-    intros.
-    apply r_list_to_range_list in H2.
-    symmetry in H2.
-    assert (Hx := r_list_range_list n1 n2).
-    eapply r_list_def; eauto.
-    apply range_list_cons; auto.
-    rewrite <- H2.
-    apply range_list_to_prop.
-    reflexivity.
-  Qed.
-
-  Inductive RTypes l : range -> Prop :=
-  | r_types_def:
-    forall n1 n2,
-    NTypes l n1 ->
-    NTypes l n2 ->
-    RTypes l (n1, n2).
-
-  Lemma r_progress:
-    forall r,
-    RTypes [] r ->
-    exists l, RList r l.
-  Proof.
-    intros.
-    destruct r as (e1, e2).
-    inversion H; subst; clear H.
-    destruct (n_progress e1) as (n1, Hn1); auto.
-    destruct (n_progress e2) as (n2, Hn2); auto.
-    destruct (range_list_progress n1 n2) as (l, Hr).
-    exists l.
-    eauto using r_list_def.
-  Qed.
 
   Lemma r_subst_subst_neq_2:
     forall x y z n e,
@@ -223,35 +86,6 @@ Section Defs.
     | (e1, e2) => NFree e1 x \/ NFree e2 x
     end.
 
-  Lemma r_list_to_not_free:
-    forall r l,
-    RList r l ->
-    forall x,
-    ~ RFree r x.
-  Proof.
-    intros.
-    inversion H; subst; clear H.
-    intros N.
-    inversion N; subst; clear N.
-    - apply n_step_to_not_free with (x:=x) in H0.
-      contradiction.
-    - apply n_step_to_not_free with (x:=x) in H1.
-      contradiction.
-  Qed.
-(*
-  Lemma r_not_free_to_n_free:
-    forall x n1 n2,
-    ~ RFree (n1, n2) x ->
-    ~ NFree n1 x /\ ~ NFree n2 x.
-  Proof.
-    intros.
-    split; intros N.
-    - contradict H.
-      auto using r_in_l.
-    - contradict H.
-      auto using r_in_r.
-  Qed.
-*)
   Lemma r_subst_not_free:
     forall x v r,
     ~ RFree r x ->
@@ -288,16 +122,6 @@ Section Defs.
     destruct H; eauto using n_free_subst_neq.
   Qed.
 
-  Lemma r_list_no_dup:
-    forall l r,
-    RList r l ->
-    NoDup l.
-  Proof.
-    intros.
-    inversion H; subst; clear H.
-    eauto using range_list_to_no_dup.
-  Qed.
-
   Lemma r_free_subst_eq:
     forall x y e,
     ~ RFree e x ->
@@ -313,23 +137,6 @@ Section Defs.
   Qed.
 
   (* ------------------------ RSTEP --------------------------- *)
-
-  Lemma eq_r_list_subst_proper:
-    forall x v v' e n, 
-    NEq v v' ->
-    RList (r_subst x v e) n ->
-    RList (r_subst x v' e) n.
-  Proof.
-    intros.
-    destruct e as (e1, e2).
-    simpl in *.
-    inversion H0; subst; clear H0.
-    eapply r_list_def; eauto.
-    - rewrite <- H.
-      assumption.
-    - rewrite <- H.
-      assumption.
-  Qed.
 
   Import Morphisms.
 
@@ -947,21 +754,6 @@ Section Defs.
     intros.
     eapply r_pred_def; eauto using n_step_num.
   Qed.
- (*
-  Lemma r_subst_not_in_rw:
-    forall x e,
-    ~ RFree e x ->
-    forall v,
-    r_subst x v e = e.
-  Proof.
-    intros.
-    destruct e as (e1, e2).
-    simpl.
-    apply not_r_in_to_in in H.
-    destruct H.
-    rewrite n_subst_not_in_rw; auto.
-    rewrite n_subst_not_in_rw; auto.
-  Qed.*)
 
   Lemma r_subst_subst_eq_1:
     forall e1 e2 x r,

@@ -2,8 +2,8 @@ Require Import NExp.
 Require Import BExp.
 Require Import Coq.Lists.List.
 Require Import AccExp.
-Require Import Loc.
 Require Import Tid.
+Require Import Loc.
 
 Import ListNotations.
 

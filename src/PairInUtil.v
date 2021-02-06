@@ -3,7 +3,7 @@ Require Coq.Sets.Constructive_sets.
 Require Import Aniceto.Graphs.Graph.
 Require Import Coq.Relations.Relation_Definitions.
 Require Import Coq.Relations.Relation_Operators.
-(*Require Import Coq.Relations.Operators_Properties.*)
+
 Require Import Coq.Lists.List.
 Require Import Util.
 Require Import InUtil.

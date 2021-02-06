@@ -1,7 +1,6 @@
 -R src Faial
 src/Tictac.v
 src/StringUtil.v
-src/RangeList.v
 src/Util.v
 src/Tid.v
 src/Loc.v
