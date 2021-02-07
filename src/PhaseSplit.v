@@ -284,7 +284,7 @@ Section Defs.
     - simpl in *.
       rewrite in_app_iff in Hi.
       destruct Hi as [Hi|Hi]. {
-        admit.
+        eapply IHCanRun in Hi; eauto using i_pair_in_for_1.
       }
       apply in_map_iff in Hi.
       destruct Hi as (ph', (?, Hi)).
