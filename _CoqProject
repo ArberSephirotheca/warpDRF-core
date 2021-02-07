@@ -26,3 +26,5 @@ src/SymExec.v
 src/SymHist.v
 src/SHCompiler.v
 src/SHResults.v
+src/PhaseSplit.v
+

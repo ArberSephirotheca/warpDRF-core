@@ -1059,11 +1059,13 @@ Section Props.
       simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       assert (rx : S n - 1 = n) by lia.
+      (*
       rewrite rx.
       eapply c_pair_in_subst; eauto.
       apply n_step_minus; auto using n_step_num.
       rewrite rx.
       auto using n_step_num.
+      *)
       admit.
     - admit.
     - admit.

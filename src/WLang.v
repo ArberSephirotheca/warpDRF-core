@@ -1133,6 +1133,16 @@ Section Defs.
         eapply i_pair_in_for_first_2; eauto using r_one_to_first, n_step_num.
   Qed.
 
+  Lemma i_pair_in_2:
+    forall i h,
+    WRun i h ->
+    ~ WVar TID i -> 
+    forall p,
+    IPairIn p i ->
+    VHist.MPairIn p h.
+  Proof.
+  Admitted.
+
   Fixpoint w_seq (c:Conc.inst) (i:w_inst) :=
    match i with
    | WSync c' => WSync (c_seq c c') 

@@ -139,8 +139,6 @@ Section Defs.
     - reflexivity.
     - rewrite IHi.
       destruct (Set_VAR.MF.eq_dec x v); auto.
-(*    - rewrite IHi.
-      destruct (Set_VAR.MF.eq_dec x v); auto.*)
   Qed.
 
   Lemma all_incl_eq:
