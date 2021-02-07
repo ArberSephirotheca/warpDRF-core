@@ -271,10 +271,16 @@ Section Defs.
     IPairIn p P.
   Proof.
     intros P H.
-    induction H; intros ph Hi p Hp.
-    - admit.
-    - simpl in *.
-      admit.
+    induction H; intros ph Hi p Hp; simpl in *.
+    - destruct Hi; try (intuition; fail).
+      subst.
+      invc Hp.
+      auto using i_pair_in_sync.
+    - apply in_app_iff in Hi.
+      destruct Hi as [Hi|Hi]. {
+        eauto using i_pair_in_seq_l.
+      }
+      eauto using i_pair_in_seq_r.
     - simpl in *.
       rewrite in_app_iff in Hi.
       destruct Hi as [Hi|Hi]. {
@@ -309,6 +315,17 @@ Section Defs.
     }
     left.
     eapply i_pair_in_ph; eauto.
+  Qed.
+
+  Theorem drf:
+    forall P,
+    CanRun (fst P) ->
+    Distinct (fst P) ->
+    AlignLang.DRF P <-> DRF (split P).
+  Proof.
+    split; intros.
+    + apply drf_2; auto.
+    + apply drf_1; auto.
   Qed.
 
 End Defs.

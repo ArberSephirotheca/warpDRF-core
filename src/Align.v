@@ -1027,7 +1027,43 @@ Section Props.
     - destruct r as (e1, e2).
       destruct (align P) as (P_x, c_x) eqn:r1.
       simpl.
-      right.
+      (* At this point we do not know what n refers to. Is n
+         in the last iteration (and at the dangling bit),
+         or is n inside the for loop. *)
+      apply r_pick_inv_last in H.
+      destruct H as [H|H]. {
+        right.
+        apply c_pair_in_c_seq_r.
+        eapply c_pair_in_subst; eauto using r_last_to_eq.
+      }
+      left.
+      (* In this case we know that n is inside the loop *)
+      eapply i_pair_in_for_2 with (n0:=S n). {
+        invc H.
+        destruct n2. {
+          lia.
+        }
+        rename_hyp (NStep _ (S n2)) as hn.
+        apply n_step_inv_dec in hn.
+        apply r_pick_def with (n1:=S n1) (n2:=S (S n2)); auto.
+        - assert (r2: S n1 = 1 + n1). {
+            lia.
+          }
+          rewrite r2.
+          apply n_step_add; auto using n_step_num.
+        - lia.
+      }
+      rewrite n_seq_subst.
+      apply i_pair_in_n_seq_l.
+      rewrite i_subst_subst_eq_1.
+      simpl.
+      destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
+      assert (rx : S n - 1 = n) by lia.
+      rewrite rx.
+      eapply c_pair_in_subst; eauto.
+      apply n_step_minus; auto using n_step_num.
+      rewrite rx.
+      auto using n_step_num.
       admit.
     - admit.
     - admit.
