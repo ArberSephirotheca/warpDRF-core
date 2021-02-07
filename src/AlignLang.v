@@ -569,6 +569,50 @@ Section Props.
     contradiction.
   Qed.
 
+  Lemma var_subst_neq:
+    forall P x y v,
+    x <> y ->
+    Var y P ->
+    Var y (subst x (NNum v) P).
+  Proof.
+    induction P; simpl; intros.
+    - auto using Conc.var_subst_neq.
+    - rename_hyp (_ \/ _) as Hp.
+      destruct Hp as [Hp|Hp]; eauto.
+    - rename_hyp (_ \/ _) as Hp.
+      destruct Hp as [Hp|[Hp|Hp]].
+      + subst.
+        auto.
+      + eauto.
+      + destruct (Set_VAR.MF.eq_dec x v). {
+          subst.
+          auto.
+        }
+        eauto.
+  Qed.
+
+  Lemma distinct_inv_subst:
+    forall P x n,
+    Distinct (subst x (NNum n) P) ->
+    Distinct P.
+  Proof.
+    induction P; simpl; intros; auto.
+    - destruct H as (Ha, Hb).
+      eauto.
+    - destruct H as (Ha, (Hb, Hd)).
+      destruct (VAR.eq_dec x v). {
+        subst.
+        split; eauto.
+      }
+      split; eauto.
+      split. {
+        intros N.
+        contradict Hb.
+        eauto using var_subst_neq.
+      }
+      eauto.
+  Qed.
+
   Lemma i_first_n_seq_l:
     forall a c,
     CIn a c ->

@@ -260,10 +260,10 @@ Section Defs.
       split; auto.
   Qed.
 
-
   Lemma i_pair_in_ph:
     forall P,
     CanRun P ->
+    Distinct P ->
     forall ph,
     In ph (a_split P) ->
     forall p,
@@ -271,17 +271,19 @@ Section Defs.
     IPairIn p P.
   Proof.
     intros P H.
-    induction H; intros ph Hi p Hp; simpl in *.
+    induction H; intros Hd ph Hi p Hp; simpl in *.
     - destruct Hi; try (intuition; fail).
       subst.
       invc Hp.
       auto using i_pair_in_sync.
     - apply in_app_iff in Hi.
+      destruct Hd as (Hd1, Hd2).
       destruct Hi as [Hi|Hi]. {
         eauto using i_pair_in_seq_l.
       }
       eauto using i_pair_in_seq_r.
     - simpl in *.
+      destruct Hd as (Hd1, (Hd2, Hd3)).
       rewrite in_app_iff in Hi.
       destruct Hi as [Hi|Hi]. {
         eapply IHCanRun in Hi; eauto using i_pair_in_for_1.
@@ -290,27 +292,28 @@ Section Defs.
       destruct Hi as (ph', (?, Hi)).
       subst.
       invc Hp.
-      apply H1 with (n:=n) in H6; auto. {
-        eapply i_pair_in_for_2; eauto.
-      }
-      apply in_ph_subst; auto.
-  Admitted.
+      apply H1 with (n:=n) in H6; auto.
+      + eapply i_pair_in_for_2; eauto.
+      + auto using distinct_subst.
+      + apply in_ph_subst; auto.
+  Qed.
 
   Theorem drf_2:
     forall P,
     CanRun (fst P) ->
+    Distinct (fst P) ->
     AlignLang.DRF P ->
     DRF (split P).
   Proof.
     unfold DRF, AlignLang.DRF.
     intros.
-    apply H0.
+    apply H1.
     destruct P as (P, c).
     rename_hyp (In _ _) as Hi.
     destruct Hi as [Hi|Hi]. {
       subst.
       simpl.
-      invc H2.
+      invc H3.
       auto.
     }
     left.

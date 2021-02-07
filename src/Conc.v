@@ -198,6 +198,29 @@ Section C1.
     destruct (Set_VAR.MF.eq_dec x v); auto.
   Qed.
 
+  Lemma var_subst_neq:
+    forall i x y n,
+    x <> y ->
+    Var y i ->
+    Var y (i_subst x (NNum n) i).
+  Proof.
+    induction i; simpl; auto; intros.
+    - rename_hyp (_ \/ _) as Hp.
+      destruct Hp as [Hp|Hp]; eauto.
+    - rename_hyp (_ \/ _) as Hp.
+      destruct Hp as [Hp|Hp]; eauto.
+    - rename_hyp (_ \/ _) as Hp.
+      destruct Hp as [Hp|Hp]. {
+        subst.
+        auto.
+      }
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        auto.
+      }
+      auto.
+  Qed.
+
   Lemma in_range_subst_inv_1:
     forall y x n i,
     InRange y (i_subst x (NNum n) i) ->
