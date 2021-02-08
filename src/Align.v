@@ -554,7 +554,7 @@ Section Props.
 
   Import NExpNotations.
 
-  Lemma align_i_pair_in_1:
+  Lemma in_1:
     forall P,
     CanRun P ->
     WLang.Distinct P ->
@@ -822,7 +822,7 @@ Section Props.
     intros.
     unfold DRF, WLang.DRF.
     intros.
-    apply align_i_pair_in_1 in H3; auto.
+    apply in_1 in H3; auto.
   Qed.
 
   Lemma i_pair_in_n_seq_r:
@@ -883,7 +883,7 @@ Section Props.
 
   (* ---------------------------------------------------------------- *)
 
-  Lemma w_pair_to_a_pair:
+  Lemma in_2:
     forall p P,
     WLang.IPairIn p P ->
     CanRun P ->
@@ -1085,7 +1085,7 @@ Section Props.
     unfold DRF, WLang.DRF.
     intros.
     apply H2; clear H2.
-    auto using w_pair_to_a_pair.
+    auto using in_2.
   Qed.
 
   Corollary drf:

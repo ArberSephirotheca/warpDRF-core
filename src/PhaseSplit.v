@@ -6,7 +6,8 @@ Require Import NExp.
 Require Import Var.
 Require Import Tictac.
 Require Conc.
-
+Require SHCompiler.
+Require SymExec.
 Require Import Coq.Lists.List.
 
 Import ListNotations.
@@ -28,7 +29,7 @@ Section Defs.
 
   Definition split (P:p_inst) :=
     let (P, c) := P in
-    Phase c :: a_split P. 
+    Phase c :: a_split P.
 
   Fixpoint ph_subst x (v:nexp) (P:phase) : phase :=
     match P with
@@ -182,6 +183,27 @@ Section Defs.
         i_pair_in_for_2.
   Qed.
 
+  Lemma in_1:
+    forall p P,
+    AlignLang.PPairIn p P ->
+    Distinct (fst P) ->
+    InPhases p (split P).
+  Proof.
+    intros.
+    destruct P as (a, u).
+    simpl in *.
+    unfold InPhases.
+    destruct H as [H|H]. {
+      apply in_phases_1 in H; auto.
+      destruct H as (ph, (Ha, Hb)).
+      eauto using in_cons.
+    }
+    exists (Phase u).
+    simpl.
+    split; auto.
+    auto using p_pair_in_phase.
+  Qed.
+
   Theorem drf_1:
     forall P,
     DRF (split P) ->
@@ -190,17 +212,10 @@ Section Defs.
   Proof.
     unfold DRF, AlignLang.DRF.
     intros.
-    destruct P as (P, c).
     rename_hyp (AlignLang.PPairIn _ _) as Hi.
-    simpl in *.
-    destruct Hi as [Hi|Hi]. {
-      apply in_phases_1 in Hi; auto.
-      destruct Hi as (ph, (Ha, Hb)).
-      eapply H; eauto.
-    }
-    eapply H; eauto.
-    constructor.
-    auto.
+    apply in_1 in Hi; auto.
+    destruct Hi as (ph, (Hi, Hp)).
+    eauto.
   Qed.
 
   Inductive CanRun: n_inst -> Prop :=
@@ -298,6 +313,26 @@ Section Defs.
       + apply in_ph_subst; auto.
   Qed.
 
+  Lemma in_2:
+    forall p P,
+    InPhases p (split P) ->
+    Distinct (fst P) ->
+    CanRun (fst P) ->
+    AlignLang.PPairIn p P.
+  Proof.
+    intros.
+    destruct P as (a, u).
+    simpl in *.
+    destruct H as (ph, (Hi, Hp)).
+    destruct Hi as [Hi|Hi]. {
+      subst.
+      invc Hp.
+      auto.
+    }
+    left.
+    eapply i_pair_in_ph; eauto.
+  Qed.
+
   Theorem drf_2:
     forall P,
     CanRun (fst P) ->
@@ -308,16 +343,9 @@ Section Defs.
     unfold DRF, AlignLang.DRF.
     intros.
     apply H1.
-    destruct P as (P, c).
-    rename_hyp (In _ _) as Hi.
-    destruct Hi as [Hi|Hi]. {
-      subst.
-      simpl.
-      invc H3.
-      auto.
-    }
-    left.
-    eapply i_pair_in_ph; eauto.
+    eapply in_2; auto.
+    eexists.
+    eauto.
   Qed.
 
   Theorem drf:
