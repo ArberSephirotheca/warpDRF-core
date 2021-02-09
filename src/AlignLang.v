@@ -369,6 +369,7 @@ Section Props.
     NStep v2 n ->
     IFirst a (subst x v2 P).
   Proof.
+    (* TODO: MEDIUM *)
   Admitted.
 
   Lemma i_pair_in_subst:
@@ -379,6 +380,7 @@ Section Props.
     NStep e2 n ->
     IPairIn p (subst x e2 P).
   Proof.
+    (* TODO: MEDIUM *)
   Admitted.
 
   Lemma subst_subst_eq_1:

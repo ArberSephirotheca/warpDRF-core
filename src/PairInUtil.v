@@ -7,6 +7,7 @@ Require Import Coq.Relations.Relation_Operators.
 Require Import Coq.Lists.List.
 Require Import Util.
 Require Import InUtil.
+Require Import Tictac.
 Import ListNotations.
 
 Section Defs.
@@ -620,4 +621,28 @@ Section Defs.
     }
     apply IHm1 in Hx; auto using m_pair_in_prod_cons_r.
   Qed.
+
+  Lemma m_pair_in_incl:
+    forall A m1 m2,
+    incl m1 m2 ->
+    forall p,
+    MPairIn (A:=A) p m1 ->
+    MPairIn p m2.
+  Proof.
+    induction m1; intros. {
+      apply m_pair_in_nil in H0.
+      contradiction.
+    }
+    rename_hyp (MPairIn _ _) as Hm.
+    apply m_pair_in_inv in Hm.
+    destruct Hm as [Hm|Hm]. {
+      assert (In a m2). {
+        unfold incl in *.
+        auto using in_eq.
+      }
+      eauto using m_pair_in_def.
+    }
+    eauto using List.incl_strengthten.
+  Qed.
+
 End Defs.
