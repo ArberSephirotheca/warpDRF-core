@@ -1099,4 +1099,12 @@ Section Props.
     split; auto using drf_1, drf_2.
   Qed.
 
+  Lemma distinct_w_to_a:
+    forall P,
+    WLang.Distinct P ->
+    Distinct (fst (align P)).
+  Proof.
+    (* TODO: EASY *)
+  Admitted.
+
 End Props.

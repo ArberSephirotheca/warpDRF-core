@@ -288,6 +288,14 @@ Section Defs.
     eauto using x_can_run_subst.
   Qed.
 
+  Lemma run_to_can_run:
+    forall w h,
+    WRun w h ->
+    CanRun w.
+  Proof.
+    (* TODO: EASY *)
+  Admitted.
+
   Definition WEq P Q :=
     forall h,
     WRun P h <-> WRun Q h.

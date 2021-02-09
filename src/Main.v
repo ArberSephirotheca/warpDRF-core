@@ -75,6 +75,8 @@ Section Defs.
     ~ WLang.WVar TID P ->
     WLang.WRun P h1 ->
     SRun (w_to_s P) h2 ->
+    WLang.Distinct P ->
+    PhaseSplit.CanRun (fst (Align.align P)) ->
     VHist.Safe h1 ->
     Hist.MSafeStrong h2.
   Proof.
@@ -99,9 +101,8 @@ Section Defs.
     }
     apply PhaseSplit.in_2 in Hp'.
     - apply Align.in_1; auto.
-      + admit.
-      + admit.
-    - admit.
-    - admit.
-  Admitted.
+      eauto using WLang.run_to_can_run.
+    - eauto using Align.distinct_w_to_a.
+    - assumption.
+  Qed.
 End Defs.
