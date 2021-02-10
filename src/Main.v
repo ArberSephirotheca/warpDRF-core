@@ -176,4 +176,21 @@ Section Defs.
     eapply SymExec.run_i_pair_in_to_m_pair_in with (h0:=h) in Hp; eauto.
     eauto using PairInUtil.m_pair_in_incl.
   Qed.
+
+  Theorem drf:
+    forall P h1 h2,
+    (* Things run *)
+    WLang.WRun P h1 ->
+    SRun (w_to_s P) h2 ->
+    PhaseSplit.CanRun (fst (Align.align P)) ->
+    (* Loops have distinct *)
+    WLang.Distinct P ->
+    (* TID is not redeclared in a loop *)
+    ~ WLang.WVar TID P ->
+    (* Main result: *)
+    Hist.MSafeStrong h2 <-> VHist.Safe h1.
+  Proof.
+    intros.
+    split; eauto using drf_1, drf_2.
+  Qed.
 End Defs.

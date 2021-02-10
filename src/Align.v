@@ -1072,6 +1072,7 @@ Section Props.
     - admit.
     - admit.
     - admit.
+    (* TODO: HARD *)
   Admitted.
 
   Corollary drf_2:
