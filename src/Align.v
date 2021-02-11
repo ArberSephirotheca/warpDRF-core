@@ -1077,20 +1077,22 @@ Section Props.
       invc Hc.
       intuition; left. {
         rename_hyp (ILast _ _) as hl.
-        apply i_last_align in hl; auto.
-        + admit.
-        + admit.
-        + admit.
-        + admit.
-        (*
+        apply i_last_align in hl; auto using WLang.distinct_subst.
         2:{
           rename_hyp (forall n, _ -> CanRun _) as Hn.
           eapply can_run_subst; eauto using n_step_num.
-          apply Hn.
-        + admit.
-        + 
-        apply i_pair_in_for_2.
-        *)
+        }
+        2: {
+          intros N.
+          apply wvar_inv_subst in N.
+          contradiction.
+        }
+        rename_hyp (RPick _ _) as hp.
+        apply r_pick_inv_first in hp.
+        destruct hp as [hp|hp]. {
+          admit.
+        }
+        admit.
       }
       admit.
     - (* i_pair_in_for_first_1 *)
