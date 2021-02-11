@@ -727,8 +727,8 @@ Section Props.
               (* a1 \in cx[m - 1] /\ a2 \in c2[m - 1] *)
               rewrite i_subst_subst_eq_1 in Hp2; simpl in Hp2; remove_eq x x.
               apply WLang.i_pair_in_for_3
-                with (n0:=S n1) (e:=(NBin NMinus (S n1) 1));
-                auto using r_pick_impl_1.
+                with (n0:=n1) (e:=(NBin NMinus (S n1) 1));
+                auto using r_pick_impl_1, r_pick2_to_pick, n_step_succ_minus_one.
               simpl.
               left.
               split; auto.
@@ -753,8 +753,8 @@ Section Props.
           destruct Hp2 as [Hp2|Hp2]. {
             rewrite i_subst_subst_eq_1 in Hp2; simpl in Hp2; remove_eq x x.
             apply WLang.i_pair_in_for_3
-              with (n0:=S n1) (e:=(NBin NMinus (S n1) 1));
-              auto using r_pick_impl_1.
+              with (n0:=n1) (e:=(NBin NMinus (S n1) 1));
+              auto using r_pick_impl_1, r_pick2_to_pick, n_step_succ_minus_one.
             simpl.
             right.
             split; auto.
@@ -893,10 +893,12 @@ Section Props.
   Proof.
     intros p P H.
     induction H; intros Hc Hd Hv; simpl in *.
-    - left.
+    - (* i_pair_in_sync *)
+      left.
       constructor.
       auto.
-    - destruct (align i) as (P, c_P) eqn:r1.
+    - (* i_pair_in_seq_l *)
+      destruct (align i) as (P, c_P) eqn:r1.
       destruct (align j) as (Q, c_Q) eqn:r2.
       simpl in *.
       invc Hc.
@@ -907,14 +909,16 @@ Section Props.
         auto.
       }
       auto using i_pair_in_seq_r, i_pair_in_n_seq_l.
-    - destruct (align i) as (P, c_P) eqn:r1.
+    - (* i_pair_in_seq_r *)
+      destruct (align i) as (P, c_P) eqn:r1.
       destruct (align j) as (Q, c_Q) eqn:r2.
       simpl in *.
       invc Hc.
       destruct Hd.
       destruct IHIPairIn as [Hi|Hi];
         auto using i_pair_in_seq_r, i_pair_in_n_seq_r.
-    - destruct (align P) as (P', c_P) eqn:r1.
+    - (* i_pair_in_seq_both *)
+      destruct (align P) as (P', c_P) eqn:r1.
       destruct (align Q) as (Q', c_Q) eqn:r2.
       destruct p as (a1, a2).
       simpl in *.
@@ -943,7 +947,8 @@ Section Props.
       rewrite r2 in *.
       simpl in *.
       auto using i_pair_in_n_seq_2, i_pair_in_seq_r.
-    - destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
+    - (* i_pair_in_for_1 *)
+      destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
       invc Hc.
       destruct r as (e1, e2).
       destruct (align P) as (P_x, c_x) eqn:r1.
@@ -1024,7 +1029,8 @@ Section Props.
       apply n_step_minus; auto using n_step_num.
       rewrite rx.
       auto using n_step_num.
-    - destruct r as (e1, e2).
+    - (* i_pair_in_for_2 *)
+      destruct r as (e1, e2).
       destruct (align P) as (P_x, c_x) eqn:r1.
       simpl.
       (* At this point we do not know what n refers to. Is n
@@ -1062,23 +1068,41 @@ Section Props.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       apply c_pair_in_subst with (e3:=e) (n0:=n); auto.
       auto using n_step_succ_minus_one.
-    - destruct r as (e1, e2).
+    - (* i_pair_in_for_3 *)
+      destruct r as (e1, e2).
       destruct (align P) as (P_x, c_x) eqn:r1.
       destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
       destruct p as (a1, a2).
       simpl in *.
+      invc Hc.
       intuition; left. {
-        admit.
+        rename_hyp (ILast _ _) as hl.
+        apply i_last_align in hl; auto.
+        + admit.
+        + admit.
+        + admit.
+        + admit.
+        (*
+        2:{
+          rename_hyp (forall n, _ -> CanRun _) as Hn.
+          eapply can_run_subst; eauto using n_step_num.
+          apply Hn.
+        + admit.
+        + 
+        apply i_pair_in_for_2.
+        *)
       }
       admit.
-    - destruct r as (e1, e2).
+    - (* i_pair_in_for_first_1 *)
+      destruct r as (e1, e2).
       destruct (align P) as (P_x, c_x) eqn:r1.
       destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
       destruct p as (a1, a2).
       simpl in *.
       intuition; left.
       admit.
-    - destruct r as (e1, e2).
+    - (* i_pair_in_for_first_2 *)
+      destruct r as (e1, e2).
       destruct (align P) as (P_x, c_x) eqn:r1.
       destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
       destruct p as (a1, a2).
@@ -1087,7 +1111,8 @@ Section Props.
         admit.
       }
       admit.
-    - destruct r as (e1, e2).
+    - (* i_pair_in_for_mid_1 *)
+      destruct r as (e1, e2).
       destruct (align P) as (P_x, c_x) eqn:r1.
       destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
       destruct p as (a1, a2).
@@ -1096,7 +1121,8 @@ Section Props.
         admit.
       }
       admit.
-    - destruct r as (e1, e2).
+    - (* i_pair_in_for_mid_2 *)
+      destruct r as (e1, e2).
       destruct (align P) as (P_x, c_x) eqn:r1.
       destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
       destruct p as (a1, a2).

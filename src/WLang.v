@@ -843,6 +843,7 @@ Section Defs.
   | i_pair_in_for_3:
     forall r e n c1 x p P c2,
     RPick r n ->
+    NStep e n ->
     OneOf p (inr (w_subst x e P)) (inl (Conc.i_subst x e c2)) ->
     IPairIn p (WFor c1 x r P c2)
   (* ---- FIRST ITERATION ONLY ---- *)
@@ -1098,7 +1099,7 @@ Section Defs.
         apply m_one_of_inv_first_prefix_l in Hi.
         destruct Hi as [Hi|Hi]. {
           eapply i_one_of_3 in Hi; eauto; try handle_not_var.
-          eapply i_pair_in_for_3 with (n:=n); eauto using r_step_to_pick.
+          eapply i_pair_in_for_3 with (n:=n); eauto using r_step_to_pick, n_step_num.
         }
         assert (OneOf p (inr (w_subst x (NNum n) P)) (inr (w_subst x (NNum (S n)) P))). {
           apply w_run_inv_for_skip_1 in H3.
@@ -1133,7 +1134,7 @@ Section Defs.
         * simpl in *.
           (* c2 / w_subst x (NNum n) i *)
           eapply i_one_of_3 in Hi; eauto; try handle_not_var.
-          eapply i_pair_in_for_3 with (n:=n); eauto using r_one_to_pick.
+          eapply i_pair_in_for_3 with (n:=n); eauto using r_one_to_pick, n_step_num.
       + (* c1 / w_subst x (NNum n) i *)
         apply m_one_of_inv_first_seq_l in Hi.
         2: { eauto using wrun_has_many. }
