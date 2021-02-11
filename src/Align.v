@@ -1062,11 +1062,49 @@ Section Props.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       apply c_pair_in_subst with (e3:=e) (n0:=n); auto.
       auto using n_step_succ_minus_one.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
+    - destruct r as (e1, e2).
+      destruct (align P) as (P_x, c_x) eqn:r1.
+      destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
+      destruct p as (a1, a2).
+      simpl in *.
+      intuition; left. {
+        admit.
+      }
+      admit.
+    - destruct r as (e1, e2).
+      destruct (align P) as (P_x, c_x) eqn:r1.
+      destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
+      destruct p as (a1, a2).
+      simpl in *.
+      intuition; left.
+      admit.
+    - destruct r as (e1, e2).
+      destruct (align P) as (P_x, c_x) eqn:r1.
+      destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
+      destruct p as (a1, a2).
+      simpl in *.
+      intuition; left. {
+        admit.
+      }
+      admit.
+    - destruct r as (e1, e2).
+      destruct (align P) as (P_x, c_x) eqn:r1.
+      destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
+      destruct p as (a1, a2).
+      simpl in *.
+      intuition; left. {
+        admit.
+      }
+      admit.
+    - destruct r as (e1, e2).
+      destruct (align P) as (P_x, c_x) eqn:r1.
+      destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
+      destruct p as (a1, a2).
+      simpl in *.
+      intuition; left. {
+        admit.
+      }
+      admit.
     (* TODO: HARD *)
   Admitted.
 
