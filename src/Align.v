@@ -1054,19 +1054,14 @@ Section Props.
         - lia.
       }
       rewrite n_seq_subst.
+      apply i_pair_in_n_seq_r.
+      rewrite n_seq_subst.
       apply i_pair_in_n_seq_l.
       rewrite i_subst_subst_eq_1.
       simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
-      assert (rx : S n - 1 = n) by lia.
-      (*
-      rewrite rx.
-      eapply c_pair_in_subst; eauto.
-      apply n_step_minus; auto using n_step_num.
-      rewrite rx.
-      auto using n_step_num.
-      *)
-      admit.
+      apply c_pair_in_subst with (e3:=e) (n0:=n); auto.
+      auto using n_step_succ_minus_one.
     - admit.
     - admit.
     - admit.
