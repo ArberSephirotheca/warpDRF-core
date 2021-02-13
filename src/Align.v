@@ -1075,8 +1075,27 @@ Section Props.
       destruct p as (a1, a2).
       simpl in *.
       invc Hc.
-      intuition; left. {
-        rename_hyp (ILast _ _) as hl.
+      edestruct RExp.r_pick_impl_5 as [Ha|Ha];
+        eauto.
+      {
+        right.
+        apply c_pair_in_def;
+          intuition;
+          rename_hyp (ILast _ _) as hl
+        .
+        + apply Conc.c_in_c_seq_l.
+          apply i_last_align in hl; auto.
+          * rewrite <- align_subst in hl; eauto using n_step_to_closed.
+            rewrite r1 in hl.
+            simpl in *.
+            eapply c_in_subst; eauto using RExp.r_one_to_n_step_minus_1.
+          * rename_hyp (forall n, _ -> CanRun _) as hc.
+            assert (CanRun (w_subst x (NNum n) P)) by auto.
+            eapply can_run_subst; eauto using n_step_num.
+          * 
+      }
+      intuition; left; rename_hyp (ILast _ _) as hl. {
+        .
         apply i_last_align in hl; auto using WLang.distinct_subst.
         2:{
           rename_hyp (forall n, _ -> CanRun _) as Hn.
@@ -1090,7 +1109,20 @@ Section Props.
         rename_hyp (RPick _ _) as hp.
         apply r_pick_inv_first in hp.
         destruct hp as [hp|hp]. {
-          admit.
+          assert (H_e1: NStep e1 n) by eauto using r_first_to_eq.
+          apply i_pair_in_for_2 with (S n).
+          2: {
+            rewrite subst_n_seq.
+            apply i_pair_in_n_seq_r.
+            admit.
+          }
+          apply r_first_to_pick.
+          invc hp.
+          eapply r_first_def; eauto. {
+            assert (r: 1 + n = S n) by auto.
+            rewrite <- r.
+            apply n_step_add; auto using n_step_num.
+          }
         }
         admit.
       }

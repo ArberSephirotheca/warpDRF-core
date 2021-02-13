@@ -196,6 +196,30 @@ Section SO.
     assumption.
   Qed.
 
+  Lemma n_step_add_eq:
+    forall n1 n2 n3 e1 e2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 + n2 = n3 ->
+    NStep (NBin NPlus e1 e2) n3.
+  Proof.
+    intros.
+    subst.
+    auto using n_step_plus.
+  Qed.
+
+  Lemma n_step_minus_eq:
+    forall n1 n2 n3 e1 e2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    n1 - n2 = n3 ->
+    NStep (NBin NMinus e1 e2) n3.
+  Proof.
+    intros.
+    subst.
+    auto using n_step_minus.
+  Qed.
+
   Lemma n_step_add:
     forall n1 n2 e1 e2,
     NStep e1 n1 ->

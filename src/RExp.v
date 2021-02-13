@@ -594,7 +594,6 @@ Section Defs.
     eapply r_pick_def; eauto.
   Qed.
 
-
   Definition RDefined (r:range) :=
     let (e1, e2) := r in
     (exists n1, NStep e1 n1) /\ (exists n2, NStep e2 n2).
@@ -907,6 +906,48 @@ Section Defs.
     rewrite rx.
     apply n_step_bin; auto using n_step_num.
   Qed.
+
+  Lemma r_pick_impl_5:
+    forall e1 e2 n,
+    RPick (e1, e2) n ->
+    ROne (e1, e2) n \/ RHasNext ((NBin NPlus (NNum 1) e1), e2).
+  Proof.
+    intros.
+    invc H.
+    destruct n2. { lia. }
+    assert (X: n2 = n \/ n < n2) by lia.
+    destruct X. {
+      subst.
+      assert (X: n1 = n \/ n1 < n) by lia.
+      destruct X. {
+        left.
+        subst.
+        apply r_one_def; auto. 
+      }
+      right.
+      exists (S n1).
+      eapply r_first_def; eauto.
+      + eapply n_step_add_eq with (n1:=1); eauto using n_step_num.
+      + lia.
+    }
+    right.
+    exists (S n1).
+    eapply r_first_def; eauto.
+    + eapply n_step_add_eq with (n1:=1); eauto using n_step_num.
+    + lia.
+  Qed.
+
+  Lemma r_one_to_n_step_minus_1:
+    forall e1 e2 n,
+    ROne (e1, e2) n ->
+    NStep (NBin NMinus e2 (NNum 1)) n.
+  Proof.
+    intros.
+    invc H.
+    eapply n_step_minus_eq; eauto using n_step_num.
+    lia.
+  Qed.
+
 End Defs.
 
 Module RExpNotations.
