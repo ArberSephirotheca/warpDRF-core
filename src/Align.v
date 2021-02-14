@@ -1285,12 +1285,32 @@ Section Props.
       destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
       destruct p as (a1, a2).
       simpl in *.
-      intuition; left. {
-        admit.
+      invc Hc.
+      left.
+      apply i_pair_in_for_2 with (n0:=S n). {
+        auto using r_pick2_advance.
       }
-      admit.
-    (* TODO: HARD *)
-  Admitted.
+      rewrite subst_n_seq.
+      rewrite subst_n_seq.
+      rewrite i_subst_subst_eq_1.
+      rewrite i_subst_subst_eq_1.
+      simpl.
+      destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
+      assert (CanRun (w_subst x (NNum n) P)) by eauto using r_pick2_to_pick.
+      assert (CanRun (w_subst x e' P)). {
+        assert (CanRun (w_subst x (NNum (S n)) P)) by eauto using r_pick2_to_pick_r.
+        eapply can_run_subst; eauto using n_step_num.
+      }
+      intuition.
+      + apply i_pair_in_n_seq_1.
+        * eapply i_last_to_c_in_1 with (e:=e); eauto using n_step_succ_minus_one.
+        * apply i_first_n_seq_r.
+          eapply i_first_to_c_in_1; eauto using n_step_num.
+      + apply i_pair_in_n_seq_2.
+        * apply i_first_n_seq_r.
+          eapply i_first_to_c_in_1; eauto using n_step_num.
+        * eapply i_last_to_c_in_1 with (e:=e); eauto using n_step_succ_minus_one.
+  Qed.
 
   Corollary drf_2:
     forall P,
