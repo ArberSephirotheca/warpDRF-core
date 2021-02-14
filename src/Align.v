@@ -1136,8 +1136,6 @@ Section Props.
       assert (Hc: CanRun (w_subst x (NNum n) P)) by auto.
       apply r_pick_inv_last in H.
       destruct H as [H|H]. {
-        (* When the loop is empty,
-           then both access should appear in the unsync bit. *)
         right.
         apply r_last_to_eq in H.
         apply c_pair_in_def;
@@ -1179,7 +1177,7 @@ Section Props.
       destruct p as (a1, a2).
       simpl in *.
       intuition; left.
-      admit.
+      auto using i_pair_in_for_1, i_pair_in_n_seq_l.
     - (* i_pair_in_for_first_2 *)
       destruct r as (e1, e2).
       destruct (align P) as (P_x, c_x) eqn:r1.
