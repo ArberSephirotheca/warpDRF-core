@@ -880,36 +880,6 @@ Section Props.
     - auto using i_pair_in_seq_l.
     - auto using i_pair_in_for_1.
   Qed.
-(*
-  Lemma i_last_to_c_in_1:
-    forall e1 e2 n x P P_x c_x e a,
-    RPick (e1, e2) n ->
-    NStep e n ->
-    ~ WVar x P ->
-    ~ WVar TID P ->
-    WLang.Distinct P ->
-    align P = (P_x, c_x) ->
-    CanRun (w_subst x (NNum n) P) ->
-    ROne (e1, e2) n ->
-    ILast a (w_subst x e P) ->
-    TID <> x ->
-    CIn a (i_subst x (NBin NMinus e2 (NNum 1)) c_x).
-  Proof.
-    intros.
-    rename_hyp (ILast _ _) as hl.
-    rename_hyp (align _ = _) as r1.
-    apply i_last_align in hl; auto.
-    - rewrite <- align_subst in hl; eauto using n_step_to_closed.
-      rewrite r1 in hl.
-      simpl in *.
-      eapply c_in_subst; eauto using RExp.r_one_to_n_step_minus_1.
-    - eapply can_run_subst; eauto using n_step_num.
-    - auto using WLang.distinct_subst.
-    - intros N.
-      apply wvar_inv_subst in N.
-      contradiction.
-  Qed.
-*)
 
   Lemma i_first_to_c_in_1:
     forall e n x P P_x c_x a e',
@@ -961,35 +931,6 @@ Section Props.
       apply wvar_inv_subst in N.
       contradiction.
   Qed.
-(*
-  Lemma i_first_to_c_in_1:
-    forall e e' n x P P_x c_x a,
-    NStep e' n ->
-    NStep e n ->
-    ~ WVar x P ->
-    WLang.Distinct P ->
-    align P = (P_x, c_x) ->
-    CanRun (w_subst x n P) ->
-    WLang.IFirst a (w_subst x e P) ->
-    TID <> x ->
-    ~ WVar TID P ->
-    CIn a (i_subst x e' c_x).
-  Proof.
-    intros.
-    rename_hyp (WLang.IFirst _ _) as hl.
-    rename_hyp (align _ = _) as r1.
-    apply i_first_align in hl; auto.
-    * rewrite <- align_subst in hl; eauto using n_step_to_closed.
-      rewrite r1 in hl.
-      simpl in hl.
-      eapply c_in_subst; eauto.
-      admit.
-    * eapply can_run_subst with (v1:=NNum n); eauto using n_step_num.
-    * auto using WLang.distinct_subst.
-    * intros N.
-      apply wvar_inv_subst in N.
-      contradiction.
-  Qed.*)
 
   (* ---------------------------------------------------------------- *)
 
