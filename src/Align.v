@@ -910,17 +910,19 @@ Section Props.
       contradiction.
   Qed.
 *)
+
   Lemma i_last_to_c_in_1:
-    forall e n x P P_x c_x a,
+    forall e e' n x P P_x c_x a,
+    NStep e' n ->
     NStep e n ->
     ~ WVar x P ->
-    ~ WVar TID P ->
     WLang.Distinct P ->
     align P = (P_x, c_x) ->
     CanRun (w_subst x n P) ->
     ILast a (w_subst x e P) ->
     TID <> x ->
-    CIn a (i_subst x (NBin NMinus (NNum (S n)) (NNum 1)) c_x).
+    ~ WVar TID P ->
+    CIn a (i_subst x e' c_x).
   Proof.
     intros.
     rename_hyp (ILast _ _) as hl.
@@ -936,7 +938,6 @@ Section Props.
       apply wvar_inv_subst in N.
       contradiction.
   Qed.
-
 
   (* ---------------------------------------------------------------- *)
 
@@ -1145,17 +1146,13 @@ Section Props.
           rename_hyp (ILast _ _) as hl
         .
         + apply Conc.c_in_c_seq_l.
-          (*eapply i_last_to_c_in_1; eauto.*)
-          admit.
+          eauto using i_last_to_c_in_1.
         + apply Conc.c_in_c_seq_r.
           eapply Conc.c_in_subst; eauto.
         + apply Conc.c_in_c_seq_r.
           eapply Conc.c_in_subst; eauto.
         + apply Conc.c_in_c_seq_l.
-          admit.
-          (*
           eauto using i_last_to_c_in_1.
-          *)
       }
       left.
       apply i_pair_in_for_2 with (n0:=S n). {
@@ -1170,14 +1167,12 @@ Section Props.
       simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       apply c_pair_in_def; intuition.
-      + apply Conc.c_in_c_seq_l.
-        eauto using i_last_to_c_in_1.
+      + eauto using Conc.c_in_c_seq_l, i_last_to_c_in_1, n_step_succ_minus_one.
       + apply Conc.c_in_c_seq_r.
         eapply Conc.c_in_subst; eauto using n_step_succ_minus_one.
       + apply Conc.c_in_c_seq_r.
         eapply Conc.c_in_subst; eauto using n_step_succ_minus_one.
-      + apply Conc.c_in_c_seq_l.
-        eauto using i_last_to_c_in_1.
+      + eauto using Conc.c_in_c_seq_l, i_last_to_c_in_1, n_step_succ_minus_one.
     - (* i_pair_in_for_first_1 *)
       destruct r as (e1, e2).
       destruct (align P) as (P_x, c_x) eqn:r1.
