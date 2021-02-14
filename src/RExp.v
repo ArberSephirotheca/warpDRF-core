@@ -907,6 +907,32 @@ Section Defs.
     apply n_step_bin; auto using n_step_num.
   Qed.
 
+  Lemma r_pick_advance:
+    forall e1 e2 n,
+    RPick (e1, (NBin NMinus e2 (NNum 1))) n ->
+    RPick (NBin NPlus (NNum 1) e1, e2) (S n).
+  Proof.
+    intros.
+    invc H.
+    apply r_pick_def with (n1:=S n1) (n2:=S n2).
+    - eapply n_step_add_eq; eauto using n_step_num.
+    - destruct n2. { lia. }
+      auto using n_step_inv_dec.
+    - lia.
+  Qed.
+
+  Lemma r_one_to_n_step_minus_1:
+    forall e1 e2 n,
+    ROne (e1, e2) n ->
+    NStep (NBin NMinus e2 (NNum 1)) n.
+  Proof.
+    intros.
+    invc H.
+    eapply n_step_minus_eq; eauto using n_step_num.
+    lia.
+  Qed.
+
+(* Not needed:
   Lemma r_pick_impl_5:
     forall e1 e2 n,
     RPick (e1, e2) n ->
@@ -937,17 +963,7 @@ Section Defs.
     + lia.
   Qed.
 
-  Lemma r_one_to_n_step_minus_1:
-    forall e1 e2 n,
-    ROne (e1, e2) n ->
-    NStep (NBin NMinus e2 (NNum 1)) n.
-  Proof.
-    intros.
-    invc H.
-    eapply n_step_minus_eq; eauto using n_step_num.
-    lia.
-  Qed.
-
+*)
 End Defs.
 
 Module RExpNotations.

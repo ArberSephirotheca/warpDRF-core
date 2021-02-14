@@ -881,7 +881,7 @@ Section Props.
     - auto using i_pair_in_for_1.
   Qed.
 
-  Lemma i_last_to_c_in:
+  Lemma i_last_to_c_in_1:
     forall e1 e2 n x P P_x c_x e a,
     RPick (e1, e2) n ->
     NStep e n ->
@@ -1105,58 +1105,51 @@ Section Props.
       destruct p as (a1, a2).
       simpl in *.
       invc Hc.
-      edestruct RExp.r_pick_impl_5 as [Ha|Ha];
-        eauto.
-      {
+
+      apply r_pick_inv_last in H.
+      destruct H as [H|H]. {
         (* When the loop is empty,
            then both access should appear in the unsync bit. *)
         right.
+        apply r_last_to_eq in H.
         apply c_pair_in_def;
           intuition;
           rename_hyp (ILast _ _) as hl
         .
         + apply Conc.c_in_c_seq_l.
-          eauto using i_last_to_c_in.
+          (*eapply i_last_to_c_in_1; eauto.*)
+          admit.
         + apply Conc.c_in_c_seq_r.
-          eapply Conc.c_in_subst; eauto using r_one_to_n_step_minus_1.
+          eapply Conc.c_in_subst; eauto.
         + apply Conc.c_in_c_seq_r.
-          eapply Conc.c_in_subst; eauto using r_one_to_n_step_minus_1.
+          eapply Conc.c_in_subst; eauto.
         + apply Conc.c_in_c_seq_l.
-          eauto using i_last_to_c_in.
+          admit.
+          (*
+          eauto using i_last_to_c_in_1.
+          *)
       }
-      intuition; left; rename_hyp (ILast _ _) as hl. {
-        .
-        apply i_last_align in hl; auto using WLang.distinct_subst.
-        2:{
-          rename_hyp (forall n, _ -> CanRun _) as Hn.
-          eapply can_run_subst; eauto using n_step_num.
-        }
-        2: {
-          intros N.
-          apply wvar_inv_subst in N.
-          contradiction.
-        }
-        rename_hyp (RPick _ _) as hp.
-        apply r_pick_inv_first in hp.
-        destruct hp as [hp|hp]. {
-          assert (H_e1: NStep e1 n) by eauto using r_first_to_eq.
-          apply i_pair_in_for_2 with (S n).
-          2: {
-            rewrite subst_n_seq.
-            apply i_pair_in_n_seq_r.
-            admit.
-          }
-          apply r_first_to_pick.
-          invc hp.
-          eapply r_first_def; eauto. {
-            assert (r: 1 + n = S n) by auto.
-            rewrite <- r.
-            apply n_step_add; auto using n_step_num.
-          }
-        }
+      left.
+      apply i_pair_in_for_2 with (n0:=S n). {
+        auto using RExp.r_pick_advance.
+      }
+      rewrite subst_n_seq.
+      rewrite subst_n_seq.
+      rewrite <- n_seq_c_seq.
+      apply i_pair_in_n_seq_l.
+      rewrite i_subst_subst_eq_1.
+      rewrite i_subst_subst_eq_1.
+      simpl.
+      destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
+      apply c_pair_in_def; intuition.
+      + apply Conc.c_in_c_seq_l.
         admit.
-      }
-      admit.
+      + apply Conc.c_in_c_seq_r.
+        eapply Conc.c_in_subst; eauto using n_step_succ_minus_one.
+      + apply Conc.c_in_c_seq_r.
+        eapply Conc.c_in_subst; eauto using n_step_succ_minus_one.
+      + apply Conc.c_in_c_seq_l.
+        admit.
     - (* i_pair_in_for_first_1 *)
       destruct r as (e1, e2).
       destruct (align P) as (P_x, c_x) eqn:r1.
