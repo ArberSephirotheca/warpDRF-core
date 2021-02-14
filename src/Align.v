@@ -1256,10 +1256,29 @@ Section Props.
       destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
       destruct p as (a1, a2).
       simpl in *.
-      intuition; left. {
-        admit.
+      invc Hc.
+      left.
+      apply i_pair_in_for_2 with (n0:=S n). {
+        auto using r_pick2_advance.
       }
-      admit.
+      rewrite subst_n_seq.
+      rewrite subst_n_seq.
+      rewrite i_subst_subst_eq_1.
+      rewrite i_subst_subst_eq_1.
+      apply i_pair_in_n_seq_r.
+      simpl.
+      destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
+      assert (CanRun (w_subst x e' P)). {
+        assert (CanRun (w_subst x (NNum (S n)) P)) by eauto using r_pick2_to_pick_r.
+        eapply can_run_subst; eauto using n_step_num.
+      }
+      intuition.
+      + apply i_pair_in_n_seq_1.
+        * eapply c_in_subst with (v:=e); eauto using n_step_succ_minus_one. 
+        * eapply i_first_to_c_in_1; eauto using n_step_num.
+      + apply i_pair_in_n_seq_2.
+        * eapply i_first_to_c_in_1; eauto using n_step_num.
+        * eapply c_in_subst with (v:=e); eauto using n_step_succ_minus_one. 
     - (* i_pair_in_for_mid_2 *)
       destruct r as (e1, e2).
       destruct (align P) as (P_x, c_x) eqn:r1.

@@ -921,6 +921,27 @@ Section Defs.
     - lia.
   Qed.
 
+  Lemma r_pick2_advance:
+    forall e1 e2 n,
+    RPick2 (e1, e2) n ->
+    RPick (NBin NPlus (NNum 1) e1, e2) (S n).
+  Proof.
+    intros.
+    invc H.
+    apply r_pick_def with (n1:=S n1) (n2:=n2); eauto using n_step_add_eq, n_step_num.
+    lia.
+  Qed.
+
+  Lemma r_pick2_to_pick_r:
+    forall r n,
+    RPick2 r n ->
+    RPick r (S n).
+  Proof.
+    intros.
+    invc H.
+    eapply r_pick_def; eauto.
+  Qed.
+
   Lemma r_one_to_n_step_minus_1:
     forall e1 e2 n,
     ROne (e1, e2) n ->
@@ -932,38 +953,6 @@ Section Defs.
     lia.
   Qed.
 
-(* Not needed:
-  Lemma r_pick_impl_5:
-    forall e1 e2 n,
-    RPick (e1, e2) n ->
-    ROne (e1, e2) n \/ RHasNext ((NBin NPlus (NNum 1) e1), e2).
-  Proof.
-    intros.
-    invc H.
-    destruct n2. { lia. }
-    assert (X: n2 = n \/ n < n2) by lia.
-    destruct X. {
-      subst.
-      assert (X: n1 = n \/ n1 < n) by lia.
-      destruct X. {
-        left.
-        subst.
-        apply r_one_def; auto. 
-      }
-      right.
-      exists (S n1).
-      eapply r_first_def; eauto.
-      + eapply n_step_add_eq with (n1:=1); eauto using n_step_num.
-      + lia.
-    }
-    right.
-    exists (S n1).
-    eapply r_first_def; eauto.
-    + eapply n_step_add_eq with (n1:=1); eauto using n_step_num.
-    + lia.
-  Qed.
-
-*)
 End Defs.
 
 Module RExpNotations.
