@@ -911,6 +911,29 @@ Section Props.
   Qed.
 *)
 
+  Lemma i_first_to_c_in_1:
+    forall e n x P P_x c_x a e',
+    WLang.Distinct P ->
+    NStep e n ->
+    ~ WVar x P ->
+    align P = (P_x, c_x) ->
+    CanRun (w_subst x e P) ->
+    WLang.IFirst a (w_subst x e P) ->
+    NStep e' n ->
+    IFirst a (subst x e' P_x).
+  Proof.
+    intros.
+    rename_hyp (_ = _) as r1.
+    rename_hyp (WLang.IFirst _ _) as hf.
+    apply i_first_align in hf; eauto using WLang.distinct_subst.
+    rewrite <- align_subst in hf.
+    rewrite r1 in hf.
+    simpl in *.
+    eapply i_first_subst; eauto.
+    * eauto using n_step_to_closed.
+    * auto.
+  Qed.
+
   Lemma i_last_to_c_in_1:
     forall e e' n x P P_x c_x a,
     NStep e' n ->
@@ -938,6 +961,35 @@ Section Props.
       apply wvar_inv_subst in N.
       contradiction.
   Qed.
+(*
+  Lemma i_first_to_c_in_1:
+    forall e e' n x P P_x c_x a,
+    NStep e' n ->
+    NStep e n ->
+    ~ WVar x P ->
+    WLang.Distinct P ->
+    align P = (P_x, c_x) ->
+    CanRun (w_subst x n P) ->
+    WLang.IFirst a (w_subst x e P) ->
+    TID <> x ->
+    ~ WVar TID P ->
+    CIn a (i_subst x e' c_x).
+  Proof.
+    intros.
+    rename_hyp (WLang.IFirst _ _) as hl.
+    rename_hyp (align _ = _) as r1.
+    apply i_first_align in hl; auto.
+    * rewrite <- align_subst in hl; eauto using n_step_to_closed.
+      rewrite r1 in hl.
+      simpl in hl.
+      eapply c_in_subst; eauto.
+      admit.
+    * eapply can_run_subst with (v1:=NNum n); eauto using n_step_num.
+    * auto using WLang.distinct_subst.
+    * intros N.
+      apply wvar_inv_subst in N.
+      contradiction.
+  Qed.*)
 
   (* ---------------------------------------------------------------- *)
 
@@ -1184,10 +1236,20 @@ Section Props.
       destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
       destruct p as (a1, a2).
       simpl in *.
-      intuition; left. {
-        admit.
+      left.
+      apply i_pair_in_for_1.
+      invc Hc.
+      assert (CanRun (w_subst x e P)). {
+        assert (CanRun (w_subst x (NNum n) P)) by auto using r_first_to_pick.
+        eauto using can_run_subst, n_step_num.
       }
-      admit.
+      intuition.
+      + apply i_pair_in_n_seq_1; auto.
+        assert (NStep e1 n) by eauto using r_first_to_eq.
+        eauto using i_first_to_c_in_1.
+      + apply i_pair_in_n_seq_2; auto.
+        assert (NStep e1 n) by eauto using r_first_to_eq.
+        eauto using i_first_to_c_in_1.
     - (* i_pair_in_for_mid_1 *)
       destruct r as (e1, e2).
       destruct (align P) as (P_x, c_x) eqn:r1.
