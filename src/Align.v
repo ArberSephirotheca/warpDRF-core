@@ -1134,7 +1134,6 @@ Section Props.
       simpl in *.
       invc Hc.
       assert (Hc: CanRun (w_subst x (NNum n) P)) by auto.
-
       apply r_pick_inv_last in H.
       destruct H as [H|H]. {
         (* When the loop is empty,
