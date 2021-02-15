@@ -2,6 +2,7 @@ Require Import Coq.Lists.List.
 
 Require Import AccExp.
 Require Import PairInUtil.
+Require Import Tictac.
 Import ListNotations.
 
 (*
@@ -85,6 +86,16 @@ Section Defs.
     (List.In v2 h1 /\ List.In v1 h2).
 
 
+  Lemma m_pair_in_cons_l:
+    forall p m1 m2,
+    PairIn p m1 ->
+    MPairIn p (v_cons m1 m2).
+  Proof.
+    intros.
+    simpl.
+    auto.
+  Qed.
+
   Lemma m_pair_in_inv_v_app:
     forall p m1 m2,
     MPairIn p (v_app m1 m2) ->
@@ -146,6 +157,107 @@ Section Defs.
     - intuition.
       apply IHm1 in H0.
       intuition.
+  Qed.
+
+  Lemma m_pair_in_prefix_l:
+    forall p l m,
+    PairIn p l ->
+    MPairIn p (v_prefix l m).
+  Proof.
+    intros.
+    destruct m; simpl. {
+      auto using pair_in_app_l.
+    }
+    left.
+    auto using pair_in_app_l.
+  Qed.
+
+  Lemma m_pair_in_prefix_r:
+    forall p l m,
+    MPairIn p m ->
+    MPairIn p (v_prefix l m).
+  Proof.
+    intros.
+    destruct m; simpl; invc H.
+    - apply pair_in_app_r.
+      auto using pair_in_def.
+    - left.
+      auto using pair_in_app_r.
+    - auto.
+  Qed.
+
+  Lemma m_pair_in_prefix_1:
+    forall a1 a2 l m,
+    List.In a1 l ->
+    List.In a2 (first m) ->
+    MPairIn (a1, a2) (v_prefix l m).
+  Proof.
+    (* TODO: EASY *)
+  Admitted.
+
+  Lemma m_pair_in_prefix_2:
+    forall a1 a2 l m,
+    List.In a1 (first m) ->
+    List.In a2 l ->
+    MPairIn (a1, a2) (v_prefix l m).
+  Proof.
+    (* TODO: EASY *)
+  Admitted.
+
+  Lemma m_pair_in_seq_l:
+    forall p m1 m2,
+    MPairIn p m1 ->
+    MPairIn p (v_seq m1 m2).
+  Proof.
+    induction m1; intros. {
+      simpl in *.
+      auto using m_pair_in_prefix_l.
+    }
+    simpl.
+    invc H; auto.
+  Qed.
+
+  Lemma m_pair_in_seq_r:
+    forall p m1 m2,
+    MPairIn p m2 ->
+    MPairIn p (v_seq m1 m2).
+  Proof.
+    induction m1; intros. {
+      simpl in *.
+      auto using m_pair_in_prefix_r.
+    }
+    simpl.
+    auto.
+  Qed.
+
+  Lemma m_pair_in_seq_both_1:
+    forall a1 a2 m1 m2,
+    List.In a1 (last m1) ->
+    List.In a2 (first m2) ->
+    MPairIn (a1, a2) (v_seq m1 m2).
+  Proof.
+    induction m1; intros. {
+      simpl in *.
+      auto using m_pair_in_prefix_1.
+    }
+    simpl.
+    simpl in H.
+    right.
+    auto.
+  Qed.
+
+  Lemma m_pair_in_seq_both_2:
+    forall a1 a2 m1 m2,
+    List.In a2 (last m1) ->
+    List.In a1 (first m2) ->
+    MPairIn (a1, a2) (v_seq m1 m2).
+  Proof.
+    induction m1; intros. {
+      simpl in *.
+      auto using m_pair_in_prefix_2.
+    }
+    simpl in *.
+    auto.
   Qed.
 
   Lemma first_inv_in_prefix:

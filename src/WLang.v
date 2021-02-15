@@ -790,6 +790,17 @@ Section Defs.
       }
   Qed.
 
+  Lemma i_last_2:
+    forall i v,
+    WRun i v ->
+    ~ WVar TID i ->
+    forall a,
+    ILast a i ->
+    List.In a (last v).
+  Proof.
+    (* TODO: MEDIUM *)
+  Admitted.
+
   Notation any_inst := (Conc.inst + w_inst) % type.
 
   Definition OneOf (p:access_val*access_val) (P: any_inst) (Q:any_inst) : Prop :=
@@ -1142,6 +1153,17 @@ Section Defs.
         eapply i_pair_in_for_first_2; eauto using r_one_to_first, n_step_num.
   Qed.
 
+  Lemma i_pair_in_subst:
+    forall e1 e2 n1 n2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    forall p x P,
+    IPairIn p (w_subst x e1 P) ->
+    IPairIn p (w_subst x e2 P).
+  Proof.
+    (* TODO: HARD *)
+  Admitted.
+
   Lemma i_pair_in_2:
     forall i h,
     WRun i h ->
@@ -1150,6 +1172,64 @@ Section Defs.
     IPairIn p i ->
     VHist.MPairIn p h.
   Proof.
+    intros i h H.
+    induction H; intros Hv p Hp.
+    - invc Hp.
+      left.
+      eauto using c_pair_in_to_pair_in.
+    - subst.
+      simpl in Hv.
+      invc Hp.
+      + apply m_pair_in_seq_l.
+        apply IHWRun1; auto.
+      + apply m_pair_in_seq_r.
+        apply IHWRun2; auto.
+      + destruct p as (a1, a2).
+        simpl in *.
+        intuition;
+        rename_hyp (ILast _ _) as hl;
+        rename_hyp (IFirst _ _) as hf;
+        eapply i_first_2 in hf; eauto;
+        eapply i_last_2 in hl; eauto.
+        * auto using m_pair_in_seq_both_1.
+        * auto using m_pair_in_seq_both_2.
+    - subst.
+      simpl.
+      invc Hp.
+      + apply m_pair_in_prefix_r.
+        apply m_pair_in_seq_l.
+        simpl in *.
+        apply IHWRun1; auto. {
+          intros N.
+          apply wvar_inv_subst in N.
+          auto.
+        }
+        eauto using i_pair_in_subst, n_step_num.
+      + rename_hyp (CPairIn _ _) as hp.
+        apply c_pair_in_to_pair_in with (h:=h2) in hp; auto.
+        * apply m_pair_in_prefix_r.
+          apply m_pair_in_seq_r.
+          auto using m_pair_in_prefix_l.
+        * intros N.
+          simpl in *.
+          apply var_inv_subst in N.
+          auto.
+        * admit.
+      + admit.
+      + admit.
+      + admit.
+      + admit.
+      + admit.
+    - subst.
+      simpl.
+      invc Hp.
+      + admit.
+      + admit.
+      + admit.
+      + admit.
+      + admit.
+      + admit.
+      + admit.
     (* TODO: HARD *)
   Admitted.
 

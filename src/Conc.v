@@ -1541,6 +1541,20 @@ Section C1.
     induction c1; intros; simpl; auto using c_pair_in_seq_r.
   Qed.
 
+  Lemma c_pair_in_to_pair_in:
+    forall c h,
+    ~ Var TID c ->
+    RunAll TID_COUNT c h ->
+    forall p,
+    CPairIn p c ->
+    PairIn p h.
+  Proof.
+    intros.
+    invc H1.
+    apply pair_in_def; auto;
+    eapply c_in_2; eauto.
+  Qed.
+
   Lemma c_pair_in_subst:
     forall p x e1 c,
     x <> TID ->
