@@ -293,19 +293,6 @@ Section Defs.
     WRun w h ->
     CanRun w.
   Proof.
-    intros w h H.
-    induction H; constructor; eauto.
-    - unfold RHasNext; exists n.
-      apply r_step_to_first in H.
-      apply H.
-    - apply r_step_to_first in H.
-      apply r_first_to_pick in H.
-      intros.
-      admit.  (* not sure yet how to reconcile n with n0 *)
-    - unfold RHasNext; exists n.
-      apply r_one_to_first in H.
-      apply H.
-    - admit.
     (* TODO: EASY *)
   Admitted.
 
@@ -1166,6 +1153,13 @@ Section Defs.
         eapply i_pair_in_for_first_2; eauto using r_one_to_first, n_step_num.
   Qed.
 
+  Fixpoint w_seq (c:Conc.inst) (i:w_inst) :=
+   match i with
+   | WSync c' => WSync (c_seq c c') 
+   | WSeq i j => WSeq (w_seq c i) j
+   | WFor c1 x r P c2 => WFor (c_seq c c1) x r P c2
+   end.
+
   Lemma i_pair_in_subst:
     forall e1 e2 n1 n2,
     NStep e1 n1 ->
@@ -1176,82 +1170,6 @@ Section Defs.
   Proof.
     (* TODO: HARD *)
   Admitted.
-
-  Lemma i_pair_in_2:
-    forall i h,
-    WRun i h ->
-    ~ WVar TID i -> 
-    forall p,
-    IPairIn p i ->
-    VHist.MPairIn p h.
-  Proof.
-    intros i h H.
-    induction H; intros Hv p Hp.
-    - invc Hp.
-      left.
-      eauto using c_pair_in_to_pair_in.
-    - subst.
-      simpl in Hv.
-      invc Hp.
-      + apply m_pair_in_seq_l.
-        apply IHWRun1; auto.
-      + apply m_pair_in_seq_r.
-        apply IHWRun2; auto.
-      + destruct p as (a1, a2).
-        simpl in *.
-        intuition;
-        rename_hyp (ILast _ _) as hl;
-        rename_hyp (IFirst _ _) as hf;
-        eapply i_first_2 in hf; eauto;
-        eapply i_last_2 in hl; eauto.
-        * auto using m_pair_in_seq_both_1.
-        * auto using m_pair_in_seq_both_2.
-    - subst.
-      simpl.
-      invc Hp.
-      + apply m_pair_in_prefix_r.
-        apply m_pair_in_seq_l.
-        simpl in *.
-        apply IHWRun1; auto. {
-          intros N.
-          apply wvar_inv_subst in N.
-          auto.
-        }
-        eauto using i_pair_in_subst, n_step_num.
-      + rename_hyp (CPairIn _ _) as hp.
-        apply c_pair_in_to_pair_in with (h:=h2) in hp; auto.
-        * apply m_pair_in_prefix_r.
-          apply m_pair_in_seq_r.
-          auto using m_pair_in_prefix_l.
-        * intros N.
-          simpl in *.
-          apply var_inv_subst in N.
-          auto.
-        * admit.
-      + admit.
-      + admit.
-      + admit.
-      + admit.
-      + admit.
-    - subst.
-      simpl.
-      invc Hp.
-      + admit.
-      + admit.
-      + admit.
-      + admit.
-      + admit.
-      + admit.
-      + admit.
-    (* TODO: HARD *)
-  Admitted.
-
-  Fixpoint w_seq (c:Conc.inst) (i:w_inst) :=
-   match i with
-   | WSync c' => WSync (c_seq c c') 
-   | WSeq i j => WSeq (w_seq c i) j
-   | WFor c1 x r P c2 => WFor (c_seq c c1) x r P c2
-   end.
 
   Fixpoint WFree P (x:var) :=
     match P with
@@ -1594,6 +1512,90 @@ Section Defs.
       eexists.
       apply get_last_for with (n:=n); eauto.
   Qed.
+
+  Lemma i_pair_in_inv_for:
+    forall p c1 x r P c2,
+    IPairIn p (WFor c1 x r P c2) ->
+    Conc.CPairIn p c1
+    \/
+    (exists e n,
+      RFirst r n /\
+      NStep e n /\
+      OneOf p (inl c1) (inr (w_subst x e P))
+    )
+    \/ IPairIn p (WFor Skip x r P c2).
+  Proof.
+    intros p c1 x r P c2 Hp.
+    invc Hp.
+    - right.
+      right.
+      eapply i_pair_in_for_1; eauto.
+    - right.
+      right.
+      eapply i_pair_in_for_2; eauto.
+    - right.
+      right.
+      eapply i_pair_in_for_3; eauto.
+    - intuition.
+    - right; left.
+      eauto.
+    - right; right.
+      eapply i_pair_in_for_mid_1; eauto.
+    - right; right.
+      eapply i_pair_in_for_mid_2; eauto.
+  Qed.
+
+  Lemma i_pair_in_2:
+    forall i h,
+    WRun i h ->
+    ~ WVar TID i -> 
+    forall p,
+    IPairIn p i ->
+    VHist.MPairIn p h.
+  Proof.
+    intros i h H.
+    induction H; intros Hv p Hp.
+    - invc Hp.
+      left.
+      eauto using c_pair_in_to_pair_in.
+    - subst.
+      simpl in Hv.
+      invc Hp.
+      + apply m_pair_in_seq_l.
+        apply IHWRun1; auto.
+      + apply m_pair_in_seq_r.
+        apply IHWRun2; auto.
+      + destruct p as (a1, a2).
+        simpl in *.
+        intuition;
+        rename_hyp (ILast _ _) as hl;
+        rename_hyp (IFirst _ _) as hf;
+        eapply i_first_2 in hf; eauto;
+        eapply i_last_2 in hl; eauto.
+        * auto using m_pair_in_seq_both_1.
+        * auto using m_pair_in_seq_both_2.
+    - subst.
+      simpl.
+      apply i_pair_in_inv_for in Hp.
+      destruct Hp as [Hp|[(e, (e_n, (Hf, (He_n, Hp))))|Hp]].
+      + apply m_pair_in_prefix_l.
+        simpl in Hv.
+        eapply c_pair_in_to_pair_in; eauto.
+      + admit.
+      + (* apply IHWRun2 in Hp.*)
+      admit.
+    - subst.
+      simpl.
+      invc Hp.
+      + admit.
+      + admit.
+      + admit.
+      + admit.
+      + admit.
+      + admit.
+      + admit.
+    (* TODO: HARD *)
+  Admitted.
 
   Definition DRF P :=
     forall p,
