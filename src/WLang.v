@@ -293,6 +293,19 @@ Section Defs.
     WRun w h ->
     CanRun w.
   Proof.
+    intros w h H.
+    induction H; constructor; eauto.
+    - unfold RHasNext; exists n.
+      apply r_step_to_first in H.
+      apply H.
+    - apply r_step_to_first in H.
+      apply r_first_to_pick in H.
+      intros.
+      admit.  (* not sure yet how to reconcile n with n0 *)
+    - unfold RHasNext; exists n.
+      apply r_one_to_first in H.
+      apply H.
+    - admit.
     (* TODO: EASY *)
   Admitted.
 
