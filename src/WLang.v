@@ -1627,7 +1627,13 @@ Section Defs.
         eapply c_pair_in_to_pair_in; eauto.
         simpl in Hv.
         auto.
-      + admit.
+      + 
+        assert (n0 = n). {
+          assert (RFirst r n) by eauto using r_step_to_first.
+          eauto using r_first_fun.
+        }
+        subst.
+        admit.
       + admit.
       + admit.
     - subst.
