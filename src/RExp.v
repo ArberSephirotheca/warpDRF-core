@@ -159,11 +159,13 @@ Section Defs.
 
   Inductive RStep : range -> nat -> range -> Prop :=
   | r_step_def:
-    forall e1 e2 n1 n2,
+    forall e1 e2 e3 e4 n1 n2,
     NStep e1 n1 ->
     NStep e2 n2 ->
+    NStep e3 (S n1) ->
+    NStep e4 n2 ->
     n1 < n2 ->
-    RStep (e1, e2) n1 (NNum (S n1), NNum n2).
+    RStep (e1, e2) n1 (e3, e4).
 
   Inductive RFirst : range -> nat -> Prop :=
   | r_first_def:
@@ -500,15 +502,15 @@ Section Defs.
     REmpty r2 \/ RHasNext r2.
   Proof.
     intros.
-    inversion H; subst; clear H.
-    inversion H2; subst; clear H2. {
+    invc H.
+    invc H4. {
       left.
-      auto using r_empty_eq.
+      eapply r_empty_def; eauto.
     }
     right.
     unfold RHasNext.
     exists (S n).
-    eapply r_first_def; eauto using n_step_num.
+    eapply r_first_def; eauto.
     lia.
   Qed.
 
@@ -950,6 +952,26 @@ Section Defs.
     intros.
     invc H.
     eapply n_step_minus_eq; eauto using n_step_num.
+    lia.
+  Qed.
+
+  Lemma r_step_inv_r:
+    forall e1 e2 n1 r n2,
+    RStep (e1, e2) n1 r ->
+    RPick (NBin NPlus (NNum 1) e1, e2) n2 ->
+    RPick r n2.
+  Proof.
+    intros.
+    invc H.
+    invc H0.
+    assert (n4 = n3) by eauto using n_step_fun.
+    subst.
+    eapply r_pick_def; eauto.
+    apply n_step_inv_succ_l in H2.
+    destruct H2 as (n', (Hn, ?)).
+    subst.
+    assert (n1 = n') by eauto using n_step_fun.
+    subst.
     lia.
   Qed.
 

@@ -1512,39 +1512,7 @@ Section Defs.
       eexists.
       apply get_last_for with (n:=n); eauto.
   Qed.
-
-  Lemma i_pair_in_inv_for:
-    forall p c1 x r P c2,
-    IPairIn p (WFor c1 x r P c2) ->
-    Conc.CPairIn p c1
-    \/
-    (exists e n,
-      RFirst r n /\
-      NStep e n /\
-      OneOf p (inl c1) (inr (w_subst x e P))
-    )
-    \/ IPairIn p (WFor Skip x r P c2).
-  Proof.
-    intros p c1 x r P c2 Hp.
-    invc Hp.
-    - right.
-      right.
-      eapply i_pair_in_for_1; eauto.
-    - right.
-      right.
-      eapply i_pair_in_for_2; eauto.
-    - right.
-      right.
-      eapply i_pair_in_for_3; eauto.
-    - intuition.
-    - right; left.
-      eauto.
-    - right; right.
-      eapply i_pair_in_for_mid_1; eauto.
-    - right; right.
-      eapply i_pair_in_for_mid_2; eauto.
-  Qed.
-
+ 
   Lemma i_pair_in_2:
     forall i h,
     WRun i h ->
@@ -1576,14 +1544,92 @@ Section Defs.
         * auto using m_pair_in_seq_both_2.
     - subst.
       simpl.
-      apply i_pair_in_inv_for in Hp.
-      destruct Hp as [Hp|[(e, (e_n, (Hf, (He_n, Hp))))|Hp]].
+      invc Hp.
+      + rename_hyp (RPick _ _) as hp.
+        destruct r as (e1, e2).
+        apply r_pick_inv_first in hp.
+        destruct hp as [hp|hp]. {
+          (* Apply IHWRun1 *)
+          assert (MPairIn p m1). {
+            apply IHWRun1. {
+              simpl in Hv.
+              intros N.
+              apply wvar_inv_subst in N.
+              auto.
+            }
+            eapply i_pair_in_subst; eauto using n_step_num.
+          }
+          auto using m_pair_in_prefix_r, m_pair_in_seq_l.
+        }
+        assert (MPairIn p m2). {
+          apply IHWRun2. {
+            simpl in *.
+            intros N.
+            intuition.
+          }
+          eapply i_pair_in_for_1; eauto.
+          eauto using r_step_inv_r.
+        }
+        auto using m_pair_in_prefix_r, m_pair_in_seq_r.
+      + rename_hyp (RPick _ _) as hp.
+        destruct r as (e1, e2).
+        apply r_pick_inv_first in hp.
+        destruct hp as [hp|hp]. {
+          assert (n0 = n). {
+            assert (RFirst (e1, e2) n) by eauto using r_step_to_first.
+            eauto using r_first_fun.
+          }
+          subst.
+          apply m_pair_in_prefix_r.
+          apply m_pair_in_seq_r.
+          apply m_pair_in_prefix_l.
+          eapply c_pair_in_to_pair_in; eauto. {
+            intros N.
+            apply var_inv_subst in N.
+            simpl in Hv.
+            intuition.
+          }
+          eapply c_pair_in_subst; eauto using n_step_num.
+          simpl in Hv.
+          intuition.
+        }
+        assert (MPairIn p m2). {
+          apply IHWRun2. {
+            simpl in *.
+            intros N.
+            intuition.
+          }
+          eapply i_pair_in_for_2; eauto using r_step_inv_r.
+        }
+        auto using m_pair_in_prefix_r, m_pair_in_seq_r.
+      + rename_hyp (RPick _ _) as hp.
+        destruct r as (e1, e2).
+        apply r_pick_inv_first in hp.
+        destruct hp as [hp|hp]. {
+          (* Apply IHWRun1 *)
+          admit.
+        }
+        assert (MPairIn p m2). {
+          apply IHWRun2. {
+            simpl in *.
+            intros N.
+            intuition.
+          }
+          assert (n0 = n). {
+            admit.
+          }
+          subst.
+          eapply i_pair_in_for_3; eauto.
+          admit.
+        }
+        auto using m_pair_in_prefix_r, m_pair_in_seq_r.
       + apply m_pair_in_prefix_l.
-        simpl in Hv.
         eapply c_pair_in_to_pair_in; eauto.
+        simpl in Hv.
+        auto.
       + admit.
-      + (* apply IHWRun2 in Hp.*)
-      admit.
+      + admit.
+      + admit.
     - subst.
       simpl.
       invc Hp.
