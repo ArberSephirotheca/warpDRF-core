@@ -571,14 +571,15 @@ Section Props.
     contradiction.
   Qed.
 
-  Lemma var_subst_neq:
-    forall P x y v,
+  Lemma var_subst:
+    forall P x y,
     x <> y ->
     Var y P ->
-    Var y (subst x (NNum v) P).
+    forall e,
+    Var y (subst x e P).
   Proof.
     induction P; simpl; intros.
-    - auto using Conc.var_subst_neq.
+    - auto using Conc.var_subst.
     - rename_hyp (_ \/ _) as Hp.
       destruct Hp as [Hp|Hp]; eauto.
     - rename_hyp (_ \/ _) as Hp.
@@ -610,7 +611,7 @@ Section Props.
       split. {
         intros N.
         contradict Hb.
-        eauto using var_subst_neq.
+        eauto using var_subst.
       }
       eauto.
   Qed.

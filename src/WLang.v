@@ -465,6 +465,17 @@ Section Defs.
     eauto using r_one_to_has_next.
   Qed.
 
+  Lemma w_run_subst:
+    forall x e1 e2 P v n,
+    WRun (w_subst x e1 P) v ->
+    NStep e1 n ->
+    NStep e2 n ->
+    WRun (w_subst x e2 P) v.
+  Proof.
+    intros.
+    (* TODO: HARD *)
+  Admitted.
+
   (* ------------------ IFIRST --------------------------------------- *)
 
   Inductive IFirst (a: access_val) : w_inst -> Prop :=
@@ -1512,7 +1523,8 @@ Section Defs.
       eexists.
       apply get_last_for with (n:=n); eauto.
   Qed.
- 
+
+
   Lemma i_pair_in_2:
     forall i h,
     WRun i h ->
@@ -1549,7 +1561,6 @@ Section Defs.
         destruct r as (e1, e2).
         apply r_pick_inv_first in hp.
         destruct hp as [hp|hp]. {
-          (* Apply IHWRun1 *)
           assert (MPairIn p m1). {
             apply IHWRun1. {
               simpl in Hv.
@@ -1606,8 +1617,44 @@ Section Defs.
         destruct r as (e1, e2).
         apply r_pick_inv_first in hp.
         destruct hp as [hp|hp]. {
-          (* Apply IHWRun1 *)
-          admit.
+          assert (n0 = n). {
+            assert (RFirst (e1, e2) n) by eauto using r_step_to_first.
+            eauto using r_first_fun.
+          }
+          subst.
+          destruct p as (a1, a2).
+          rename_hyp (OneOf _ _ _) as ho.
+          assert (~ WVar TID (w_subst x e P)). {
+            intros N.
+            apply wvar_inv_subst in N.
+            simpl in Hv.
+            auto.
+          }
+          assert (WRun (w_subst x e P) m1). {
+            eapply w_run_subst; eauto using n_step_num.
+          }
+          assert (~ Var TID (i_subst x e c2)). {
+            intros N.
+            apply var_inv_subst in N.
+            simpl in Hv.
+            auto.
+          }
+          assert (RunAll TID_COUNT (i_subst x e c2) h2). {
+            simpl in Hv.
+            assert (~ NFree e TID). {
+              apply n_closed_to_not_free.
+              eauto using n_step_to_closed.
+            }
+            eapply c_run_subst with (e0:=NNum n); eauto using n_step_num.
+            intros N.
+            eauto using var_subst.
+          }
+          destruct ho as [(hl, hc)|(hl,hc)];
+          apply i_last_2 with (v:=m1) in hl; auto;
+          apply c_in_2 with (h:=h2) in hc; auto;
+          apply m_pair_in_prefix_r.
+          - apply m_pair_in_seq_both_1; auto using first_in_prefix_l.
+          - apply m_pair_in_seq_both_2; auto using first_in_prefix_l.
         }
         assert (MPairIn p m2). {
           apply IHWRun2. {
