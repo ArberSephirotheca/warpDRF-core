@@ -1662,12 +1662,7 @@ Section Defs.
             intros N.
             intuition.
           }
-          assert (n0 = n). {
-            admit.
-          }
-          subst.
-          eapply i_pair_in_for_3; eauto.
-          admit.
+          eapply i_pair_in_for_3; eauto using r_step_inv_r.
         }
         auto using m_pair_in_prefix_r, m_pair_in_seq_r.
       + apply m_pair_in_prefix_l.
