@@ -1669,13 +1669,32 @@ Section Defs.
         eapply c_pair_in_to_pair_in; eauto.
         simpl in Hv.
         auto.
-      + 
-        assert (n0 = n). {
+      + assert (n0 = n). {
           assert (RFirst r n) by eauto using r_step_to_first.
           eauto using r_first_fun.
         }
         subst.
-        admit.
+        destruct p as (a1, a2).
+        rename_hyp (OneOf _ _ _) as ho.
+        assert (~ Var TID c1). {
+          intros N.
+          simpl in Hv.
+          intuition.
+        }
+        assert (WRun (w_subst x e P) m1). {
+          eapply w_run_subst; eauto using n_step_num.
+        }
+        assert (~ WVar TID (w_subst x e P)). {
+          intros N.
+          apply wvar_inv_subst in N.
+          simpl in Hv.
+          intuition.
+        }
+        destruct ho as [(hc,hf)|(hc,hf)];
+        apply c_in_2 with (h:=h1) in hc; auto;
+        apply i_first_2 with (v:=m1) in hf; auto.
+        * apply m_pair_in_prefix_1; auto using first_in_seq_l.
+        * apply m_pair_in_prefix_2; auto using first_in_seq_l.
       + admit.
       + admit.
     - subst.
