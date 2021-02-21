@@ -192,8 +192,24 @@ Section Defs.
     List.In a2 (first m) ->
     MPairIn (a1, a2) (v_prefix l m).
   Proof.
-    (* TODO: EASY *)
-  Admitted.
+    intros a1 a2 l m H1 H2.
+    destruct m; simpl in *.
+    - constructor.
+      + apply in_or_app.
+        left.
+        assumption.
+      + apply in_or_app.
+        right.
+        assumption.
+    - left.
+      constructor.
+      + apply in_or_app.
+        left.
+        assumption.
+      + apply in_or_app.
+        right.
+        assumption.
+  Qed.
 
   Lemma m_pair_in_prefix_2:
     forall a1 a2 l m,
