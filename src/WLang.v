@@ -293,6 +293,27 @@ Section Defs.
     WRun w h ->
     CanRun w.
   Proof.
+    intros.
+    induction H.
+    (* WSync c: *)
+    - constructor.
+    (* WSeq i j: *)
+    - constructor; auto.
+    (* WFor c1 x r P c2 *)
+    - constructor.
+      + apply r_step_to_has_next in H.
+        assumption.
+      + apply r_step_to_pick in H.
+        subst.
+        intros.
+        admit.
+    - constructor.
+      + apply r_one_to_has_next in H.
+        assumption.
+      + apply r_one_to_pick in H.
+        subst.
+        intros.
+        admit.
     (* TODO: EASY *)
   Admitted.
 
