@@ -1652,6 +1652,35 @@ Section Defs.
     * auto using m_pair_in_seq_both_2,first_in_prefix_r, first_in_seq_l.
   Qed.
 
+  Lemma i_pair_in_2_for_3:
+    forall x n P e p c1 h1 m1 m2,
+    ~ Var TID c1 ->
+    ~ WVar TID P ->
+    RunAll TID_COUNT c1 h1 ->
+    WRun (w_subst x (NNum n) P) m1 ->
+    NStep e n ->
+    OneOf p (inl c1) (inr (w_subst x e P)) ->
+    MPairIn p (v_prefix h1 (v_seq m1 m2)).
+  Proof.
+    intros.
+    destruct p as (a1, a2).
+    rename_hyp (OneOf _ _ _) as ho.
+    assert (WRun (w_subst x e P) m1). {
+      eapply w_run_subst; eauto using n_step_num.
+    }
+    assert (~ WVar TID (w_subst x e P)). {
+      intros N.
+      apply wvar_inv_subst in N.
+      intuition.
+    }
+    destruct ho as [(hc,hf)|(hc,hf)];
+    apply c_in_2 with (h:=h1) in hc; auto;
+    apply i_first_2 with (v:=m1) in hf; auto.
+    * apply m_pair_in_prefix_1; auto using first_in_seq_l.
+    * apply m_pair_in_prefix_2; auto using first_in_seq_l.
+  Qed.
+
+
   Lemma i_pair_in_2:
     forall i h,
     WRun i h ->
@@ -1790,27 +1819,9 @@ Section Defs.
           eauto using r_first_fun.
         }
         subst.
-        destruct p as (a1, a2).
-        rename_hyp (OneOf _ _ _) as ho.
-        assert (~ Var TID c1). {
-          intros N.
-          simpl in Hv.
-          intuition.
-        }
-        assert (WRun (w_subst x e P) m1). {
-          eapply w_run_subst; eauto using n_step_num.
-        }
-        assert (~ WVar TID (w_subst x e P)). {
-          intros N.
-          apply wvar_inv_subst in N.
-          simpl in Hv.
-          intuition.
-        }
-        destruct ho as [(hc,hf)|(hc,hf)];
-        apply c_in_2 with (h:=h1) in hc; auto;
-        apply i_first_2 with (v:=m1) in hf; auto.
-        * apply m_pair_in_prefix_1; auto using first_in_seq_l.
-        * apply m_pair_in_prefix_2; auto using first_in_seq_l.
+        simpl in Hv.
+        apply i_pair_in_2_for_3 with (x:=x) (n:=n) (P:=P) (e:=e) (c1:=c1);
+          eauto using n_step_num; intuition.
       + rename_hyp (RPick2 _ _) as hp.
         eapply r_step_pick2_advance in hp; eauto.
         destruct hp as [(?,hp)|hp]. {
@@ -1916,7 +1927,9 @@ Section Defs.
         auto.
       + assert (n0 = n) by eauto using r_one_to_first, r_first_fun.
         subst.
-        admit.
+        simpl in Hv.
+        apply i_pair_in_2_for_3 with (x:=x) (n:=n) (P:=P) (e:=e) (c1:=c1);
+          auto using n_step_num; intuition.
       + rename_hyp (RPick2 _ _) as hp.
         contradict hp.
         eauto using r_one_to_not_pick2.
