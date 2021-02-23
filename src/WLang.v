@@ -1553,6 +1553,57 @@ Section Defs.
       apply get_last_for with (n:=n); eauto.
   Qed.
 
+  Lemma i_pair_in_2_for_1:
+    forall x n c2 h2 r P e' e p (* r'*) h0 m0 h1 m1 m2,
+    RunAll TID_COUNT (i_subst x (NNum n) c2) h2 ->
+    ~ Var TID c2 ->
+    ~ WVar TID P ->
+    x <> TID ->
+    NStep e' (S n) ->
+    NStep e n ->
+    OneOf p (inl (i_subst x e c2)) (inr (w_subst x e' P)) ->
+    RFirst r (S n) ->
+    RunAll TID_COUNT Skip h0 ->
+    WRun (w_subst x (NNum (S n)) P) m0 ->
+    MPairIn p
+      (v_prefix h1
+         (v_seq m1
+            (v_prefix h2 (v_seq (v_one h0) (v_seq m0 m2))))).
+  Proof.
+    intros.
+    rename_hyp (RunAll _ Skip _) as hr.
+    apply run_all_inv_skip in hr.
+    subst.
+    simpl.
+    rewrite v_prefix_nil.
+    destruct p as (a1, a2).
+    rename_hyp (OneOf _ _ _) as ho.
+    assert (WRun (w_subst x e' P) m0). {
+      eapply w_run_subst; eauto using n_step_num.
+    }
+    assert (~ WVar TID (w_subst x e' P)). {
+      intros N.
+      apply wvar_inv_subst in N.
+      auto.
+    }
+    assert (~ Var TID (i_subst x e c2)). {
+      intros N.
+      apply var_inv_subst in N.
+      auto.
+    }
+    assert (RunAll TID_COUNT (i_subst x e c2) h2). {
+      apply c_run_subst with (e0:=NNum n) (n0:=n);
+      auto using n_step_num.
+      eauto using n_step_to_not_free.
+    }
+    destruct ho as [(hc2,hf)|(hc2,hf)];
+    eapply i_first_2 with (v:=m0) in hf; auto;
+    apply c_in_2 with (h:=h2) in hc2; auto;
+    apply m_pair_in_prefix_r;
+    apply m_pair_in_seq_r.
+    - auto using m_pair_in_prefix_1, first_in_seq_l.
+    - auto using m_pair_in_prefix_2, first_in_seq_l.
+  Qed.
 
   Lemma i_pair_in_2:
     forall i h,
@@ -1731,86 +1782,28 @@ Section Defs.
               eauto using r_first_fun.
             }
             subst.
-            rename_hyp (RunAll _ Skip _) as hr.
-            apply run_all_inv_skip in hr.
-            subst.
-            simpl.
-            rewrite v_prefix_nil.
-            destruct p as (a1, a2).
-            rename_hyp (OneOf _ _ _) as ho.
-            assert (WRun (w_subst x e' P) m0). {
-              eapply w_run_subst; eauto using n_step_num.
-            }
-            assert (~ WVar TID (w_subst x e' P)). {
-              intros N.
-              apply wvar_inv_subst in N.
-              simpl in Hv.
-              auto.
-            }
-            assert (~ Var TID (i_subst x e c2)). {
-              intros N.
-              apply var_inv_subst in N.
-              simpl in Hv; auto.
-            }
-            assert (RunAll TID_COUNT (i_subst x e c2) h2). {
-              simpl in Hv.
-              apply c_run_subst with (e0:=NNum n) (n0:=n);
-              auto using n_step_num.
-              - intros N.
-                eapply var_subst in N; eauto.
-              - eauto using n_step_to_not_free.
-            }
-            destruct ho as [(hc2,hf)|(hc2,hf)];
-            eapply i_first_2 with (v:=m0) in hf; auto;
-            apply c_in_2 with (h:=h2) in hc2; auto;
-            apply m_pair_in_prefix_r;
-            apply m_pair_in_seq_r.
-            - auto using m_pair_in_prefix_1, first_in_seq_l.
-            - auto using m_pair_in_prefix_2, first_in_seq_l.
+            simpl in Hv.
+            eapply i_pair_in_2_for_1; eauto; intuition.
           }
           assert (n0 = S n). {
             assert (RFirst r' n0) by eauto using r_step_to_first.
             eauto using r_first_fun.
           }
           subst.
-          rename_hyp (RunAll _ Skip _) as hr.
-          apply run_all_inv_skip in hr.
-          subst.
-          simpl.
-          rewrite v_prefix_nil.
-          destruct p as (a1, a2).
-          rename_hyp (OneOf _ _ _) as ho.
-          assert (WRun (w_subst x e' P) m0). {
-            eapply w_run_subst; eauto using n_step_num.
-          }
-          assert (~ WVar TID (w_subst x e' P)). {
-            intros N.
-            apply wvar_inv_subst in N.
-            simpl in Hv.
-            auto.
-          }
-          assert (~ Var TID (i_subst x e c2)). {
-            intros N.
-            apply var_inv_subst in N.
-            simpl in Hv; auto.
-          }
-          assert (RunAll TID_COUNT (i_subst x e c2) h2). {
-            simpl in Hv.
-            apply c_run_subst with (e0:=NNum n) (n0:=n);
-            auto using n_step_num.
-            - intros N.
-              eapply var_subst in N; eauto.
-            - eauto using n_step_to_not_free.
-          }
-          destruct ho as [(hc2,hf)|(hc2,hf)];
-          eapply i_first_2 with (v:=m0) in hf; auto;
-          apply c_in_2 with (h:=h2) in hc2; auto;
-          apply m_pair_in_prefix_r;
-          apply m_pair_in_seq_r.
-          - auto using m_pair_in_prefix_1, first_in_seq_l.
-          - auto using m_pair_in_prefix_2, first_in_seq_l.
+          simpl in Hv.
+          eapply i_pair_in_2_for_1; eauto; intuition.
         }
-        admit.
+        assert (MPairIn p m2). {
+          apply IHWRun2. {
+            simpl in *.
+            intuition.
+          }
+          eapply i_pair_in_for_mid_1; eauto.
+        }
+        apply m_pair_in_prefix_r.
+        apply m_pair_in_seq_r.
+        apply m_pair_in_prefix_r.
+        auto.
       + admit.
     - subst.
       simpl.
