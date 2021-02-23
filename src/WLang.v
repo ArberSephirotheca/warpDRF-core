@@ -294,28 +294,35 @@ Section Defs.
     CanRun w.
   Proof.
     intros.
-    induction H.
-    (* WSync c: *)
-    - constructor.
-    (* WSeq i j: *)
-    - constructor; auto.
-    (* WFor c1 x r P c2 *)
-    - constructor.
-      + apply r_step_to_has_next in H.
+    induction H; constructor; auto; subst.
+    - apply r_step_to_has_next in H.
+      assumption.
+    - intros n' H'.
+      destruct r as (e1, e2).
+      apply r_pick_inv_first in H'.
+      destruct H' as [H'|H'].
+      + assert (n' = n).
+        * apply r_step_to_first in H.
+          eauto using r_first_fun.
+        * subst.
+          assumption.
+      + assert (RPick r' n').
+        eauto using r_step_inv_r.
+        invc IHWRun2.
+        auto.
+    - apply r_one_to_has_next in H.
+      assumption.
+    - intros n' H'.
+      destruct r as (e1, e2).
+      assert (n' = n).
+      + invc H.
+        invc H'.
+        assert (n1 = n) by eauto using n_step_fun; subst.
+        assert (n2 = S n) by eauto using n_step_fun; subst.
+        lia.
+      + subst.
         assumption.
-      + apply r_step_to_pick in H.
-        subst.
-        intros.
-        admit.
-    - constructor.
-      + apply r_one_to_has_next in H.
-        assumption.
-      + apply r_one_to_pick in H.
-        subst.
-        intros.
-        admit.
-    (* TODO: EASY *)
-  Admitted.
+  Qed.
 
   Definition WEq P Q :=
     forall h,
@@ -1716,112 +1723,7 @@ Section Defs.
         apply i_first_2 with (v:=m1) in hf; auto.
         * apply m_pair_in_prefix_1; auto using first_in_seq_l.
         * apply m_pair_in_prefix_2; auto using first_in_seq_l.
-      + assert (hp: RPick r n0) by auto using r_pick2_to_pick.
-        destruct r as (e1, e2).
-        rename_hyp (WRun (WFor _ _ _ _ _) _ ) as hr.
-        invc hr. 2: {
-          rename_hyp (ROne _ _) as ro.
-          rename_hyp (RStep _ _ _) as rs.
-          rename_hyp (RPick2 _ _) as rp.
-          assert (n1 = S n). {
-            invc ro.
-            invc rs.
-            eauto using n_step_fun.
-          }
-          subst.
-          assert (n0 = n). {
-            invc rp.
-            invc rs.
-            assert (n1 = n) by eauto using n_step_fun.
-            subst.
-            assert (n4 = n2) by eauto using n_step_fun.
-            subst.
-            invc ro.
-            assert (n2 = S (S n)) by eauto using n_step_fun.
-            subst.
-            lia.
-          }
-          subst.
-          rename_hyp (RunAll _ Skip _) as hr.
-          apply run_all_inv_skip in hr.
-          subst.
-          simpl.
-          rewrite v_prefix_nil.
-          destruct p as (a1, a2).
-          rename_hyp (OneOf _ _ _) as ho.
-          assert (WRun (w_subst x e' P) m0). {
-            eapply w_run_subst; eauto using n_step_num.
-          }
-          assert (~ WVar TID (w_subst x e' P)). {
-            intros N.
-            apply wvar_inv_subst in N.
-            simpl in Hv.
-            auto.
-          }
-          assert (~ Var TID (i_subst x e c2)). {
-            intros N.
-            apply var_inv_subst in N.
-            simpl in Hv; auto.
-          }
-          assert (RunAll TID_COUNT (i_subst x e c2) h2). {
-            simpl in Hv.
-            apply c_run_subst with (e0:=NNum n) (n0:=n);
-            auto using n_step_num.
-            - intros N.
-              eapply var_subst in N; eauto.
-            - eauto using n_step_to_not_free.
-          }
-          destruct ho as [(hc2,hf)|(hc2,hf)];
-          eapply i_first_2 with (v:=m0) in hf; auto;
-          apply c_in_2 with (h:=h2) in hc2; auto;
-          apply m_pair_in_prefix_r;
-          apply m_pair_in_seq_r.
-          - auto using m_pair_in_prefix_1, first_in_seq_l.
-          - auto using m_pair_in_prefix_2, first_in_seq_l.
-        }
-        apply r_pick_inv_first in hp.
-        destruct hp as [hp|hp]. {
-          assert (n0 = n). {
-            assert (RFirst (e1, e2) n) by eauto using r_step_to_first.
-            eauto using r_first_fun.
-          }
-          subst.
-          destruct p as (a1, a2).
-          rename_hyp (OneOf _ _ _) as ho.
-          (*
-          assert (~ WVar TID (w_subst x e P)). {
-            intros N.
-            apply wvar_inv_subst in N.
-            simpl in Hv.
-            auto.
-          }
-          *)
-          (*
-          assert (WRun (w_subst x e' P) m1). {
-            eapply w_run_subst; eauto using n_step_num.
-          }*)
-          (*
-          assert (~ Var TID (i_subst x e c2)). {
-            intros N.
-            apply var_inv_subst in N.
-            simpl in Hv.
-            auto.
-          }
-          assert (RunAll TID_COUNT (i_subst x e c2) h2). {
-            simpl in Hv.
-            assert (~ NFree e TID). {
-              apply n_closed_to_not_free.
-              eauto using n_step_to_closed.
-            }
-            eapply c_run_subst with (e0:=NNum n); eauto using n_step_num.
-            intros N.
-            eauto using var_subst.
-          }
-          *)
-          destruct ho as [(hc,hf)|(hc,hf)];
-          apply i_first_2 with (v:=m1) in hf; auto; admit.
-        }
-        admit.
+      + admit.
       + admit.
     - subst.
       simpl.
