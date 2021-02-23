@@ -975,6 +975,72 @@ Section Defs.
     lia.
   Qed.
 
+  Lemma r_step_inv_first:
+    forall r n r',
+    RStep r n r' ->
+    RFirst r n \/ RPick r' n.
+  Proof.
+    intros.
+    assert (hp: RPick r n) by eauto using r_step_to_pick.
+    destruct r as (e1, e2).
+    apply r_pick_inv_first in hp.
+    destruct hp as [hp|hp]. {
+      auto.
+    }
+    right.
+    eauto using r_step_inv_r.
+  Qed.
+
+  Lemma r_pick_to_pick2:
+    forall r n,
+    RPick r n ->
+    RPick r (S n) ->
+    RPick2 r n.
+  Proof.
+    intros.
+    invc H.
+    invc H0.
+    assert (n0 = n1) by eauto using n_step_fun.
+    assert (n3 = n2) by eauto using n_step_fun.
+    subst.
+    eapply r_pick2_def; eauto; lia.
+  Qed.
+
+  Lemma r_step_pick2_advance:
+    forall r n r',
+    RStep r n r' ->
+    forall n',
+    RPick2 r n' ->
+    (n' = n /\ RFirst r' (S n)) \/ RPick2 r' n'.
+  Proof.
+    intros.
+    assert (hp: RPick r n') by eauto using r_pick2_to_pick.
+    destruct r as (e1, e2).
+    apply r_pick_inv_first in hp.
+    destruct hp as [hp|hp]. {
+      left.
+      assert (n' = n). {
+        assert (RFirst (e1, e2) n) by eauto using r_step_to_first.
+        eauto using r_first_fun.
+      }
+      subst.
+      split; auto.
+      destruct r' as (e1', e2').
+      invc H.
+      invc H0.
+      assert (n1 = n) by eauto using n_step_fun.
+      assert (n0 = n2) by eauto using n_step_fun.
+      subst.
+      eapply r_first_def; eauto.
+    }
+    right.
+    destruct r' as (e1', e2').
+    apply r_pick2_advance in H0.
+    eapply r_step_inv_r in H0; eauto.
+    eapply r_step_inv_r in hp; eauto.
+    eauto using r_pick_to_pick2.
+  Qed.
+
 End Defs.
 
 Module RExpNotations.
