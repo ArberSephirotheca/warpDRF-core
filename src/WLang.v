@@ -1869,7 +1869,17 @@ Section Defs.
           eapply i_pair_in_2_for_2; eauto.
           intuition.
         }
-        admit.
+        assert (MPairIn p m2). {
+          apply IHWRun2. {
+            simpl in *.
+            intuition.
+          }
+          eapply i_pair_in_for_mid_2; eauto.
+        }
+        apply m_pair_in_prefix_r.
+        apply m_pair_in_seq_r.
+        apply m_pair_in_prefix_r.
+        auto.
     - subst.
       simpl.
       invc Hp.
