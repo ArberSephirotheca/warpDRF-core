@@ -1638,9 +1638,9 @@ Section Defs.
       simpl.
       invc Hp.
       + rename_hyp (RPick _ _) as hp.
-        destruct r as (e1, e2).
-        apply r_pick_inv_first in hp.
+        eapply r_step_pick_advance in hp; eauto.
         destruct hp as [hp|hp]. {
+          subst.
           assert (MPairIn p m1). {
             apply IHWRun1. {
               simpl in Hv.
@@ -1659,17 +1659,11 @@ Section Defs.
             intuition.
           }
           eapply i_pair_in_for_1; eauto.
-          eauto using r_step_inv_r.
         }
         auto using m_pair_in_prefix_r, m_pair_in_seq_r.
       + rename_hyp (RPick _ _) as hp.
-        destruct r as (e1, e2).
-        apply r_pick_inv_first in hp.
+        eapply r_step_pick_advance in hp; eauto.
         destruct hp as [hp|hp]. {
-          assert (n0 = n). {
-            assert (RFirst (e1, e2) n) by eauto using r_step_to_first.
-            eauto using r_first_fun.
-          }
           subst.
           apply m_pair_in_prefix_r.
           apply m_pair_in_seq_r.
@@ -1804,14 +1798,23 @@ Section Defs.
         apply m_pair_in_seq_r.
         apply m_pair_in_prefix_r.
         auto.
-      + admit.
+      + rename_hyp (RPick2 _ _) as hp.
+        eapply r_step_pick2_advance in hp; eauto.
+        destruct hp as [(?,hp)|hp]. {
+          subst.
+          admit.
+        }
+        admit.
     - subst.
       simpl.
       invc Hp.
       + admit.
       + admit.
       + admit.
-      + admit.
+      + apply m_pair_in_prefix_l.
+        eapply c_pair_in_to_pair_in; eauto.
+        simpl in Hv.
+        auto.
       + admit.
       + admit.
       + admit.
