@@ -1802,6 +1802,45 @@ Section Defs.
         eapply r_step_pick2_advance in hp; eauto.
         destruct hp as [(?,hp)|hp]. {
           subst.
+          rename_hyp (WRun (WFor _ _ _ _ _) _ ) as hr.
+          invc hr. 2: {
+            assert (n0 = S n). {
+              assert (RFirst r' n0) by eauto using r_one_to_first.
+              eauto using r_first_fun.
+            }
+            subst.
+            rename_hyp (RunAll _ Skip _) as hr.
+            apply run_all_inv_skip in hr.
+            subst.
+            simpl.
+            rewrite v_prefix_nil.
+            destruct p as (a1, a2).
+            rename_hyp (OneOf _ _ _) as ho.
+            assert (WRun (w_subst x e P) m1). {
+              eapply w_run_subst; eauto using n_step_num.
+            }
+            assert (WRun (w_subst x e' P) m0). {
+              eapply w_run_subst; eauto using n_step_num.
+            }
+            assert (~ WVar TID (w_subst x e' P)). {
+              simpl in Hv.
+              intros N.
+              apply wvar_inv_subst in N.
+              auto.
+            }
+            assert (~ WVar TID (w_subst x e P)). {
+              simpl in Hv.
+              intros N.
+              apply wvar_inv_subst in N.
+              auto.
+            }
+            apply m_pair_in_prefix_r.
+            destruct ho as [(hl,hf)|(hl,hf)];
+              apply i_first_2 with (v:=m0) in hf; auto;
+              apply i_last_2 with (v:=m1) in hl; auto.
+            * auto using m_pair_in_seq_both_1,first_in_prefix_r, first_in_seq_l.
+            * auto using m_pair_in_seq_both_2,first_in_prefix_r, first_in_seq_l.
+          }
           admit.
         }
         admit.
