@@ -294,7 +294,6 @@ Section Defs.
     CanRun w.
   Proof.
     intros.
-    intros.
     induction H; constructor; auto; subst.
     - apply r_step_to_has_next in H.
       assumption.
