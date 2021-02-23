@@ -1680,6 +1680,48 @@ Section Defs.
     * apply m_pair_in_prefix_2; auto using first_in_seq_l.
   Qed.
 
+  Lemma i_pair_in_2_for_4:
+    forall x n P e p h1 m1 m2 c2 h2,
+    ~ Var TID c2 ->
+    ~ WVar TID P ->
+    x <> TID ->
+    WRun (w_subst x (NNum n) P) m1 ->
+    RunAll TID_COUNT (i_subst x (NNum n) c2) h2 ->
+    NStep e n ->
+    OneOf p (inr (w_subst x e P)) (inl (i_subst x e c2)) ->
+    MPairIn p (v_prefix h1 (v_seq m1 (v_prefix h2 m2))).
+  Proof.
+    intros.
+    destruct p as (a1, a2).
+    rename_hyp (OneOf _ _ _) as ho.
+    assert (~ WVar TID (w_subst x e P)). {
+      intros N.
+      apply wvar_inv_subst in N.
+      auto.
+    }
+    assert (WRun (w_subst x e P) m1). {
+      eapply w_run_subst; eauto using n_step_num.
+    }
+    assert (~ Var TID (i_subst x e c2)). {
+      intros N.
+      apply var_inv_subst in N.
+      auto.
+    }
+    assert (RunAll TID_COUNT (i_subst x e c2) h2). {
+      assert (~ NFree e TID). {
+        apply n_closed_to_not_free.
+        eauto using n_step_to_closed.
+      }
+      eapply c_run_subst with (e0:=NNum n); eauto using n_step_num.
+    }
+    destruct ho as [(hl, hc)|(hl,hc)];
+    apply i_last_2 with (v:=m1) in hl; auto;
+    apply c_in_2 with (h:=h2) in hc; auto;
+    apply m_pair_in_prefix_r.
+    - apply m_pair_in_seq_both_1; auto using first_in_prefix_l.
+    - apply m_pair_in_seq_both_2; auto using first_in_prefix_l.
+  Qed.
+
 
   Lemma i_pair_in_2:
     forall i h,
@@ -1767,39 +1809,9 @@ Section Defs.
         eapply r_step_pick_advance in hp; eauto.
         destruct hp as [hp|hp]. {
           subst.
-          destruct p as (a1, a2).
-          rename_hyp (OneOf _ _ _) as ho.
-          assert (~ WVar TID (w_subst x e P)). {
-            intros N.
-            apply wvar_inv_subst in N.
-            simpl in Hv.
-            auto.
-          }
-          assert (WRun (w_subst x e P) m1). {
-            eapply w_run_subst; eauto using n_step_num.
-          }
-          assert (~ Var TID (i_subst x e c2)). {
-            intros N.
-            apply var_inv_subst in N.
-            simpl in Hv.
-            auto.
-          }
-          assert (RunAll TID_COUNT (i_subst x e c2) h2). {
-            simpl in Hv.
-            assert (~ NFree e TID). {
-              apply n_closed_to_not_free.
-              eauto using n_step_to_closed.
-            }
-            eapply c_run_subst with (e0:=NNum n); eauto using n_step_num.
-            intros N.
-            eauto using var_subst.
-          }
-          destruct ho as [(hl, hc)|(hl,hc)];
-          apply i_last_2 with (v:=m1) in hl; auto;
-          apply c_in_2 with (h:=h2) in hc; auto;
-          apply m_pair_in_prefix_r.
-          - apply m_pair_in_seq_both_1; auto using first_in_prefix_l.
-          - apply m_pair_in_seq_both_2; auto using first_in_prefix_l.
+          simpl in Hv.
+          apply i_pair_in_2_for_4 with (x:=x) (n:=n) (P:=P) (c2:=c2) (e:=e);
+            auto; intuition.
         }
         assert (MPairIn p m2). {
           apply IHWRun2. {
@@ -1920,7 +1932,15 @@ Section Defs.
         intuition.
       + assert (n0 = n) by eauto using r_one_pick_fun.
         subst.
-        admit.
+        assert (rx: v_one h2 = v_prefix h2 (v_one [])). {
+          simpl.
+          rewrite app_nil_r.
+          reflexivity.
+        }
+        rewrite rx.
+        simpl in Hv.
+        apply i_pair_in_2_for_4 with (x:=x) (n:=n) (P:=P) (c2:=c2) (e:=e);
+          auto; intuition.
       + apply m_pair_in_prefix_l.
         eapply c_pair_in_to_pair_in; eauto.
         simpl in Hv.
@@ -1936,8 +1956,7 @@ Section Defs.
       + rename_hyp (RPick2 _ _) as hp.
         contradict hp.
         eauto using r_one_to_not_pick2.
-        (* TODO: HARD *)
-  Admitted.
+  Qed.
 
   Definition DRF P :=
     forall p,
