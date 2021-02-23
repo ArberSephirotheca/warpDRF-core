@@ -21,3 +21,4 @@
 *.vok
 /.Makefile.d
 *.lia.cache
+src/#*.v#
