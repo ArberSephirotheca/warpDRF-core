@@ -1883,7 +1883,16 @@ Section Defs.
     - subst.
       simpl.
       invc Hp.
-      + admit.
+      + assert (MPairIn p m1). {
+          apply IHWRun. {
+            simpl in Hv.
+            intros N.
+            apply wvar_inv_subst in N.
+            intuition.
+          }
+          eauto using i_pair_in_subst, n_step_num.
+        }
+        auto using m_pair_in_prefix_r, m_pair_in_seq_l.
       + admit.
       + admit.
       + apply m_pair_in_prefix_l.
@@ -1893,7 +1902,7 @@ Section Defs.
       + admit.
       + admit.
       + admit.
-    (* TODO: HARD *)
+        (* TODO: HARD *)
   Admitted.
 
   Definition DRF P :=
