@@ -369,6 +369,20 @@ Section Props.
     NStep v2 n ->
     IFirst a (subst x v2 P).
   Proof.
+    intros.
+    induction P; simpl in *.
+    - constructor.
+      inversion H; subst.
+      apply c_in_subst with (v:=v1) (v':=v2) (n0:=n); try assumption.
+      admit. (* how do we show (x <> TID) here? *)
+    - constructor.
+      invc H.
+      apply IHP1.
+      assumption.
+    - constructor.
+      invc H.
+      apply IHP1.
+      assumption.
     (* TODO: MEDIUM *)
   Admitted.
 
