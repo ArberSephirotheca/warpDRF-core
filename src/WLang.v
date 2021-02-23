@@ -294,6 +294,7 @@ Section Defs.
     CanRun w.
   Proof.
     intros.
+    intros.
     induction H; constructor; auto; subst.
     - apply r_step_to_has_next in H.
       assumption.
@@ -1642,13 +1643,8 @@ Section Defs.
         }
         auto using m_pair_in_prefix_r, m_pair_in_seq_r.
       + rename_hyp (RPick _ _) as hp.
-        destruct r as (e1, e2).
-        apply r_pick_inv_first in hp.
+        eapply r_step_pick_advance in hp; eauto.
         destruct hp as [hp|hp]. {
-          assert (n0 = n). {
-            assert (RFirst (e1, e2) n) by eauto using r_step_to_first.
-            eauto using r_first_fun.
-          }
           subst.
           destruct p as (a1, a2).
           rename_hyp (OneOf _ _ _) as ho.
@@ -1814,7 +1810,6 @@ Section Defs.
           - auto using m_pair_in_prefix_1, first_in_seq_l.
           - auto using m_pair_in_prefix_2, first_in_seq_l.
         }
-        rename n0 into n'.
         admit.
       + admit.
     - subst.

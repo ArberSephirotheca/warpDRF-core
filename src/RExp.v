@@ -1006,6 +1006,22 @@ Section Defs.
     eapply r_pick2_def; eauto; lia.
   Qed.
 
+  Lemma r_step_pick_advance:
+    forall r n r',
+    RStep r n r' ->
+    forall n',
+    RPick r n' ->
+    n' = n \/ RPick r' n'.
+  Proof.
+    intros.
+    destruct r as (e1, e2).
+    apply r_pick_inv_first in H0.
+    destruct H0 as [hp|hp]. {
+      eauto using r_step_to_first, r_first_fun.
+    }
+    eapply r_step_inv_r in hp; eauto.
+  Qed.
+
   Lemma r_step_pick2_advance:
     forall r n r',
     RStep r n r' ->
