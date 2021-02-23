@@ -1072,6 +1072,22 @@ Section Defs.
     eauto using r_pick_to_pick2.
   Qed.
 
+  Lemma r_one_to_not_pick2:
+    forall r n,
+    ROne r n ->
+    forall n',
+    ~ RPick2 r n'.
+  Proof.
+    intros.
+    intros N.
+    invc N.
+    invc H.
+    assert (n1 = n) by eauto using n_step_fun.
+    assert (n2 = S n) by eauto using n_step_fun.
+    subst.
+    lia.
+  Qed.
+
 End Defs.
 
 Module RExpNotations.

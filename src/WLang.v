@@ -1907,14 +1907,22 @@ Section Defs.
         eapply c_pair_in_subst; eauto using n_step_num.
         simpl in Hv.
         intuition.
-      + admit.
+      + assert (n0 = n) by eauto using r_one_pick_fun.
+        subst.
+        admit.
       + apply m_pair_in_prefix_l.
         eapply c_pair_in_to_pair_in; eauto.
         simpl in Hv.
         auto.
-      + admit.
-      + admit.
-      + admit.
+      + assert (n0 = n) by eauto using r_one_to_first, r_first_fun.
+        subst.
+        admit.
+      + rename_hyp (RPick2 _ _) as hp.
+        contradict hp.
+        eauto using r_one_to_not_pick2.
+      + rename_hyp (RPick2 _ _) as hp.
+        contradict hp.
+        eauto using r_one_to_not_pick2.
         (* TODO: HARD *)
   Admitted.
 
