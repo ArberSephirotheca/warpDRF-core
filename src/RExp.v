@@ -596,6 +596,21 @@ Section Defs.
     eapply r_pick_def; eauto.
   Qed.
 
+  Lemma r_one_pick_fun:
+    forall r n1 n2,
+    ROne r n2 ->
+    RPick r n1 ->
+    n1 = n2.
+  Proof.
+    intros.
+    invc H.
+    invc H0.
+    assert (n2 = n0) by eauto using n_step_fun.
+    assert (n3 = S n2) by eauto using n_step_fun.
+    subst.
+    lia.
+  Qed.
+
   Definition RDefined (r:range) :=
     let (e1, e2) := r in
     (exists n1, NStep e1 n1) /\ (exists n2, NStep e2 n2).

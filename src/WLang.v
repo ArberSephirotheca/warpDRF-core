@@ -1893,7 +1893,20 @@ Section Defs.
           eauto using i_pair_in_subst, n_step_num.
         }
         auto using m_pair_in_prefix_r, m_pair_in_seq_l.
-      + admit.
+      + assert (n0 = n) by eauto using r_one_pick_fun.
+        subst.
+        apply m_pair_in_prefix_r.
+        apply m_pair_in_seq_r.
+        simpl.
+        eapply c_pair_in_to_pair_in; eauto. {
+          intros N.
+          apply var_inv_subst in N.
+          simpl in Hv.
+          auto.
+        }
+        eapply c_pair_in_subst; eauto using n_step_num.
+        simpl in Hv.
+        intuition.
       + admit.
       + apply m_pair_in_prefix_l.
         eapply c_pair_in_to_pair_in; eauto.
