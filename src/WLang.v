@@ -211,6 +211,19 @@ Section Defs.
       reflexivity.
   Qed.
 
+  Lemma w_subst_subst_neq:
+    forall P x y v1 v2,
+    x <> y ->
+    ~ NFree v1 y ->
+    ~ NFree v2 x ->
+    w_subst x v1 (w_subst y v2 P)
+    =
+    w_subst y v2 (w_subst x v1 P).
+  Proof.
+    (* See Conc.i_subst_subst_neq_3 *)
+    (* TODO: EASY *)
+  Admitted.
+
   Lemma x_can_run_spec:
     forall x v P,
     NClosed v ->
@@ -532,6 +545,7 @@ Section Defs.
     forall P h,
     ~ WVar x P ->
     WRun (w_subst x v P) h ->
+    NClosed v ->
     X_WRun P h.
   Proof.
     intros.
@@ -563,8 +577,8 @@ Section Defs.
         * intros N.
           apply wvar_inv_subst in N.
           intuition.
-        * admit.
-      + admit.
+        * rewrite w_subst_subst_neq; eauto using n_step_to_not_free.
+      + rewrite i_subst_subst_neq_3; auto.
       + apply IHWRun2.
         * intros N.
           simpl in N.
@@ -590,14 +604,15 @@ Section Defs.
         * intros N.
           apply wvar_inv_subst in N.
           auto.
-        * admit.
-      + admit.
+        * rewrite w_subst_subst_neq; auto.
+      + rewrite Conc.i_subst_subst_neq_3; auto.
   Admitted.
 
   Lemma x_wrun_to_wrun:
     forall P h,
     X_WRun P h ->
     ~ WVar x P ->
+    NClosed v ->
     WRun (w_subst x v P) h.
   Proof.
     intros P h H.
@@ -613,15 +628,15 @@ Section Defs.
       simpl in hv.
       eapply wrun_for_cons; eauto.
       + assert (hw: WRun (w_subst x v (w_subst y (NNum n) P)) m1). {
-          apply IHX_WRun1.
+          apply IHX_WRun1; auto.
           intros N.
           apply wvar_inv_subst in N.
           auto.
         }
-        admit.
-      + admit.
+        rewrite w_subst_subst_neq; auto.
+      + rewrite Conc.i_subst_subst_neq_3; auto.
       + assert (hw: WRun (w_subst x v (WFor Skip y r' P c2)) m2). {
-          apply IHX_WRun2.
+          apply IHX_WRun2; auto.
           simpl in *.
           intuition.
         }
@@ -635,14 +650,14 @@ Section Defs.
       subst.
       eapply wrun_for_eq; eauto.
       + assert (WRun (w_subst x v (w_subst y (NNum n) P)) m1). {
-          apply IHX_WRun.
+          apply IHX_WRun; auto.
           intros N.
           apply wvar_inv_subst in N.
           intuition.
         }
-        admit.
-      + admit.
-  Admitted.
+        rewrite w_subst_subst_neq; auto.
+      + rewrite Conc.i_subst_subst_neq_3; auto.
+  Qed.
 
   End X_WRun.
 
@@ -651,9 +666,6 @@ Section Defs.
     X_WRun x e1 P v ->
     x <> TID ->
     ~ WVar TID P ->
-    (*
-    ~ WVar x P ->
-    *)
     forall n,
     NStep e1 n ->
     forall e2,
@@ -668,10 +680,6 @@ Section Defs.
       simpl in H2.
       simpl in H3.
       econstructor; eauto.
-      (*
-      + eapply IHX_WRun1; eauto.
-      + eapply IHX_WRun2; eauto.
-      *)
     - subst.
       simpl in *.
       eapply x_wrun_for_cons with
@@ -683,17 +691,12 @@ Section Defs.
         * intros N.
           apply wvar_inv_subst in N.
           auto.
-          (*
-        * intros N.
-          apply wvar_inv_subst in N.
-          auto.*)
       + eapply c_run_subst with (e:=e1); eauto using n_step_to_not_free.
         intros N.
         apply var_inv_subst in N.
         intuition.
       + eapply IHX_WRun2; eauto.
-        * intuition.
-(*         * intuition. *)
+        intuition.
       + simpl.
         auto.
     - subst.
@@ -714,7 +717,6 @@ Section Defs.
         auto.
   Admitted.
 
-
   Lemma w_run_subst:
     forall x P,
     ~ WVar x P ->
@@ -729,8 +731,8 @@ Section Defs.
     WRun (w_subst x e2 P) v.
   Proof.
     intros.
-    apply x_wrun_to_wrun; auto.
-    apply wrun_to_x_wrun in H2; auto.
+    apply x_wrun_to_wrun; eauto using n_step_to_closed.
+    apply wrun_to_x_wrun in H2; eauto using n_step_to_closed.
     eapply x_wrun_subst; eauto.
   Qed.
 
