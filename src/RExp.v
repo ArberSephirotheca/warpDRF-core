@@ -970,20 +970,18 @@ Section Defs.
     lia.
   Qed.
 
-  Lemma r_step_to_closed_l:
+  Lemma r_step_to_closed_l: (* TODO: EASY *)
     forall r n r',
     RStep r n r' ->
     RClosed r.
   Proof.
-    (* TODO: EASY *)
   Admitted.
 
-  Lemma r_step_to_closed_r:
+  Lemma r_step_to_closed_r: (* TODO: EASY*)
     forall r n r',
     RStep r n r' ->
     RClosed r'.
   Proof.
-    (* TODO: EASY*)
   Admitted.
 
   Lemma r_step_to_closed:
@@ -1113,38 +1111,38 @@ Section Defs.
     lia.
   Qed.
 
-  Lemma r_step_to_defined_r:
+  Lemma r_step_to_defined_r: (* TODO: EASY *)
     forall r n r',
     RStep r n r' ->
     RDefined r'.
   Proof.
-  Admitted. (* TODO: EASY *)
+  Admitted.
 
-  Lemma r_defined_subst:
+  Lemma r_defined_subst:  (* TODO: EASY *)
     forall r x v,
     NClosed v ->
     RDefined r ->
     r_subst x v r = r.
   Proof.
-  Admitted. (* TODO: EASY *)
+  Admitted.
 
-  Lemma r_step_subst:
+  Lemma r_step_subst: (* TODO: EASY *)
     forall x e1 e2 r n r',
     RStep (r_subst x e1 r) n (r_subst x e1 r') ->
     NClosed e1 ->
     NClosed e2 ->
     RStep (r_subst x e2 r) n (r_subst x e2 r').
   Proof.
-  Admitted. (* TODO: EASY *)
+  Admitted.
 
-  Lemma r_one_subst:
+  Lemma r_one_subst: (* TODO: EASY *)
     forall x e1 e2 r n,
     ROne (r_subst x e1 r) n ->
     NClosed e1 ->
     NClosed e2 ->
     ROne (r_subst x e2 r) n.
   Proof.
-  Admitted. (* TODO: EASY *)
+  Admitted.
 
 End Defs.
 

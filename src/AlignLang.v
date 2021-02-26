@@ -386,7 +386,7 @@ Section Props.
     (* TODO: MEDIUM *)
   Admitted.
 
-  Lemma i_pair_in_subst:
+  Lemma i_pair_in_subst: (* TODO: MEDIUM *)
     forall p x e1 P n,
     NStep e1 n ->
     IPairIn p (subst x e1 P) ->
@@ -394,7 +394,6 @@ Section Props.
     NStep e2 n ->
     IPairIn p (subst x e2 P).
   Proof.
-    (* TODO: MEDIUM *)
   Admitted.
 
   Lemma subst_subst_eq_1:

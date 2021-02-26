@@ -87,20 +87,18 @@ Section Defs.
     split; auto using incl_appr.
   Qed.
 
-  Lemma in_1:
+  Lemma in_1: (* TODO: MEDIUM *)
     forall p ph,
     SymExec.IPairIn p (ph_to_hist ph) ->
     PhaseSplit.PPairIn p ph.
   Proof.
-    (* TODO: MEDIUM *)
   Admitted.
 
-  Lemma in_2:
+  Lemma in_2: (* TODO: MEDIUM *)
     forall p ph,
     PhaseSplit.PPairIn p ph ->
     SymExec.IPairIn p (ph_to_hist ph).
   Proof.
-    (* TODO: MEDIUM *)
   Admitted.
 
   Theorem drf_1:

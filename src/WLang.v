@@ -211,7 +211,7 @@ Section Defs.
       reflexivity.
   Qed.
 
-  Lemma w_subst_subst_neq:
+  Lemma w_subst_subst_neq: (* TODO: EASY *)
     forall P x y v1 v2,
     x <> y ->
     ~ NFree v1 y ->
@@ -221,7 +221,6 @@ Section Defs.
     w_subst y v2 (w_subst x v1 P).
   Proof.
     (* See Conc.i_subst_subst_neq_3 *)
-    (* TODO: EASY *)
   Admitted.
 
   Lemma x_can_run_spec:
@@ -1066,7 +1065,7 @@ Section Defs.
       }
   Qed.
 
-  Lemma i_last_2:
+  Lemma i_last_2: (* TODO: MEDIUM *)
     forall i v,
     WRun i v ->
     ~ WVar TID i ->
@@ -1074,7 +1073,6 @@ Section Defs.
     ILast a i ->
     List.In a (last v).
   Proof.
-    (* TODO: MEDIUM *)
   Admitted.
 
   Notation any_inst := (Conc.inst + w_inst) % type.
@@ -1436,7 +1434,7 @@ Section Defs.
    | WFor c1 x r P c2 => WFor (c_seq c c1) x r P c2
    end.
 
-  Lemma i_pair_in_subst:
+  Lemma i_pair_in_subst: (* TODO: HARD *)
     forall e1 e2 n1 n2,
     NStep e1 n1 ->
     NStep e2 n2 ->
@@ -1444,7 +1442,6 @@ Section Defs.
     IPairIn p (w_subst x e1 P) ->
     IPairIn p (w_subst x e2 P).
   Proof.
-    (* TODO: HARD *)
   Admitted.
 
   Fixpoint WFree P (x:var) :=

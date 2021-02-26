@@ -211,13 +211,12 @@ Section Defs.
         assumption.
   Qed.
 
-  Lemma m_pair_in_prefix_2:
+  Lemma m_pair_in_prefix_2: (* TODO: EASY *)
     forall a1 a2 l m,
     List.In a1 (first m) ->
     List.In a2 l ->
     MPairIn (a1, a2) (v_prefix l m).
   Proof.
-    (* TODO: EASY *)
   Admitted.
 
   Lemma m_pair_in_seq_l:
