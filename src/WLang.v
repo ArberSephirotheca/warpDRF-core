@@ -572,7 +572,11 @@ Section Defs.
         intuition.
       }
       eapply x_wrun_for_cons with (n:=n) (r':=r'); eauto.
-      + admit.
+      + assert (rx: r_subst x v r' = r'). {
+          eauto using r_defined_subst, r_step_to_defined_r.
+        }
+        rewrite rx.
+        assumption.
       + apply IHWRun1; auto.
         * intros N.
           apply wvar_inv_subst in N.
@@ -586,7 +590,8 @@ Section Defs.
         * simpl.
           destruct (Set_VAR.MF.eq_dec x v0) as [?|_]; try contradiction.
           assert (rv: r' = r_subst x v r'). {
-            admit.
+            symmetry.
+            eauto using r_defined_subst, r_step_to_defined_r.
           }
           rewrite <- rv.
           reflexivity.
@@ -606,7 +611,7 @@ Section Defs.
           auto.
         * rewrite w_subst_subst_neq; auto.
       + rewrite Conc.i_subst_subst_neq_3; auto.
-  Admitted.
+  Qed.
 
   Lemma x_wrun_to_wrun:
     forall P h,
@@ -685,7 +690,7 @@ Section Defs.
       eapply x_wrun_for_cons with
         (m1:=m1) (r':=r') (n:=n) (m2:=m2) (h2:=h2);
         eauto.
-      + admit.
+      + apply r_step_subst with (e1:=e1); eauto using n_step_to_closed.
       + eapply c_run_subst with (e:=e1); eauto using n_step_to_not_free.
       + eapply IHX_WRun1; eauto.
         * intros N.
@@ -704,7 +709,7 @@ Section Defs.
       eapply x_wrun_for_eq with
         (n:=n) (h1:=h1) (m1:=m1) (h2:=h2);
         eauto.
-      + admit.
+      + eapply r_one_subst with (e1:=e1); eauto using n_step_to_closed.
       + eapply c_run_subst with (e:=e1); eauto using n_step_to_not_free.
       + eapply IHX_WRun;
           eauto;
@@ -715,7 +720,7 @@ Section Defs.
         intros N.
         apply var_inv_subst in N.
         auto.
-  Admitted.
+  Qed.
 
   Lemma w_run_subst:
     forall x P,
