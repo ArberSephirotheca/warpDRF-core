@@ -59,7 +59,7 @@ Section Defs.
     end.
 
 
-  Lemma w_subst_subst_neq_3:
+  Lemma w_subst_subst_neq:
     forall P x y v1 v2,
     x <> y ->
     ~ NFree v1 y ->
@@ -211,18 +211,6 @@ Section Defs.
       reflexivity.
   Qed.
 
-  Lemma w_subst_subst_neq: (* TODO: EASY *)
-    forall P x y v1 v2,
-    x <> y ->
-    ~ NFree v1 y ->
-    ~ NFree v2 x ->
-    w_subst x v1 (w_subst y v2 P)
-    =
-    w_subst y v2 (w_subst x v1 P).
-  Proof.
-    (* See Conc.i_subst_subst_neq_3 *)
-  Admitted.
-
   Lemma x_can_run_spec:
     forall x v P,
     NClosed v ->
@@ -249,7 +237,7 @@ Section Defs.
         rename_hyp (forall n, _ -> _ -> CanRun _) as Hx.
         rename_hyp (RPick _ _) as Hp.
         apply Hx in Hp; auto.
-        rewrite w_subst_subst_neq_3; auto.
+        rewrite w_subst_subst_neq; auto.
     }
     remember (w_subst _ _ _) as Q.
     generalize dependent x.
@@ -283,7 +271,7 @@ Section Defs.
       rename_hyp (forall n, RPick _ _ -> forall P v, _ -> _) as Hx.
       rename_hyp (RPick _ _) as Hp.
       eapply Hx in Hp; eauto.
-      rewrite w_subst_subst_neq_3; eauto.
+      rewrite w_subst_subst_neq; eauto.
   Qed.
 
   Lemma can_run_subst:
@@ -350,6 +338,47 @@ Section Defs.
       Conc.Var x c1 \/
       WVar x P \/ Conc.Var x c2
     end.
+
+  Lemma w_subst_subst_neq_5:
+    forall P x v y e,
+    x <> y ->
+    NClosed v ->
+    ~ WVar x P ->
+    w_subst x v (w_subst y e P) =
+    w_subst y (n_subst x v e) (w_subst x v P).
+  Proof.
+    induction P; intros x v' y e Hn Hc Hv; simpl; simpl in Hv.
+    - rewrite c_subst_subst_neq_5; auto.
+    - rewrite IHP1; auto.
+      rewrite IHP2; auto.
+    - destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        destruct (Set_VAR.MF.eq_dec x v). {
+          intuition.
+        }
+        simpl.
+        destruct (Set_VAR.MF.eq_dec x v) as [?|_]; try contradiction.
+        destruct (Set_VAR.MF.eq_dec v v) as [_|?]; try contradiction.
+        rewrite c_subst_subst_neq_5; auto.
+        rewrite r_subst_subst_neq_5; auto.
+      }
+      destruct (Set_VAR.MF.eq_dec x v) as [?|_]. { intuition. }
+      simpl.
+      destruct (Set_VAR.MF.eq_dec x v) as [?|_]. { intuition. }
+      destruct (Set_VAR.MF.eq_dec y v) as [?|_]; try contradiction.
+      rewrite c_subst_subst_neq_5; auto.
+      rewrite r_subst_subst_neq_5; auto.
+      rewrite IHP; auto. {
+        assert (rx: i_subst x v' (i_subst y e i0) =i_subst y (n_subst x v' e) (i_subst x v' i0)). {
+          rewrite c_subst_subst_neq_5; auto.
+          intuition.
+        }
+        rewrite rx.
+        auto.
+      }
+      intuition.
+  Qed.
+
 
   Fixpoint Distinct P :=
     match P with
@@ -942,9 +971,9 @@ Section Defs.
       assert (H1 := H1 _ H4 y (w_subst v e Q) n0 e1 Hn).
       assert (ILast a (w_subst y e2 (w_subst v e Q))). {
         apply H1; auto.
-        rewrite w_subst_subst_neq_3; eauto using n_step_to_not_free.
+        rewrite w_subst_subst_neq; eauto using n_step_to_not_free.
       }
-      rewrite w_subst_subst_neq_3; eauto using n_step_to_not_free.
+      rewrite w_subst_subst_neq; eauto using n_step_to_not_free.
   - destruct P0; inversion HeqQ; subst; clear HeqQ; simpl.
     rename x0 into y.
     rename v into z.
@@ -1434,15 +1463,273 @@ Section Defs.
    | WFor c1 x r P c2 => WFor (c_seq c c1) x r P c2
    end.
 
-  Lemma i_pair_in_subst: (* TODO: HARD *)
-    forall e1 e2 n1 n2,
-    NStep e1 n1 ->
-    NStep e2 n2 ->
-    forall p x P,
+  Lemma n_step_to_subst:
+    forall x e n v,
+    NStep e n ->
+    NClosed v ->
+    NStep (n_subst x v e) n.
+  Proof.
+    intros.
+    assert (rx: n_subst x v e = e) by eauto
+      using n_subst_not_free, n_step_to_not_free.
+    rewrite rx.
+    assumption.
+  Qed.
+
+  Section X_IPairIn.
+  Variable x:var.
+  Variable v:nexp.
+
+  Inductive X_IPairIn : (access_val * access_val) -> w_inst -> Prop :=
+  | x_i_pair_in_sync:
+    forall p c,
+    CPairIn p (Conc.i_subst x v c) ->
+    X_IPairIn p (WSync c)
+  | x_i_pair_in_seq_l:
+    forall p i j,
+    X_IPairIn p i ->
+    X_IPairIn p (WSeq i j)
+  | x_i_pair_in_seq_r:
+    forall p i j,
+    X_IPairIn p j ->
+    X_IPairIn p (WSeq i j)
+  | x_i_pair_in_seq_both:
+    forall p P Q,
+    OneOf p (inr (w_subst x v P)) (inr (w_subst x v Q)) ->
+    X_IPairIn p (WSeq P Q)
+  (* Any iteration *)
+  | x_i_pair_in_for_1:
+    forall r e n c1 P c2 p y,
+    RPick (r_subst x v r) n ->
+    NStep (n_subst x v e) n ->
+    X_IPairIn p (w_subst y e P) ->
+    X_IPairIn p (WFor c1 y r P c2)
+  | x_i_pair_in_for_2:
+    forall r e n c1 p P y c2,
+    RPick (r_subst x v r) n ->
+    NStep (n_subst x v e) n ->
+    CPairIn p (Conc.i_subst x v (Conc.i_subst y e c2)) ->
+    X_IPairIn p (WFor c1 y r P c2)
+  | x_i_pair_in_for_3:
+    forall r e n c1 y p P c2,
+    RPick (r_subst x v r) n ->
+    NStep (n_subst x v e) n ->
+    OneOf p
+      (inr (w_subst x v (w_subst y e P)))
+      (inl (Conc.i_subst x v (Conc.i_subst y e c2))) ->
+    X_IPairIn p (WFor c1 y r P c2)
+  (* ---- FIRST ITERATION ONLY ---- *)
+  | x_i_pair_in_for_first_1:
+    forall r c1 p P c2 y,
+    CPairIn p (Conc.i_subst x v c1) ->
+    X_IPairIn p (WFor c1 y r P c2)
+  | x_i_pair_in_for_first_2:
+    forall r e n c1 p P y c2,
+    RFirst (r_subst x v r) n ->
+    NStep (n_subst x v e) n ->
+    OneOf p
+      (inl (Conc.i_subst x v c1))
+      (inr (w_subst x v (w_subst y e P))) ->
+    X_IPairIn p (WFor c1 y r P c2)
+  (* -------- ALL BUT FIRST ---- *)
+  | x_i_pair_in_for_mid_1:
+    forall r n c1 p y P c2 e e',
+    RPick2 (r_subst x v r) n ->
+    NStep (n_subst x v e) n ->
+    NStep (n_subst x v e') (S n) ->
+    OneOf p
+      (inl (Conc.i_subst x v (Conc.i_subst y e c2)))
+      (inr (w_subst x v (w_subst y e' P))) ->
+    X_IPairIn p (WFor c1 y r P c2)
+
+  | x_i_pair_in_for_mid_2:
+    forall r n e e' P y c2 c1 p,
+    RPick2 (r_subst x v r) n ->
+    NStep (n_subst x v e) n ->
+    NStep (n_subst x v e') (S n) ->
+    OneOf p
+      (inr (w_subst x v (w_subst y e P)))
+      (inr (w_subst x v (w_subst y e' P))) ->
+    X_IPairIn p (WFor c1 y r P c2)
+  .
+
+  Lemma x_i_pair_in_1: (* TODO: MEDIUM *)
+    forall p P,
+    IPairIn p (w_subst x v P) ->
+    ~ WVar x P ->
+    NClosed v ->
+    X_IPairIn p P.
+  Proof.
+    intros p P H.
+    remember (w_subst _ _ _) as Q.
+    generalize dependent P.
+    induction H; intros P' Heq Hd Hn.
+    - (* x_i_pair_in_sync *)
+      destruct P'; invc Heq.
+      2: {
+        rename_hyp (_ = _) as Heq.
+        rename v0 into y.
+        destruct (Set_VAR.MF.eq_dec x y); invc Heq.
+      }
+      constructor.
+      assumption.
+    - (* x_i_pair_in_seq_l *)
+      destruct P'; invc Heq.
+      2: {
+        rename_hyp (_ = _) as Heq.
+        rename v0 into y.
+        destruct (Set_VAR.MF.eq_dec x y); invc Heq.
+      }
+      simpl in Hd.
+      apply x_i_pair_in_seq_l.
+      auto.
+    - (* x_i_pair_in_seq_r *)
+      destruct P'; invc Heq.
+      2: {
+        rename_hyp (_ = _) as Heq.
+        rename v0 into y.
+        destruct (Set_VAR.MF.eq_dec x y); invc Heq.
+      }
+      simpl in Hd.
+      apply x_i_pair_in_seq_r; eauto.
+    - (* x_i_pair_in_seq_both *)
+      destruct P'; invc Heq.
+      2: {
+        rename_hyp (_ = _) as Heq.
+        rename v0 into y.
+        destruct (Set_VAR.MF.eq_dec x y); invc Heq.
+      }
+      simpl in Hd.
+      auto using x_i_pair_in_seq_both.
+    - (* x_i_pair_in_for_1 *)
+      destruct P'; invc Heq.
+      rename_hyp (_ = _) as Heq.
+      rename v0 into y.
+      simpl in Hd.
+      destruct (Set_VAR.MF.eq_dec x y); invc Heq. {
+        intuition.
+      }
+      assert (hp: X_IPairIn p (w_subst y e P')). {
+        eapply IHIPairIn; eauto.
+        - rewrite w_subst_subst_neq; eauto using n_step_to_not_free.
+        - intros N.
+          apply wvar_inv_subst in N.
+          auto.
+      }
+      eapply x_i_pair_in_for_1 in hp; eauto using n_step_to_subst.
+    - (* x_i_pair_in_for_2 *)
+      destruct P'; invc Heq.
+      rename_hyp (_ = _) as Heq.
+      rename v0 into y.
+      simpl in Hd.
+      destruct (Set_VAR.MF.eq_dec x y); invc Heq. {
+        intuition.
+      }
+      eapply x_i_pair_in_for_2 with (e:=e); eauto using n_step_to_subst.
+      rewrite i_subst_subst_neq_3; eauto using n_step_to_not_free.
+    - 
+  Admitted.
+
+  Lemma x_i_pair_in_2: (* TODO: MEDIUM *)
+    forall p P,
+    X_IPairIn p P ->
+    ~ WVar x P ->
+    NClosed v ->
+    IPairIn p (w_subst x v P).
+  Proof.
+    intros p P H.
+    induction H; intros Hv Hn; simpl in Hv; simpl.
+    - eauto using i_pair_in_sync.
+    - apply i_pair_in_seq_l.
+      auto.
+    - apply i_pair_in_seq_r.
+      auto.
+    - apply i_pair_in_seq_both.
+      auto.
+    - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try (intuition; fail).
+      assert (hp: IPairIn p (w_subst x v (w_subst y e P))). {
+        eapply IHX_IPairIn; auto.
+        intros N.
+        apply wvar_inv_subst in N.
+        auto.
+      }
+      apply n_closed_to_step in Hn.
+      destruct Hn as (n', Hn).
+      assert (~ WVar x P) by intuition.
+      rewrite w_subst_subst_neq_5 in hp; eauto using n_step_to_closed.
+      apply i_pair_in_for_1 with
+        (r:=r_subst x v r)
+        (n:=n)
+        (c2:=i_subst x v c2)
+        (c1:=i_subst x v c1) in hp; eauto.
+    - 
+  Admitted.
+
+  End X_IPairIn.
+
+  Lemma x_i_pair_in_subst: (* TODO: MEDIUM *)
+    forall p x e1 P,
+    X_IPairIn x e1 p P ->
+    x <> TID ->
+    forall e2 n,
+    NStep e1 n ->
+    NStep e2 n ->
+    X_IPairIn x e2 p P.
+  Proof.
+    intros p x e1 P H.
+    induction H; intros.
+    - constructor.
+      eapply c_pair_in_subst; eauto.
+    - apply x_i_pair_in_seq_l.
+      eauto.
+    - apply x_i_pair_in_seq_r.
+      eauto.
+    - apply x_i_pair_in_seq_both.
+      eauto.
+      admit.
+    - eapply x_i_pair_in_for_1 with (n:=n); eauto.
+      + eauto using r_pick_subst.
+      + admit.
+    - eapply x_i_pair_in_for_2 with (n:=n) (e:=e); eauto.
+      + eauto using r_pick_subst.
+      + admit.
+      + eauto using c_pair_in_subst.
+    - eapply x_i_pair_in_for_3 with (n:=n) (e:=e); eauto.
+      + eauto using r_pick_subst.
+      + admit.
+      + admit.
+    - eapply x_i_pair_in_for_first_1; eauto.
+      eauto using c_pair_in_subst.
+    - eapply x_i_pair_in_for_first_2 with (n:=n) (e:=e); eauto.
+      + eauto using r_first_subst.
+      + admit.
+      + admit.
+    - eapply x_i_pair_in_for_mid_1 with (n:=n) (e:=e) (e':=e'); eauto.
+      + admit.
+      + admit.
+      + admit.
+      + admit.
+    - eapply x_i_pair_in_for_mid_2 with (n:=n) (e:=e) (e':=e'); eauto.
+      + admit.
+      + admit.
+      + admit.
+      + admit.
+  Admitted.
+
+  Lemma i_pair_in_subst:
+    forall e1 e2 n p x P,
+    ~ WVar x P ->
+    x <> TID ->
+    NStep e1 n ->
+    NStep e2 n ->
     IPairIn p (w_subst x e1 P) ->
     IPairIn p (w_subst x e2 P).
   Proof.
-  Admitted.
+    intros.
+    apply x_i_pair_in_2; eauto using n_step_to_closed.
+    apply x_i_pair_in_1 in H3; eauto using n_step_to_closed.
+    eapply x_i_pair_in_subst; eauto.
+  Qed.
 
   Fixpoint WFree P (x:var) :=
     match P with
