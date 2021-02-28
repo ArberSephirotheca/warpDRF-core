@@ -611,6 +611,30 @@ Section Defs.
     lia.
   Qed.
 
+  Lemma r_one_fun:
+    forall r n1 n2,
+    ROne r n1 ->
+    ROne r n2 ->
+    n1 = n2.
+  Proof.
+    intros.
+    invc H.
+    invc H0.
+    assert (n1 = n2) by eauto using n_step_fun.
+    auto.
+  Qed.
+
+  Lemma r_one_last_fun:
+    forall r n1 n2,
+    ROne r n2 ->
+    RLast r n1 ->
+    n1 = n2.
+  Proof.
+    intros.
+    apply r_one_to_last in H.
+    eauto using r_last_fun.
+  Qed.
+
   Definition RDefined (r:range) :=
     let (e1, e2) := r in
     (exists n1, NStep e1 n1) /\ (exists n2, NStep e2 n2).
@@ -678,6 +702,41 @@ Section Defs.
     assert (rx: NEq v1 v2) by eauto using n_eq_def.
     rewrite rx in *.
     eauto using r_pick2_def.
+  Qed.
+
+  Lemma r_step_empty_fun:
+    forall r n r' n',
+    RStep r n r' ->
+    RLast r n' ->
+    REmpty r' ->
+    n = n'.
+  Proof.
+    intros.
+    invc H.
+    invc H0.
+    invc H1.
+    assert (n = n1) by eauto using n_step_fun.
+    assert (S n' = n2) by eauto using n_step_fun.
+    assert (n0 = S n) by eauto using n_step_fun.
+    assert (n3 = n2) by eauto using n_step_fun.
+    subst.
+    lia.
+  Qed.
+
+  Lemma r_step_last_2:
+    forall r n r' n',
+    RStep r n r' ->
+    RLast r n' ->
+    RHasNext r' ->
+    RLast r' n'.
+  Proof.
+    intros.
+    apply r_has_next_to_last in H1.
+    destruct H1 as (n'', Hl).
+    assert (RLast r n'') by eauto using r_step_last.
+    assert (n'' = n') by eauto using r_last_fun.
+    subst.
+    assumption.
   Qed.
 
   Lemma r_first_subst:

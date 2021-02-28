@@ -298,6 +298,41 @@ Section Defs.
     auto.
   Qed.
 
+  Lemma last_in_prefix_r:
+    forall a v,
+    List.In a (last v) ->
+    forall l,
+    List.In a (last (v_prefix l v)).
+  Proof.
+    induction v; simpl; intros.
+    - auto using in_or_app.
+    - apply IHv with (l:=[]) in H; auto.
+      destruct v; simpl in H; auto.
+  Qed.
+
+  Lemma last_in_seq_r:
+    forall a v1 v2,
+    List.In a (last v2) ->
+    List.In a (last (v_seq v1 v2)).
+  Proof.
+    induction v1; simpl; intros.
+    - auto using last_in_prefix_r.
+    - apply IHv1 in H.
+      assumption.
+  Qed.
+
+  Lemma last_in_seq_l_one:
+    forall a v h,
+    List.In a (last v) ->
+    List.In a (last (v_seq v (v_one h))).
+  Proof.
+    induction v; simpl; intros. {
+      rewrite in_app_iff.
+      auto.
+    }
+    eapply IHv in H; eauto.
+  Qed.
+
   Lemma last_inv_in_prefix:
     forall a v h,
     List.In a (last (v_prefix h v)) ->

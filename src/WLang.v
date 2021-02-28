@@ -1094,7 +1094,7 @@ Section Defs.
       }
   Qed.
 
-  Lemma i_last_2: (* TODO: MEDIUM *)
+  Lemma i_last_2:
     forall i v,
     WRun i v ->
     ~ WVar TID i ->
@@ -1102,7 +1102,72 @@ Section Defs.
     ILast a i ->
     List.In a (last v).
   Proof.
-  Admitted.
+    intros i v H.
+    induction H; intros Hv a Hl; invc Hl.
+    - simpl in Hv.
+      apply last_in_seq_r; auto.
+    - destruct (r_step_unfold r n r') as [hl|hl]; auto. {
+        rename_hyp (WRun (WFor Skip _ _ _ _) _) as hr.
+        (* If r' is empty, then hr could not have happened. *)
+        apply r_empty_to_has_next in hl.
+        contradict hl.
+        invc hr. {
+          eauto using r_step_to_has_next.
+        }
+        eauto using r_one_to_has_next.
+      }
+      assert (List.In a (last m2)). {
+        apply IHWRun2. {
+          simpl in *.
+          intuition.
+        }
+        assert (RLast r' n0) by eauto using r_step_last_2.
+        eapply i_last_for_1; eauto.
+      }
+      auto using last_in_seq_r.
+    - destruct (r_step_unfold r n r') as [hl|hl]; auto. {
+        rename_hyp (WRun (WFor Skip _ _ _ _) _) as hr.
+        (* If r' is empty, then hr could not have happened. *)
+        apply r_empty_to_has_next in hl.
+        contradict hl.
+        invc hr. {
+          eauto using r_step_to_has_next.
+        }
+        eauto using r_one_to_has_next.
+      }
+      assert (List.In a (last m2)). {
+        apply IHWRun2. {
+          simpl in *.
+          intuition.
+        }
+        assert (RLast r' n0) by eauto using r_step_last_2.
+        eapply i_last_for_2; eauto.
+      }
+      auto using last_in_seq_r.
+    - assert (List.In a (last m1)). {
+        apply IHWRun. {
+          simpl in *.
+          intros N.
+          apply wvar_inv_subst in N.
+          intuition.
+        }
+        assert (n0 = n) by eauto using r_one_last_fun.
+        subst.
+        eauto using n_step_num.
+      }
+      auto using last_in_seq_r, last_in_seq_l_one.
+    - assert (n0 = n) by eauto using r_one_last_fun.
+      subst.
+      assert (hi: CIn a (i_subst x (NNum n) c2)) by eauto using n_step_num.
+      assert (List.In a h2). {
+        eapply c_in_2; eauto.
+        intros N.
+        apply var_inv_subst in N.
+        simpl in *.
+        auto.
+      }
+      auto using last_in_seq_r.
+  Qed.
 
   Notation any_inst := (Conc.inst + w_inst) % type.
 
@@ -1479,11 +1544,22 @@ Section Defs.
 
   Lemma one_of_subst_r_r: (* TODO: EASY *)
     forall x e1 e2 P Q p n,
+    x <> TID ->
     OneOf p (inr (w_subst x e1 P)) (inr (w_subst x e1 Q)) ->
     NStep e1 n ->
     NStep e2 n ->
     OneOf p (inr (w_subst x e2 P)) (inr (w_subst x e2 Q)).
   Proof.
+    intros.
+    destruct p as (a1, a2).
+    simpl in *.
+    intuition.
+    - left; split.
+      + apply i_last_w_subst with (e1:=e1) (n:=n); auto.
+      + admit.
+    - right; split.
+      + apply i_last_w_subst with (e1:=e1) (n:=n); auto.
+      + admit.
   Admitted.
 
   Lemma one_of_subst_r_l: (* TODO: EASY *)
