@@ -1585,7 +1585,7 @@ Section Defs.
     X_IPairIn p (WFor c1 y r P c2)
   .
 
-  Lemma x_i_pair_in_1: (* TODO: MEDIUM *)
+  Lemma x_i_pair_in_1:
     forall p P,
     IPairIn p (w_subst x v P) ->
     ~ WVar x P ->
@@ -1842,6 +1842,7 @@ Section Defs.
     forall e1 e2 n p x P,
     ~ WVar x P ->
     x <> TID ->
+    ~ WVar TID P ->
     NStep e1 n ->
     NStep e2 n ->
     IPairIn p (w_subst x e1 P) ->
@@ -1849,7 +1850,8 @@ Section Defs.
   Proof.
     intros.
     apply x_i_pair_in_2; eauto using n_step_to_closed.
-    apply x_i_pair_in_1 in H3; eauto using n_step_to_closed.
+    rename_hyp (IPairIn _ _) as hp.
+    apply x_i_pair_in_1 in hp; eauto using n_step_to_closed.
     eapply x_i_pair_in_subst; eauto.
   Qed.
 
@@ -2411,6 +2413,7 @@ Section Defs.
         destruct hp as [hp|hp]. {
           subst.
           assert (MPairIn p m1). {
+            simpl in Hv.
             apply IHWRun1.
             - auto using distinct_subst.
             - simpl in Hv.
@@ -2418,8 +2421,7 @@ Section Defs.
               apply wvar_inv_subst in N.
               auto.
             - eapply i_pair_in_subst; eauto using n_step_num.
-              simpl in Hv.
-              auto.
+              intuition.
           }
           auto using m_pair_in_prefix_r, m_pair_in_seq_l.
         }
@@ -2563,17 +2565,16 @@ Section Defs.
       + simpl in Hd.
         destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
         assert (MPairIn p m1). {
+          simpl in Hv.
           apply IHWRun.
           - auto using distinct_subst.
-          - simpl in Hv.
-            intros N.
+          - intros N.
             apply wvar_inv_subst in N.
             intuition.
           - assert (n0 = n) by eauto using r_one_pick_fun.
             subst.
             eapply i_pair_in_subst; eauto using n_step_num.
-            simpl in Hv.
-            auto.
+            intuition.
         }
         auto using m_pair_in_prefix_r, m_pair_in_seq_l.
       + assert (n0 = n) by eauto using r_one_pick_fun.
