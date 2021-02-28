@@ -1659,8 +1659,59 @@ Section Defs.
       }
       eapply x_i_pair_in_for_2 with (e:=e); eauto using n_step_to_subst.
       rewrite i_subst_subst_neq_3; eauto using n_step_to_not_free.
-    - 
-  Admitted.
+    - destruct P'; invc Heq.
+      rename_hyp (_ = _) as Heq.
+      rename v0 into y.
+      simpl in Hd.
+      destruct (Set_VAR.MF.eq_dec x y); invc Heq. {
+        intuition.
+      }
+      eapply x_i_pair_in_for_3 with (e:=e); eauto using n_step_to_subst.
+      rewrite w_subst_subst_neq; eauto using n_step_to_not_free.
+      rewrite i_subst_subst_neq_3; eauto using n_step_to_not_free.
+    - destruct P'; invc Heq.
+      rename_hyp (_ = _) as Heq.
+      rename v0 into y.
+      simpl in Hd.
+      destruct (Set_VAR.MF.eq_dec x y); invc Heq. {
+        intuition.
+      }
+      apply x_i_pair_in_for_first_1; auto.
+    - destruct P'; invc Heq.
+      rename_hyp (_ = _) as Heq.
+      rename v0 into y.
+      simpl in Hd.
+      destruct (Set_VAR.MF.eq_dec x y); invc Heq. {
+        intuition.
+      }
+      apply x_i_pair_in_for_first_2 with (e:=e) (n:=n); auto using n_step_to_subst.
+      rewrite w_subst_subst_neq; eauto using n_step_to_not_free.
+    - destruct P'; invc Heq.
+      rename_hyp (_ = _) as Heq.
+      rename v0 into y.
+      simpl in Hd.
+      destruct (Set_VAR.MF.eq_dec x y); invc Heq. {
+        intuition.
+      }
+      apply x_i_pair_in_for_mid_1 with (e:=e) (n:=n) (e':=e'); auto using n_step_to_subst.
+      rewrite w_subst_subst_neq; eauto using n_step_to_not_free.
+      rewrite i_subst_subst_neq_3; eauto using n_step_to_not_free.
+    - destruct P'; invc Heq.
+      rename_hyp (_ = _) as Heq.
+      rename v0 into y.
+      simpl in Hd.
+      destruct (Set_VAR.MF.eq_dec x y); invc Heq. {
+        intuition.
+      }
+      apply x_i_pair_in_for_mid_2 with (e:=e) (n:=n) (e':=e'); auto using n_step_to_subst.
+      rewrite w_subst_subst_neq; eauto using n_step_to_not_free.
+      assert (rx: w_subst y e' (w_subst x v P') = w_subst x v (w_subst y e' P')). {
+        apply w_subst_subst_neq; eauto using n_step_to_not_free.
+      }
+      rename_hyp (OneOf _ _ _) as ho.
+      rewrite rx in ho.
+      auto.
+  Qed.
 
   Lemma x_i_pair_in_2:
     forall p P,
@@ -1739,7 +1790,7 @@ Section Defs.
 
   End X_IPairIn.
 
-  Lemma x_i_pair_in_subst: (* TODO: MEDIUM *)
+  Lemma x_i_pair_in_subst:
     forall p x e1 P,
     X_IPairIn x e1 p P ->
     x <> TID ->
