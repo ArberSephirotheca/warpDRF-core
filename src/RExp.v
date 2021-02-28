@@ -1048,19 +1048,34 @@ Section Defs.
     lia.
   Qed.
 
-  Lemma r_step_to_closed_l: (* TODO: EASY *)
+  Lemma r_step_to_closed_l:
     forall r n r',
     RStep r n r' ->
     RClosed r.
   Proof.
-  Admitted.
+    intros.
+    invc H; clear H2 H3 H4.
+    unfold RClosed; intros.
+    apply n_step_to_not_free with (x := x) in H0, H1.
+    simpl in *.
+    unfold not.
+    intros.
+    destruct H; contradiction.
+  Qed.
 
-  Lemma r_step_to_closed_r: (* TODO: EASY*)
+  Lemma r_step_to_closed_r:
     forall r n r',
     RStep r n r' ->
     RClosed r'.
   Proof.
-  Admitted.
+    intros.
+    invc H; clear H0 H1 H4.
+    unfold RClosed; intros.
+    apply n_step_to_not_free with (x := x) in H2, H3.
+    unfold not.
+    intros.
+    destruct H; contradiction.
+  Qed.
 
   Lemma r_step_to_closed:
     forall r n r',
@@ -1189,20 +1204,34 @@ Section Defs.
     lia.
   Qed.
 
-  Lemma r_step_to_defined_r: (* TODO: EASY *)
+  Lemma r_step_to_defined_r:
     forall r n r',
     RStep r n r' ->
     RDefined r'.
   Proof.
-  Admitted.
+    intros.
+    invc H.
+    constructor.
+    - exists (S n).
+      assumption.
+    - exists n2.
+      assumption.
+  Qed.
 
-  Lemma r_defined_subst:  (* TODO: EASY *)
+  Lemma r_defined_subst:
     forall r x v,
     NClosed v ->
     RDefined r ->
     r_subst x v r = r.
   Proof.
-  Admitted.
+    intros (e1, e2) x v H [[n1 H1][n2 H2]].
+    unfold NClosed in H.
+    specialize (H x).
+    apply n_step_to_not_free with (x := x) in H1, H2.
+    unfold r_subst.
+    rewrite n_subst_not_free; auto.
+    rewrite n_subst_not_free; auto.
+  Qed.
 
   Lemma r_step_subst: (* TODO: EASY *)
     forall x e1 e2 r n r',
