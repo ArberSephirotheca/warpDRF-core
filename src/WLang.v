@@ -791,6 +791,16 @@ Section Defs.
     IFirst a (WFor c1 x r P c2).
 
 
+  Lemma i_first_subst: (* TODO: EASY *)
+    forall a P x e1 n,
+    NStep e1 n ->
+    IFirst a (w_subst x e1 P) ->
+    forall e2,
+    NStep e2 n ->
+    x <> TID ->
+    IFirst a (w_subst x e2 P).
+  Proof.
+  Admitted.
 
   Lemma i_first_1:
     forall i v,
@@ -930,7 +940,7 @@ Section Defs.
     | [ |- ~ WVar TID _ ] => simpl in *; intuition
    end.
 
-  Lemma i_last_w_subst:
+  Lemma i_last_subst:
     forall a P x e1 n,
     NStep e1 n ->
     ILast a (w_subst x e1 P) ->
@@ -1090,7 +1100,7 @@ Section Defs.
         }
         intros.
         auto.
-        apply i_last_w_subst with (e1:=NNum n) (n:=n); eauto using n_step_num.
+        apply i_last_subst with (e1:=NNum n) (n:=n); eauto using n_step_num.
       }
   Qed.
 
@@ -1542,7 +1552,7 @@ Section Defs.
   Qed.
 
 
-  Lemma one_of_subst_r_r: (* TODO: EASY *)
+  Lemma one_of_subst_r_r:
     forall x e1 e2 P Q p n,
     x <> TID ->
     OneOf p (inr (w_subst x e1 P)) (inr (w_subst x e1 Q)) ->
@@ -1554,35 +1564,45 @@ Section Defs.
     destruct p as (a1, a2).
     simpl in *.
     intuition.
-    - left; split.
-      + apply i_last_w_subst with (e1:=e1) (n:=n); auto.
-      + admit.
-    - right; split.
-      + apply i_last_w_subst with (e1:=e1) (n:=n); auto.
-      + admit.
-  Admitted.
+    - left; split; eauto using i_first_subst, i_last_subst.
+    - right; split; eauto using i_first_subst, i_last_subst.
+  Qed.
 
-  Lemma one_of_subst_r_l: (* TODO: EASY *)
+  Lemma one_of_subst_r_l:
     forall x e1 e2 P c p n,
     NStep e1 n ->
     NStep e2 n ->
+    x <> TID ->
     OneOf p (inr (w_subst x e1 P))
             (inl (i_subst x e1 c)) ->
     OneOf p (inr (w_subst x e2 P))
             (inl (i_subst x e2 c)).
   Proof.
-  Admitted.
+    intros.
+    destruct p as (a1, a2).
+    simpl in *.
+    intuition.
+    - left; split; eauto using i_last_subst, c_in_subst.
+    - right; split; eauto using i_last_subst, c_in_subst.
+  Qed.
 
-  Lemma one_of_subst_l_r: (* TODO: EASY *)
+  Lemma one_of_subst_l_r:
     forall x e1 e2 P c p n,
     NStep e1 n ->
     NStep e2 n ->
+    x <> TID ->
     OneOf p (inl (i_subst x e1 c))
             (inr (w_subst x e1 P)) ->
     OneOf p (inl (i_subst x e2 c))
             (inr (w_subst x e2 P)).
   Proof.
-  Admitted.
+    intros.
+    destruct p as (a1, a2).
+    simpl in *.
+    intuition.
+    - left; split; eauto using c_in_subst, i_first_subst.
+    - right; split; eauto using c_in_subst, i_first_subst.
+  Qed.
 
   Section X_IPairIn.
   Variable x:var.
@@ -2209,7 +2229,7 @@ Section Defs.
       destruct Hc. {
         eapply i_last_for_1; eauto.
         intros.
-        apply i_last_w_subst with (e1:=NNum n) (n:=n); auto using n_step_num.
+        apply i_last_subst with (e1:=NNum n) (n:=n); auto using n_step_num.
         apply IHGetLast; auto.
         intros N.
         apply wvar_inv_subst in N.
