@@ -1476,6 +1476,38 @@ Section Defs.
     assumption.
   Qed.
 
+
+  Lemma one_of_subst_r_r: (* TODO: EASY *)
+    forall x e1 e2 P Q p n,
+    OneOf p (inr (w_subst x e1 P)) (inr (w_subst x e1 Q)) ->
+    NStep e1 n ->
+    NStep e2 n ->
+    OneOf p (inr (w_subst x e2 P)) (inr (w_subst x e2 Q)).
+  Proof.
+  Admitted.
+
+  Lemma one_of_subst_r_l: (* TODO: EASY *)
+    forall x e1 e2 P c p n,
+    NStep e1 n ->
+    NStep e2 n ->
+    OneOf p (inr (w_subst x e1 P))
+            (inl (i_subst x e1 c)) ->
+    OneOf p (inr (w_subst x e2 P))
+            (inl (i_subst x e2 c)).
+  Proof.
+  Admitted.
+
+  Lemma one_of_subst_l_r: (* TODO: EASY *)
+    forall x e1 e2 P c p n,
+    NStep e1 n ->
+    NStep e2 n ->
+    OneOf p (inl (i_subst x e1 c))
+            (inr (w_subst x e1 P)) ->
+    OneOf p (inl (i_subst x e2 c))
+            (inr (w_subst x e2 P)).
+  Proof.
+  Admitted.
+
   Section X_IPairIn.
   Variable x:var.
   Variable v:nexp.
@@ -1630,15 +1662,16 @@ Section Defs.
     - 
   Admitted.
 
-  Lemma x_i_pair_in_2: (* TODO: MEDIUM *)
+  Lemma x_i_pair_in_2:
     forall p P,
     X_IPairIn p P ->
     ~ WVar x P ->
+    ~ WVar TID P ->
     NClosed v ->
     IPairIn p (w_subst x v P).
   Proof.
     intros p P H.
-    induction H; intros Hv Hn; simpl in Hv; simpl.
+    induction H; intros Hv Ht Hn; simpl in Hv, Ht; simpl.
     - eauto using i_pair_in_sync.
     - apply i_pair_in_seq_l.
       auto.
@@ -1649,9 +1682,12 @@ Section Defs.
     - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try (intuition; fail).
       assert (hp: IPairIn p (w_subst x v (w_subst y e P))). {
         eapply IHX_IPairIn; auto.
-        intros N.
-        apply wvar_inv_subst in N.
-        auto.
+        + intros N.
+          apply wvar_inv_subst in N.
+          auto.
+        + intros N.
+          apply wvar_inv_subst in N.
+          auto.
       }
       apply n_closed_to_step in Hn.
       destruct Hn as (n', Hn).
@@ -1662,41 +1698,46 @@ Section Defs.
         (n:=n)
         (c2:=i_subst x v c2)
         (c1:=i_subst x v c1) in hp; eauto.
-    - 
-  Admitted.
+    - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try (intuition; fail).
+      apply i_pair_in_for_2 with (e:=n_subst x v e) (n:=n); auto.
+      eapply c_pair_in_subst with (e1:=n_subst x v e); eauto.
+      rename_hyp (CPairIn _ _) as hp.
+      rewrite c_subst_subst_neq_5 in hp; auto.
+      intuition.
+    - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try (intuition; fail).
+      apply i_pair_in_for_3 with (e:=n_subst x v e) (n:=n); auto.
+      rename_hyp (OneOf _ _ _) as ho.
+      rewrite c_subst_subst_neq_5 in ho; auto. 2: { intuition. }
+      rewrite w_subst_subst_neq_5 in ho; auto.
+      intuition.
+    - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try (intuition; fail).
+      auto using i_pair_in_for_first_1.
+    - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try (intuition; fail).
+      apply i_pair_in_for_first_2 with (e:=n_subst x v e) (n:=n); auto.
+      rename_hyp (OneOf _ _ _) as ho.
+      rewrite w_subst_subst_neq_5 in ho; auto.
+      intuition.
+    - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try (intuition; fail).
+      apply i_pair_in_for_mid_1 with
+        (n:=n) (e:=n_subst x v e) (e':=n_subst x v e'); auto.
+      rename_hyp (OneOf _ _ _) as ho.
+      rewrite c_subst_subst_neq_5 in ho; auto. 2: { intuition. }
+      rewrite w_subst_subst_neq_5 in ho; auto.
+      intuition.
+    - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try (intuition; fail).
+      apply i_pair_in_for_mid_2 with
+        (n:=n) (e:=n_subst x v e) (e':=n_subst x v e'); auto.
+      rename_hyp (OneOf _ _ _) as ho.
+      rewrite w_subst_subst_neq_5 in ho; auto. 2: { intuition. }
+      assert (rx: w_subst x v (w_subst y e' P) = w_subst y (n_subst x v e') (w_subst x v P)). {
+        apply w_subst_subst_neq_5; auto.
+        intuition.
+      }
+      rewrite rx in ho.
+      auto.
+  Qed.
 
   End X_IPairIn.
-
-  Lemma one_of_subst_r_r: (* TODO: EASY *)
-    forall x e1 e2 P Q p n,
-    OneOf p (inr (w_subst x e1 P)) (inr (w_subst x e1 Q)) ->
-    NStep e1 n ->
-    NStep e2 n ->
-    OneOf p (inr (w_subst x e2 P)) (inr (w_subst x e2 Q)).
-  Proof.
-  Admitted.
-
-  Lemma one_of_subst_r_l: (* TODO: EASY *)
-    forall x e1 e2 P c p n,
-    NStep e1 n ->
-    NStep e2 n ->
-    OneOf p (inr (w_subst x e1 P))
-            (inl (i_subst x e1 c)) ->
-    OneOf p (inr (w_subst x e2 P))
-            (inl (i_subst x e2 c)).
-  Proof.
-  Admitted.
-
-  Lemma one_of_subst_l_r: (* TODO: EASY *)
-    forall x e1 e2 P c p n,
-    NStep e1 n ->
-    NStep e2 n ->
-    OneOf p (inl (i_subst x e1 c))
-            (inr (w_subst x e1 P)) ->
-    OneOf p (inl (i_subst x e2 c))
-            (inr (w_subst x e2 P)).
-  Proof.
-  Admitted.
 
   Lemma x_i_pair_in_subst: (* TODO: MEDIUM *)
     forall p x e1 P,
@@ -1735,17 +1776,17 @@ Section Defs.
       + eauto using n_step_subst.
       + eapply one_of_subst_l_r with (e1:=e1); eauto.
     - eapply x_i_pair_in_for_mid_1 with (n:=n) (e:=e) (e':=e'); eauto.
-      + admit.
+      + eauto using r_pick2_subst.
       + eauto using n_step_subst.
       + eauto using n_step_subst.
       + eapply one_of_subst_l_r with (e1:=e1); eauto.
     - eapply x_i_pair_in_for_mid_2 with (n:=n) (e:=e) (e':=e'); eauto.
-      + admit.
+      + eauto using r_pick2_subst.
       + eauto using n_step_subst.
       + eauto using n_step_subst.
       + eapply one_of_subst_r_r with (e1:=e1); eauto.
-  Admitted.
-
+  Qed.
+  
   Lemma i_pair_in_subst:
     forall e1 e2 n p x P,
     ~ WVar x P ->

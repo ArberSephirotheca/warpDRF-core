@@ -661,6 +661,25 @@ Section Defs.
     eauto using r_pick_def.
   Qed.
 
+  Lemma r_pick2_subst:
+    forall x v1 r n,
+    RPick2 (r_subst x v1 r) n ->
+    forall v2 m,
+    NStep v1 m ->
+    NStep v2 m ->
+    RPick2 (r_subst x v2 r) n.
+  Proof.
+    intros.
+    invc H.
+    destruct r as (e1', e2').
+    simpl in *.
+    rename_hyp ((_,_) = _) as Hx.
+    invc Hx.
+    assert (rx: NEq v1 v2) by eauto using n_eq_def.
+    rewrite rx in *.
+    eauto using r_pick2_def.
+  Qed.
+
   Lemma r_first_subst:
     forall x v1 r n,
     RFirst (r_subst x v1 r) n ->
