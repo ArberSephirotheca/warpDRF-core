@@ -785,7 +785,7 @@ Section SO.
   Qed.
 
   Lemma eq_n_step_n_subst_proper:
-    forall x v v' e n, 
+    forall x v v' e n,
     NEq v v' ->
     NStep (n_subst x v e) n ->
     NStep (n_subst x v' e) n.
@@ -800,6 +800,18 @@ Section SO.
     - simpl in *.
       inversion H0; subst; clear H0.
       eauto using n_step_bin.
+  Qed.
+
+  Lemma n_step_subst:
+    forall x v v' e n n',
+    NStep v n ->
+    NStep v' n ->
+    NStep (n_subst x v e) n' ->
+    NStep (n_subst x v' e) n'.
+  Proof.
+    intros.
+    eapply eq_n_step_n_subst_proper; eauto.
+    split; intros Hn; assert (n0 = n) by eauto using n_step_fun; subst; auto.
   Qed.
 
   Lemma n_eq_subst_rw:

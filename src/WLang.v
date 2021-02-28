@@ -1689,30 +1689,30 @@ Section Defs.
       admit.
     - eapply x_i_pair_in_for_1 with (n:=n); eauto.
       + eauto using r_pick_subst.
-      + admit.
+      + eauto using n_step_subst.
     - eapply x_i_pair_in_for_2 with (n:=n) (e:=e); eauto.
       + eauto using r_pick_subst.
-      + admit.
+      + eauto using n_step_subst.
       + eauto using c_pair_in_subst.
     - eapply x_i_pair_in_for_3 with (n:=n) (e:=e); eauto.
       + eauto using r_pick_subst.
-      + admit.
+      + eauto using n_step_subst.
       + admit.
     - eapply x_i_pair_in_for_first_1; eauto.
       eauto using c_pair_in_subst.
     - eapply x_i_pair_in_for_first_2 with (n:=n) (e:=e); eauto.
       + eauto using r_first_subst.
-      + admit.
+      + eauto using n_step_subst.
       + admit.
     - eapply x_i_pair_in_for_mid_1 with (n:=n) (e:=e) (e':=e'); eauto.
       + admit.
-      + admit.
-      + admit.
+      + eauto using n_step_subst.
+      + eauto using n_step_subst.
       + admit.
     - eapply x_i_pair_in_for_mid_2 with (n:=n) (e:=e) (e':=e'); eauto.
       + admit.
-      + admit.
-      + admit.
+      + eauto using n_step_subst.
+      + eauto using n_step_subst.
       + admit.
   Admitted.
 
@@ -1878,7 +1878,7 @@ Section Defs.
       rewrite Conc.c_subst_c_seq.
       apply get_first_for with (n:=n).
       + auto using r_first_subst_1.
-      + rewrite w_subst_subst_neq_3; auto.
+      + rewrite w_subst_subst_neq; auto.
   Qed.
 
   Lemma get_first_exists:
@@ -2296,6 +2296,8 @@ Section Defs.
               apply wvar_inv_subst in N.
               auto.
             - eapply i_pair_in_subst; eauto using n_step_num.
+              simpl in Hv.
+              auto.
           }
           auto using m_pair_in_prefix_r, m_pair_in_seq_l.
         }
@@ -2445,7 +2447,11 @@ Section Defs.
             intros N.
             apply wvar_inv_subst in N.
             intuition.
-          - eauto using i_pair_in_subst, n_step_num.
+          - assert (n0 = n) by eauto using r_one_pick_fun.
+            subst.
+            eapply i_pair_in_subst; eauto using n_step_num.
+            simpl in Hv.
+            auto.
         }
         auto using m_pair_in_prefix_r, m_pair_in_seq_l.
       + assert (n0 = n) by eauto using r_one_pick_fun.
