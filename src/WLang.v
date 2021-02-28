@@ -1667,6 +1667,37 @@ Section Defs.
 
   End X_IPairIn.
 
+  Lemma one_of_subst_r_r: (* TODO: EASY *)
+    forall x e1 e2 P Q p n,
+    OneOf p (inr (w_subst x e1 P)) (inr (w_subst x e1 Q)) ->
+    NStep e1 n ->
+    NStep e2 n ->
+    OneOf p (inr (w_subst x e2 P)) (inr (w_subst x e2 Q)).
+  Proof.
+  Admitted.
+
+  Lemma one_of_subst_r_l: (* TODO: EASY *)
+    forall x e1 e2 P c p n,
+    NStep e1 n ->
+    NStep e2 n ->
+    OneOf p (inr (w_subst x e1 P))
+            (inl (i_subst x e1 c)) ->
+    OneOf p (inr (w_subst x e2 P))
+            (inl (i_subst x e2 c)).
+  Proof.
+  Admitted.
+
+  Lemma one_of_subst_l_r: (* TODO: EASY *)
+    forall x e1 e2 P c p n,
+    NStep e1 n ->
+    NStep e2 n ->
+    OneOf p (inl (i_subst x e1 c))
+            (inr (w_subst x e1 P)) ->
+    OneOf p (inl (i_subst x e2 c))
+            (inr (w_subst x e2 P)).
+  Proof.
+  Admitted.
+
   Lemma x_i_pair_in_subst: (* TODO: MEDIUM *)
     forall p x e1 P,
     X_IPairIn x e1 p P ->
@@ -1685,8 +1716,7 @@ Section Defs.
     - apply x_i_pair_in_seq_r.
       eauto.
     - apply x_i_pair_in_seq_both.
-      eauto.
-      admit.
+      eapply one_of_subst_r_r; eauto.
     - eapply x_i_pair_in_for_1 with (n:=n); eauto.
       + eauto using r_pick_subst.
       + eauto using n_step_subst.
@@ -1697,23 +1727,23 @@ Section Defs.
     - eapply x_i_pair_in_for_3 with (n:=n) (e:=e); eauto.
       + eauto using r_pick_subst.
       + eauto using n_step_subst.
-      + admit.
+      + eapply one_of_subst_r_l with (e1:=e1); eauto.
     - eapply x_i_pair_in_for_first_1; eauto.
       eauto using c_pair_in_subst.
     - eapply x_i_pair_in_for_first_2 with (n:=n) (e:=e); eauto.
       + eauto using r_first_subst.
       + eauto using n_step_subst.
-      + admit.
+      + eapply one_of_subst_l_r with (e1:=e1); eauto.
     - eapply x_i_pair_in_for_mid_1 with (n:=n) (e:=e) (e':=e'); eauto.
       + admit.
       + eauto using n_step_subst.
       + eauto using n_step_subst.
-      + admit.
+      + eapply one_of_subst_l_r with (e1:=e1); eauto.
     - eapply x_i_pair_in_for_mid_2 with (n:=n) (e:=e) (e':=e'); eauto.
       + admit.
       + eauto using n_step_subst.
       + eauto using n_step_subst.
-      + admit.
+      + eapply one_of_subst_r_r with (e1:=e1); eauto.
   Admitted.
 
   Lemma i_pair_in_subst:
