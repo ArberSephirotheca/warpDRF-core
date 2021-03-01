@@ -1278,11 +1278,74 @@ Section Props.
     split; auto using drf_1, drf_2.
   Qed.
 
+  Lemma var_inv_seq:
+    forall x c P,
+    Var x (n_seq c P) ->
+    Conc.Var x c \/ Var x P.
+  Proof.
+    induction P; simpl in *; intros.
+    - auto using c_var_inv_c_seq.
+    - intuition.
+    - intuition.
+  Qed.
+
+  Lemma distinct_seq:
+    forall c P,
+    Distinct P ->
+    Conc.Distinct c ->
+    Distinct (n_seq c P).
+  Proof.
+    induction P; simpl; intros; auto.
+    - intuition.
+    - intuition.
+  Qed.
+
   Lemma distinct_w_to_a: (* TODO: EASY *)
     forall P,
     WLang.Distinct P ->
-    Distinct (fst (align P)).
+    PDistinct (align P).
   Proof.
+    intros.
+    induction P; simpl in *; auto.
+    - destruct (align P1) as (P1', c1).
+      destruct (align P2) as (P2', c2).
+      simpl in *.
+      intuition.
+      auto using distinct_seq.
+    - destruct (align P) as (Px,cx) eqn:hr.
+      destruct r as (e1, e2).
+      simpl in *.
+      destruct H as (ha, (hb, (hc, (hd, he)))).
+      apply IHP in hd.
+      destruct hd as (hd1, hd2); clear IHP.
+      repeat split.
+      + apply distinct_seq; auto using distinct_subst.
+      + intros N.
+        apply var_inv_seq in N.
+        destruct N as [N|N]. {
+          contradict hb.
+          apply var_inv_align.
+          rewrite hr.
+          simpl.
+          apply Conc.var_inv_subst in N.
+          auto.
+        }
+        apply var_inv_seq in N.
+        destruct N as [N|N]. {
+          contradict hc.
+          eauto using Conc.var_inv_subst.
+        }
+        contradict hb.
+        apply var_inv_align.
+        rewrite hr.
+        simpl.
+        auto.
+      + apply distinct_seq. {
+          apply distinct_seq; auto.
+          auto using Conc.distinct_subst.
+        }
+        auto using Conc.distinct_subst.
+      + admit.
   Admitted.
 
 End Props.

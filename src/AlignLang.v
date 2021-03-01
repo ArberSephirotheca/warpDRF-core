@@ -423,7 +423,7 @@ Section Props.
       rewrite IHP2; auto.
   Qed.
 
-  Lemma i_pair_in_subst: (* TODO: MEDIUM *)
+  Lemma i_pair_in_subst:
     forall p x e1 P,
     IPairIn p (subst x e1 P) ->
     forall n,
