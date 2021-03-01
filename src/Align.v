@@ -232,12 +232,13 @@ Section Props.
     forall P c,
     GetFirst P c ->
     WLang.Distinct P ->
+    ~ WLang.WVar TID P ->
     forall a,
     CIn a c ->
     IFirst a (fst (align P)).
   Proof.
     intros P c H.
-    induction H; simpl; intros Hd a Hc.
+    induction H; simpl; intros Hd Hv a Hc; simpl in Hv.
     - constructor.
       auto.
     - destruct (align P) as (Px1, cx1) eqn:Ht1.
@@ -265,18 +266,22 @@ Section Props.
         (v1:=NNum n) (n0:=n);
         auto using n_step_num.
       eauto using r_first_to_eq.
+      intros N.
+      apply wvar_inv_subst in N.
+      auto.
   Qed.
 
   Lemma get_first_align_2:
     forall P c,
     GetFirst P c ->
     WLang.Distinct P ->
+    ~ WVar TID P ->
     forall a,
     IFirst a (fst (align P)) ->
     CIn a c.
   Proof.
     intros P c H.
-    induction H; simpl; intros Hd a Hf; invc Hf.
+    induction H; simpl; intros Hd Hv a Hf; invc Hf; simpl in Hv.
     - assumption.
     - destruct (align P).
       destruct (align Q).
@@ -305,30 +310,32 @@ Section Props.
       destruct Hi as [Hi|Hi].
       + auto using c_in_c_seq_l.
       + apply c_in_c_seq_r.
-        apply IHGetFirst. {
-          apply WLang.distinct_subst.
+        apply IHGetFirst.
+        * apply WLang.distinct_subst.
           intuition.
-        }
-        apply align_to_subst with (x:=x) (v:=NNum n) in HP.
-        2: { eauto using n_step_to_closed, n_step_num. }
-        2: { intuition. }
-        rewrite HP.
-        simpl.
-        apply i_first_subst with
-          (v1:=e1) (n0:=n); auto.
-        eapply r_first_to_eq; eauto.
-        auto using n_step_num.
+        * intros N; apply wvar_inv_subst in N; auto.
+        * apply align_to_subst with (x:=x) (v:=NNum n) in HP;
+            eauto using n_step_to_closed, n_step_num. {
+            rewrite HP.
+            simpl.
+            apply i_first_subst with
+              (v1:=e1) (n0:=n); auto.
+            eapply r_first_to_eq; eauto.
+            auto using n_step_num.
+          }
+          intuition.
   Qed.
 
   Corollary i_first_align:
     forall P,
     CanRun P ->
     WLang.Distinct P ->
+    ~ WVar TID P ->
     forall a,
     IFirst a (fst (align P)) <->
     WLang.IFirst a P.
   Proof.
-    intros P Hc Hd.
+    intros P Hc Hd Hv.
     apply get_first_exists in Hc.
     destruct Hc as (c, Hg).
     split; intros.
@@ -345,6 +352,7 @@ Section Props.
     align P = (P_x, c_x) ->
     NStep v n ->
     RPick r n ->
+    ~ WVar TID P ->
     ~ WVar x P ->
     forall a,
     IFirst a (subst x v P_x) ->
@@ -357,12 +365,14 @@ Section Props.
     assert (CanRun (w_subst x v P)). {
       eapply can_run_subst; eauto using n_step_num.
     }
-    apply i_first_align; auto. {
-      auto using WLang.distinct_subst.
-    }
-    rewrite Ht.
-    simpl.
-    assumption.
+    apply i_first_align; auto.
+    - auto using WLang.distinct_subst.
+    - intros N.
+      apply wvar_inv_subst in N.
+      auto.
+    - rewrite Ht.
+      simpl.
+      assumption.
   Qed.
 
   (* -------------------------------- GET LAST ------------------------ *)
@@ -504,6 +514,8 @@ Section Props.
      forall p,
      PPairIn p (align (w_subst x (NNum n) P)) -> WLang.IPairIn p (w_subst x (NNum n) P)) ->
     ~ WVar x P ->
+(*     ~ WVar TID P -> *)
+    x <> TID ->
     forall P_x c_x,
     align P = (P_x, c_x) ->
     forall e n,
@@ -516,10 +528,11 @@ Section Props.
     eapply WLang.i_pair_in_for_1 with (e0:=NNum n); eauto using n_step_num.
     apply H; auto.
     assert (IPairIn p (subst x (NNum n) P_x)). {
-      eauto using i_pair_in_subst, n_step_num.
+      eapply i_pair_in_subst; eauto using n_step_num.
     }
     rewrite <- align_subst; auto using n_closed_num.
-    rewrite H1.
+    rename_hyp (align P = _) as rx.
+    rewrite rx.
     simpl.
     auto.
   Qed.
@@ -883,6 +896,8 @@ Section Props.
 
   Lemma i_first_to_c_in_1:
     forall e n x P P_x c_x a e',
+    x <> TID ->
+    ~ WVar TID P ->
     WLang.Distinct P ->
     NStep e n ->
     ~ WVar x P ->
@@ -902,6 +917,8 @@ Section Props.
     eapply i_first_subst; eauto.
     * eauto using n_step_to_closed.
     * auto.
+    * intros N; apply wvar_inv_subst in N.
+      auto.
   Qed.
 
   Lemma i_last_to_c_in_1:
@@ -1032,7 +1049,7 @@ Section Props.
           (* first phase *)
           apply i_pair_in_for_1.
           apply i_pair_in_n_seq_r.
-          eauto using i_pair_in_subst, r_first_to_eq.
+          eapply i_pair_in_subst; eauto using r_first_to_eq.
         }
         (* n + 1 *)
         apply i_pair_in_for_2 with (n0:=n); auto.
@@ -1300,7 +1317,7 @@ Section Props.
     - intuition.
   Qed.
 
-  Lemma distinct_w_to_a: (* TODO: EASY *)
+  Lemma distinct_w_to_a:
     forall P,
     WLang.Distinct P ->
     PDistinct (align P).
@@ -1345,7 +1362,7 @@ Section Props.
           auto using Conc.distinct_subst.
         }
         auto using Conc.distinct_subst.
-      + admit.
-  Admitted.
+      + apply distinct_c_seq; auto using Conc.distinct_subst.
+  Qed.
 
 End Props.

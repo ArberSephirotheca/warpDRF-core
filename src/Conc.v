@@ -1713,6 +1713,17 @@ Section C1.
       intuition.
   Qed.
 
+  Lemma distinct_c_seq:
+    forall c1 c2,
+    Distinct c1 ->
+    Distinct c2 ->
+    Distinct (c_seq c1 c2).
+  Proof.
+    induction c1; simpl; intros; auto.
+    destruct H as (d1, d2).
+    auto.
+  Qed.
+
   Lemma c_subst_c_seq:
     forall x v c1 c2,
     i_subst x v (c_seq c1 c2)
