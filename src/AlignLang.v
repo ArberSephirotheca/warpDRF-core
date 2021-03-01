@@ -367,24 +367,29 @@ Section Props.
     NStep v1 n ->
     forall v2,
     NStep v2 n ->
+    x <> TID ->
     IFirst a (subst x v2 P).
   Proof.
-    intros.
-    induction P; simpl in *.
-    - constructor.
-      inversion H; subst.
-      apply c_in_subst with (v:=v1) (v':=v2) (n0:=n); try assumption.
-      admit. (* how do we show (x <> TID) here? *)
-    - constructor.
-      invc H.
-      apply IHP1.
-      assumption.
-    - constructor.
-      invc H.
-      apply IHP1.
-      assumption.
-    (* TODO: MEDIUM *)
-  Admitted.
+    intros a x v1 P H.
+    remember (subst x v1 P) as Q.
+    generalize dependent P.
+    generalize dependent v1.
+    generalize dependent x.
+    induction H; intros.
+    - destruct P; invc HeqQ; simpl in *.
+      constructor.
+      eapply c_in_subst with (v:=v1); eauto.
+    - destruct P0; invc HeqQ; simpl in *.
+      constructor.
+      eauto.
+    - destruct P0; invc HeqQ; simpl in *.
+      destruct (Set_VAR.MF.eq_dec x0 v). {
+        subst.
+        constructor.
+        eauto.
+      }
+      constructor; eauto.
+  Qed.
 
   Lemma i_pair_in_subst: (* TODO: MEDIUM *)
     forall p x e1 P n,
