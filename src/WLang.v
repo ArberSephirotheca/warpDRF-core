@@ -791,16 +791,76 @@ Section Defs.
     IFirst a (WFor c1 x r P c2).
 
 
-  Lemma i_first_subst: (* TODO: EASY *)
+  Lemma i_first_subst:
     forall a P x e1 n,
     NStep e1 n ->
     IFirst a (w_subst x e1 P) ->
     forall e2,
     NStep e2 n ->
     x <> TID ->
+    ~ WVar x P ->
     IFirst a (w_subst x e2 P).
   Proof.
-  Admitted.
+    intros a P x e1 n Hn Hf.
+    remember (w_subst _ _ _) as Q.
+    generalize dependent e1.
+    generalize dependent n.
+    generalize dependent P.
+    generalize dependent x.
+    induction Hf; intros y P' n' e1 hn1 heq e2 hn2 ht hv.
+    - destruct P'; inversion heq; subst; clear heq; simpl.
+      + constructor.
+        eauto using c_in_subst.
+      + rename_hyp (_ = _) as heq.
+        destruct (Set_VAR.MF.eq_dec y v); inversion heq.
+    - simpl in hv.
+      assert (r1: NEq e1 e2) by eauto using n_eq_def.
+      destruct P'; invc heq; simpl.
+      + apply i_first_seq.
+        simpl in hv.
+        apply IHHf with (n:=n') (e2:=e1); auto.
+      + rename_hyp (_ = _) as heq.
+        destruct (Set_VAR.MF.eq_dec y v); subst; invc heq.
+    - rename_hyp (_ = _) as heq.
+      destruct P'; invc heq.
+      destruct (Set_VAR.MF.eq_dec y v);
+        rename_hyp (_ = _) as heq;
+        invc heq;
+        simpl. {
+        destruct (Set_VAR.MF.eq_dec v v) as [_|?]; try contradiction.
+        apply i_first_for_1.
+        eauto using c_in_subst.
+      }
+      destruct (Set_VAR.MF.eq_dec y v) as [?|_]; try contradiction.
+      apply i_first_for_1.
+      eauto using c_in_subst.
+    - rename_hyp (_ = _) as heq.
+      destruct P'; invc heq.
+      destruct (Set_VAR.MF.eq_dec y v);
+        rename_hyp (_ = _) as heq;
+        invc heq;
+        simpl.
+      {
+        destruct (Set_VAR.MF.eq_dec v v) as [_|?]; try contradiction.
+        eapply i_first_for_2; eauto.
+        eauto using r_first_subst.
+     }
+     simpl in hv.
+     assert (rx: w_subst v (NNum n) (w_subst y e1 P') =
+       w_subst y e1 (w_subst v (NNum n) P')). {
+       eauto using w_subst_subst_neq, n_step_to_not_free.
+     }
+     assert (IFirst a (w_subst y e2 (w_subst v (NNum n) P'))). {
+       eapply IHHf with (e2:=e1) (e3:=e2); eauto.
+       intros N.
+       apply wvar_inv_subst in N.
+       auto.
+     }
+     destruct (Set_VAR.MF.eq_dec y v) as [?|_]; try contradiction.
+     apply i_first_for_2 with (n:=n); eauto using r_first_subst.
+     rewrite w_subst_subst_neq;
+          eauto using n_step_to_not_free.
+  Qed.
 
   Lemma i_first_1:
     forall i v,
@@ -1555,6 +1615,7 @@ Section Defs.
   Lemma one_of_subst_r_r:
     forall x e1 e2 P Q p n,
     x <> TID ->
+    ~ WVar x Q ->
     OneOf p (inr (w_subst x e1 P)) (inr (w_subst x e1 Q)) ->
     NStep e1 n ->
     NStep e2 n ->
@@ -1591,6 +1652,7 @@ Section Defs.
     NStep e1 n ->
     NStep e2 n ->
     x <> TID ->
+    ~ WVar x P ->
     OneOf p (inl (i_subst x e1 c))
             (inr (w_subst x e1 P)) ->
     OneOf p (inl (i_subst x e2 c))
@@ -1893,10 +1955,11 @@ Section Defs.
     forall e2 n,
     NStep e1 n ->
     NStep e2 n ->
+    ~ WVar x P ->
     X_IPairIn x e2 p P.
   Proof.
     intros p x e1 P H.
-    induction H; intros.
+    induction H; intros; rename_hyp (~ WVar _ _) as hv; simpl in hv.
     - constructor.
       eapply c_pair_in_subst; eauto.
     - apply x_i_pair_in_seq_l.
@@ -1908,6 +1971,10 @@ Section Defs.
     - eapply x_i_pair_in_for_1 with (n:=n); eauto.
       + eauto using r_pick_subst.
       + eauto using n_step_subst.
+      + eapply IHX_IPairIn; eauto.
+        intros N.
+        apply wvar_inv_subst in N.
+        auto.
     - eapply x_i_pair_in_for_2 with (n:=n) (e:=e); eauto.
       + eauto using r_pick_subst.
       + eauto using n_step_subst.
@@ -1922,16 +1989,24 @@ Section Defs.
       + eauto using r_first_subst.
       + eauto using n_step_subst.
       + eapply one_of_subst_l_r with (e1:=e1); eauto.
+        intros N.
+        apply wvar_inv_subst in N.
+        auto.
     - eapply x_i_pair_in_for_mid_1 with (n:=n) (e:=e) (e':=e'); eauto.
       + eauto using r_pick2_subst.
       + eauto using n_step_subst.
       + eauto using n_step_subst.
       + eapply one_of_subst_l_r with (e1:=e1); eauto.
+        intros N.
+        apply wvar_inv_subst in N.
+        auto.
     - eapply x_i_pair_in_for_mid_2 with (n:=n) (e:=e) (e':=e'); eauto.
       + eauto using r_pick2_subst.
       + eauto using n_step_subst.
       + eauto using n_step_subst.
       + eapply one_of_subst_r_r with (e1:=e1); eauto.
+        intros N.
+        apply wvar_inv_subst in N; auto.
   Qed.
   
   Lemma i_pair_in_subst:
