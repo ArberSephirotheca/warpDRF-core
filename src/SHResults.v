@@ -152,6 +152,13 @@ Section Compiler.
     apply SHCompiler.t_in_to_i_in; auto.
   Qed.
 
+(*
+  Lemma i_pair_in_1:
+SymExec.IPairIn p (SymHist.translate TID_COUNT i)
+______________________________________(1/1)
+Conc.CPairIn p i
+*)
+
   Corollary completeness:
     forall m_c m_h i,
     ~ Conc.CFree i T1 ->

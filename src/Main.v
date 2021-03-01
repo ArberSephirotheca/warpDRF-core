@@ -92,6 +92,8 @@ Section Defs.
     SymExec.IPairIn p (ph_to_hist ph) ->
     PhaseSplit.PPairIn p ph.
   Proof.
+    induction ph; simpl; intros.
+    - constructor.
   Admitted.
 
   Lemma in_2: (* TODO: MEDIUM *)

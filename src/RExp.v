@@ -1054,13 +1054,11 @@ Section Defs.
     RClosed r.
   Proof.
     intros.
-    invc H; clear H2 H3 H4.
-    unfold RClosed; intros.
-    apply n_step_to_not_free with (x := x) in H0, H1.
-    simpl in *.
-    unfold not.
+    invc H.
+    unfold RClosed.
     intros.
-    destruct H; contradiction.
+    intros N.
+    destruct N as [N|N]; contradict N; eauto using n_step_to_not_free.
   Qed.
 
   Lemma r_step_to_closed_r:
@@ -1069,12 +1067,11 @@ Section Defs.
     RClosed r'.
   Proof.
     intros.
-    invc H; clear H0 H1 H4.
-    unfold RClosed; intros.
-    apply n_step_to_not_free with (x := x) in H2, H3.
-    unfold not.
+    invc H.
+    unfold RClosed.
     intros.
-    destruct H; contradiction.
+    intros N.
+    destruct N as [N|N]; contradict N; eauto using n_step_to_not_free.
   Qed.
 
   Lemma r_step_to_closed:
@@ -1210,12 +1207,10 @@ Section Defs.
     RDefined r'.
   Proof.
     intros.
+    unfold RDefined.
+    destruct r' as (e1, e2).
     invc H.
-    constructor.
-    - exists (S n).
-      assumption.
-    - exists n2.
-      assumption.
+    eauto.
   Qed.
 
   Lemma r_defined_subst:
@@ -1224,32 +1219,42 @@ Section Defs.
     RDefined r ->
     r_subst x v r = r.
   Proof.
-    intros (e1, e2) x v H [[n1 H1][n2 H2]].
-    unfold NClosed in H.
-    specialize (H x).
-    apply n_step_to_not_free with (x := x) in H1, H2.
-    unfold r_subst.
-    rewrite n_subst_not_free; auto.
-    rewrite n_subst_not_free; auto.
+    intros.
+    destruct r as (e1, e2).
+    simpl in *.
+    destruct H0 as ((n1, Ha), (n2, Hb)).
+    rewrite n_subst_not_free; eauto using n_step_to_not_free.
+    rewrite n_subst_not_free; eauto using n_step_to_not_free.
   Qed.
 
-  Lemma r_step_subst: (* TODO: EASY *)
-    forall x e1 e2 r n r',
+  Lemma r_step_subst:
+    forall x e1 e2 r n n' r',
     RStep (r_subst x e1 r) n (r_subst x e1 r') ->
-    NClosed e1 ->
-    NClosed e2 ->
+    NStep e1 n' ->
+    NStep e2 n' ->
     RStep (r_subst x e2 r) n (r_subst x e2 r').
   Proof.
-  Admitted.
+    intros.
+    destruct r as (e, e').
+    destruct r' as (f, f').
+    simpl in *.
+    invc H.
+    apply r_step_def with (n2:=n2); eauto using NExp.n_step_subst.
+  Qed.
 
-  Lemma r_one_subst: (* TODO: EASY *)
-    forall x e1 e2 r n,
+  Lemma r_one_subst:
+    forall x e1 e2 r n n',
     ROne (r_subst x e1 r) n ->
-    NClosed e1 ->
-    NClosed e2 ->
+    NStep e1 n' ->
+    NStep e2 n' ->
     ROne (r_subst x e2 r) n.
   Proof.
-  Admitted.
+    intros.
+    destruct r as (e, e').
+    simpl in *.
+    invc H.
+    eauto using r_one_def, NExp.n_step_subst.
+  Qed.
 
 End Defs.
 

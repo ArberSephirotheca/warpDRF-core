@@ -718,7 +718,7 @@ Section Defs.
       eapply x_wrun_for_cons with
         (m1:=m1) (r':=r') (n:=n) (m2:=m2) (h2:=h2);
         eauto.
-      + apply r_step_subst with (e1:=e1); eauto using n_step_to_closed.
+      + eapply r_step_subst with (e1:=e1); eauto.
       + eapply c_run_subst with (e:=e1); eauto using n_step_to_not_free.
       + eapply IHX_WRun1; eauto.
         * intros N.
