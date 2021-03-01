@@ -401,8 +401,27 @@ Section Props.
     subst y v2 (subst x v1 P).
   Proof.
     induction P; intros; simpl.
-    
-  Admitted.
+    - rewrite i_subst_subst_neq_3; auto.
+    - rewrite IHP1; auto.
+      rewrite IHP2; auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        destruct (Set_VAR.MF.eq_dec y v). {
+          subst.
+          contradiction.
+        }
+        rewrite IHP1; auto.
+        rewrite r_subst_subst_neq_3; auto.
+      }
+      destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        rewrite IHP1; auto.
+        rewrite r_subst_subst_neq_3; auto.
+      }
+      rewrite IHP1; auto.
+      rewrite r_subst_subst_neq_3; auto.
+      rewrite IHP2; auto.
+  Qed.
 
   Lemma i_pair_in_subst: (* TODO: MEDIUM *)
     forall p x e1 P,
