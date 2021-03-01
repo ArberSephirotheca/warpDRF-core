@@ -391,15 +391,56 @@ Section Props.
       constructor; eauto.
   Qed.
 
+  Lemma subst_subst_neq:
+    forall P x y v1 v2,
+    x <> y ->
+    ~ NFree v1 y ->
+    ~ NFree v2 x ->
+    subst x v1 (subst y v2 P)
+    =
+    subst y v2 (subst x v1 P).
+  Proof.
+    induction P; intros; simpl.
+    
+  Admitted.
+
   Lemma i_pair_in_subst: (* TODO: MEDIUM *)
-    forall p x e1 P n,
-    NStep e1 n ->
+    forall p x e1 P,
     IPairIn p (subst x e1 P) ->
+    forall n,
+    NStep e1 n ->
     forall e2,
     NStep e2 n ->
+    x <> TID ->
     IPairIn p (subst x e2 P).
   Proof.
-  Admitted.
+    intros p x e1 P H.
+    remember (subst x e1 P) as Q.
+    generalize dependent P.
+    generalize dependent x.
+    generalize dependent e1.
+    induction H;
+      intros e1 y Q heq n' he1 e2 he2 hn;
+      destruct Q;
+      invc heq;
+      simpl.
+    - constructor.
+      eapply c_pair_in_subst; eauto.
+    - constructor.
+      eauto.
+    - constructor 3.
+      eauto.
+    - destruct (Set_VAR.MF.eq_dec y v); constructor; eauto.
+    - destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        eapply i_pair_in_for_2; eauto using r_pick_subst.
+      }
+      eapply i_pair_in_for_2; eauto using r_pick_subst.
+      rename_hyp (IPairIn _ _) as hp.
+      rewrite subst_subst_neq; eauto using n_step_to_not_free.
+      eapply IHIPairIn with (e2:=e1) (e3:=e2); eauto.
+      rewrite subst_subst_neq; eauto using n_step_to_not_free.
+  Qed.
 
   Lemma subst_subst_eq_1:
     forall e1 e2 x P,
