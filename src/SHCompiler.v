@@ -18,13 +18,13 @@ Section Defs.
   Context {A:Access}.
   Context {T:Tasks}.
 
-  Fixpoint proj (c:Conc.inst) : inst (I:=SymHist.SymAcc) :=
+  Fixpoint proj (c:ULang.inst) : inst (I:=SymHist.SymAcc) :=
     match c with
-    | Conc.Skip => Skip
-    | Conc.Seq i j => Seq (proj i) (proj j)
-    | Conc.If b i j => If b (proj i) (proj j)
-    | Conc.MemAcc a => MemAcc (I:=SymHist.SymAcc) (a, NVar TID)
-    | Conc.For x r i => Decl x r (proj i)
+    | ULang.Skip => Skip
+    | ULang.Seq i j => Seq (proj i) (proj j)
+    | ULang.If b i j => If b (proj i) (proj j)
+    | ULang.MemAcc a => MemAcc (I:=SymHist.SymAcc) (a, NVar TID)
+    | ULang.For x r i => Decl x r (proj i)
     end.
 
   Definition do_proj x i := i_subst TID (NVar x) (proj i).
@@ -41,7 +41,7 @@ Section Defs.
   Lemma i_subst_proj_rw:
     forall x i n,
     x <> TID ->
-    proj (Conc.i_subst x (NNum n) i) = i_subst x (NNum n) (proj i).
+    proj (ULang.i_subst x (NNum n) i) = i_subst x (NNum n) (proj i).
   Proof.
     induction i; simpl; intros; destruct (Set_VAR.MF.eq_dec x TID); try contradiction.
     - reflexivity.
@@ -62,7 +62,7 @@ Section Defs.
     forall x i,
     x <> TID ->
     SEFree (proj i) x ->
-    Conc.CFree i x.
+    ULang.CFree i x.
   Proof.
     induction i; simpl; intros; inversion H0; subst; clear H0; auto.
     + destruct H1; auto.
@@ -73,7 +73,7 @@ Section Defs.
   Lemma var_proj_rw:
     forall x i,
     Var x (proj i) ->
-    Conc.Var x i.
+    ULang.Var x i.
   Proof.
     induction i; simpl; intros.
     - assumption.
@@ -85,43 +85,43 @@ Section Defs.
 
   (* ------------------------- IN PROJECTION ----------------------- *)
 
-  Inductive PIn a n: Conc.inst -> Prop :=
+  Inductive PIn a n: ULang.inst -> Prop :=
   | p_in_access:
     forall e l,
     access_step (access_subst TID (NNum n) e, NNum n) l -> 
     List.In a l ->
-    PIn a n (Conc.MemAcc e)
+    PIn a n (ULang.MemAcc e)
   | p_in_seq_l:
     forall i j,
     PIn a n i ->
-    PIn a n (Conc.Seq i j)
+    PIn a n (ULang.Seq i j)
   | p_in_seq_r:
     forall i j,
     PIn a n j ->
-    PIn a n (Conc.Seq i j)
+    PIn a n (ULang.Seq i j)
   | p_in_if_true:
     forall b i j,
     BData n b true ->
     PIn a n i ->
-    PIn a n (Conc.If b i j)
+    PIn a n (ULang.If b i j)
   | p_in_if_false:
     forall b i j,
     BData n b false ->
     PIn a n j ->
-    PIn a n (Conc.If b i j)
+    PIn a n (ULang.If b i j)
   | p_in_for:
     forall e1 e2 n' n1 n2 x i,
     NData n e1 n1 ->
     NData n e2 n2 ->
     n1 <= n' < n2 ->
-    PIn a n (Conc.i_subst x (NNum n') i) ->
-    PIn a n (Conc.For x (e1, e2) i)
+    PIn a n (ULang.i_subst x (NNum n') i) ->
+    PIn a n (ULang.For x (e1, e2) i)
   .
 
 
   Lemma s_in_to_p_in:
     forall a n i,
-    ~ Conc.Var TID i ->
+    ~ ULang.Var TID i ->
     SIn a n (proj i) ->
     PIn a n i.
   Proof.
@@ -153,14 +153,14 @@ Section Defs.
       assert (TID <> v) by auto.
       apply IHHi.
       + intros N.
-        apply Conc.var_inv_subst in N.
+        apply ULang.var_inv_subst in N.
         auto.
       + rewrite i_subst_proj_rw; auto.
   Qed.
 
   Lemma p_in_to_s_in:
     forall a n i,
-    ~ Conc.Var TID i ->
+    ~ ULang.Var TID i ->
     PIn a n i ->
     SIn a n (proj i).
   Proof.
@@ -185,7 +185,7 @@ Section Defs.
       rewrite <- i_subst_proj_rw; auto.
       apply IHHi.
       intros N.
-      apply Conc.var_inv_subst in N.
+      apply ULang.var_inv_subst in N.
       auto.
   Qed.
 
@@ -203,37 +203,37 @@ Section Defs.
   (* ----------------------------- IN TRANSLATION ------------------ *)
 
 
-  Inductive TIn (a:access_val) : Conc.inst -> Prop :=
+  Inductive TIn (a:access_val) : ULang.inst -> Prop :=
   | t_in_access:
     forall e l,
     access_step (access_subst TID (NNum (access_tid a)) e, NNum (access_tid a)) l -> 
     List.In a l ->
-    TIn a (Conc.MemAcc e)
+    TIn a (ULang.MemAcc e)
   | t_in_seq_l:
     forall i j,
     TIn a i ->
-    TIn a (Conc.Seq i j)
+    TIn a (ULang.Seq i j)
   | t_in_seq_r:
     forall i j,
     TIn a j ->
-    TIn a (Conc.Seq i j)
+    TIn a (ULang.Seq i j)
   | t_in_if_true:
     forall b i j,
     BData (access_tid a) b true ->
     TIn a i ->
-    TIn a (Conc.If b i j)
+    TIn a (ULang.If b i j)
   | t_in_if_false:
     forall b i j,
     BData (access_tid a) b false ->
     TIn a j ->
-    TIn a (Conc.If b i j)
+    TIn a (ULang.If b i j)
   | t_in_for:
     forall e1 e2 n n1 n2 x i,
     NData (access_tid a) e1 n1 ->
     NData (access_tid a) e2 n2 ->
     n1 <= n < n2 ->
-    TIn a (Conc.i_subst x (NNum n) i) ->
-    TIn a (Conc.For x (e1, e2) i)
+    TIn a (ULang.i_subst x (NNum n) i) ->
+    TIn a (ULang.For x (e1, e2) i)
   .
 
 
@@ -277,7 +277,7 @@ Section Defs.
 
   Lemma t_in_to_i_in:
     forall i,
-    ~ Conc.Var TID i ->
+    ~ ULang.Var TID i ->
     forall a,
     TIn a i ->
     IIn a (i_subst TID (NNum (access_tid a)) (proj i)).
@@ -294,7 +294,7 @@ Section Defs.
 
   Lemma i_in_to_t_in:
     forall i,
-    ~ Conc.Var TID i ->
+    ~ ULang.Var TID i ->
     forall a,
     IIn a (i_subst TID (NNum (access_tid a)) (proj i)) ->
     TIn a i.
@@ -310,7 +310,7 @@ Section Defs.
 
   Lemma i_in_inv_access_tid:
     forall a t i,
-    ~ Conc.Var TID i ->
+    ~ ULang.Var TID i ->
     IIn a (i_subst TID (NNum t) (proj i)) ->
     t = access_tid a.
   Proof.
@@ -327,9 +327,9 @@ Section Defs.
 
   Lemma t_in_to_i_in_translate:
     forall i,
-    ~ Conc.Var TID i ->
-    ~ Conc.CFree i T1 ->
-    ~ Conc.CFree i T2 ->
+    ~ ULang.Var TID i ->
+    ~ ULang.CFree i T1 ->
+    ~ ULang.CFree i T2 ->
     forall a,
     access_tid a < TID_COUNT -> (* needed for the second branch, can we prove this? *)
     TIn a i ->
@@ -414,9 +414,9 @@ Section Defs.
 
   Lemma i_in_translate_to_t_in:
     forall i,
-    ~ Conc.Var TID i ->
-    ~ Conc.CFree i T1 ->
-    ~ Conc.CFree i T2 ->
+    ~ ULang.Var TID i ->
+    ~ ULang.CFree i T1 ->
+    ~ ULang.CFree i T2 ->
     forall a,
     IIn a (translate i) ->
     TIn a i /\ access_tid a < TID_COUNT.
@@ -502,7 +502,7 @@ Section Defs.
 
   Lemma c_i_in_to_t_in:
     forall a i,
-    Conc.IIn a i ->
+    ULang.IIn a i ->
     TIn a i.
   Proof.
     intros a i Hi.
@@ -518,14 +518,14 @@ Section Defs.
   Lemma t_in_to_c_i_in:
     forall a i,
     TIn a i ->
-    Conc.IIn a i.
+    ULang.IIn a i.
   Proof.
     intros a i Hi.
-    induction Hi; auto using Conc.i_in_seq_l, Conc.i_in_seq_r, Conc.i_in_if_true, Conc.i_in_if_false.
-    - apply Conc.i_in_access.
+    induction Hi; auto using ULang.i_in_seq_l, ULang.i_in_seq_r, ULang.i_in_if_true, ULang.i_in_if_false.
+    - apply ULang.i_in_access.
       unfold AIn.
       eauto.
-    - eapply Conc.i_in_for; eauto.
+    - eapply ULang.i_in_for; eauto.
       split; auto.
   Qed.
 

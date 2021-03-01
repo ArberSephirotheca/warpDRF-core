@@ -12,7 +12,7 @@ Require Import Tasks.
 Require Import SymExec.
 Require Import SHCompiler.
 
-Require Conc.
+Require ULang.
 
 Import ListNotations.
 
@@ -24,11 +24,11 @@ Section Compiler.
 
   Corollary soundness:
     forall m_c m_h i,
-    ~ Conc.CFree i T1 ->
-    ~ Conc.CFree i T2 ->
-    ~ Conc.Var TID i ->
+    ~ ULang.CFree i T1 ->
+    ~ ULang.CFree i T2 ->
+    ~ ULang.Var TID i ->
     Hist.MSafeStrong m_h ->
-    Conc.RunAll TID_COUNT i m_c ->
+    ULang.RunAll TID_COUNT i m_c ->
     Run (translate i) m_h ->
     Hist.Safe m_c.
   Proof.
@@ -46,26 +46,26 @@ Section Compiler.
 
     (* Simplify the assumption of run for t1 *)
     assert (Hrx := Hrc).
-    eapply Conc.run_all_inv_in with (x0:=x) in Hrx; eauto.
+    eapply ULang.run_all_inv_in with (x0:=x) in Hrx; eauto.
     destruct Hrx as (nx, (h_x, (?, (Hrx, (_, Hix))))).
     assert (nx = access_tid x). {
       symmetry.
-      eapply Conc.run_access_tid; eauto.
+      eapply ULang.run_access_tid; eauto.
     }
     subst.
-    eapply Conc.in_to_i_in in Hix; eauto.
+    eapply ULang.in_to_i_in in Hix; eauto.
     clear Hrx Hix'.
 
     (* Simplify the assumption of run for t2 *)
     assert (Hry := Hrc).
-    eapply Conc.run_all_inv_in with (x0:=y) in Hry; eauto.
+    eapply ULang.run_all_inv_in with (x0:=y) in Hry; eauto.
     destruct Hry as (ny, (h_y, (?, (Hry, (_, Hiy))))).
     assert (ny = access_tid y). {
       symmetry.
-      eapply Conc.run_access_tid; eauto.
+      eapply ULang.run_access_tid; eauto.
     }
     subst.
-    eapply Conc.in_to_i_in in Hiy; eauto.
+    eapply ULang.in_to_i_in in Hiy; eauto.
     clear Hry Hiy'.
 
     (* We no longer need run all *)
@@ -156,16 +156,16 @@ Section Compiler.
   Lemma i_pair_in_1:
 SymExec.IPairIn p (SymHist.translate TID_COUNT i)
 ______________________________________(1/1)
-Conc.CPairIn p i
+ULang.CPairIn p i
 *)
 
   Corollary completeness:
     forall m_c m_h i,
-    ~ Conc.CFree i T1 ->
-    ~ Conc.CFree i T2 ->
-    ~ Conc.Var TID i ->
+    ~ ULang.CFree i T1 ->
+    ~ ULang.CFree i T2 ->
+    ~ ULang.Var TID i ->
     Hist.Safe m_c ->
-    Conc.RunAll TID_COUNT i m_c ->
+    ULang.RunAll TID_COUNT i m_c ->
     Run (translate i) m_h ->
     Hist.MSafeStrong m_h.
   Proof.
@@ -183,16 +183,16 @@ Conc.CPairIn p i
     apply t_in_to_c_i_in in Hxi.
     apply t_in_to_c_i_in in Hyi.
     apply Hs1; auto; clear Hs1.
-    - eapply Conc.run_all_i_in_to_in in Hxi; eauto.
-    - eapply Conc.run_all_i_in_to_in in Hyi; eauto.
+    - eapply ULang.run_all_i_in_to_in in Hxi; eauto.
+    - eapply ULang.run_all_i_in_to_in in Hyi; eauto.
   Qed.
 
   Corollary correctness:
     forall m_c m_h i,
-    ~ Conc.CFree i T1 ->
-    ~ Conc.CFree i T2 ->
-    ~ Conc.Var TID i ->
-    Conc.RunAll TID_COUNT i m_c ->
+    ~ ULang.CFree i T1 ->
+    ~ ULang.CFree i T2 ->
+    ~ ULang.Var TID i ->
+    ULang.RunAll TID_COUNT i m_c ->
     Run (translate i) m_h ->
     Hist.Safe m_c <-> Hist.MSafeStrong m_h.
   Proof.

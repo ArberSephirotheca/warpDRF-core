@@ -5,7 +5,7 @@ Require Import RExp.
 Require Import NExp.
 Require Import Var.
 Require Import Tictac.
-Require Conc.
+Require ULang.
 Require SHCompiler.
 Require SymExec.
 Require Import Coq.Lists.List.
@@ -17,7 +17,7 @@ Section Defs.
   Context `{A:Access}.
 
   Inductive phase :=
-  | Phase: Conc.inst -> phase
+  | Phase: ULang.inst -> phase
   | Decl: var -> range -> phase -> phase.
 
   Fixpoint a_split (n:n_inst) : list phase :=
@@ -33,7 +33,7 @@ Section Defs.
 
   Fixpoint ph_subst x (v:nexp) (P:phase) : phase :=
     match P with
-    | Phase c => Phase (Conc.i_subst x v c)
+    | Phase c => Phase (ULang.i_subst x v c)
     | Decl y r P =>
       let P' := if VAR.eq_dec x y
         then P
@@ -45,7 +45,7 @@ Section Defs.
   Inductive PPairIn (p:access_val * access_val) : phase -> Prop :=
   | p_pair_in_phase:
     forall c,
-    Conc.CPairIn p c ->
+    ULang.CPairIn p c ->
     PPairIn p (Phase c)
   | p_pair_in_decl:
     forall x r P n,
@@ -148,7 +148,7 @@ Section Defs.
   Inductive PhasePairIn (p:access_val * access_val) : phase -> n_inst -> Prop :=
   | ph_pair_in_sync:
     forall c,
-    Conc.CPairIn p c ->
+    ULang.CPairIn p c ->
     PhasePairIn p (Phase c) (NSync c)
   | ph_pair_in_seq_l:
     forall ph P Q,

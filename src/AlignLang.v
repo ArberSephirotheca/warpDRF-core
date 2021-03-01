@@ -1,6 +1,6 @@
 Require Import AccExp.
 Require Import Tasks.
-Require Import Conc.
+Require Import ULang.
 Require Import NExp.
 Require Import RExp.
 Require Import Var.
@@ -23,13 +23,13 @@ Section Defs.
   Context `{A:Access}.
 
   Inductive n_inst :=
-  | NSync: Conc.inst -> n_inst
+  | NSync: ULang.inst -> n_inst
   | NSeq: n_inst -> n_inst -> n_inst
   | NFor : n_inst -> var -> range -> n_inst -> n_inst.  
 
   Fixpoint subst x v i :=
     match i with
-    | NSync c => NSync (Conc.i_subst x v c)
+    | NSync c => NSync (ULang.i_subst x v c)
     | NSeq i1 i2 => NSeq (subst x v i1) (subst x v i2)
     | NFor P y r Q =>
       let Q' := if VAR.eq_dec x y
@@ -41,16 +41,16 @@ Section Defs.
 
   Fixpoint Var x P :=
     match P with
-    | NSync c => Conc.Var x c
+    | NSync c => ULang.Var x c
     | NSeq P Q => Var x P \/ Var x Q
     | NFor P y _ Q =>
       x = y \/
       Var x P \/ Var x Q
     end.
 
-  Definition p_inst := (n_inst * Conc.inst) % type.
+  Definition p_inst := (n_inst * ULang.inst) % type.
 
-  Fixpoint n_seq (c:Conc.inst) (n:n_inst) : n_inst :=
+  Fixpoint n_seq (c:ULang.inst) (n:n_inst) : n_inst :=
     match n with
     | NSync c' => NSync (c_seq c c')
     | NSeq i j => NSeq (n_seq c i) j
@@ -127,7 +127,7 @@ End Defs.
 
 
 Module PLangNotations.
-  Import Conc.CLangNotations.
+  Import ULang.CLangNotations.
   Infix ";" := NSeq (at level 50, only printing)
     : lang_scope.
   Notation "c [ x := v ]" := (subst x v c) (at level 30, only printing)
@@ -150,7 +150,7 @@ Section Props.
 
   Lemma n_seq_seq:
     forall i c c',
-    n_seq (Conc.Seq c c') i = n_seq c (n_seq c' i).
+    n_seq (ULang.Seq c c') i = n_seq c (n_seq c' i).
   Proof.
     induction i; intros.
     - simpl.
@@ -251,7 +251,7 @@ Section Props.
     induction H; intros P' c' Heq; simpl in Heq; destruct P'; simpl in Heq; invc Heq.
     - apply c_pair_in_inv_c_seq in H.
       destruct a as (a1, a2).
-      unfold Conc.OneOf in *.
+      unfold ULang.OneOf in *.
       simpl.
       intuition.
       + auto using c_pair_in_def.
@@ -290,7 +290,7 @@ Section Props.
   Lemma subst_n_seq:
     forall P x v c,
     subst x v (n_seq c P) =
-      n_seq (Conc.i_subst x v c) (subst x v P).
+      n_seq (ULang.i_subst x v c) (subst x v P).
   Proof.
     induction P; simpl; intros.
     - rewrite c_subst_c_seq.
@@ -321,15 +321,15 @@ Section Props.
 
   Definition p_subst x v (P:p_inst) :=
     match P with
-    (Q, c) => (subst x v Q, Conc.i_subst x v c)
+    (Q, c) => (subst x v Q, ULang.i_subst x v c)
     end.
 
   Lemma n_seq_subst:
     forall x v c P,
-    subst x v (n_seq c P) = n_seq (Conc.i_subst x v c) (subst x v P).
+    subst x v (n_seq c P) = n_seq (ULang.i_subst x v c) (subst x v P).
   Proof.
     induction P; intros; simpl; auto.
-    - rewrite Conc.c_seq_subst.
+    - rewrite ULang.c_seq_subst.
       reflexivity.
     - rewrite IHP1.
       reflexivity.
@@ -339,7 +339,7 @@ Section Props.
 
   Fixpoint IFree (P : n_inst)  (x : var) {struct P} : Prop :=
     match P with
-    | NSync c => Conc.CFree c x
+    | NSync c => ULang.CFree c x
     | NSeq P Q => IFree P x \/ IFree Q x
     | NFor P y r Q =>
         IFree P x \/ RFree r x \/ (x <> y /\ IFree Q x)
@@ -532,7 +532,7 @@ Section Props.
   Proof.
     induction P; intros.
     - simpl.
-      rewrite Conc.c_subst_subst_neq_5; auto.
+      rewrite ULang.c_subst_subst_neq_5; auto.
     - simpl in *.
       rewrite IHP1; auto.
       rewrite IHP2; auto.
@@ -574,16 +574,16 @@ Section Props.
 
   Definition PDistinct (P:p_inst) :=
     let (P, c) := P in
-    Distinct P /\ Conc.Distinct c.
+    Distinct P /\ ULang.Distinct c.
 
   Definition PVar x (P:p_inst) :=
     let (P, c) := P in
-    Var x P \/ Conc.Var x c.
+    Var x P \/ ULang.Var x c.
 
   Lemma c_var_inv_c_seq:
     forall x c1 c2,
-    Conc.Var x (Conc.c_seq c1 c2) ->
-    Conc.Var x c1 \/ Conc.Var x c2.
+    ULang.Var x (ULang.c_seq c1 c2) ->
+    ULang.Var x c1 \/ ULang.Var x c2.
   Proof.
     induction c1; simpl; intros; try (intuition; fail).
     apply IHc1_1 in H.
@@ -595,7 +595,7 @@ Section Props.
   Lemma var_inv_n_seq:
     forall x P c,
     Var x (n_seq c P) ->
-    Conc.Var x c \/ Var x P.
+    ULang.Var x c \/ Var x P.
   Proof.
     induction P; simpl; intros.
     - apply c_var_inv_c_seq in H.
@@ -657,7 +657,7 @@ Section Props.
     Var y (subst x e P).
   Proof.
     induction P; simpl; intros.
-    - auto using Conc.var_subst.
+    - auto using ULang.var_subst.
     - rename_hyp (_ \/ _) as Hp.
       destruct Hp as [Hp|Hp]; eauto.
     - rename_hyp (_ \/ _) as Hp.

@@ -2,7 +2,7 @@ Require Import AccExp.
 Require Import Tasks.
 Require Import Var.
 Require Import WLang.
-Require Import Conc.
+Require Import ULang.
 Require Import NExp.
 Require Import Tictac.
 Require Import AlignLang.
@@ -15,7 +15,7 @@ Section Props.
   Context `{A:Access}.
   Fixpoint align (w:w_inst) : p_inst :=
     match w with
-    | WSync c => (NSync c, Conc.Skip)
+    | WSync c => (NSync c, ULang.Skip)
     | WSeq P Q =>
       let (P', c1) := align P in
       let (Q', c2) := align Q in
@@ -32,7 +32,7 @@ Section Props.
       let c2_dec_e2 := i_subst x dec_e2 c2 in
       (NFor (n_seq c1 P_e1) x (NBin NPlus (NNum 1) e1, e2)
                         (n_seq c_dec_x (n_seq c2_dec_x P_x)),
-                     Conc.c_seq c_dec_e2 c2_dec_e2)
+                     ULang.c_seq c_dec_e2 c2_dec_e2)
     end.
 
 
@@ -61,22 +61,22 @@ Section Props.
       + rename_hyp (Var _ (n_seq _ _)) as Hv.
         apply var_inv_n_seq in Hv.
         intuition.
-        rename_hyp (Conc.Var _ _) as Hc.
+        rename_hyp (ULang.Var _ _) as Hc.
         apply c_var_inv_subst in Hc.
         intuition.
         rename_hyp (Var _ (n_seq _ _)) as Hc.
         apply var_inv_n_seq in Hc.
         intuition.
-        rename_hyp (Conc.Var _ _) as Hc.
+        rename_hyp (ULang.Var _ _) as Hc.
         apply c_var_inv_subst in Hc.
         intuition.
-      + rename_hyp (Conc.Var _ (Conc.c_seq _ _ )) as Hc.
+      + rename_hyp (ULang.Var _ (ULang.c_seq _ _ )) as Hc.
         apply c_var_inv_c_seq in Hc.
         intuition.
-        * rename_hyp (Conc.Var _ (i_subst _ _ _)) as Hc.
+        * rename_hyp (ULang.Var _ (i_subst _ _ _)) as Hc.
           apply c_var_inv_subst in Hc.
           intuition.
-        * rename_hyp (Conc.Var _ (i_subst _ _ _)) as Hc.
+        * rename_hyp (ULang.Var _ (i_subst _ _ _)) as Hc.
           apply c_var_inv_subst in Hc.
           intuition.
   Qed.
@@ -98,7 +98,7 @@ Section Props.
 
   Lemma var_inv_align_r:
     forall x P P_x c_x,
-    Conc.Var x c_x ->
+    ULang.Var x c_x ->
     align P = (P_x, c_x) ->
     WVar x P.
   Proof.
@@ -140,7 +140,7 @@ Section Props.
         intros N.
         eapply var_inv_align_l with (x:=y) in N; eauto.
       }
-      assert (~ Conc.Var y c_x). {
+      assert (~ ULang.Var y c_x). {
         intros N.
         eapply var_inv_align_r with (x:=y) in N; eauto.
       }
@@ -794,7 +794,7 @@ Section Props.
      apply c_pair_in_inv_c_seq in Hi.
      destruct p as (a1, a2).
      destruct Hi as (Ha, Hb).
-     unfold Conc.OneOf in *.
+     unfold ULang.OneOf in *.
      edestruct r_pick_impl_4 as (n2,(Hpick, Hn2)); eauto.
      intuition.
      + (* cx /\ cx *) 
@@ -871,7 +871,7 @@ Section Props.
     IPairIn (a1, a2) (n_seq c P).
   Proof.
     induction P; simpl; intros a1 c a2 Hi Hf; invc Hf.
-    - assert (CPairIn (a1, a2) (Conc.c_seq c i)). {
+    - assert (CPairIn (a1, a2) (ULang.c_seq c i)). {
         auto using c_pair_in_def, c_in_c_seq_l, c_in_c_seq_r.
       }
       auto using i_pair_in_sync.
@@ -886,7 +886,7 @@ Section Props.
     IPairIn (a1, a2) (n_seq c P).
   Proof.
     induction P; simpl; intros a1 c a2 Hf Hi; invc Hf.
-    - assert (CPairIn (a1, a2) (Conc.c_seq c i)). {
+    - assert (CPairIn (a1, a2) (ULang.c_seq c i)). {
         auto using c_pair_in_def, c_in_c_seq_l, c_in_c_seq_r.
       }
       auto using i_pair_in_sync.
@@ -1152,13 +1152,13 @@ Section Props.
           intuition;
           rename_hyp (ILast _ _) as hl
         .
-        + apply Conc.c_in_c_seq_l.
+        + apply ULang.c_in_c_seq_l.
           eauto using i_last_to_c_in_1.
-        + apply Conc.c_in_c_seq_r.
-          eapply Conc.c_in_subst; eauto.
-        + apply Conc.c_in_c_seq_r.
-          eapply Conc.c_in_subst; eauto.
-        + apply Conc.c_in_c_seq_l.
+        + apply ULang.c_in_c_seq_r.
+          eapply ULang.c_in_subst; eauto.
+        + apply ULang.c_in_c_seq_r.
+          eapply ULang.c_in_subst; eauto.
+        + apply ULang.c_in_c_seq_l.
           eauto using i_last_to_c_in_1.
       }
       left.
@@ -1174,12 +1174,12 @@ Section Props.
       simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       apply c_pair_in_def; intuition.
-      + eauto using Conc.c_in_c_seq_l, i_last_to_c_in_1, n_step_succ_minus_one.
-      + apply Conc.c_in_c_seq_r.
-        eapply Conc.c_in_subst; eauto using n_step_succ_minus_one.
-      + apply Conc.c_in_c_seq_r.
-        eapply Conc.c_in_subst; eauto using n_step_succ_minus_one.
-      + eauto using Conc.c_in_c_seq_l, i_last_to_c_in_1, n_step_succ_minus_one.
+      + eauto using ULang.c_in_c_seq_l, i_last_to_c_in_1, n_step_succ_minus_one.
+      + apply ULang.c_in_c_seq_r.
+        eapply ULang.c_in_subst; eauto using n_step_succ_minus_one.
+      + apply ULang.c_in_c_seq_r.
+        eapply ULang.c_in_subst; eauto using n_step_succ_minus_one.
+      + eauto using ULang.c_in_c_seq_l, i_last_to_c_in_1, n_step_succ_minus_one.
     - (* i_pair_in_for_first_1 *)
       destruct r as (e1, e2).
       destruct (align P) as (P_x, c_x) eqn:r1.
@@ -1298,7 +1298,7 @@ Section Props.
   Lemma var_inv_seq:
     forall x c P,
     Var x (n_seq c P) ->
-    Conc.Var x c \/ Var x P.
+    ULang.Var x c \/ Var x P.
   Proof.
     induction P; simpl in *; intros.
     - auto using c_var_inv_c_seq.
@@ -1309,7 +1309,7 @@ Section Props.
   Lemma distinct_seq:
     forall c P,
     Distinct P ->
-    Conc.Distinct c ->
+    ULang.Distinct c ->
     Distinct (n_seq c P).
   Proof.
     induction P; simpl; intros; auto.
@@ -1344,13 +1344,13 @@ Section Props.
           apply var_inv_align.
           rewrite hr.
           simpl.
-          apply Conc.var_inv_subst in N.
+          apply ULang.var_inv_subst in N.
           auto.
         }
         apply var_inv_seq in N.
         destruct N as [N|N]. {
           contradict hc.
-          eauto using Conc.var_inv_subst.
+          eauto using ULang.var_inv_subst.
         }
         contradict hb.
         apply var_inv_align.
@@ -1359,10 +1359,10 @@ Section Props.
         auto.
       + apply distinct_seq. {
           apply distinct_seq; auto.
-          auto using Conc.distinct_subst.
+          auto using ULang.distinct_subst.
         }
-        auto using Conc.distinct_subst.
-      + apply distinct_c_seq; auto using Conc.distinct_subst.
+        auto using ULang.distinct_subst.
+      + apply distinct_c_seq; auto using ULang.distinct_subst.
   Qed.
 
 End Props.
