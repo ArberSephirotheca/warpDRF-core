@@ -18,30 +18,30 @@ Section Defs.
   Context {A:Access}.
   Context {T:Tasks}.
 
-  Fixpoint proj (c:ULang.inst) : TLang.inst :=
+  Fixpoint trace (c:ULang.inst) : TLang.inst :=
     match c with
     | ULang.Skip => TLang.Skip
-    | ULang.Seq i j => TLang.Seq (proj i) (proj j)
-    | ULang.If b i j => TLang.If b (proj i) (proj j)
+    | ULang.Seq i j => TLang.Seq (trace i) (trace j)
+    | ULang.If b i j => TLang.If b (trace i) (trace j)
     | ULang.MemAcc a => TLang.MemAcc a (NVar TID)
-    | ULang.For x r i => TLang.Decl x r (proj i)
+    | ULang.For x r i => TLang.Decl x r (trace i)
     end.
 
-  Definition do_proj x i := TLang.i_subst TID (NVar x) (proj i).
+  Definition do_trace x i := TLang.i_subst TID (NVar x) (trace i).
 
   Definition sequentialize c : TLang.inst :=
     TLang.Decl T1 (NNum 1, NNum TID_COUNT)
       (TLang.Decl T2 (NNum 0, NVar T1)
-        (TLang.Seq (do_proj T1 c) (do_proj T2 c))).
+        (TLang.Seq (do_trace T1 c) (do_trace T2 c))).
 
 
 
   (* ----------------------- SUBSTITUTION --------------------------- *)
 
-  Lemma i_subst_proj_rw:
+  Lemma i_subst_trace_rw:
     forall x i n,
     x <> TID ->
-    proj (ULang.i_subst x (NNum n) i) = TLang.i_subst x (NNum n) (proj i).
+    trace (ULang.i_subst x (NNum n) i) = TLang.i_subst x (NNum n) (trace i).
   Proof.
     induction i; simpl; intros; destruct (Set_VAR.MF.eq_dec x TID); try contradiction.
     - reflexivity.
@@ -58,10 +58,10 @@ Section Defs.
 
   (* ---------------------------- IN PROJECTION -------------------- *)
 
-  Lemma in_proj_to_in:
+  Lemma in_trace_to_in:
     forall x i,
     x <> TID ->
-    TLang.SEFree (proj i) x ->
+    TLang.SEFree (trace i) x ->
     ULang.CFree i x.
   Proof.
     induction i; simpl; intros; inversion H0; subst; clear H0; auto.
@@ -70,9 +70,9 @@ Section Defs.
     + destruct H1; auto.
   Qed.
 
-  Lemma var_proj_rw:
+  Lemma var_trace_rw:
     forall x i,
-    TLang.Var x (proj i) ->
+    TLang.Var x (trace i) ->
     ULang.Var x i.
   Proof.
     induction i; simpl; intros.
@@ -122,11 +122,11 @@ Section Defs.
   Lemma s_in_to_p_in:
     forall a n i,
     ~ ULang.Var TID i ->
-    TLang.SIn a n (proj i) ->
+    TLang.SIn a n (trace i) ->
     PIn a n i.
   Proof.
     intros a n i Hv Hi.
-    remember (proj i) as j.
+    remember (trace i) as j.
     generalize dependent i.
     induction Hi; intros i' Hv Heq.
     - destruct i'; inversion Heq; subst; clear Heq.
@@ -155,14 +155,14 @@ Section Defs.
       + intros N.
         apply ULang.var_inv_subst in N.
         auto.
-      + rewrite i_subst_proj_rw; auto.
+      + rewrite i_subst_trace_rw; auto.
   Qed.
 
   Lemma p_in_to_s_in:
     forall a n i,
     ~ ULang.Var TID i ->
     PIn a n i ->
-    TLang.SIn a n (proj i).
+    TLang.SIn a n (trace i).
   Proof.
     intros a n i Hv Hi.
     generalize dependent Hv.
@@ -182,7 +182,7 @@ Section Defs.
     - simpl in *.
       assert (TID <> x) by auto.
       eapply TLang.s_in_decl; eauto.
-      rewrite <- i_subst_proj_rw; auto.
+      rewrite <- i_subst_trace_rw; auto.
       apply IHHi.
       intros N.
       apply ULang.var_inv_subst in N.
@@ -280,12 +280,12 @@ Section Defs.
     ~ ULang.Var TID i ->
     forall a,
     TIn a i ->
-    TLang.IIn a (TLang.i_subst TID (NNum (access_tid a)) (proj i)).
+    TLang.IIn a (TLang.i_subst TID (NNum (access_tid a)) (trace i)).
   Proof.
     intros.
     apply TLang.s_in_to_i_in. {
       intros N.
-      apply var_proj_rw in N.
+      apply var_trace_rw in N.
       auto.
     }
     apply p_in_to_s_in; auto.
@@ -296,7 +296,7 @@ Section Defs.
     forall i,
     ~ ULang.Var TID i ->
     forall a,
-    TLang.IIn a (TLang.i_subst TID (NNum (access_tid a)) (proj i)) ->
+    TLang.IIn a (TLang.i_subst TID (NNum (access_tid a)) (trace i)) ->
     TIn a i.
   Proof.
     intros i Hv a Hi.
@@ -304,14 +304,14 @@ Section Defs.
     apply s_in_to_p_in; eauto.
     apply TLang.i_in_to_s_in; eauto.
     intros N.
-    apply var_proj_rw in N.
+    apply var_trace_rw in N.
     auto.
   Qed.
 
   Lemma i_in_inv_access_tid:
     forall a t i,
     ~ ULang.Var TID i ->
-    TLang.IIn a (TLang.i_subst TID (NNum t) (proj i)) ->
+    TLang.IIn a (TLang.i_subst TID (NNum t) (trace i)) ->
     t = access_tid a.
   Proof.
     intros a t i Hv Hi.
@@ -321,7 +321,7 @@ Section Defs.
       auto.
     }
     intros N.
-    apply var_proj_rw in N.
+    apply var_trace_rw in N.
     auto.
   Qed.
 
@@ -340,13 +340,13 @@ Section Defs.
     assert (Hx: access_tid a = 0 \/ access_tid a > 0). {
       destruct (access_tid a); auto with *.
     }
-    assert (t1_nin_p: ~ TLang.SEFree (proj i) T1). {
+    assert (t1_nin_p: ~ TLang.SEFree (trace i) T1). {
       intros N.
-      apply in_proj_to_in in N; auto using t1_neq_tid.
+      apply in_trace_to_in in N; auto using t1_neq_tid.
     }
-    assert (t2_nin_p: ~ TLang.SEFree (proj i) T2). {
+    assert (t2_nin_p: ~ TLang.SEFree (trace i) T2). {
       intros N.
-      apply in_proj_to_in in N; auto using t2_neq_tid.
+      apply in_trace_to_in in N; auto using t2_neq_tid.
     }
     destruct Hx as [Hx|Hx]. {
       (*
@@ -363,7 +363,7 @@ Section Defs.
       apply TLang.i_in_decl with (n:=1) (n1:=1) (n2:=TID_COUNT); auto using n_step_num. {
         auto using tid_count_1_lt with *.
       }
-      unfold do_proj.
+      unfold do_trace.
       simpl.
       remove_eq T1 T1.
       remove_eq T1 T2.
@@ -392,7 +392,7 @@ Section Defs.
        Thus, we pick `T1 = access_tid a` and `T2 = 0`.
     *)
     apply TLang.i_in_decl with (n:=access_tid a) (n1:=1) (n2:=TID_COUNT); auto using n_step_num.
-    unfold do_proj.
+    unfold do_trace.
     simpl.
     remove_eq T1 T1.
     remove_eq T1 T2.
@@ -427,13 +427,13 @@ Section Defs.
     inversion Hi; subst; clear Hi.
 
     (* Useful results *)
-    assert (t1_nin_p: ~ TLang.SEFree (proj i) T1). {
+    assert (t1_nin_p: ~ TLang.SEFree (trace i) T1). {
       intros N.
-      apply in_proj_to_in in N; auto using t1_neq_tid.
+      apply in_trace_to_in in N; auto using t1_neq_tid.
     }
-    assert (t2_nin_p: ~ TLang.SEFree (proj i) T2). {
+    assert (t2_nin_p: ~ TLang.SEFree (trace i) T2). {
       intros N.
-      apply in_proj_to_in in N; auto using t2_neq_tid.
+      apply in_trace_to_in in N; auto using t2_neq_tid.
     }
 
 
@@ -471,7 +471,7 @@ Section Defs.
     rename_hyp (TLang.IIn _ _) as Hi.
     simpl in Hi.
     (* Is a in T1 or in T2? *)
-    unfold do_proj in *.
+    unfold do_trace in *.
     inversion Hi; subst; clear Hi;
     rename_hyp (TLang.IIn _ _) as Hi.
     - (* a is in T1 *)
@@ -581,16 +581,16 @@ Section Defs.
     clear Hrc.
 
     (* Now we will find the right pair *)
-    unfold sequentialize, do_proj.
+    unfold sequentialize, do_trace.
 
     (* Useful results *)
-    assert (t1_nin_p: ~ TLang.SEFree (proj i) T1). {
+    assert (t1_nin_p: ~ TLang.SEFree (trace i) T1). {
       intros N.
-      apply in_proj_to_in in N; auto using t1_neq_tid.
+      apply in_trace_to_in in N; auto using t1_neq_tid.
     }
-    assert (t2_nin_p: ~ TLang.SEFree (proj i) T2). {
+    assert (t2_nin_p: ~ TLang.SEFree (trace i) T2). {
       intros N.
-      apply in_proj_to_in in N; auto using t2_neq_tid.
+      apply in_trace_to_in in N; auto using t2_neq_tid.
     }
 
     apply c_i_in_to_t_in in Hix.
@@ -608,7 +608,7 @@ Section Defs.
       remove_eq T1 T1.
       remove_eq T1 T2.
       rewrite TLang.i_subst_subst_trans; auto.
-      assert (~ TLang.SEFree (TLang.i_subst TID (NVar T2) (proj i)) T1). {
+      assert (~ TLang.SEFree (TLang.i_subst TID (NVar T2) (trace i)) T1). {
         intros N.
         apply TLang.i_free_inv_subst in N; auto using t1_neq_t2, t1_neq_tid.
       }
@@ -638,7 +638,7 @@ Section Defs.
     remove_eq T1 T1.
     remove_eq T1 T2.
     rewrite TLang.i_subst_subst_trans; auto.
-    assert (~ TLang.SEFree (TLang.i_subst TID (NVar T2) (proj i)) T1). {
+    assert (~ TLang.SEFree (TLang.i_subst TID (NVar T2) (trace i)) T1). {
       intros N.
       apply TLang.i_free_inv_subst in N; auto using t1_neq_t2, t1_neq_tid.
     }
