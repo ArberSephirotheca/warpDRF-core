@@ -137,11 +137,11 @@ Section Defs.
    - simpl in *.
     rewrite ph_to_hist_subst in hp; auto using NExp.n_closed_num. 2: { intuition. }
     assert (hq: PhaseSplit.PPairIn p (PhaseSplit.ph_subst v (NExp.NNum n) ph)). {
-      apply IHhp; auto.
+      apply IHhp; auto using PhaseSplit.not_var_subst.
       - simpl in *.
         rewrite ph_to_hist_subst; auto using NExp.n_closed_num.
         intuition.
-      - admit.
+      - auto using PhaseSplit.not_var_subst.
       - admit.
       - admit.
       - admit.
@@ -151,24 +151,30 @@ Section Defs.
   Admitted.
 
   Lemma in_2: (* TODO: MEDIUM *)
-    forall p ph,
-    PhaseSplit.PPairIn p ph ->
+    forall x y ph,
+    PhaseSplit.PPairIn (x, y) ph ->
+    access_tid x <> access_tid y ->
     ~ PhaseSplit.Var TID ph ->
     ~ PhaseSplit.Occurs T1 ph ->
     ~ PhaseSplit.Occurs T2 ph ->
     T1 <> T2 ->
     PhaseSplit.Distinct ph ->
-    TLang.IPairIn p (ph_to_hist ph).
+    TLang.IPairIn (x,y) (ph_to_hist ph).
   Proof.
-    intros p ph H.
-    induction H; simpl; intros.
-    - admit.
+    intros x y ph H.
+    remember (x, y) as p.
+    generalize dependent x.
+    generalize dependent y.
+    induction H; simpl; intros a1 a2 heq hneq hv ht1 ht2 ht1t2 hvv.
+    - subst.
+      auto using Sequentialize.i_pair_in_2.
     - destruct r as (e1, e2).
       invc H.
       eapply TLang.i_pair_in_decl; eauto.
       rewrite ph_to_hist_subst; auto using NExp.n_closed_num.
-      2: { intuition. }
-      apply IHPPairIn; auto.
+      
+       2: { intuition. } 
+      eapply IHPPairIn; eauto.
       + admit.
       + admit.
       + admit.
@@ -194,7 +200,7 @@ Section Defs.
     eapply s_run_inv_in in Hi; eauto.
     destruct Hi as (hs, (m1, (Hi, (Hr, Hp)))).
     apply WLang.i_pair_in_2 with (i:=P); auto.
-    eapply SymExec.run_m_pair_in_to_i_pair_in in Hp; eauto.
+    eapply TLang.run_m_pair_in_to_i_pair_in in Hp; eauto.
     unfold w_to_s, aligned_to_sym_hist in Hi.
     apply in_map_iff in Hi.
     destruct Hi as (ph, (?, Hi)).
@@ -207,9 +213,19 @@ Section Defs.
     apply PhaseSplit.in_2 in Hp'.
     - apply Align.in_1; auto.
       eauto using WLang.run_to_can_run.
-    - eauto using Align.distinct_w_to_a.
+    - assert (ALang.PDistinct (Align.align P)). {
+        eauto using Align.distinct_w_to_a.
+      }
+      destruct (Align.align P) as (Px, cx).
+      simpl in *.
+      intuition.
     - assumption.
-  Qed.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+  Admitted.
 
   Theorem drf_2:
     forall P h1 h2,
@@ -232,22 +248,31 @@ Section Defs.
     (* from W to A *)
     apply Align.in_2 in hp; eauto using WLang.run_to_can_run.
     (* From A to PH *)
-    apply PhaseSplit.in_1 in hp; auto using Align.distinct_w_to_a.
+    apply PhaseSplit.in_1 in hp. 2: {
+      assert (ALang.PDistinct (Align.align P)) by auto using Align.distinct_w_to_a.
+      destruct (Align.align P) as (Px,cx).
+      simpl in *.
+      intuition. 
+    }
     (* From PH to S.T. *)
     destruct hp as (ph, (Hi, Hp)).
-    apply in_2 in Hp.
-    (* symb trace to h2 *)
-    unfold w_to_s in *.
-    unfold aligned_to_sym_hist in *.
-    rename_hyp (SRun _ _) as hs.
-    apply s_run_inv with (x:=ph_to_hist ph) in hs; auto. 2: {
-      rewrite in_map_iff.
-      eauto.
-    }
-    destruct hs as (h, (Hsr, hi)).
-    eapply SymExec.run_i_pair_in_to_m_pair_in with (h0:=h) in Hp; eauto.
-    eauto using PairInUtil.m_pair_in_incl.
-  Qed.
+    apply in_2 in Hp; auto using t1_neq_t2.
+    + (* symb trace to h2 *)
+      unfold w_to_s in *.
+      unfold aligned_to_sym_hist in *.
+      rename_hyp (SRun _ _) as hs.
+      apply s_run_inv with (x:=ph_to_hist ph) in hs; auto. 2: {
+        rewrite in_map_iff.
+        eauto.
+      }
+      destruct hs as (h, (Hsr, hi)).
+      eapply TLang.run_i_pair_in_to_m_pair_in with (h0:=h) in Hp; eauto.
+      eauto using PairInUtil.m_pair_in_incl.
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+  Admitted.
 
   Theorem drf:
     forall P h1 h2,

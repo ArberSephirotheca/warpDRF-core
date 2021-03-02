@@ -44,14 +44,14 @@ Section C1.
 
   Notation history := (list access_val).
 
-  Fixpoint CFree c (x:var) :=
-  match c with
-  | Skip => False
-  | MemAcc e => AFree e x
-  | If b i j => BFree b x \/ CFree i x \/ CFree j x
-  | Seq i j => CFree i x \/ CFree j x
-  | For y r i => x = y \/ RFree r x \/ CFree i x
-  end.
+  Fixpoint Occurs (x:var) c :=
+    match c with
+    | Skip => False
+    | MemAcc e => AFree e x
+    | If b i j => BFree b x \/ Occurs x i \/ Occurs x j
+    | Seq i j => Occurs x i \/ Occurs x j
+    | For y r i => x = y \/ RFree r x \/ Occurs x i
+    end.
 
   Fixpoint Var x i :=
   match i with
@@ -232,18 +232,26 @@ Section C1.
     - destruct (Set_VAR.MF.eq_dec x v); auto.
   Qed.
 
-  Lemma c_free_inv_subst_1:
-    forall y x n i,
-    CFree (i_subst x (NNum n) i) y ->
-    CFree i y.
+  Lemma occurs_inv_subst:
+    forall y x v i,
+    ~ NFree v y ->
+    Occurs y (i_subst x v i) ->
+    Occurs y i.
   Proof.
-    induction i; simpl; intros; auto; try (destruct H; auto).
-    - apply b_free_subst_neq in H; auto.
-    - destruct H; auto.
-    - eapply access_in_subst_neq; eauto.
-    - destruct H; auto.
-      + apply r_free_subst_neq in H; eauto.
-      + destruct (Set_VAR.MF.eq_dec x v); auto.
+    induction i; simpl; intros; auto; intuition.
+    - eauto using b_free_subst_neq.
+    - eauto using access_in_subst_neq.
+    - eauto using r_free_subst_neq.
+    - destruct (Set_VAR.MF.eq_dec x v0); auto.
+  Qed.
+
+  Lemma occurs_inv_subst_num:
+    forall y x n i,
+    Occurs y (i_subst x (NNum n) i) ->
+    Occurs y i.
+  Proof.
+    intros.
+    apply occurs_inv_subst in H; auto.
   Qed.
 
   (** Parallelize an access for [n] tasks. *)
@@ -1607,31 +1615,27 @@ Section C1.
       rewrite IHc; auto.
   Qed.
 
-  Lemma c_free_inv_subst_eq:
+  Lemma occurs_inv_subst_eq:
     forall x e c,
     ~ Var x c ->
-    CFree (i_subst x e c) x ->
+    Occurs x (i_subst x e c) ->
     NFree e x. 
   Proof.
-    induction c; simpl; intros.
-    - contradiction.
-    - rename_hyp (_ \/ _) as Hi.
-      destruct Hi as [Hi|[Hi|Hi]]; eauto using b_free_inv_subst_eq.
-    - rename_hyp (_ \/ _) as Hi.
-      destruct Hi as [Hi|Hi]; eauto.
+    intros.
+    induction c; simpl in *; intros; intuition.
+    - eauto using b_free_inv_subst_eq.
     - eauto using access_free_inv_subst_eq.
-    - intuition.
-      + eauto using r_free_inv_subst_eq.
-      + destruct (Set_VAR.MF.eq_dec x v). {
-          subst.
-          contradiction.
-        }
-        auto.
+    - eauto using r_free_inv_subst_eq.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        contradiction.
+      }
+      auto.
   Qed.
 
-  Lemma c_subst_not_free:
+  Lemma i_subst_not_occurs:
     forall x c,
-    ~ CFree c x ->
+    ~ Occurs x c ->
     forall v,
     i_subst x v c = c.
   Proof.
@@ -1649,7 +1653,7 @@ Section C1.
       destruct (Set_VAR.MF.eq_dec x v); subst; auto.
   Qed.
 
-  Lemma c_subst_subst_neq_5:
+  Lemma i_subst_subst_neq_5:
     forall c x y e1 e2,
     NClosed e1 ->
     y <> x ->
@@ -1724,7 +1728,7 @@ Section C1.
     auto.
   Qed.
 
-  Lemma c_subst_c_seq:
+  Lemma i_subst_c_seq:
     forall x v c1 c2,
     i_subst x v (c_seq c1 c2)
     = c_seq (i_subst x v c1) (i_subst x v c2).
@@ -1736,7 +1740,7 @@ Section C1.
   Qed.
 
   Definition CClosed P :=
-    forall x, ~ CFree P x.
+    forall x, ~ Occurs x P.
 
   Lemma c_var_inv_subst:
     forall c x y v,

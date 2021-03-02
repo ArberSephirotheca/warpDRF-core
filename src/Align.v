@@ -206,9 +206,9 @@ Section Props.
       simpl in Ht'.
       invc Ht'.
       apply eq_c_seq_def. {
-        rewrite c_subst_subst_neq_5; auto.
+        rewrite i_subst_subst_neq_5; auto.
       }
-      rewrite c_subst_subst_neq_5; auto.
+      rewrite i_subst_subst_neq_5; auto.
       intuition.
   Qed.
 
@@ -514,7 +514,6 @@ Section Props.
      forall p,
      PPairIn p (align (w_subst x (NNum n) P)) -> WLang.IPairIn p (w_subst x (NNum n) P)) ->
     ~ WVar x P ->
-(*     ~ WVar TID P -> *)
     x <> TID ->
     forall P_x c_x,
     align P = (P_x, c_x) ->

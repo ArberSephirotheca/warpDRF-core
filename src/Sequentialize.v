@@ -61,8 +61,8 @@ Section Defs.
    Lemma in_trace_to_in:
     forall x i,
     x <> TID ->
-    TLang.SEFree (trace i) x ->
-    ULang.CFree i x.
+    TLang.Occurs x (trace i) ->
+    ULang.Occurs x i.
   Proof.
     induction i; simpl; intros; inversion H0; subst; clear H0; auto.
     + destruct H1; auto.
@@ -328,8 +328,8 @@ Section Defs.
   Lemma t_in_to_i_in_split:
     forall i,
     ~ ULang.Var TID i ->
-    ~ ULang.CFree i T1 ->
-    ~ ULang.CFree i T2 ->
+    ~ ULang.Occurs T1 i ->
+    ~ ULang.Occurs T2 i ->
     forall a,
     access_tid a < TID_COUNT -> (* needed for the second branch, can we prove this? *)
     TIn a i ->
@@ -340,11 +340,11 @@ Section Defs.
     assert (Hx: access_tid a = 0 \/ access_tid a > 0). {
       destruct (access_tid a); auto with *.
     }
-    assert (t1_nin_p: ~ TLang.SEFree (trace i) T1). {
+    assert (t1_nin_p: ~ TLang.Occurs T1 (trace i)). {
       intros N.
       apply in_trace_to_in in N; auto using t1_neq_tid.
     }
-    assert (t2_nin_p: ~ TLang.SEFree (trace i) T2). {
+    assert (t2_nin_p: ~ TLang.Occurs T2 (trace i)). {
       intros N.
       apply in_trace_to_in in N; auto using t2_neq_tid.
     }
@@ -372,12 +372,12 @@ Section Defs.
       apply TLang.i_in_seq_r.
       rewrite TLang.i_subst_subst_neq; auto using t1_neq_t2.
       rewrite TLang.i_subst_subst_trans; auto.
-      rewrite TLang.i_subst_not_free. {
+      rewrite TLang.i_subst_not_occurs. {
         rewrite <- Hx.
         apply t_in_to_i_in; auto.
       }
       intros N.
-      apply TLang.i_free_subst_neq in N; auto using t1_neq_tid. 
+      apply TLang.i_occurs_subst_neq in N; auto using t1_neq_tid. 
     }
     (*
        We have that access_tid a > 0.
@@ -399,13 +399,13 @@ Section Defs.
     apply TLang.i_in_decl with (n:=0) (n1:=0) (n2:=access_tid a); auto using n_step_num.
     simpl.
     apply TLang.i_in_seq_l.
-    rewrite TLang.i_subst_not_free. {
+    rewrite TLang.i_subst_not_occurs. {
       rewrite TLang.i_subst_subst_trans; auto.
       apply t_in_to_i_in; auto.
     }
     intros N.
-    apply TLang.i_free_subst_neq in N; auto using t1_neq_t2.
-    apply TLang.i_free_subst_neq in N; auto using t2_neq_tid.
+    apply TLang.i_occurs_subst_neq in N; auto using t1_neq_t2.
+    apply TLang.i_occurs_subst_neq in N; auto using t2_neq_tid.
     intros X.
     inversion X.
     contradict H0.
@@ -415,8 +415,8 @@ Section Defs.
   Lemma i_in_sequentialize_to_t_in:
     forall i,
     ~ ULang.Var TID i ->
-    ~ ULang.CFree i T1 ->
-    ~ ULang.CFree i T2 ->
+    ~ ULang.Occurs T1 i ->
+    ~ ULang.Occurs T2 i ->
     forall a,
     TLang.IIn a (sequentialize i) ->
     TIn a i /\ access_tid a < TID_COUNT.
@@ -427,11 +427,11 @@ Section Defs.
     inversion Hi; subst; clear Hi.
 
     (* Useful results *)
-    assert (t1_nin_p: ~ TLang.SEFree (trace i) T1). {
+    assert (t1_nin_p: ~ TLang.Occurs T1 (trace i)). {
       intros N.
       apply in_trace_to_in in N; auto using t1_neq_tid.
     }
-    assert (t2_nin_p: ~ TLang.SEFree (trace i) T2). {
+    assert (t2_nin_p: ~ TLang.Occurs T2 (trace i)). {
       intros N.
       apply in_trace_to_in in N; auto using t2_neq_tid.
     }
@@ -475,26 +475,26 @@ Section Defs.
     inversion Hi; subst; clear Hi;
     rename_hyp (TLang.IIn _ _) as Hi.
     - (* a is in T1 *)
-      rewrite TLang.i_subst_not_free in Hi. {
+      rewrite TLang.i_subst_not_occurs in Hi. {
         rewrite TLang.i_subst_subst_trans in Hi; auto.
         assert (R:  t1 = access_tid a) by eauto using i_in_inv_access_tid.
         rewrite R in Hi.
         auto using i_in_to_t_in with *.
       }
       intros N.
-      apply TLang.se_free_inv_subst_neq_num in N; auto.
-      apply TLang.i_free_inv_subst in N; auto using t1_neq_t2, t2_neq_tid.
+      apply TLang.i_occurs_inv_subst_neq_num in N; auto.
+      apply TLang.i_occurs_inv_subst in N; auto using t1_neq_t2, t2_neq_tid.
     - (* a is in T2 *)
       rewrite TLang.i_subst_subst_neq in Hi; auto using t1_neq_t2.
-      rewrite TLang.i_subst_not_free in Hi. {
+      rewrite TLang.i_subst_not_occurs in Hi. {
         rewrite TLang.i_subst_subst_trans in Hi; auto.
         assert (R: t2 = access_tid a) by eauto using i_in_inv_access_tid.
         rewrite R in Hi.
         auto using i_in_to_t_in with *.
       }
       intros N.
-      apply TLang.i_free_subst_neq in N; auto using t1_neq_t2.
-      apply TLang.i_free_inv_subst in N; auto using t1_neq_t2, t1_neq_tid.
+      apply TLang.i_occurs_subst_neq in N; auto using t1_neq_t2.
+      apply TLang.i_occurs_inv_subst in N; auto using t1_neq_t2, t1_neq_tid.
   Qed.
 
 
@@ -533,11 +533,11 @@ Section Defs.
 
   Lemma t_pair_in_lt:
     forall i x y,
-    ~ ULang.CFree i T1 ->
-    ~ ULang.CFree i T2 ->
+    ~ ULang.Occurs T1 i ->
+    ~ ULang.Occurs T2 i ->
     ~ ULang.Var TID i ->
-    ~ TLang.SEFree (trace i) T1 ->
-    ~ TLang.SEFree (trace i) T2 ->
+    ~ TLang.Occurs T1 (trace i) ->
+    ~ TLang.Occurs T2 (trace i) ->
     access_tid x < TID_COUNT ->
     TIn x i ->
     access_tid y < TID_COUNT ->
@@ -557,11 +557,11 @@ Section Defs.
     remove_eq T1 T1.
     remove_eq T1 T2.
     rewrite TLang.i_subst_subst_trans; auto.
-    assert (~ TLang.SEFree (TLang.i_subst TID (NVar T2) (trace i)) T1). {
+    assert (~ TLang.Occurs T1 (TLang.i_subst TID (NVar T2) (trace i))). {
       intros N.
-      apply TLang.i_free_inv_subst in N; auto using t1_neq_t2, t1_neq_tid.
+      apply TLang.i_occurs_inv_subst in N; auto using t1_neq_t2, t1_neq_tid.
     }
-    rewrite TLang.i_subst_not_free with (x0:=T1); auto.
+    rewrite TLang.i_subst_not_occurs with (x0:=T1); auto.
     (* fix the second biding *)
     apply TLang.i_pair_in_decl with (n:=access_tid x) (n1:=0) (n2:=access_tid y);
       auto using n_step_num with *.
@@ -571,19 +571,19 @@ Section Defs.
     simpl.
     right.
     split. {
-      rewrite TLang.i_subst_not_free. {
+      rewrite TLang.i_subst_not_occurs. {
         apply t_in_to_i_in; auto.
       }
       intros N.
-      apply TLang.se_free_inv_subst_neq_num in N; auto.
+      apply TLang.i_occurs_inv_subst_neq_num in N; auto.
     }
     apply t_in_to_i_in; auto.
   Qed.
 
   Corollary soundness:
     forall m_c m_h i,
-    ~ ULang.CFree i T1 ->
-    ~ ULang.CFree i T2 ->
+    ~ ULang.Occurs T1 i ->
+    ~ ULang.Occurs T2 i ->
     ~ ULang.Var TID i ->
     Hist.MSafeStrong m_h ->
     ULang.RunAll TID_COUNT i m_c ->
@@ -633,11 +633,11 @@ Section Defs.
     unfold sequentialize, do_trace.
 
     (* Useful results *)
-    assert (t1_nin_p: ~ TLang.SEFree (trace i) T1). {
+    assert (t1_nin_p: ~ TLang.Occurs T1 (trace i)). {
       intros N.
       apply in_trace_to_in in N; auto using t1_neq_tid.
     }
-    assert (t2_nin_p: ~ TLang.SEFree (trace i) T2). {
+    assert (t2_nin_p: ~ TLang.Occurs T2 (trace i)). {
       intros N.
       apply in_trace_to_in in N; auto using t2_neq_tid.
     }
@@ -658,8 +658,8 @@ Section Defs.
 
   Lemma i_pair_in_1:
     forall p i,
-    ~ ULang.CFree i T1 ->
-    ~ ULang.CFree i T2 ->
+    ~ ULang.Occurs T1 i ->
+    ~ ULang.Occurs T2 i ->
     ~ ULang.Var TID i ->
     (* --- *)
     TLang.IPairIn p (sequentialize i) ->
@@ -681,8 +681,8 @@ Section Defs.
 
   Lemma i_pair_in_2:
     forall i,
-    ~ ULang.CFree i T1 ->
-    ~ ULang.CFree i T2 ->
+    ~ ULang.Occurs T1 i ->
+    ~ ULang.Occurs T2 i ->
     ~ ULang.Var TID i ->
     (* --- *)
     forall x y,
@@ -702,11 +702,11 @@ Section Defs.
     unfold sequentialize, do_trace.
 
     (* Useful results *)
-    assert (t1_nin_p: ~ TLang.SEFree (trace i) T1). {
+    assert (t1_nin_p: ~ TLang.Occurs T1 (trace i)). {
       intros N.
       apply in_trace_to_in in N; auto using t1_neq_tid.
     }
-    assert (t2_nin_p: ~ TLang.SEFree (trace i) T2). {
+    assert (t2_nin_p: ~ TLang.Occurs T2 (trace i)). {
       intros N.
       apply in_trace_to_in in N; auto using t2_neq_tid.
     }
@@ -792,8 +792,8 @@ Section Defs.
 
   Corollary completeness:
     forall m_c m_h i,
-    ~ ULang.CFree i T1 ->
-    ~ ULang.CFree i T2 ->
+    ~ ULang.Occurs T1 i ->
+    ~ ULang.Occurs T2 i ->
     ~ ULang.Var TID i ->
     Hist.Safe m_c ->
     ULang.RunAll TID_COUNT i m_c ->
@@ -820,8 +820,8 @@ Section Defs.
 
   Corollary correctness:
     forall m_c m_h i,
-    ~ ULang.CFree i T1 ->
-    ~ ULang.CFree i T2 ->
+    ~ ULang.Occurs T1 i ->
+    ~ ULang.Occurs T2 i ->
     ~ ULang.Var TID i ->
     ULang.RunAll TID_COUNT i m_c ->
     TLang.Run (sequentialize i) m_h ->

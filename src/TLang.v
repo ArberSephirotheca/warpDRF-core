@@ -264,19 +264,19 @@ Section Defs.
 
   (* ------------------------------- In ----------------------------- *)
 
-  Fixpoint SEFree (i:inst) x : Prop :=
+  Fixpoint Occurs x (i:inst) : Prop :=
     match i with
     | MemAcc e n => AFree e x \/ NFree n x
     | Skip => False
-    | Seq i j => SEFree i x \/ SEFree j x
-    | If b i j => BFree b x \/ SEFree i x \/ SEFree j x
-    | Decl y r i => x = y \/ RFree r x \/ SEFree i x 
-    | Fork i j => SEFree i x \/ SEFree j x
+    | Seq i j => Occurs x i \/ Occurs x j
+    | If b i j => BFree b x \/ Occurs x i \/ Occurs x j
+    | Decl y r i => x = y \/ RFree r x \/ Occurs x i 
+    | Fork i j => Occurs x i \/ Occurs x j
     end.
 
-  Lemma i_subst_not_free:
+  Lemma i_subst_not_occurs:
     forall i x v,
-    ~ SEFree i x ->
+    ~ Occurs x i ->
     i_subst x v i = i.
   Proof.
     induction i; intros; simpl in *.
@@ -300,7 +300,7 @@ Section Defs.
 
   Lemma i_subst_subst_trans:
     forall i x y v,
-    ~ SEFree i x ->
+    ~ Occurs x i ->
     i_subst x v (i_subst y (NVar x) i) =
     i_subst y v i.
   Proof.
@@ -319,19 +319,19 @@ Section Defs.
       }
       destruct (Set_VAR.MF.eq_dec y v). {
         subst.
-        rewrite i_subst_not_free; auto.
+        rewrite i_subst_not_occurs; auto.
       }
       rewrite IHi; auto.
     - rewrite IHi1; auto.
       rewrite IHi2; auto.
   Qed.
 
-  Lemma i_free_subst_neq:
+  Lemma i_occurs_subst_neq:
     forall i x y v,
-    SEFree (i_subst y v i) x ->
+    Occurs x (i_subst y v i) ->
     x <> y ->
     ~ NFree v x ->
-    SEFree i x.
+    Occurs x i.
   Proof.
     induction i;
       simpl;
@@ -350,21 +350,21 @@ Section Defs.
     - destruct H; eauto.
   Qed.
 
-  Lemma i_free_inv_subst:
+  Lemma i_occurs_inv_subst:
     forall e x y z,
     x <> y ->
     x <> z ->
-    SEFree (i_subst z (NVar y) e) x ->
-    SEFree e x.
+    Occurs x (i_subst z (NVar y) e) ->
+    Occurs x e.
   Proof.
     intros.
-    apply i_free_subst_neq in H1; auto.
+    apply i_occurs_subst_neq in H1; auto.
   Qed.
 
-  Lemma se_free_inv_subst_neq_num:
+  Lemma i_occurs_inv_subst_neq_num:
     forall y x n i,
-    SEFree (i_subst x (NNum n) i) y ->
-    SEFree i y.
+    Occurs y (i_subst x (NNum n) i) ->
+    Occurs y i.
   Proof.
     induction i; simpl; intros.
     - inversion H.

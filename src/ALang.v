@@ -293,7 +293,7 @@ Section Props.
       n_seq (ULang.i_subst x v c) (subst x v P).
   Proof.
     induction P; simpl; intros.
-    - rewrite c_subst_c_seq.
+    - rewrite i_subst_c_seq.
       auto.
     - rewrite IHP1.
       auto.
@@ -337,22 +337,22 @@ Section Props.
       auto.
   Qed.
 
-  Fixpoint IFree (P : n_inst)  (x : var) {struct P} : Prop :=
+  Fixpoint Occurs (x : var) (P : n_inst) : Prop :=
     match P with
-    | NSync c => ULang.CFree c x
-    | NSeq P Q => IFree P x \/ IFree Q x
+    | NSync c => ULang.Occurs x c
+    | NSeq P Q => Occurs x P \/ Occurs x Q
     | NFor P y r Q =>
-        IFree P x \/ RFree r x \/ (x <> y /\ IFree Q x)
+        Occurs x P \/ RFree r x \/ (x <> y /\ Occurs x Q)
     end.
 
-  Lemma i_free_inv_subst_eq:
+  Lemma occurs_inv_subst_eq:
     forall x v P,
     ~ Var x P ->
-    IFree (subst x v P) x ->
+    Occurs x (subst x v P) ->
     NFree v x.
   Proof.
     induction P; simpl; intros.
-    - eauto using c_free_inv_subst_eq.
+    - eauto using ULang.occurs_inv_subst_eq.
     - intuition.
     - intuition.
       + eauto using r_free_inv_subst_eq.
@@ -483,7 +483,7 @@ Section Props.
 
   Definition IClosed P :=
     forall x,
-    ~ IFree P x.
+    ~ Occurs x P.
 
   Lemma i_closed_inv_r:
     forall P v r Q,
@@ -532,7 +532,7 @@ Section Props.
   Proof.
     induction P; intros.
     - simpl.
-      rewrite ULang.c_subst_subst_neq_5; auto.
+      rewrite ULang.i_subst_subst_neq_5; auto.
     - simpl in *.
       rewrite IHP1; auto.
       rewrite IHP2; auto.

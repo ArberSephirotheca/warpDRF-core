@@ -27,7 +27,7 @@ Section Defs.
 
   Fixpoint Occurs x p :=
     match p with
-    | Phase u => ULang.CFree u x
+    | Phase u => ULang.Occurs x u
     | Decl y _ p => x = y \/ Occurs x p
     end.
 
@@ -58,6 +58,49 @@ Section Defs.
       in
       Decl y (r_subst x v r) P'
     end.
+
+  Lemma var_inv_subst:
+    forall x y v ph,
+    Var x (ph_subst y v ph) ->
+    Var x ph.
+  Proof.
+    induction ph; simpl in *; intros.
+    - eauto using ULang.var_inv_subst.
+    - intuition.
+      destruct (Set_VAR.MF.eq_dec y v0). {
+        subst.
+        intuition.
+      }
+      intuition.
+  Qed.
+
+  Lemma not_var_subst:
+    forall x y v ph,
+    ~ Var x ph ->
+    ~ Var x (ph_subst y v ph).
+  Proof.
+    intros.
+    intros N.
+    apply var_inv_subst in N.
+    contradiction.
+  Qed.
+
+  Lemma occurs_inv_subst:
+    forall x y v ph,
+    ~ NFree v x ->
+    Occurs x (ph_subst y v ph) ->
+    Occurs x ph.
+  Proof.
+    induction ph; simpl in *; intros.
+    - eapply ULang.occurs_inv_subst; eauto.
+    - intuition.
+      destruct (Set_VAR.MF.eq_dec y v0). {
+        subst.
+        intuition.
+      }
+      intuition.
+  Qed.
+
 
   Inductive PPairIn (p:access_val * access_val) : phase -> Prop :=
   | p_pair_in_phase:
