@@ -29,7 +29,7 @@ Section Defs.
 
   Definition do_proj x i := TLang.i_subst TID (NVar x) (proj i).
 
-  Definition translate c : TLang.inst :=
+  Definition sequentialize c : TLang.inst :=
     TLang.Decl T1 (NNum 1, NNum TID_COUNT)
       (TLang.Decl T2 (NNum 0, NVar T1)
         (TLang.Seq (do_proj T1 c) (do_proj T2 c))).
@@ -325,7 +325,7 @@ Section Defs.
     auto.
   Qed.
 
-  Lemma t_in_to_i_in_translate:
+  Lemma t_in_to_i_in_split:
     forall i,
     ~ ULang.Var TID i ->
     ~ ULang.CFree i T1 ->
@@ -333,10 +333,10 @@ Section Defs.
     forall a,
     access_tid a < TID_COUNT -> (* needed for the second branch, can we prove this? *)
     TIn a i ->
-    TLang.IIn a (translate i).
+    TLang.IIn a (sequentialize i).
   Proof.
     intros i Hv t1_nin t2_nin a a_lt_tc Hi.
-    unfold translate.
+    unfold sequentialize.
     assert (Hx: access_tid a = 0 \/ access_tid a > 0). {
       destruct (access_tid a); auto with *.
     }
@@ -412,17 +412,17 @@ Section Defs.
     auto using t1_neq_t2.
   Qed.
 
-  Lemma i_in_translate_to_t_in:
+  Lemma i_in_sequentialize_to_t_in:
     forall i,
     ~ ULang.Var TID i ->
     ~ ULang.CFree i T1 ->
     ~ ULang.CFree i T2 ->
     forall a,
-    TLang.IIn a (translate i) ->
+    TLang.IIn a (sequentialize i) ->
     TIn a i /\ access_tid a < TID_COUNT.
   Proof.
     intros i Hv t1_nin t2_nin a Hi.
-    unfold translate in Hi.
+    unfold sequentialize in Hi.
 
     inversion Hi; subst; clear Hi.
 
@@ -538,7 +538,7 @@ Section Defs.
     ~ ULang.Var TID i ->
     Hist.MSafeStrong m_h ->
     ULang.RunAll TID_COUNT i m_c ->
-    TLang.Run (translate i) m_h ->
+    TLang.Run (sequentialize i) m_h ->
     Hist.Safe m_c.
   Proof.
     intros m_c m_h i nin_t1 nin_t2 Hv Hs1 Hrc Hrh.
@@ -581,7 +581,7 @@ Section Defs.
     clear Hrc.
 
     (* Now we will find the right pair *)
-    unfold translate, do_proj.
+    unfold sequentialize, do_proj.
 
     (* Useful results *)
     assert (t1_nin_p: ~ TLang.SEFree (proj i) T1). {
@@ -663,7 +663,7 @@ Section Defs.
 
 (*
   Lemma i_pair_in_1:
-SymExec.IPairIn p (TLang.translate TID_COUNT i)
+SymExec.IPairIn p (TLang.sequentialize TID_COUNT i)
 ______________________________________(1/1)
 ULang.CPairIn p i
 *)
@@ -675,7 +675,7 @@ ULang.CPairIn p i
     ~ ULang.Var TID i ->
     Hist.Safe m_c ->
     ULang.RunAll TID_COUNT i m_c ->
-    TLang.Run (translate i) m_h ->
+    TLang.Run (sequentialize i) m_h ->
     Hist.MSafeStrong m_h.
   Proof.
     intros m_c m_h i nin_t1 nin_t2 Hv Hs1 Hrc Hrh.
@@ -685,9 +685,9 @@ ULang.CPairIn p i
     eapply TLang.run_m_pair_in_to_i_pair_in in Hp; eauto.
     apply TLang.i_pair_in_to_i_in in Hp.
     destruct Hp as (Hxi, Hyi).
-    apply i_in_translate_to_t_in in Hxi; auto.
+    apply i_in_sequentialize_to_t_in in Hxi; auto.
     destruct Hxi as (Hxi, Hlt_x).
-    apply i_in_translate_to_t_in in Hyi; auto.
+    apply i_in_sequentialize_to_t_in in Hyi; auto.
     destruct Hyi as (Hyi, Hlt_y).
     apply t_in_to_c_i_in in Hxi.
     apply t_in_to_c_i_in in Hyi.
@@ -702,7 +702,7 @@ ULang.CPairIn p i
     ~ ULang.CFree i T2 ->
     ~ ULang.Var TID i ->
     ULang.RunAll TID_COUNT i m_c ->
-    TLang.Run (translate i) m_h ->
+    TLang.Run (sequentialize i) m_h ->
     Hist.Safe m_c <-> Hist.MSafeStrong m_h.
   Proof.
     split; intros. {

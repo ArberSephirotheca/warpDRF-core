@@ -6,7 +6,7 @@ Require Import NExp.
 Require Import Var.
 Require Import Tictac.
 Require ULang.
-Require USplit.
+Require Sequentialize.
 Require Import Coq.Lists.List.
 
 Import ListNotations.

@@ -1,21 +1,20 @@
 
 # Languages
 
-* `Conc.v`: unsynchronized protocols
+* `ULang.v`: unsynchronized protocols
 * `WLang.v`: well-formed protocols
-* `SymHist.v` + `SymExec.v`: symbolic traces
-* `AlignLang.v`: aligned language
+* `TLang.v`: symbolic traces
+* `ALang.v`: aligned language
 
 # Barrier aligning
 * `Align.v`: barrier aligning (function align) + proofs
 
 # Barrier splitting
-* `SHCompiler.v`: barrier splitting (just projection)
-* `SHResults.v`: barrier splitting (completeness and correctness)
+* `Sequentialize.v`: sequentializing an unsynchronized protocol into a symbolic trace
 * `PhaseSplit.v`: the barrier splitting function + language
 
 # Misc
-* `AccExp.v`: theory of accesses (abstraction over access expressions)
+* `AExp.v`: theory of accesses (abstraction over access expressions)
 * `AccExpImpl.v`: one dimensional arrays
 * `Tasks.v`: declares special variables `TID`, `T1`, and `T2`, which are all
   different from each other and `TID_COUNT >= 2`
