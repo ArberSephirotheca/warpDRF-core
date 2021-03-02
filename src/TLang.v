@@ -226,6 +226,42 @@ Section Defs.
       rewrite IHi; auto.
   Qed.
 
+  Lemma i_subst_subst_neq_3:
+    forall c x y v1 v2,
+    x <> y ->
+    ~ NFree v1 y ->
+    ~ NFree v2 x ->
+    i_subst x v1 (i_subst y v2 c)
+    =
+    i_subst y v2 (i_subst x v1 c).
+  Proof.
+    induction c; intros; simpl.
+    - reflexivity.
+    - rewrite IHc1; auto.
+      rewrite IHc2; auto.
+    - rewrite b_subst_subst_neq_3; auto.
+      rewrite IHc1; auto.
+      rewrite IHc2; auto.
+    - rewrite access_subst_subst_neq_3; auto.
+      rewrite n_subst_subst_neq_3; auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        destruct (Set_VAR.MF.eq_dec y v). {
+          subst.
+          contradiction.
+        }
+        rewrite r_subst_subst_neq_3; auto.
+      }
+      destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        rewrite r_subst_subst_neq_3; auto.
+      }
+      rewrite r_subst_subst_neq_3; auto.
+      rewrite IHc;auto.
+    - rewrite IHc1; auto.
+      rewrite IHc2; auto.
+  Qed.
+
   (* ------------------------------- In ----------------------------- *)
 
   Fixpoint SEFree (i:inst) x : Prop :=

@@ -661,12 +661,89 @@ Section Defs.
     apply t_in_to_i_in; auto.
   Qed.
 
-(*
   Lemma i_pair_in_1:
-SymExec.IPairIn p (TLang.sequentialize TID_COUNT i)
-______________________________________(1/1)
-ULang.CPairIn p i
-*)
+    forall p i,
+    ~ ULang.CFree i T1 ->
+    ~ ULang.CFree i T2 ->
+    ~ ULang.Var TID i ->
+    (* --- *)
+    TLang.IPairIn p (sequentialize i) ->
+    ULang.CPairIn p i.
+  Proof.
+    intros.
+    destruct p as (a1, a2).
+    rename_hyp (TLang.IPairIn _ _) as hp.
+    apply TLang.i_pair_in_to_i_in in hp.
+    destruct hp as (Hxi, Hyi).
+    apply i_in_sequentialize_to_t_in in Hxi; auto.
+    destruct Hxi as (Hxi, Hlt_x).
+    apply i_in_sequentialize_to_t_in in Hyi; auto.
+    destruct Hyi as (Hyi, Hlt_y).
+    apply t_in_to_c_i_in in Hxi.
+    apply t_in_to_c_i_in in Hyi.
+    eauto using ULang.c_pair_in_def, ULang.c_in_def.
+  Qed.
+
+  Lemma trace_subst_rw:
+    forall x v u,
+    ~ ULang.Var x u ->
+    NClosed v ->
+    x <> TID ->
+    trace (ULang.i_subst x v u) =
+    TLang.i_subst x v (trace u).
+  Proof.
+    induction u;
+      intros;
+      simpl;
+      rename_hyp (~ ULang.Var x _) as hv;
+      simpl in hv.
+    - reflexivity.
+    - rewrite IHu1; auto.
+      rewrite IHu2; auto.
+    - rewrite IHu1; auto.
+      rewrite IHu2; auto.
+    - destruct (Set_VAR.MF.eq_dec x TID) as [?|_]; try contradiction.
+      reflexivity.
+    - rename v0 into y.
+      destruct (Set_VAR.MF.eq_dec x y). {
+        intuition.
+      }
+      rewrite IHu; auto.
+  Qed.
+
+  Lemma do_trace_subst_rw:
+    forall x v y i,
+    x <> TID ->
+    ~ ULang.Var x i ->
+    NClosed v ->
+    x <> y ->
+    TLang.i_subst x v (do_trace y i) =
+    do_trace y (ULang.i_subst x v i).
+  Proof.
+    unfold do_trace.
+    intros.
+    rewrite trace_subst_rw; auto.
+    rewrite TLang.i_subst_subst_neq_3; auto.
+  Qed.
+
+  Lemma sequentialize_subst_rw:
+    forall x v i,
+    ~ ULang.Var x i ->
+    NClosed v ->
+    x <> T1 ->
+    x <> T2 ->
+    x <> TID ->
+    TLang.i_subst x v (sequentialize i) = sequentialize (ULang.i_subst x v i).
+  Proof.
+    intros.
+    unfold sequentialize.
+    simpl.
+    destruct (Set_VAR.MF.eq_dec x T1) as [?|_]; try contradiction.
+    destruct (Set_VAR.MF.eq_dec x T2) as [?|_]; try contradiction.
+    rewrite do_trace_subst_rw; auto.
+    rewrite do_trace_subst_rw; auto.
+  Qed.
+
 
   Corollary completeness:
     forall m_c m_h i,

@@ -1,12 +1,11 @@
 Require Import Coq.Lists.List.
 
 Require Import Tasks.
-Require Import AccExp.
+Require Import AExp.
 Require Import Tictac.
-Require SymHist.
-Require SymExec.
+Require ULang.
 Require Align.
-Require SHCompiler.
+Require Sequentialize.
 Require PhaseSplit.
 Require WLang.
 Require Hist.
@@ -20,8 +19,8 @@ Section Defs.
 
   Fixpoint ph_to_hist (p:PhaseSplit.phase) :=
     match p with
-    | PhaseSplit.Phase c => SymHist.translate TID_COUNT c
-    | PhaseSplit.Decl x r p => SymExec.Decl x r (ph_to_hist p)
+    | PhaseSplit.Phase c => Sequentialize.sequentialize c
+    | PhaseSplit.Decl x r p => TLang.Decl x r (ph_to_hist p)
     end.
 
   Definition aligned_to_sym_hist P :=
@@ -32,13 +31,13 @@ Section Defs.
 
   Notation history := (list access_val).
 
-  Inductive SRun : list (SymExec.inst (I:=SymHist.SymAcc)) -> list history -> Prop :=
+  Inductive SRun : list TLang.inst -> list history -> Prop :=
   | s_run_nil:
     SRun [] []
   | s_run_cons:
     forall l ms h m,
     SRun l ms ->
-    SymExec.Run h m ->
+    TLang.Run h m ->
     SRun (h::l) (m ++ ms).
 
   Lemma s_run_inv_in:
@@ -47,7 +46,7 @@ Section Defs.
     forall p,
     PairInUtil.MPairIn p m ->
     exists h m',
-    List.In h hs /\ SymExec.Run h m' /\ PairInUtil.MPairIn p m'.
+    List.In h hs /\ TLang.Run h m' /\ PairInUtil.MPairIn p m'.
   Proof.
     intros hs m H.
     induction H; intros. {
@@ -69,7 +68,7 @@ Section Defs.
     forall x,
     List.In x l ->
     exists h,
-    SymExec.Run x h /\incl h m.
+    TLang.Run x h /\incl h m.
   Proof.
     intros l m H.
     induction H; intros. {
@@ -87,13 +86,68 @@ Section Defs.
     split; auto using incl_appr.
   Qed.
 
-  Lemma in_1: (* TODO: MEDIUM *)
+  Lemma ph_to_hist_phase:
+    forall u,
+    ph_to_hist (PhaseSplit.Phase u) = Sequentialize.sequentialize u.
+  Proof.
+    intros.
+    reflexivity.
+  Qed.
+  Opaque Sequentialize.sequentialize.
+
+  Lemma ph_to_hist_subst:
+    forall x v ph,
+    x <> T1 ->
+    x <> T2 ->
+    x <> TID ->
+    NExp.NClosed v ->
+    ~ PhaseSplit.Var x ph ->
+    TLang.i_subst x v (ph_to_hist ph) =
+    ph_to_hist (PhaseSplit.ph_subst x v ph). 
+  Proof.
+    induction ph; intros ht1 ht2 htid hc hv; simpl; simpl in hv.
+    - rewrite Sequentialize.sequentialize_subst_rw; auto.
+    - rename v0 into y.
+      destruct (Var.VAR.eq_dec x y). {
+        reflexivity.
+      }
+      rewrite IHph; auto.
+  Qed.
+
+  Transparent Sequentialize.sequentialize.
+
+  Lemma in_1: (* TODO: EASY *)
     forall p ph,
-    SymExec.IPairIn p (ph_to_hist ph) ->
+    TLang.IPairIn p (ph_to_hist ph) ->
+    ~ PhaseSplit.Var TID ph ->
+    ~ PhaseSplit.Occurs T1 ph ->
+    ~ PhaseSplit.Occurs T2 ph ->
+    T1 <> T2 ->
+    PhaseSplit.Distinct ph ->
     PhaseSplit.PPairIn p ph.
   Proof.
-    induction ph; simpl; intros.
+    intros p ph hp.
+    remember (ph_to_hist ph) as P.
+    generalize dependent ph.
+    induction hp; intros ph heq htid ht1 ht2 htneq hd; destruct ph; invc heq.
     - constructor.
+      apply Sequentialize.i_pair_in_1; auto.
+      unfold Sequentialize.sequentialize.
+      eapply TLang.i_pair_in_decl; eauto.
+   - simpl in *.
+    rewrite ph_to_hist_subst in hp; auto using NExp.n_closed_num. 2: { intuition. }
+    assert (hq: PhaseSplit.PPairIn p (PhaseSplit.ph_subst v (NExp.NNum n) ph)). {
+      apply IHhp; auto.
+      - simpl in *.
+        rewrite ph_to_hist_subst; auto using NExp.n_closed_num.
+        intuition.
+      - admit.
+      - admit.
+      - admit.
+      - admit.
+    }
+    simpl in *.
+    econstructor; eauto using RExp.r_pick_def.
   Admitted.
 
   Lemma in_2: (* TODO: MEDIUM *)

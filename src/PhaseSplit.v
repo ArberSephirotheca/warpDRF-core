@@ -19,6 +19,24 @@ Section Defs.
   | Phase: ULang.inst -> phase
   | Decl: var -> range -> phase -> phase.
 
+  Fixpoint Var x p :=
+    match p with
+    | Phase u => ULang.Var x u
+    | Decl y _ p => x = y \/ Var x p
+    end.
+
+  Fixpoint Occurs x p :=
+    match p with
+    | Phase u => ULang.CFree u x
+    | Decl y _ p => x = y \/ Occurs x p
+    end.
+
+  Fixpoint Distinct p :=
+  match p with
+  | Phase u => True
+  | Decl x r p => ~ Var x p /\ Distinct p
+  end.
+
   Fixpoint a_split (n:n_inst) : list phase :=
   match n with
   | NSync c => [Phase c]
@@ -80,7 +98,7 @@ Section Defs.
 
   Lemma a_split_subst_rw:
     forall x v P,
-    ~ Var x P -> 
+    ~ ALang.Var x P -> 
     a_split (subst x v P) = List.map (ph_subst x v) (a_split P).
   Proof.
     induction P; intros; simpl; auto.
@@ -103,7 +121,7 @@ Section Defs.
   Lemma in_phases_1:
     forall P p,
     IPairIn p P ->
-    Distinct P ->
+    ALang.Distinct P ->
     InPhases p (a_split P).
   Proof.
     intros P p H.
@@ -124,7 +142,7 @@ Section Defs.
       eexists.
       rewrite in_app_iff.
       eauto.
-    - assert (Hd: Distinct (subst x (NNum n) j) ). {
+    - assert (Hd: ALang.Distinct (subst x (NNum n) j) ). {
         auto using distinct_subst.
       }
       apply IHIPairIn in Hd.
@@ -185,7 +203,7 @@ Section Defs.
   Lemma in_1:
     forall p P,
     ALang.PPairIn p P ->
-    Distinct (fst P) ->
+    ALang.Distinct (fst P) ->
     InPhases p (split P).
   Proof.
     intros.
@@ -206,7 +224,7 @@ Section Defs.
   Theorem drf_1:
     forall P,
     DRF (split P) ->
-    Distinct (fst P) ->
+    ALang.Distinct (fst P) ->
     ALang.DRF P.
   Proof.
     unfold DRF, ALang.DRF.
@@ -236,7 +254,7 @@ Section Defs.
     forall P ph,
     In ph (a_split P) ->
     forall x n,
-    ~ Var x P ->
+    ~ ALang.Var x P ->
     In (ph_subst x (NNum n) ph) (a_split (subst x (NNum n) P)).
   Proof.
     induction P; intros.
@@ -277,7 +295,7 @@ Section Defs.
   Lemma i_pair_in_ph:
     forall P,
     CanRun P ->
-    Distinct P ->
+    ALang.Distinct P ->
     forall ph,
     In ph (a_split P) ->
     forall p,
@@ -315,7 +333,7 @@ Section Defs.
   Lemma in_2:
     forall p P,
     InPhases p (split P) ->
-    Distinct (fst P) ->
+    ALang.Distinct (fst P) ->
     CanRun (fst P) ->
     ALang.PPairIn p P.
   Proof.
@@ -335,7 +353,7 @@ Section Defs.
   Theorem drf_2:
     forall P,
     CanRun (fst P) ->
-    Distinct (fst P) ->
+    ALang.Distinct (fst P) ->
     ALang.DRF P ->
     DRF (split P).
   Proof.
@@ -350,7 +368,7 @@ Section Defs.
   Theorem drf:
     forall P,
     CanRun (fst P) ->
-    Distinct (fst P) ->
+    ALang.Distinct (fst P) ->
     ALang.DRF P <-> DRF (split P).
   Proof.
     split; intros.
