@@ -23,6 +23,5 @@ src/SetTh.v
 src/MultiHist.v
 #src/ConcImpl.v
 src/TLang.v
-src/SHCompiler.v
-src/SHResults.v
+src/USplit.v
 src/PhaseSplit.v
