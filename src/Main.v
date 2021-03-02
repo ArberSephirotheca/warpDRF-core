@@ -153,8 +153,26 @@ Section Defs.
   Lemma in_2: (* TODO: MEDIUM *)
     forall p ph,
     PhaseSplit.PPairIn p ph ->
-    SymExec.IPairIn p (ph_to_hist ph).
+    ~ PhaseSplit.Var TID ph ->
+    ~ PhaseSplit.Occurs T1 ph ->
+    ~ PhaseSplit.Occurs T2 ph ->
+    T1 <> T2 ->
+    PhaseSplit.Distinct ph ->
+    TLang.IPairIn p (ph_to_hist ph).
   Proof.
+    intros p ph H.
+    induction H; simpl; intros.
+    - admit.
+    - destruct r as (e1, e2).
+      invc H.
+      eapply TLang.i_pair_in_decl; eauto.
+      rewrite ph_to_hist_subst; auto using NExp.n_closed_num.
+      2: { intuition. }
+      apply IHPPairIn; auto.
+      + admit.
+      + admit.
+      + admit.
+      + admit.
   Admitted.
 
   Theorem drf_1:
