@@ -55,6 +55,16 @@ Section Defs.
     contradiction.
   Qed.
 
+  Lemma pair_in_sym:
+    forall A x y l,
+    @PairIn A (x, y) l ->
+    PairIn (y, x) l.
+  Proof.
+    intros.
+    invc H.
+    eauto using pair_in_def.
+  Qed.
+
   Lemma pair_incl_nil_l:
     forall A ls,
     @PairIncl A [] ls.
