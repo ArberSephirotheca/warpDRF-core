@@ -6,6 +6,7 @@ Require Import Util.
 Require Import InUtil.
 Require Import PairInUtil.
 Require Import MultiHist.
+Require Import Tictac.
 
 Require Import Var.
 Require Import Tid.
@@ -14,7 +15,6 @@ Require Import BExp.
 Require Import AExp.
 Require Import RExp.
 
-(*Require Import SymExec.*)
 Require ULang.
 
 Import ListNotations.
@@ -722,6 +722,37 @@ Section Defs.
     n1 <= n < n2 ->
     IPairIn p (i_subst x (NNum n) i) ->
     IPairIn p (Decl x (e1, e2) i).
+
+  Lemma i_one_of_sym:
+    forall x y i j,
+    IOneOf (x, y) i j ->
+    IOneOf (y, x) i j.
+  Proof.
+    intros.
+    unfold IOneOf in *.
+    intuition.
+  Qed.
+
+  Lemma i_pair_in_sym:
+    forall x y i,
+    IPairIn (x, y) i ->
+    IPairIn (y, x) i.
+  Proof.
+    intros.
+    remember (x, y) as p.
+    generalize dependent x.
+    generalize dependent y.
+    induction H; intros a1 a2 heq; subst.
+    - eapply i_pair_in_access; eauto using pair_in_sym.
+    - eauto using i_pair_in_seq_l.
+    - eauto using i_pair_in_seq_r.
+    - eauto using i_pair_in_seq_both, i_one_of_sym.
+    - eauto using i_pair_in_if_true.
+    - eauto using i_pair_in_if_false.
+    - eauto using i_pair_in_fork_l.
+    - eauto using i_pair_in_fork_r.
+    - eapply i_pair_in_decl; eauto.
+  Qed.
 
   Lemma run_i_pair_in_to_m_pair_in:
     forall i h,

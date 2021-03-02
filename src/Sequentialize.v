@@ -58,7 +58,7 @@ Section Defs.
 
   (* ---------------------------- IN PROJECTION -------------------- *)
 
-  Lemma in_trace_to_in:
+   Lemma in_trace_to_in:
     forall x i,
     x <> TID ->
     TLang.SEFree (trace i) x ->
@@ -70,7 +70,7 @@ Section Defs.
     + destruct H1; auto.
   Qed.
 
-  Lemma var_trace_rw:
+  Lemma var_inv_trace:
     forall x i,
     TLang.Var x (trace i) ->
     ULang.Var x i.
@@ -275,6 +275,17 @@ Section Defs.
 
   (* ------------------------- TIN TO IIN ------------------------ *)
 
+  Lemma not_var_trace:
+    forall x i,
+    ~ ULang.Var x i ->
+    ~ TLang.Var x (trace i).
+  Proof.
+    intros.
+    intros N.
+    apply var_inv_trace in N.
+    contradiction.
+  Qed.
+
   Lemma t_in_to_i_in:
     forall i,
     ~ ULang.Var TID i ->
@@ -283,11 +294,7 @@ Section Defs.
     TLang.IIn a (TLang.i_subst TID (NNum (access_tid a)) (trace i)).
   Proof.
     intros.
-    apply TLang.s_in_to_i_in. {
-      intros N.
-      apply var_trace_rw in N.
-      auto.
-    }
+    apply TLang.s_in_to_i_in; auto using not_var_trace.
     apply p_in_to_s_in; auto.
     apply t_in_to_p_in; auto.
   Qed.
@@ -302,10 +309,7 @@ Section Defs.
     intros i Hv a Hi.
     eapply p_in_to_t_in; eauto.
     apply s_in_to_p_in; eauto.
-    apply TLang.i_in_to_s_in; eauto.
-    intros N.
-    apply var_trace_rw in N.
-    auto.
+    apply TLang.i_in_to_s_in; eauto using not_var_trace.
   Qed.
 
   Lemma i_in_inv_access_tid:
@@ -315,13 +319,9 @@ Section Defs.
     t = access_tid a.
   Proof.
     intros a t i Hv Hi.
-    apply TLang.i_in_to_s_in in Hi. {
-      apply s_in_to_p_in in Hi; auto.
-      apply p_in_inv_access_tid in Hi.
-      auto.
-    }
-    intros N.
-    apply var_trace_rw in N.
+    apply TLang.i_in_to_s_in in Hi; auto using not_var_trace.
+    apply s_in_to_p_in in Hi; auto.
+    apply p_in_inv_access_tid in Hi.
     auto.
   Qed.
 
@@ -531,6 +531,55 @@ Section Defs.
 
   (* ===================== Main results ========================= *)
 
+  Lemma t_pair_in_lt:
+    forall i x y,
+    ~ ULang.CFree i T1 ->
+    ~ ULang.CFree i T2 ->
+    ~ ULang.Var TID i ->
+    ~ TLang.SEFree (trace i) T1 ->
+    ~ TLang.SEFree (trace i) T2 ->
+    access_tid x < TID_COUNT ->
+    TIn x i ->
+    access_tid y < TID_COUNT ->
+    TIn y i ->
+    access_tid x < access_tid y ->
+    TLang.IPairIn (x, y)
+      (TLang.Decl T1 (NNum 1, NNum TID_COUNT)
+         (TLang.Decl T2 (NNum 0, NVar T1)
+            (TLang.Seq (TLang.i_subst TID (NVar T1) (trace i))
+               (TLang.i_subst TID (NVar T2) (trace i))))).
+  Proof.
+    intros.
+    apply TLang.i_pair_in_decl with (n:=access_tid y) (n1:=1) (n2:=TID_COUNT);
+      auto using n_step_num with *.
+    simpl.
+    (* clean up goal *)
+    remove_eq T1 T1.
+    remove_eq T1 T2.
+    rewrite TLang.i_subst_subst_trans; auto.
+    assert (~ TLang.SEFree (TLang.i_subst TID (NVar T2) (trace i)) T1). {
+      intros N.
+      apply TLang.i_free_inv_subst in N; auto using t1_neq_t2, t1_neq_tid.
+    }
+    rewrite TLang.i_subst_not_free with (x0:=T1); auto.
+    (* fix the second biding *)
+    apply TLang.i_pair_in_decl with (n:=access_tid x) (n1:=0) (n2:=access_tid y);
+      auto using n_step_num with *.
+    simpl.
+    rewrite TLang.i_subst_subst_trans; auto.
+    apply TLang.i_pair_in_seq_both.
+    simpl.
+    right.
+    split. {
+      rewrite TLang.i_subst_not_free. {
+        apply t_in_to_i_in; auto.
+      }
+      intros N.
+      apply TLang.se_free_inv_subst_neq_num in N; auto.
+    }
+    apply t_in_to_i_in; auto.
+  Qed.
+
   Corollary soundness:
     forall m_c m_h i,
     ~ ULang.CFree i T1 ->
@@ -601,64 +650,10 @@ Section Defs.
     }
     destruct X as [Hlt|Hlt]. {
       (* We know that x < y, thus T1 = y and T2 = x *)
-      apply TLang.i_pair_in_decl with (n0:=access_tid y) (n1:=1) (n2:=TID_COUNT);
-        auto using n_step_num with *.
-      simpl.
-      (* clean up goal *)
-      remove_eq T1 T1.
-      remove_eq T1 T2.
-      rewrite TLang.i_subst_subst_trans; auto.
-      assert (~ TLang.SEFree (TLang.i_subst TID (NVar T2) (trace i)) T1). {
-        intros N.
-        apply TLang.i_free_inv_subst in N; auto using t1_neq_t2, t1_neq_tid.
-      }
-      rewrite TLang.i_subst_not_free with (x0:=T1); auto.
-      (* fix the second biding *)
-      apply TLang.i_pair_in_decl with (n0:=access_tid x) (n1:=0) (n2:=access_tid y);
-        auto using n_step_num with *.
-      simpl.
-      rewrite TLang.i_subst_subst_trans; auto.
-      apply TLang.i_pair_in_seq_both.
-      simpl.
-      right.
-      split. {
-        rewrite TLang.i_subst_not_free. {
-          apply t_in_to_i_in; auto.
-        }
-        intros N.
-        apply TLang.se_free_inv_subst_neq_num in N; auto.
-      }
-      apply t_in_to_i_in; auto.
+      auto using t_pair_in_lt.
     }
-    (* We know that y < x, thus T1 = x and T2 = y *)
-    apply TLang.i_pair_in_decl with (n0:=access_tid x) (n1:=1) (n2:=TID_COUNT);
-      auto using n_step_num with *.
-    simpl.
-    (* clean up goal *)
-    remove_eq T1 T1.
-    remove_eq T1 T2.
-    rewrite TLang.i_subst_subst_trans; auto.
-    assert (~ TLang.SEFree (TLang.i_subst TID (NVar T2) (trace i)) T1). {
-      intros N.
-      apply TLang.i_free_inv_subst in N; auto using t1_neq_t2, t1_neq_tid.
-    }
-    rewrite TLang.i_subst_not_free with (x0:=T1); auto.
-    (* fix the second biding *)
-    apply TLang.i_pair_in_decl with (n0:=access_tid y) (n1:=0) (n2:=access_tid x);
-      auto using n_step_num with *.
-    simpl.
-    rewrite TLang.i_subst_subst_trans; auto.
-    apply TLang.i_pair_in_seq_both.
-    simpl.
-    left.
-    split. {
-      rewrite TLang.i_subst_not_free. {
-        apply t_in_to_i_in; auto.
-      }
-      intros N.
-      apply TLang.se_free_inv_subst_neq_num in N; auto.
-    }
-    apply t_in_to_i_in; auto.
+    apply TLang.i_pair_in_sym.
+    auto using t_pair_in_lt.
   Qed.
 
   Lemma i_pair_in_1:
@@ -682,6 +677,56 @@ Section Defs.
     apply t_in_to_c_i_in in Hxi.
     apply t_in_to_c_i_in in Hyi.
     eauto using ULang.c_pair_in_def, ULang.c_in_def.
+  Qed.
+
+  Lemma i_pair_in_2:
+    forall i,
+    ~ ULang.CFree i T1 ->
+    ~ ULang.CFree i T2 ->
+    ~ ULang.Var TID i ->
+    (* --- *)
+    forall x y,
+    (* Note that in this direction, the tids being different is a
+     pre-conditions. *)
+    access_tid x <> access_tid y -> 
+    ULang.CPairIn (x,y) i ->
+    TLang.IPairIn (x,y) (sequentialize i).
+  Proof.
+    intros.
+    rename_hyp (ULang.CPairIn _ _) as hp.
+    invc hp.
+    rename_hyp (ULang.CIn x i) as hi1.
+    rename_hyp (ULang.CIn y i) as hi2.
+
+    (* Now we will find the right pair *)
+    unfold sequentialize, do_trace.
+
+    (* Useful results *)
+    assert (t1_nin_p: ~ TLang.SEFree (trace i) T1). {
+      intros N.
+      apply in_trace_to_in in N; auto using t1_neq_tid.
+    }
+    assert (t2_nin_p: ~ TLang.SEFree (trace i) T2). {
+      intros N.
+      apply in_trace_to_in in N; auto using t2_neq_tid.
+    }
+    invc hi1.
+    rename_hyp (ULang.IIn x i) as hi1.
+    invc hi2.
+    rename_hyp (ULang.IIn y i) as hi2.
+
+    apply c_i_in_to_t_in in hi1.
+    apply c_i_in_to_t_in in hi2.
+
+    assert (X: access_tid x < access_tid y \/ access_tid y < access_tid x). {
+      lia.
+    }
+    destruct X as [Hlt|Hlt].
+    - (* We know that x < y, thus T1 = y and T2 = x *)
+      apply t_pair_in_lt; auto.
+    - (* We know that y < x, thus T1 = x and T2 = y *)
+      apply TLang.i_pair_in_sym.
+      apply t_pair_in_lt; auto.
   Qed.
 
   Lemma trace_subst_rw:
