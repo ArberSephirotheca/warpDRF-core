@@ -6,11 +6,11 @@ Require Import Util.
 Require Import Var.
 Require Import NExp.
 Require Import BExp.
-Require Import AccExp.
+Require Import AExp.
 Require Import Tasks.
 Require Import Tictac.
 
-Require SymHist.
+Require TLang.
 
 Import ListNotations.
 
@@ -18,21 +18,21 @@ Section Defs.
   Context {A:Access}.
   Context {T:Tasks}.
 
-  Fixpoint proj (c:ULang.inst) : SymHist.inst :=
+  Fixpoint proj (c:ULang.inst) : TLang.inst :=
     match c with
-    | ULang.Skip => SymHist.Skip
-    | ULang.Seq i j => SymHist.Seq (proj i) (proj j)
-    | ULang.If b i j => SymHist.If b (proj i) (proj j)
-    | ULang.MemAcc a => SymHist.MemAcc a (NVar TID)
-    | ULang.For x r i => SymHist.Decl x r (proj i)
+    | ULang.Skip => TLang.Skip
+    | ULang.Seq i j => TLang.Seq (proj i) (proj j)
+    | ULang.If b i j => TLang.If b (proj i) (proj j)
+    | ULang.MemAcc a => TLang.MemAcc a (NVar TID)
+    | ULang.For x r i => TLang.Decl x r (proj i)
     end.
 
-  Definition do_proj x i := SymHist.i_subst TID (NVar x) (proj i).
+  Definition do_proj x i := TLang.i_subst TID (NVar x) (proj i).
 
-  Definition translate c : SymHist.inst :=
-    SymHist.Decl T1 (NNum 1, NNum TID_COUNT)
-      (SymHist.Decl T2 (NNum 0, NVar T1)
-        (SymHist.Seq (do_proj T1 c) (do_proj T2 c))).
+  Definition translate c : TLang.inst :=
+    TLang.Decl T1 (NNum 1, NNum TID_COUNT)
+      (TLang.Decl T2 (NNum 0, NVar T1)
+        (TLang.Seq (do_proj T1 c) (do_proj T2 c))).
 
 
 
@@ -41,7 +41,7 @@ Section Defs.
   Lemma i_subst_proj_rw:
     forall x i n,
     x <> TID ->
-    proj (ULang.i_subst x (NNum n) i) = SymHist.i_subst x (NNum n) (proj i).
+    proj (ULang.i_subst x (NNum n) i) = TLang.i_subst x (NNum n) (proj i).
   Proof.
     induction i; simpl; intros; destruct (Set_VAR.MF.eq_dec x TID); try contradiction.
     - reflexivity.
@@ -61,7 +61,7 @@ Section Defs.
   Lemma in_proj_to_in:
     forall x i,
     x <> TID ->
-    SymHist.SEFree (proj i) x ->
+    TLang.SEFree (proj i) x ->
     ULang.CFree i x.
   Proof.
     induction i; simpl; intros; inversion H0; subst; clear H0; auto.
@@ -72,7 +72,7 @@ Section Defs.
 
   Lemma var_proj_rw:
     forall x i,
-    SymHist.Var x (proj i) ->
+    TLang.Var x (proj i) ->
     ULang.Var x i.
   Proof.
     induction i; simpl; intros.
@@ -122,7 +122,7 @@ Section Defs.
   Lemma s_in_to_p_in:
     forall a n i,
     ~ ULang.Var TID i ->
-    SymHist.SIn a n (proj i) ->
+    TLang.SIn a n (proj i) ->
     PIn a n i.
   Proof.
     intros a n i Hv Hi.
@@ -162,26 +162,26 @@ Section Defs.
     forall a n i,
     ~ ULang.Var TID i ->
     PIn a n i ->
-    SymHist.SIn a n (proj i).
+    TLang.SIn a n (proj i).
   Proof.
     intros a n i Hv Hi.
     generalize dependent Hv.
     induction Hi; intros Hv; simpl.
-    - eapply SymHist.s_in_access; eauto.
+    - eapply TLang.s_in_access; eauto.
       simpl.
       remove_eq TID TID.
       assumption.
     - simpl in *.
-      apply SymHist.s_in_seq_l; auto.
+      apply TLang.s_in_seq_l; auto.
     - simpl in *.
-      apply SymHist.s_in_seq_r; auto.
+      apply TLang.s_in_seq_r; auto.
     - simpl in *.
-      apply SymHist.s_in_if_true; auto.
+      apply TLang.s_in_if_true; auto.
     - simpl in *.
-      apply SymHist.s_in_if_false; auto.
+      apply TLang.s_in_if_false; auto.
     - simpl in *.
       assert (TID <> x) by auto.
-      eapply SymHist.s_in_decl; eauto.
+      eapply TLang.s_in_decl; eauto.
       rewrite <- i_subst_proj_rw; auto.
       apply IHHi.
       intros N.
@@ -280,10 +280,10 @@ Section Defs.
     ~ ULang.Var TID i ->
     forall a,
     TIn a i ->
-    SymHist.IIn a (SymHist.i_subst TID (NNum (access_tid a)) (proj i)).
+    TLang.IIn a (TLang.i_subst TID (NNum (access_tid a)) (proj i)).
   Proof.
     intros.
-    apply SymHist.s_in_to_i_in. {
+    apply TLang.s_in_to_i_in. {
       intros N.
       apply var_proj_rw in N.
       auto.
@@ -296,13 +296,13 @@ Section Defs.
     forall i,
     ~ ULang.Var TID i ->
     forall a,
-    SymHist.IIn a (SymHist.i_subst TID (NNum (access_tid a)) (proj i)) ->
+    TLang.IIn a (TLang.i_subst TID (NNum (access_tid a)) (proj i)) ->
     TIn a i.
   Proof.
     intros i Hv a Hi.
     eapply p_in_to_t_in; eauto.
     apply s_in_to_p_in; eauto.
-    apply SymHist.i_in_to_s_in; eauto.
+    apply TLang.i_in_to_s_in; eauto.
     intros N.
     apply var_proj_rw in N.
     auto.
@@ -311,11 +311,11 @@ Section Defs.
   Lemma i_in_inv_access_tid:
     forall a t i,
     ~ ULang.Var TID i ->
-    SymHist.IIn a (SymHist.i_subst TID (NNum t) (proj i)) ->
+    TLang.IIn a (TLang.i_subst TID (NNum t) (proj i)) ->
     t = access_tid a.
   Proof.
     intros a t i Hv Hi.
-    apply SymHist.i_in_to_s_in in Hi. {
+    apply TLang.i_in_to_s_in in Hi. {
       apply s_in_to_p_in in Hi; auto.
       apply p_in_inv_access_tid in Hi.
       auto.
@@ -333,18 +333,18 @@ Section Defs.
     forall a,
     access_tid a < TID_COUNT -> (* needed for the second branch, can we prove this? *)
     TIn a i ->
-    SymHist.IIn a (translate i).
+    TLang.IIn a (translate i).
   Proof.
     intros i Hv t1_nin t2_nin a a_lt_tc Hi.
     unfold translate.
     assert (Hx: access_tid a = 0 \/ access_tid a > 0). {
       destruct (access_tid a); auto with *.
     }
-    assert (t1_nin_p: ~ SymHist.SEFree (proj i) T1). {
+    assert (t1_nin_p: ~ TLang.SEFree (proj i) T1). {
       intros N.
       apply in_proj_to_in in N; auto using t1_neq_tid.
     }
-    assert (t2_nin_p: ~ SymHist.SEFree (proj i) T2). {
+    assert (t2_nin_p: ~ TLang.SEFree (proj i) T2). {
       intros N.
       apply in_proj_to_in in N; auto using t2_neq_tid.
     }
@@ -360,24 +360,24 @@ Section Defs.
 
          Thus, we pick T1 = 1 and T2 = 0.
       *)
-      apply SymHist.i_in_decl with (n:=1) (n1:=1) (n2:=TID_COUNT); auto using n_step_num. {
+      apply TLang.i_in_decl with (n:=1) (n1:=1) (n2:=TID_COUNT); auto using n_step_num. {
         auto using tid_count_1_lt with *.
       }
       unfold do_proj.
       simpl.
       remove_eq T1 T1.
       remove_eq T1 T2.
-      apply SymHist.i_in_decl with (n:=0) (n1:=0) (n2:=1); auto using n_step_num.
+      apply TLang.i_in_decl with (n:=0) (n1:=0) (n2:=1); auto using n_step_num.
       simpl.
-      apply SymHist.i_in_seq_r.
-      rewrite SymHist.i_subst_subst_neq; auto using t1_neq_t2.
-      rewrite SymHist.i_subst_subst_trans; auto.
-      rewrite SymHist.i_subst_not_free. {
+      apply TLang.i_in_seq_r.
+      rewrite TLang.i_subst_subst_neq; auto using t1_neq_t2.
+      rewrite TLang.i_subst_subst_trans; auto.
+      rewrite TLang.i_subst_not_free. {
         rewrite <- Hx.
         apply t_in_to_i_in; auto.
       }
       intros N.
-      apply SymHist.i_free_subst_neq in N; auto using t1_neq_tid. 
+      apply TLang.i_free_subst_neq in N; auto using t1_neq_tid. 
     }
     (*
        We have that access_tid a > 0.
@@ -391,21 +391,21 @@ Section Defs.
 
        Thus, we pick `T1 = access_tid a` and `T2 = 0`.
     *)
-    apply SymHist.i_in_decl with (n:=access_tid a) (n1:=1) (n2:=TID_COUNT); auto using n_step_num.
+    apply TLang.i_in_decl with (n:=access_tid a) (n1:=1) (n2:=TID_COUNT); auto using n_step_num.
     unfold do_proj.
     simpl.
     remove_eq T1 T1.
     remove_eq T1 T2.
-    apply SymHist.i_in_decl with (n:=0) (n1:=0) (n2:=access_tid a); auto using n_step_num.
+    apply TLang.i_in_decl with (n:=0) (n1:=0) (n2:=access_tid a); auto using n_step_num.
     simpl.
-    apply SymHist.i_in_seq_l.
-    rewrite SymHist.i_subst_not_free. {
-      rewrite SymHist.i_subst_subst_trans; auto.
+    apply TLang.i_in_seq_l.
+    rewrite TLang.i_subst_not_free. {
+      rewrite TLang.i_subst_subst_trans; auto.
       apply t_in_to_i_in; auto.
     }
     intros N.
-    apply SymHist.i_free_subst_neq in N; auto using t1_neq_t2.
-    apply SymHist.i_free_subst_neq in N; auto using t2_neq_tid.
+    apply TLang.i_free_subst_neq in N; auto using t1_neq_t2.
+    apply TLang.i_free_subst_neq in N; auto using t2_neq_tid.
     intros X.
     inversion X.
     contradict H0.
@@ -418,7 +418,7 @@ Section Defs.
     ~ ULang.CFree i T1 ->
     ~ ULang.CFree i T2 ->
     forall a,
-    SymHist.IIn a (translate i) ->
+    TLang.IIn a (translate i) ->
     TIn a i /\ access_tid a < TID_COUNT.
   Proof.
     intros i Hv t1_nin t2_nin a Hi.
@@ -427,11 +427,11 @@ Section Defs.
     inversion Hi; subst; clear Hi.
 
     (* Useful results *)
-    assert (t1_nin_p: ~ SymHist.SEFree (proj i) T1). {
+    assert (t1_nin_p: ~ TLang.SEFree (proj i) T1). {
       intros N.
       apply in_proj_to_in in N; auto using t1_neq_tid.
     }
-    assert (t2_nin_p: ~ SymHist.SEFree (proj i) T2). {
+    assert (t2_nin_p: ~ TLang.SEFree (proj i) T2). {
       intros N.
       apply in_proj_to_in in N; auto using t2_neq_tid.
     }
@@ -450,7 +450,7 @@ Section Defs.
 
     (* Rename assumption (IIn a ...) *)
     match goal with
-      H: SymHist.IIn _ _ |- _ => rename H into Hi
+      H: TLang.IIn _ _ |- _ => rename H into Hi
     end.
 
     (* Do inversion and then clean up *)
@@ -468,33 +468,33 @@ Section Defs.
       H: 0 <= ?n < _ |- _ => rename n into t2
     end.
 
-    rename_hyp (SymHist.IIn _ _) as Hi.
+    rename_hyp (TLang.IIn _ _) as Hi.
     simpl in Hi.
     (* Is a in T1 or in T2? *)
     unfold do_proj in *.
     inversion Hi; subst; clear Hi;
-    rename_hyp (SymHist.IIn _ _) as Hi.
+    rename_hyp (TLang.IIn _ _) as Hi.
     - (* a is in T1 *)
-      rewrite SymHist.i_subst_not_free in Hi. {
-        rewrite SymHist.i_subst_subst_trans in Hi; auto.
+      rewrite TLang.i_subst_not_free in Hi. {
+        rewrite TLang.i_subst_subst_trans in Hi; auto.
         assert (R:  t1 = access_tid a) by eauto using i_in_inv_access_tid.
         rewrite R in Hi.
         auto using i_in_to_t_in with *.
       }
       intros N.
-      apply SymHist.se_free_inv_subst_neq_num in N; auto.
-      apply SymHist.i_free_inv_subst in N; auto using t1_neq_t2, t2_neq_tid.
+      apply TLang.se_free_inv_subst_neq_num in N; auto.
+      apply TLang.i_free_inv_subst in N; auto using t1_neq_t2, t2_neq_tid.
     - (* a is in T2 *)
-      rewrite SymHist.i_subst_subst_neq in Hi; auto using t1_neq_t2.
-      rewrite SymHist.i_subst_not_free in Hi. {
-        rewrite SymHist.i_subst_subst_trans in Hi; auto.
+      rewrite TLang.i_subst_subst_neq in Hi; auto using t1_neq_t2.
+      rewrite TLang.i_subst_not_free in Hi. {
+        rewrite TLang.i_subst_subst_trans in Hi; auto.
         assert (R: t2 = access_tid a) by eauto using i_in_inv_access_tid.
         rewrite R in Hi.
         auto using i_in_to_t_in with *.
       }
       intros N.
-      apply SymHist.i_free_subst_neq in N; auto using t1_neq_t2.
-      apply SymHist.i_free_inv_subst in N; auto using t1_neq_t2, t1_neq_tid.
+      apply TLang.i_free_subst_neq in N; auto using t1_neq_t2.
+      apply TLang.i_free_inv_subst in N; auto using t1_neq_t2, t1_neq_tid.
   Qed.
 
 

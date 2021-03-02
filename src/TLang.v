@@ -1,78 +1,32 @@
 Require Import Coq.Lists.List.
 
-Require Import Var.
-Require Import NExp.
-Require Import RExp.
-Require Import BExp.
-Require Import AccExp.
+Require Import Coq.micromega.Lia.
+
 Require Import Util.
-Require Import MultiHist.
 Require Import InUtil.
 Require Import PairInUtil.
-Require Import Coq.micromega.Lia.
-Require Tasks.
+Require Import MultiHist.
+
+Require Import Var.
+Require Import Tid.
+Require Import NExp.
+Require Import BExp.
+Require Import AExp.
+Require Import RExp.
+
+(*Require Import SymExec.*)
+Require ULang.
 
 Import ListNotations.
 
 Section Defs.
   Context {A:Access}.
-  Class AccessInst := {
-
-  access_inst_type: Type;
-
-  access_inst_subst: var -> nexp -> access_inst_type -> access_inst_type;
-
-  access_inst_step: access_inst_type -> list access_val -> Prop;
-
-  SFree: access_inst_type -> var -> Prop;
-
-  access_inst_step_fun:
-    forall e h1 h2,
-    access_inst_step e h1 -> access_inst_step e h2 -> h1 = h2;
-
-  access_inst_subst_subst_eq:
-    forall x n1 n2 a,
-    access_inst_subst x (NNum n1) (access_inst_subst x (NNum n2) a) =
-    access_inst_subst x (NNum n2) a;
-
-  access_inst_subst_subst_neq:
-    forall x y n1 n2 a,
-    x <> y ->
-    access_inst_subst x (NNum n1) (access_inst_subst y (NNum n2) a) =
-    access_inst_subst y (NNum n2) (access_inst_subst x (NNum n1) a)
-  ;
-  access_inst_subst_subst_neq_2:
-    forall x y z n i,
-    x <> z ->
-    y <> z ->
-    access_inst_subst x (NVar y) (access_inst_subst z (NNum n) i) =
-    access_inst_subst z (NNum n) (access_inst_subst x (NVar y) i)
-  ;
-  access_inst_subst_not_free:
-    forall x e v,
-    ~ SFree e x -> access_inst_subst x v e = e
-  ;
-  access_inst_subst_subst_trans:
-    forall e x v y,
-    ~ SFree e x ->
-    access_inst_subst x v (access_inst_subst y (NVar x) e) =
-    access_inst_subst y v e
-  ;
-  access_inst_in_subst_neq:
-    forall e x y v,
-    SFree (access_inst_subst y v e) x ->
-    ~ NFree v x ->
-    SFree e x
-  ;
-  }.
-
-  Context {I:AccessInst}.
 
   Inductive inst :=
   | Skip
   | Seq: inst -> inst -> inst
   | If: bexp -> inst -> inst -> inst
-  | MemAcc: access_inst_type -> inst
+  | MemAcc: access_exp -> nexp -> inst
   | Decl : var -> range -> inst -> inst
   | Fork : inst -> inst -> inst
   .
@@ -80,7 +34,7 @@ Section Defs.
   Fixpoint i_subst x v i :=
     match i with
     | Skip => Skip
-    | MemAcc e => MemAcc (access_inst_subst x v e)  
+    | MemAcc e n => MemAcc (access_subst x v e) (n_subst x v n)
     | Seq i j => Seq (i_subst x v i) (i_subst x v j)
     | If b i j => If (b_subst x v b) (i_subst x v i) (i_subst x v j)
     | Decl y r i =>
@@ -90,8 +44,7 @@ Section Defs.
     end
   .
 
-  (* ---------------------------------- RUN ------------------------- *)
-  
+
   Notation history := (list access_val).
 
   Inductive Run: inst -> list history -> Prop :=
@@ -109,9 +62,9 @@ Section Defs.
     Run j hsj ->
     Run (If e i j) (if b then hsi else hsj)
   | run_access:
-    forall e v,
-    access_inst_step e v ->
-    Run (MemAcc e) [v]
+    forall e v n,
+    access_step (e, n) v ->
+    Run (MemAcc e n) [v]
   | run_fork:
     forall i j hs1 hs2,
     Run i hs1 ->
@@ -202,7 +155,8 @@ Section Defs.
       try reflexivity
     .
     - rewrite b_subst_subst_eq; auto.
-    - rewrite access_inst_subst_subst_eq; auto.
+    - rewrite access_subst_subst_eq; auto.
+      rewrite n_subst_subst_eq; auto.
     - destruct (Set_VAR.MF.eq_dec x v). {
         subst.
         rewrite r_subst_subst_eq.
@@ -226,7 +180,8 @@ Section Defs.
       try reflexivity
     .
     - rewrite b_subst_subst_neq; auto.
-    - rewrite access_inst_subst_subst_neq; auto.
+    - rewrite access_subst_subst_neq; auto.
+      rewrite n_subst_subst_neq; auto.
     - destruct (Set_VAR.MF.eq_dec x v). {
         destruct (Set_VAR.MF.eq_dec y v). {
           subst.
@@ -257,7 +212,8 @@ Section Defs.
       try reflexivity
     .
     - rewrite b_subst_subst_neq_2; auto.
-    - rewrite access_inst_subst_subst_neq_2; auto.
+    - rewrite access_subst_subst_neq_2; auto.
+      rewrite n_subst_subst_neq_2; auto.
     - destruct (Set_VAR.MF.eq_dec z v). {
         subst.
         rewrite r_subst_subst_neq_2; auto.
@@ -274,53 +230,13 @@ Section Defs.
 
   Fixpoint SEFree (i:inst) x : Prop :=
     match i with
-    | MemAcc i => SFree i x
+    | MemAcc e n => AFree e x \/ NFree n x
     | Skip => False
     | Seq i j => SEFree i x \/ SEFree j x
     | If b i j => BFree b x \/ SEFree i x \/ SEFree j x
     | Decl y r i => x = y \/ RFree r x \/ SEFree i x 
     | Fork i j => SEFree i x \/ SEFree j x
     end.
-(*
-  Lemma not_in_acc:
-    forall x e,
-    ~ SEFree (MemAcc e) x ->
-    ~ SFree e x.
-  Proof.
-    intros.
-    auto.
-  Qed.
-
-  Lemma not_in_decl:
-    forall x y r i,
-    ~ SEFree (Decl y r i) x ->
-    x <> y /\ ~ SEIn x r /\ ~ In x i.
-  Proof.
-    intros.
-    repeat split; intros N; contradict H; subst; simpl; auto.
-  Qed.
-*)
-  (* ------------------ i_subst + In ------------------------------ *)
-(*
-  Lemma not_in_fork:
-    forall x i j,
-    ~ In x (Fork i j) ->
-    ~ In x i /\ ~ In x j.
-  Proof.
-    intros.
-    simpl in *.
-    auto.
-  Qed.
-
-  Lemma not_in_seq:
-    forall x i j,
-    ~ In x (Seq i j) ->
-    ~ In x i /\ ~ In x j.
-  Proof.
-    intros.
-    simpl in *.
-    auto.
-  Qed.*)
 
   Lemma i_subst_not_free:
     forall i x v,
@@ -334,7 +250,8 @@ Section Defs.
     - rewrite IHi1; auto.
       rewrite IHi2; auto.
       rewrite b_subst_not_free; auto.
-    - rewrite access_inst_subst_not_free; auto.
+    - rewrite access_subst_not_free; auto.
+      rewrite n_subst_not_free; auto.
     - destruct (Set_VAR.MF.eq_dec x v). {
         subst.
         intuition.
@@ -358,7 +275,8 @@ Section Defs.
     - rewrite IHi1; auto.
       rewrite IHi2; auto.
       rewrite b_subst_subst_trans; auto.
-    - rewrite access_inst_subst_subst_trans; auto.
+    - rewrite access_subst_subst_trans; auto.
+      rewrite n_subst_subst_trans; auto.
     - rewrite r_subst_subst_trans; auto.
       destruct (Set_VAR.MF.eq_dec x v). {
         intuition.
@@ -385,7 +303,7 @@ Section Defs.
     - assumption.
     - destruct H; eauto.
     - destruct H as [H|[H|H]]; eauto using b_free_subst_neq.
-    - apply access_inst_in_subst_neq in H; auto.
+    - destruct H as [H|H]; eauto using access_in_subst_neq, n_free_subst_neq.
     - destruct H as [H|[H|H]]; auto.
       + eauto using r_free_subst_neq.
       + destruct (Set_VAR.MF.eq_dec y v). {
@@ -418,7 +336,7 @@ Section Defs.
     - destruct H as [H|[H|H]]; auto.
       left.
       eapply b_free_subst_neq; eauto.
-    - eapply access_inst_in_subst_neq; eauto.
+    - destruct H; eauto using access_in_subst_neq, n_free_subst_neq.
     - destruct H as [H|[H|H]]; auto.
       + eauto using r_free_subst_neq.
       + destruct (Set_VAR.MF.eq_dec x v); auto.
@@ -429,9 +347,9 @@ Section Defs.
 
   Fixpoint Var x i :=
     match i with
-    | Skip | MemAcc _ => False
+    | Skip | MemAcc _ _=> False
     | If _ i j | Seq i j | Fork i j => Var x i \/ Var x j
-    | Decl y _ i (* | Branch y _ i*) => x = y \/ Var x i
+    | Decl y _ i => x = y \/ Var x i
     end.
 
   Lemma var_not_in_fork:
@@ -460,7 +378,7 @@ Section Defs.
 
   Fixpoint InRange x i :=
   match i with
-  | Skip | MemAcc _ => False
+  | Skip | MemAcc _ _ => False
   | If _ i j | Seq i j | Fork i j => InRange x i \/ InRange x j
   | Decl _ r i => RFree r x \/ InRange x i
   end.
@@ -475,26 +393,15 @@ Section Defs.
     - destruct (Set_VAR.MF.eq_dec x v);
       auto.
   Qed.
-(*
-  Lemma not_in_range_fork:
-    forall x i j,
-    ~ InRange x (Fork i j) ->
-    ~ InRange x i /\ ~ InRange x j.
-  Proof.
-    intros.
-    split;
-    intros N;
-    contradict H; simpl; auto.
-  Qed.
-*)
+
   (* --------------------- PAIR-IN INSTRUCTION ---------------------- *)
 
   Inductive IIn (a:access_val) : inst -> Prop :=
   | i_in_access:
-    forall e v,
-    access_inst_step e v ->
+    forall e n v,
+    access_step (e, n) v ->
     List.In a v ->
-    IIn a (MemAcc e)
+    IIn a (MemAcc e n)
   | i_in_seq_l:
     forall i j,
     IIn a i ->
@@ -583,7 +490,7 @@ Section Defs.
     - assert (b = false) by eauto using b_step_fun; eauto.
       subst.
       eauto.
-    - assert (v0 = v) by eauto using access_inst_step_fun.
+    - assert (v0 = v) by eauto using access_step_fun.
       subst.
       auto using m_in_eq.
     - auto using m_in_app_l.
@@ -600,8 +507,8 @@ Section Defs.
       apply IHHr2.
       eapply i_in_decl with (n1:=S n1) (n2:=n2); eauto using n_step_num.
       auto with *.
-    - assert (n0 = n1) by eauto using n_step_fun; subst.
-      assert (n2 = n3) by eauto using n_step_fun; subst.
+    - assert (n0 = n1) by eauto using n_step_fun.
+      assert (n2 = n3) by eauto using n_step_fun.
       subst.
       lia.
   Qed.
@@ -622,10 +529,10 @@ Section Defs.
   Context `{T:Tasks}.
   Inductive SIn (a:access_val) (n:nat) : inst -> Prop :=
   | s_in_access:
-    forall e v,
-    access_inst_step (access_inst_subst TID (NNum n) e) v ->
+    forall e1 e2 v,
+    access_step (access_subst TID (NNum n) e1, n_subst TID (NNum n) e2) v ->
     List.In a v ->
-    SIn a n (MemAcc e)
+    SIn a n (MemAcc e1 e2)
   | s_in_seq_l:
     forall i j,
     SIn a n i ->
@@ -745,10 +652,10 @@ Section Defs.
     (IIn v2 i /\ IIn v1 j).
 
   Inductive IPairIn p : inst -> Prop :=
-  | i_pair_in_access e v:
-    access_inst_step e v ->
+  | i_pair_in_access e n v:
+    access_step (e, n) v ->
     PairIn p v ->
-    IPairIn p (MemAcc e)
+    IPairIn p (MemAcc e n)
   | i_pair_in_seq_l i j:
     IPairIn p i ->
     IPairIn p (Seq i j)
@@ -800,7 +707,7 @@ Section Defs.
     - assert (b = true) by eauto using b_step_fun; subst.
       eauto.
     - assert (b = false) by eauto using b_step_fun; subst; eauto.
-    - assert (v0 = v) by eauto using access_inst_step_fun; subst.
+    - assert (v0 = v) by eauto using access_step_fun; subst.
       auto using m_pair_in_eq.
     - auto using m_pair_in_app_l.
     - auto using m_pair_in_app_r.
@@ -898,5 +805,42 @@ Section Defs.
       eauto using i_in_decl.
   Qed.
 
-End Defs.
+  Variable CurTask : nat.
+  Fixpoint translate (i:ULang.inst) : inst :=
+    match i with
+    | ULang.Skip => Skip
+    | ULang.Seq i j => Seq (translate i) (translate j)
+    | ULang.If b i j => If b (translate i) (translate j)
+    | ULang.MemAcc e => MemAcc e (NNum CurTask)
+    | ULang.For x r i => Decl x r (translate i)
+    end.
 
+  Lemma i_subst_translate_rw:
+    forall i x n,
+    i_subst x n (translate i) =
+    translate (ULang.i_subst x n i).
+  Proof.
+    induction i; simpl; intros.
+    - reflexivity.
+    - rewrite IHi1.
+      rewrite IHi2.
+      reflexivity.
+    - rewrite IHi1.
+      rewrite IHi2.
+      reflexivity.
+    - reflexivity.
+    - rewrite IHi.
+      destruct (Set_VAR.MF.eq_dec x v); auto.
+  Qed.
+
+  Lemma all_incl_eq:
+    forall A v,
+    @AllIncl A [v] v.
+  Proof.
+    intros.
+    apply all_incl_cons.
+    + apply incl_refl.
+    + apply all_incl_nil.
+  Qed.
+
+End Defs.

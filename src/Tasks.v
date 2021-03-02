@@ -3,7 +3,7 @@ Require Import Coq.micromega.Lia.
 Require Import NExp.
 Require Import BExp.
 Require Import RExp.
-Require Import AccExp.
+Require Import AExp.
 Class Tasks := {
   TID_COUNT: nat;
   TID : var;
@@ -102,4 +102,3 @@ Section Defs.
   Qed.
 
 End Defs.
-

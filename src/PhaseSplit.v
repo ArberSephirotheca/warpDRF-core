@@ -1,4 +1,4 @@
-Require Import AccExp.
+Require Import AExp.
 Require Import Tasks.
 Require Import ALang.
 Require Import RExp.
@@ -7,7 +7,6 @@ Require Import Var.
 Require Import Tictac.
 Require ULang.
 Require SHCompiler.
-Require SymExec.
 Require Import Coq.Lists.List.
 
 Import ListNotations.

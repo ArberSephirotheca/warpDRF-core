@@ -5,11 +5,11 @@ Require Import Coq.micromega.Lia.
 Require Import Var.
 Require Import NExp.
 Require Import BExp.
-Require Import AccExp.
+Require Import AExp.
 
 Require Import Tasks.
 
-Require Import SymHist.
+Require Import TLang.
 Require Import SHCompiler.
 
 Require ULang.
@@ -154,7 +154,7 @@ Section Compiler.
 
 (*
   Lemma i_pair_in_1:
-SymExec.IPairIn p (SymHist.translate TID_COUNT i)
+SymExec.IPairIn p (TLang.translate TID_COUNT i)
 ______________________________________(1/1)
 ULang.CPairIn p i
 *)
@@ -173,7 +173,7 @@ ULang.CPairIn p i
     unfold Hist.MSafeStrong in *.
     unfold Hist.Safe in *.
     intros x y Hneq Hp.
-    eapply SymHist.run_m_pair_in_to_i_pair_in in Hp; eauto.
+    eapply TLang.run_m_pair_in_to_i_pair_in in Hp; eauto.
     apply i_pair_in_to_i_in in Hp.
     destruct Hp as (Hxi, Hyi).
     apply i_in_translate_to_t_in in Hxi; auto.
