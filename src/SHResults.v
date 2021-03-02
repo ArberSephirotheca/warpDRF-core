@@ -9,7 +9,7 @@ Require Import AccExp.
 
 Require Import Tasks.
 
-Require Import SymExec.
+Require Import SymHist.
 Require Import SHCompiler.
 
 Require ULang.
@@ -173,7 +173,7 @@ ULang.CPairIn p i
     unfold Hist.MSafeStrong in *.
     unfold Hist.Safe in *.
     intros x y Hneq Hp.
-    eapply SymExec.run_m_pair_in_to_i_pair_in in Hp; eauto.
+    eapply SymHist.run_m_pair_in_to_i_pair_in in Hp; eauto.
     apply i_pair_in_to_i_in in Hp.
     destruct Hp as (Hxi, Hyi).
     apply i_in_translate_to_t_in in Hxi; auto.
