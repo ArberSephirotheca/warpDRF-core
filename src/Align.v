@@ -5,7 +5,7 @@ Require Import WLang.
 Require Import ULang.
 Require Import NExp.
 Require Import Tictac.
-Require Import AlignLang.
+Require Import ALang.
 Require Import Util.
 Require Import RExp.
 Require Import Lia.

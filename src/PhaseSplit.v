@@ -1,6 +1,6 @@
 Require Import AccExp.
 Require Import Tasks.
-Require Import AlignLang.
+Require Import ALang.
 Require Import RExp.
 Require Import NExp.
 Require Import Var.
@@ -185,7 +185,7 @@ Section Defs.
 
   Lemma in_1:
     forall p P,
-    AlignLang.PPairIn p P ->
+    ALang.PPairIn p P ->
     Distinct (fst P) ->
     InPhases p (split P).
   Proof.
@@ -208,11 +208,11 @@ Section Defs.
     forall P,
     DRF (split P) ->
     Distinct (fst P) ->
-    AlignLang.DRF P.
+    ALang.DRF P.
   Proof.
-    unfold DRF, AlignLang.DRF.
+    unfold DRF, ALang.DRF.
     intros.
-    rename_hyp (AlignLang.PPairIn _ _) as Hi.
+    rename_hyp (ALang.PPairIn _ _) as Hi.
     apply in_1 in Hi; auto.
     destruct Hi as (ph, (Hi, Hp)).
     eauto.
@@ -318,7 +318,7 @@ Section Defs.
     InPhases p (split P) ->
     Distinct (fst P) ->
     CanRun (fst P) ->
-    AlignLang.PPairIn p P.
+    ALang.PPairIn p P.
   Proof.
     intros.
     destruct P as (a, u).
@@ -337,10 +337,10 @@ Section Defs.
     forall P,
     CanRun (fst P) ->
     Distinct (fst P) ->
-    AlignLang.DRF P ->
+    ALang.DRF P ->
     DRF (split P).
   Proof.
-    unfold DRF, AlignLang.DRF.
+    unfold DRF, ALang.DRF.
     intros.
     apply H1.
     eapply in_2; auto.
@@ -352,7 +352,7 @@ Section Defs.
     forall P,
     CanRun (fst P) ->
     Distinct (fst P) ->
-    AlignLang.DRF P <-> DRF (split P).
+    ALang.DRF P <-> DRF (split P).
   Proof.
     split; intros.
     + apply drf_2; auto.
