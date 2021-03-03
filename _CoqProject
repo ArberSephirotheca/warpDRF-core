@@ -25,3 +25,4 @@ src/MultiHist.v
 src/TLang.v
 src/Sequentialize.v
 src/PhaseSplit.v
+src/Main.v

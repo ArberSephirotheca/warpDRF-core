@@ -141,7 +141,6 @@ Section Defs.
       - simpl in *.
         rewrite ph_to_hist_subst; auto using NExp.n_closed_num.
         intuition.
-      - auto using PhaseSplit.not_var_subst.
       - admit.
       - admit.
       - admit.
