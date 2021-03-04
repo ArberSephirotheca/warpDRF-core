@@ -368,7 +368,10 @@ Section Defs.
       destruct hs as (h, (Hsr, hi)).
       eapply TLang.run_i_pair_in_to_m_pair_in with (h0:=h) in Hp; eauto.
       eauto using PairInUtil.m_pair_in_incl.
-    + admit.
+    + intros N.
+      rename_hyp (~WLang.WVar TID P) as hv.
+      contradict hv.
+      eauto using split_align_var.
     + admit.
     + admit.
     + admit.
