@@ -225,6 +225,29 @@ Section Defs.
       eauto.
   Qed.
 
+  Lemma a_split_distinct:
+    forall a ph,
+    ALang.Distinct a ->
+    In ph (PhaseSplit.a_split a) ->
+    PhaseSplit.Distinct ph.
+  Proof.
+    induction a; simpl; intros ph hd hi; auto.
+    - intuition.
+      subst.
+      simpl.
+      assumption.
+    - apply in_app_or in hi.
+      intuition.
+    - apply in_app_or in hi.
+      destruct hi as [hi|hi]; simpl in hi; intuition.
+      apply in_map_iff in hi.
+      destruct hi as (ph', (he, hi)).
+      subst.
+      simpl in *.
+      intuition.
+      eauto using a_split_var.
+  Qed.
+
   Lemma split_var:
     forall x P ph,
     PhaseSplit.Var x ph ->
@@ -255,6 +278,22 @@ Section Defs.
     }
     left.
     eapply a_split_occurs; eauto.
+  Qed.
+
+  Lemma split_distinct:
+    forall P ph,
+    ALang.PDistinct P ->
+    In ph (PhaseSplit.split P) ->
+    PhaseSplit.Distinct ph.
+  Proof.
+    intros.
+    destruct P as (px, cx).
+    simpl in *.
+    intuition.
+    - subst.
+      simpl.
+      auto.
+    - eauto using a_split_distinct.
   Qed.
 
   Lemma align_var:
@@ -352,6 +391,63 @@ Section Defs.
         intuition.
   Qed.
 
+  Lemma align_distinct:
+    forall P,
+    WLang.Distinct P ->
+    ALang.PDistinct (Align.align P).
+  Proof.
+    induction P; simpl; intros; auto.
+    - destruct H as (Ha, Hb).
+      destruct (Align.align P1) as (Px1, cx1) eqn:r1.
+      destruct (Align.align P2) as (Px2, cx2) eqn:r2.
+      simpl.
+      repeat split; simpl in *; intuition.
+      apply Align.distinct_seq; auto.
+    - destruct r as (e1, e2).
+      destruct (Align.align P) as (Px1, cx1) eqn:r1.
+      simpl in *.
+      destruct H as (ha, (hb, (hc, (hd, he)))).
+      repeat split.
+      + apply Align.distinct_seq; auto.
+        apply ALang.distinct_subst.
+        intuition.
+      + intros N.
+        apply ALang.var_inv_n_seq in N.
+        destruct N as [N|N]. {
+          apply ULang.var_inv_subst in N.
+          contradict hb.
+          apply align_var.
+          rewrite r1.
+          simpl.
+          auto.
+        }
+        apply ALang.var_inv_n_seq in N.
+        destruct N as [N|N]. {
+          apply ULang.var_inv_subst in N.
+          auto.
+        }
+        contradict hb.
+        apply align_var.
+        rewrite r1.
+        simpl.
+        auto.
+      + apply Align.distinct_seq. {
+          apply Align.distinct_seq. {
+            intuition.
+          }
+          apply ULang.distinct_subst.
+          auto.
+        }
+        apply ULang.distinct_subst.
+       intuition.
+    + apply ULang.distinct_c_seq. {
+        apply ULang.distinct_subst.
+        intuition.
+      }
+      apply ULang.distinct_subst.
+      auto.
+  Qed.
+
   Lemma split_align_var:
     forall x P ph,
     PhaseSplit.Var x ph ->
@@ -372,6 +468,18 @@ Section Defs.
     intros.
     eapply split_occurs in H0; eauto.
     eapply align_occurs in H0; eauto.
+  Qed.
+
+  Lemma split_align_distinct:
+    forall P,
+    WLang.Distinct P ->
+    forall ph,
+    In ph (PhaseSplit.split (Align.align P)) ->
+    PhaseSplit.Distinct ph.
+  Proof.
+    intros.
+    apply align_distinct in H.
+    eauto using split_distinct.
   Qed.
 
   Theorem drf_1:
@@ -428,8 +536,8 @@ Section Defs.
       contradict ht1.
       eauto using split_align_occurs.
     - auto using t1_neq_t2.
-    - admit.
-  Admitted.
+    - eauto using split_align_distinct.
+  Qed.
 
   Theorem drf_2:
     forall P h1 h2,
@@ -486,8 +594,8 @@ Section Defs.
       rename_hyp (~ WLang.Occurs T2 P) as ht1.
       contradict ht1.
       eauto using split_align_occurs.
-    + admit.
-  Admitted.
+    + eauto using split_align_distinct.
+  Qed.
 
   Theorem drf:
     forall P h1 h2,
