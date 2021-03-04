@@ -304,7 +304,7 @@ Section Defs.
         apply ULang.var_inv_subst in hc.
         auto.
   Qed.
-(*
+
   Lemma align_occurs:
     forall x P,
     ALang.POccurs x (Align.align P) ->
@@ -322,37 +322,36 @@ Section Defs.
       destruct (Align.align P) as (Px1, cx1) eqn:r1.
       simpl in *.
       intuition.
-      + rename_hyp (ALang.Var _ (ALang.n_seq _ _)) as hc.
-        apply Align.var_inv_seq in hc.
+      + rename_hyp (ALang.Occurs _ (ALang.n_seq _ _)) as hc.
+        apply Align.occurs_inv_seq in hc.
         intuition.
-        rename_hyp (ALang.Var _ (ALang.subst _ _ _)) as hc.
-        apply ALang.var_inv_subst in hc.
-        auto.
-      + rename_hyp (ALang.Var _ (ALang.n_seq _ _)) as hc.
-        apply Align.var_inv_seq in hc.
-        intuition. {
-          rename_hyp (ULang.Var _ (ULang.i_subst _ _ _)) as hc.
-          apply ULang.var_inv_subst in hc.
-          auto.
-        }
-        rename_hyp (ALang.Var _ (ALang.n_seq _ _)) as hc.
-        apply Align.var_inv_seq in hc.
+        rename_hyp (ALang.Occurs _ (ALang.subst _ _ _)) as hc.
+        apply ALang.occurs_inv_subst in hc.
         intuition.
-        rename_hyp (ULang.Var _ (ULang.i_subst _ _ _)) as hc.
-        apply ULang.var_inv_subst in hc.
-        auto.
-      + rename_hyp (ULang.Var _ (ULang.c_seq _ _)) as hc.
-        apply ALang.c_var_inv_c_seq in hc.
-        intuition. {
-          rename_hyp (ULang.Var _ (ULang.i_subst _ _ _)) as hc.
-          apply ULang.var_inv_subst in hc.
-          auto.
+      + rename_hyp (ALang.Occurs _ (ALang.n_seq _ _)) as hc.
+        apply Align.occurs_inv_seq in hc.
+        destruct hc as [hc|hc]. {
+          apply ULang.occurs_inv_subst in hc.
+          destruct hc as [hc|hc]; simpl in hc; intuition.
         }
-        rename_hyp (ULang.Var _ (ULang.i_subst _ _ _)) as hc.
-        apply ULang.var_inv_subst in hc.
-        auto.
+        apply Align.occurs_inv_seq in hc.
+        destruct hc as [hc|hc]; intuition.
+        simpl in hc.
+        apply ULang.occurs_inv_subst in hc.
+        simpl in hc.
+        intuition.
+      + rename_hyp (ULang.Occurs _ (ULang.c_seq _ _)) as hc.
+        apply ULang.occurs_inv_c_seq in hc.
+        destruct hc as [hc|hc]; simpl in hc. {
+          apply ULang.occurs_inv_subst in hc.
+          simpl in hc.
+          intuition.
+        }
+        apply ULang.occurs_inv_subst in hc.
+        simpl in hc.
+        intuition.
   Qed.
-*)
+
   Lemma split_align_var:
     forall x P ph,
     PhaseSplit.Var x ph ->
@@ -364,9 +363,22 @@ Section Defs.
     eapply align_var in H0; eauto.
   Qed.
 
+  Lemma split_align_occurs:
+    forall x P ph,
+    PhaseSplit.Occurs x ph ->
+    In ph (PhaseSplit.split (Align.align P)) ->
+    WLang.Occurs x P.
+  Proof.
+    intros.
+    eapply split_occurs in H0; eauto.
+    eapply align_occurs in H0; eauto.
+  Qed.
+
   Theorem drf_1:
     forall P h1 h2,
     ~ WLang.WVar TID P ->
+    ~ WLang.Occurs T1 P ->
+    ~ WLang.Occurs T2 P ->
     WLang.WRun P h1 ->
     SRun (w_to_s P) h2 ->
     WLang.Distinct P ->
@@ -408,8 +420,13 @@ Section Defs.
       contradict hv.
       eauto using split_align_var.
     - intros N.
-      admit.
-    - admit.
+      rename_hyp (~ WLang.Occurs T1 P) as ht1.
+      contradict ht1.
+      eauto using split_align_occurs.
+    - intros N.
+      rename_hyp (~ WLang.Occurs T2 P) as ht1.
+      contradict ht1.
+      eauto using split_align_occurs.
     - auto using t1_neq_t2.
     - admit.
   Admitted.
@@ -417,6 +434,8 @@ Section Defs.
   Theorem drf_2:
     forall P h1 h2,
     ~ WLang.WVar TID P ->
+    ~ WLang.Occurs T1 P ->
+    ~ WLang.Occurs T2 P ->
     WLang.WRun P h1 ->
     SRun (w_to_s P) h2 ->
     WLang.Distinct P ->
@@ -459,8 +478,14 @@ Section Defs.
       rename_hyp (~WLang.WVar TID P) as hv.
       contradict hv.
       eauto using split_align_var.
-    + admit.
-    + admit.
+    + intros N.
+      rename_hyp (~ WLang.Occurs T1 P) as ht1.
+      contradict ht1.
+      eauto using split_align_occurs.
+    + intros N.
+      rename_hyp (~ WLang.Occurs T2 P) as ht1.
+      contradict ht1.
+      eauto using split_align_occurs.
     + admit.
   Admitted.
 
@@ -474,6 +499,8 @@ Section Defs.
     WLang.Distinct P ->
     (* TID is not redeclared in a loop *)
     ~ WLang.WVar TID P ->
+    ~ WLang.Occurs T1 P ->
+    ~ WLang.Occurs T2 P ->
     (* Main result: *)
     Hist.MSafeStrong h2 <-> VHist.Safe h1.
   Proof.

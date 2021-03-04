@@ -404,7 +404,7 @@ Section SO.
       auto.
     - destruct H; eauto.
   Qed.
-
+(*
   Lemma n_free_inv_subst:
     forall x y z n,
     x <> y ->
@@ -414,7 +414,25 @@ Section SO.
   Proof.
     intros.
     apply n_free_subst_neq in H1; auto.
+  Qed.*)
+
+  Lemma n_free_inv_subst:
+    forall e x y v,
+    NFree (n_subst y v e) x ->
+    NFree v x \/ NFree e x.
+  Proof.
+    induction e; simpl; intros; auto.
+    - destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        auto.
+      }
+      simpl in *.
+      auto.
+    - intuition.
+      + apply IHe1 in H0; intuition.
+      + apply IHe2 in H0; intuition.
   Qed.
+
 
   Lemma n_free_subst_eq:
     forall x y e,

@@ -96,6 +96,12 @@ Class Access := {
     ~ AFree e x ->
     access_subst x v e = e;
 
+  access_free_inv_subst:
+    forall e x y v,
+    AFree (access_subst y v e) x ->
+    NFree v x \/
+    AFree e x;
+
   access_in_subst_neq:
     forall e x y v,
     AFree (access_subst y v e) x ->

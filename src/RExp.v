@@ -122,6 +122,18 @@ Section Defs.
     destruct H; eauto using n_free_subst_neq.
   Qed.
 
+  Lemma r_free_inv_subst:
+    forall e x y v,
+    RFree (r_subst y v e) x ->
+    NFree v x \/
+    RFree e x.
+  Proof.
+    intros.
+    destruct e.
+    simpl in *.
+    destruct H as [H|H]; eapply n_free_inv_subst in H; intuition.
+  Qed.
+
   Lemma r_free_subst_eq:
     forall x y e,
     ~ RFree e x ->

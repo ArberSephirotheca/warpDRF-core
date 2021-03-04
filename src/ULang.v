@@ -234,15 +234,18 @@ Section C1.
 
   Lemma occurs_inv_subst:
     forall y x v i,
-    ~ NFree v y ->
     Occurs y (i_subst x v i) ->
-    Occurs y i.
+    Occurs y i \/ NFree v y.
   Proof.
     induction i; simpl; intros; auto; intuition.
-    - eauto using b_free_subst_neq.
-    - eauto using access_in_subst_neq.
-    - eauto using r_free_subst_neq.
+    - rename_hyp (BFree _ _) as hb.
+      apply b_free_inv_subst in hb.
+      intuition.
+    - apply access_free_inv_subst in H.
+      intuition.
+    - apply r_free_inv_subst in H; intuition.
     - destruct (Set_VAR.MF.eq_dec x v0); auto.
+      intuition.
   Qed.
 
   Lemma occurs_inv_subst_num:
@@ -251,7 +254,9 @@ Section C1.
     Occurs y i.
   Proof.
     intros.
-    apply occurs_inv_subst in H; auto.
+    apply occurs_inv_subst in H.
+    intuition.
+    invc H0.
   Qed.
 
   (** Parallelize an access for [n] tasks. *)
@@ -1754,6 +1759,17 @@ Section C1.
     intuition.
   Qed.
 
+  Lemma occurs_inv_c_seq:
+    forall x c1 c2,
+    Occurs x (c_seq c1 c2) ->
+    Occurs x c1 \/ Occurs x c2.
+  Proof.
+    induction c1; simpl; intros; try (intuition; fail).
+    apply IHc1_1 in H.
+    intuition.
+    apply IHc1_2 in H0.
+    intuition.
+  Qed.
 
 End C1.
 

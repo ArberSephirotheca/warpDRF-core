@@ -2031,7 +2031,7 @@ Section Defs.
     | WSync c => ULang.Occurs x c
     | WSeq P Q => Occurs x P \/ Occurs x Q
     | WFor c1 y r P c2 => ULang.Occurs x c1 \/
-      RFree r x \/ (x <> y /\ (Occurs x P \/ ULang.Occurs x c2))
+      RFree r x \/ x = y \/ Occurs x P \/ ULang.Occurs x c2
     end.
 
   Lemma occurs_inv_subst_eq:

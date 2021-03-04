@@ -550,6 +550,21 @@ Section SO.
       rewrite IHb; auto.
   Qed.
 *)
+
+  Lemma b_free_inv_subst:
+    forall e x y v,
+    BFree (b_subst y v e) x ->
+    NFree v x \/ BFree e x.
+  Proof.
+    induction e; simpl; intros; auto.
+    - intuition; apply n_free_inv_subst in H0; intuition.
+    - intuition; rename_hyp (BFree _ _) as hb.
+      + apply IHe1 in hb; intuition.
+      + apply IHe2 in hb; intuition.
+    - apply IHe in H.
+      intuition.
+  Qed.
+
   Lemma b_free_inv_subst_eq:
     forall x e b,
     BFree (b_subst x e b) x ->

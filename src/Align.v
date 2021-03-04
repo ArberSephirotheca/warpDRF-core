@@ -1304,7 +1304,7 @@ Section Props.
     - intuition.
     - intuition.
   Qed.
-(*
+
   Lemma occurs_inv_seq:
     forall x c P,
     Occurs x (n_seq c P) ->
@@ -1314,7 +1314,7 @@ Section Props.
     - auto using occurs_inv_c_seq.
     - intuition.
     - intuition.
-  Qed.*)
+  Qed.
 
   Lemma distinct_seq:
     forall c P,

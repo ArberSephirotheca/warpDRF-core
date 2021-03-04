@@ -621,6 +621,29 @@ Section Props.
       intuition.
   Qed.
 
+  Lemma occurs_inv_subst:
+    forall x y (v:nexp) P,
+    Occurs x (subst y v P) ->
+    Occurs x P \/ NFree v x.
+  Proof.
+    induction P; simpl; intros.
+    - apply ULang.occurs_inv_subst in H.
+      assumption.
+    - intuition.
+    - intuition.
+      destruct (Set_VAR.MF.eq_dec x v0). {
+        intuition.
+      }
+      intuition.
+      rename_hyp (RFree _ _) as hr.
+      apply r_free_inv_subst in hr.
+      intuition.
+      destruct (Set_VAR.MF.eq_dec y v0). {
+        subst.
+        intuition.
+      }
+      intuition.
+  Qed.
 
   Lemma distinct_subst:
     forall P,

@@ -87,12 +87,13 @@ Section Defs.
 
   Lemma occurs_inv_subst:
     forall x y v ph,
-    ~ NFree v x ->
     Occurs x (ph_subst y v ph) ->
-    Occurs x ph.
+    NFree v x \/ Occurs x ph.
   Proof.
     induction ph; simpl in *; intros.
-    - eapply ULang.occurs_inv_subst; eauto.
+    - rename_hyp (ULang.Occurs _ _) as ho.
+      apply ULang.occurs_inv_subst in ho.
+      intuition.
     - intuition.
       destruct (Set_VAR.MF.eq_dec y v0). {
         subst.
@@ -110,6 +111,7 @@ Section Defs.
     intros.
     intros N.
     apply occurs_inv_subst in N; auto.
+    intuition.
   Qed.
 
   Lemma distinct_subst:
