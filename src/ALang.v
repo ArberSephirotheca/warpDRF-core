@@ -342,7 +342,8 @@ Section Props.
     | NSync c => ULang.Occurs x c
     | NSeq P Q => Occurs x P \/ Occurs x Q
     | NFor P y r Q =>
-        Occurs x P \/ RFree r x \/ (x <> y /\ Occurs x Q)
+      x = y \/
+        Occurs x P \/ RFree r x \/ Occurs x Q
     end.
 
   Lemma occurs_inv_subst_eq:
@@ -580,17 +581,9 @@ Section Props.
     let (P, c) := P in
     Var x P \/ ULang.Var x c.
 
-  Lemma c_var_inv_c_seq:
-    forall x c1 c2,
-    ULang.Var x (ULang.c_seq c1 c2) ->
-    ULang.Var x c1 \/ ULang.Var x c2.
-  Proof.
-    induction c1; simpl; intros; try (intuition; fail).
-    apply IHc1_1 in H.
-    intuition.
-    apply IHc1_2 in H0.
-    intuition.
-  Qed.
+  Definition POccurs x (P:p_inst) :=
+    let (P, c) := P in
+    Occurs x P \/ ULang.Occurs x c.
 
   Lemma var_inv_n_seq:
     forall x P c,
@@ -598,7 +591,7 @@ Section Props.
     ULang.Var x c \/ Var x P.
   Proof.
     induction P; simpl; intros.
-    - apply c_var_inv_c_seq in H.
+    - apply ULang.var_inv_c_seq in H.
       intuition.
     - intuition.
       apply IHP1 in H0.
@@ -614,7 +607,7 @@ Section Props.
     Var x P.
   Proof.
     induction P; simpl; intros.
-    - eauto using c_var_inv_subst.
+    - eauto using ULang.var_inv_subst.
     - intuition.
     - intuition.
       destruct (Set_VAR.MF.eq_dec x v0). {

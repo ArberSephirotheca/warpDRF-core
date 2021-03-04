@@ -1742,24 +1742,19 @@ Section C1.
   Definition CClosed P :=
     forall x, ~ Occurs x P.
 
-  Lemma c_var_inv_subst:
-    forall c x y v,
-    Var x (i_subst y v c) ->
-    Var x c.
+  Lemma var_inv_c_seq:
+    forall x c1 c2,
+    Var x (c_seq c1 c2) ->
+    Var x c1 \/ Var x c2.
   Proof.
-    induction c; simpl; intros; try (intuition; fail).
-    - intuition; eauto.
-    - intuition; eauto.
-    - intuition.
-      rename v into z.
-      destruct (Set_VAR.MF.eq_dec y z). {
-        intuition.
-      }
-      intuition.
-      rename_hyp (Var _ (i_subst _ _ _)) as Hc.
-      apply IHc in Hc.
-      intuition.
+    induction c1; simpl; intros; try (intuition; fail).
+    apply IHc1_1 in H.
+    intuition.
+    apply IHc1_2 in H0.
+    intuition.
   Qed.
+
+
 End C1.
 
 Module CLangNotations.

@@ -62,22 +62,22 @@ Section Props.
         apply var_inv_n_seq in Hv.
         intuition.
         rename_hyp (ULang.Var _ _) as Hc.
-        apply c_var_inv_subst in Hc.
+        apply ULang.var_inv_subst in Hc.
         intuition.
         rename_hyp (Var _ (n_seq _ _)) as Hc.
         apply var_inv_n_seq in Hc.
         intuition.
         rename_hyp (ULang.Var _ _) as Hc.
-        apply c_var_inv_subst in Hc.
+        apply ULang.var_inv_subst in Hc.
         intuition.
       + rename_hyp (ULang.Var _ (ULang.c_seq _ _ )) as Hc.
-        apply c_var_inv_c_seq in Hc.
+        apply ULang.var_inv_c_seq in Hc.
         intuition.
         * rename_hyp (ULang.Var _ (i_subst _ _ _)) as Hc.
-          apply c_var_inv_subst in Hc.
+          apply ULang.var_inv_subst in Hc.
           intuition.
         * rename_hyp (ULang.Var _ (i_subst _ _ _)) as Hc.
-          apply c_var_inv_subst in Hc.
+          apply ULang.var_inv_subst in Hc.
           intuition.
   Qed.
 
@@ -1300,10 +1300,21 @@ Section Props.
     ULang.Var x c \/ Var x P.
   Proof.
     induction P; simpl in *; intros.
-    - auto using c_var_inv_c_seq.
+    - auto using ULang.var_inv_c_seq.
     - intuition.
     - intuition.
   Qed.
+(*
+  Lemma occurs_inv_seq:
+    forall x c P,
+    Occurs x (n_seq c P) ->
+    ULang.Occurs x c \/ Occurs x P.
+  Proof.
+    induction P; simpl in *; intros.
+    - auto using occurs_inv_c_seq.
+    - intuition.
+    - intuition.
+  Qed.*)
 
   Lemma distinct_seq:
     forall c P,

@@ -180,6 +180,28 @@ Section Defs.
         intuition.
   Qed.
 
+  Lemma a_split_occurs:
+    forall x a ph,
+    PhaseSplit.Occurs x ph ->
+    In ph (PhaseSplit.a_split a) ->
+    ALang.Occurs x a.
+  Proof.
+    induction a; simpl; intros ph he hi; intuition.
+    - subst.
+      simpl in *.
+      assumption.
+    - apply in_app_or in hi.
+      destruct hi as [hi|hi]; eauto.
+    - apply in_app_or in hi.
+      destruct hi as [hi|hi]; eauto.
+      apply in_map_iff in hi.
+      destruct hi as (ph', (he', hi)).
+      subst.
+      simpl in *.
+      intuition.
+      eauto.
+  Qed.
+
   Lemma a_split_var:
     forall x a ph,
     PhaseSplit.Var x ph ->
@@ -219,6 +241,22 @@ Section Defs.
     eauto using a_split_var.
   Qed.
 
+  Lemma split_occurs:
+    forall x P ph,
+    PhaseSplit.Occurs x ph ->
+    In ph (PhaseSplit.split P) ->
+    ALang.POccurs x P.
+  Proof.
+    induction P; simpl; intros ph hv he.
+    destruct he as [he|he]. {
+      subst.
+      simpl in *.
+      auto.
+    }
+    left.
+    eapply a_split_occurs; eauto.
+  Qed.
+
   Lemma align_var:
     forall x P,
     ALang.PVar x (Align.align P) ->
@@ -256,6 +294,54 @@ Section Defs.
         apply ULang.var_inv_subst in hc.
         auto.
       + rename_hyp (ULang.Var _ (ULang.c_seq _ _)) as hc.
+        apply ULang.var_inv_c_seq in hc.
+        intuition. {
+          rename_hyp (ULang.Var _ (ULang.i_subst _ _ _)) as hc.
+          apply ULang.var_inv_subst in hc.
+          auto.
+        }
+        rename_hyp (ULang.Var _ (ULang.i_subst _ _ _)) as hc.
+        apply ULang.var_inv_subst in hc.
+        auto.
+  Qed.
+(*
+  Lemma align_occurs:
+    forall x P,
+    ALang.POccurs x (Align.align P) ->
+    WLang.Occurs x P.
+  Proof.
+    induction P; simpl; intros; intuition.
+    - destruct (Align.align P1) as (Px1, cx1) eqn:r1.
+      destruct (Align.align P2) as (Px2, cx2) eqn:r2.
+      simpl in *.
+      intuition.
+      rename_hyp (ALang.Occurs _ (ALang.n_seq _ _)) as hc.
+      apply Align.occurs_inv_seq in hc.
+      intuition.
+    - destruct r as (e1, e2).
+      destruct (Align.align P) as (Px1, cx1) eqn:r1.
+      simpl in *.
+      intuition.
+      + rename_hyp (ALang.Var _ (ALang.n_seq _ _)) as hc.
+        apply Align.var_inv_seq in hc.
+        intuition.
+        rename_hyp (ALang.Var _ (ALang.subst _ _ _)) as hc.
+        apply ALang.var_inv_subst in hc.
+        auto.
+      + rename_hyp (ALang.Var _ (ALang.n_seq _ _)) as hc.
+        apply Align.var_inv_seq in hc.
+        intuition. {
+          rename_hyp (ULang.Var _ (ULang.i_subst _ _ _)) as hc.
+          apply ULang.var_inv_subst in hc.
+          auto.
+        }
+        rename_hyp (ALang.Var _ (ALang.n_seq _ _)) as hc.
+        apply Align.var_inv_seq in hc.
+        intuition.
+        rename_hyp (ULang.Var _ (ULang.i_subst _ _ _)) as hc.
+        apply ULang.var_inv_subst in hc.
+        auto.
+      + rename_hyp (ULang.Var _ (ULang.c_seq _ _)) as hc.
         apply ALang.c_var_inv_c_seq in hc.
         intuition. {
           rename_hyp (ULang.Var _ (ULang.i_subst _ _ _)) as hc.
@@ -266,7 +352,7 @@ Section Defs.
         apply ULang.var_inv_subst in hc.
         auto.
   Qed.
-
+*)
   Lemma split_align_var:
     forall x P ph,
     PhaseSplit.Var x ph ->
@@ -321,7 +407,8 @@ Section Defs.
       rename_hyp (~WLang.WVar TID P) as hv.
       contradict hv.
       eauto using split_align_var.
-    - admit.
+    - intros N.
+      admit.
     - admit.
     - auto using t1_neq_t2.
     - admit.
