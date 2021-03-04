@@ -101,6 +101,34 @@ Section Defs.
       intuition.
   Qed.
 
+  Lemma not_occurs_subst:
+    forall y ph x v,
+    ~ NFree v x ->
+    ~ Occurs x ph ->
+    ~ Occurs x (ph_subst y v ph).
+  Proof.
+    intros.
+    intros N.
+    apply occurs_inv_subst in N; auto.
+  Qed.
+
+  Lemma distinct_subst:
+    forall ph,
+    Distinct ph ->
+    forall x v,
+    Distinct (ph_subst x v ph).
+  Proof.
+    induction ph; simpl; intros; auto.
+    destruct (Set_VAR.MF.eq_dec x v). {
+      subst.
+      intuition.
+    }
+    destruct H as (Ha, Hb).
+    split. {
+      auto using not_var_subst.
+    }
+    eauto.
+  Qed.
 
   Inductive PPairIn (p:access_val * access_val) : phase -> Prop :=
   | p_pair_in_phase:
@@ -186,7 +214,7 @@ Section Defs.
       rewrite in_app_iff.
       eauto.
     - assert (Hd: ALang.Distinct (subst x (NNum n) j) ). {
-        auto using distinct_subst.
+        auto using ALang.distinct_subst.
       }
       apply IHIPairIn in Hd.
       destruct Hd as (ph, (Ha, Hb)).
@@ -369,7 +397,7 @@ Section Defs.
       invc Hp.
       apply H1 with (n:=n) in H6; auto.
       + eapply i_pair_in_for_2; eauto.
-      + auto using distinct_subst.
+      + auto using ALang.distinct_subst.
       + apply in_ph_subst; auto.
   Qed.
 

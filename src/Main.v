@@ -141,15 +141,16 @@ Section Defs.
       - simpl in *.
         rewrite ph_to_hist_subst; auto using NExp.n_closed_num.
         intuition.
-      - admit.
-      - admit.
-      - admit.
+      - apply PhaseSplit.not_occurs_subst; eauto using NExp.n_step_to_not_free.
+      - apply PhaseSplit.not_occurs_subst; eauto using NExp.n_step_to_not_free.
+      - destruct hd as (_, Hd).
+        auto using PhaseSplit.distinct_subst.
     }
     simpl in *.
     econstructor; eauto using RExp.r_pick_def.
-  Admitted.
+  Qed.
 
-  Lemma in_2: (* TODO: MEDIUM *)
+  Lemma in_2:
     forall x y ph,
     PhaseSplit.PPairIn (x, y) ph ->
     access_tid x <> access_tid y ->
@@ -171,14 +172,13 @@ Section Defs.
       invc H.
       eapply TLang.i_pair_in_decl; eauto.
       rewrite ph_to_hist_subst; auto using NExp.n_closed_num.
-      
-       2: { intuition. } 
-      eapply IHPPairIn; eauto.
-      + admit.
-      + admit.
-      + admit.
-      + admit.
-  Admitted.
+      2: { intuition. } 
+      eapply IHPPairIn; eauto using PhaseSplit.not_var_subst.
+      + apply PhaseSplit.not_occurs_subst; eauto using NExp.n_step_to_not_free.
+      + apply PhaseSplit.not_occurs_subst; eauto using NExp.n_step_to_not_free.
+      + apply PhaseSplit.distinct_subst.
+        intuition.
+  Qed.
 
   Theorem drf_1:
     forall P h1 h2,
