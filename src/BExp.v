@@ -192,17 +192,17 @@ Section SO.
     reflexivity.
   Qed.
 
-  Fixpoint BFree (b:bexp) (x: var): Prop :=
+  Fixpoint BFree (x: var) (b:bexp): Prop :=
     match b with
-    | NRel _ n1 n2 => NFree n1 x \/ NFree n2 x
-    | BRel _ b1 b2 => BFree b1 x \/ BFree b2 x
-    | BNot b => BFree b x
+    | NRel _ n1 n2 => NFree x n1 \/ NFree x n2
+    | BRel _ b1 b2 => BFree x b1 \/ BFree x b2
+    | BNot b => BFree x b
     | BBool _ => False
     end.
 
   Lemma b_subst_not_free:
     forall x v b,
-    ~ BFree b x ->
+    ~ BFree x b ->
     b_subst x v b = b.
   Proof.
     induction b; simpl; intros.
@@ -235,8 +235,8 @@ Section SO.
   Lemma b_subst_subst_neq_3:
     forall e x y v1 v2,
     x <> y ->
-    ~ NFree v1 y ->
-    ~ NFree v2 x ->
+    ~ NFree y v1 ->
+    ~ NFree x v2 ->
     b_subst x v1 (b_subst y v2 e)
     =
     b_subst y v2 (b_subst x v1 e).
@@ -251,9 +251,9 @@ Section SO.
 
   Lemma b_free_subst_neq:
     forall e x y v,
-    BFree (b_subst y v e) x ->
-    ~ NFree v x ->
-    BFree e x.
+    BFree x (b_subst y v e) ->
+    ~ NFree x v ->
+    BFree x e.
   Proof.
     induction e; simpl; intros.
     - assumption.
@@ -264,7 +264,7 @@ Section SO.
 
   Lemma b_subst_subst_trans:
     forall e x v y,
-    ~ BFree e x ->
+    ~ BFree x e ->
     b_subst x v (b_subst y (NVar x) e) = b_subst y v e.
   Proof.
     induction e; simpl; intros.
@@ -293,7 +293,7 @@ Section SO.
 
   Lemma b_subst_subst_eq_2:
     forall x b v e,
-    ~ NFree v x ->
+    ~ NFree x v ->
     b_subst x e (b_subst x v b) = b_subst x v b.
   Proof.
     induction b; intros; simpl.
@@ -553,8 +553,8 @@ Section SO.
 
   Lemma b_free_inv_subst:
     forall e x y v,
-    BFree (b_subst y v e) x ->
-    NFree v x \/ BFree e x.
+    BFree x (b_subst y v e) ->
+    NFree x v \/ BFree x e.
   Proof.
     induction e; simpl; intros; auto.
     - intuition; apply n_free_inv_subst in H0; intuition.
@@ -567,8 +567,8 @@ Section SO.
 
   Lemma b_free_inv_subst_eq:
     forall x e b,
-    BFree (b_subst x e b) x ->
-    NFree e x.
+    BFree x (b_subst x e b) ->
+    NFree x e.
   Proof.
     induction b; simpl; intros.
     - invc H.

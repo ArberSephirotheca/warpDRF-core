@@ -62,8 +62,8 @@ Section Defs.
   Lemma w_subst_subst_neq:
     forall P x y v1 v2,
     x <> y ->
-    ~ NFree v1 y ->
-    ~ NFree v2 x ->
+    ~ NFree y v1 ->
+    ~ NFree x v2 ->
     w_subst x v1 (w_subst y v2 P)
     =
     w_subst y v2 (w_subst x v1 P).
@@ -1059,9 +1059,9 @@ Section Defs.
     + rewrite r1.
       auto.
     + intros e He.
-      assert (~ NFree e2 z) by eauto using n_step_to_not_free.
-      assert (~ NFree e y) by eauto using n_step_to_not_free.
-      assert (~ NFree e1 z) by eauto using n_step_to_not_free.
+      assert (~ NFree z e2) by eauto using n_step_to_not_free.
+      assert (~ NFree y e) by eauto using n_step_to_not_free.
+      assert (~ NFree z e1) by eauto using n_step_to_not_free.
       rewrite ULang.i_subst_subst_neq_3; auto.
       assert (Hi : CIn a (ULang.i_subst z e (ULang.i_subst y e1 i0))) by eauto.
       rewrite ULang.i_subst_subst_neq_3 in Hi; auto.
@@ -2031,14 +2031,14 @@ Section Defs.
     | WSync c => ULang.Occurs x c
     | WSeq P Q => Occurs x P \/ Occurs x Q
     | WFor c1 y r P c2 => ULang.Occurs x c1 \/
-      RFree r x \/ x = y \/ Occurs x P \/ ULang.Occurs x c2
+      RFree x r \/ x = y \/ Occurs x P \/ ULang.Occurs x c2
     end.
 
   Lemma occurs_inv_subst_eq:
     forall x e P,
     ~ WVar x P ->
     Occurs x (w_subst x e P) ->
-    NFree e x.
+    NFree x e.
   Proof.
     induction P; simpl; intros.
     - eapply occurs_inv_subst_eq; eauto.
@@ -2528,7 +2528,7 @@ Section Defs.
       auto.
     }
     assert (RunAll TID_COUNT (i_subst x e c2) h2). {
-      assert (~ NFree e TID). {
+      assert (~ NFree TID e). {
         apply n_closed_to_not_free.
         eauto using n_step_to_closed.
       }

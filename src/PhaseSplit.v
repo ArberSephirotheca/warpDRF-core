@@ -88,7 +88,7 @@ Section Defs.
   Lemma occurs_inv_subst:
     forall x y v ph,
     Occurs x (ph_subst y v ph) ->
-    NFree v x \/ Occurs x ph.
+    NFree x v \/ Occurs x ph.
   Proof.
     induction ph; simpl in *; intros.
     - rename_hyp (ULang.Occurs _ _) as ho.
@@ -104,7 +104,7 @@ Section Defs.
 
   Lemma not_occurs_subst:
     forall y ph x v,
-    ~ NFree v x ->
+    ~ NFree x v ->
     ~ Occurs x ph ->
     ~ Occurs x (ph_subst y v ph).
   Proof.

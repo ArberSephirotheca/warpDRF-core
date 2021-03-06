@@ -32,8 +32,8 @@ Section Defs.
   Lemma r_subst_subst_neq_3:
     forall e x y v1 v2,
     x <> y ->
-    ~ NFree v1 y ->
-    ~ NFree v2 x ->
+    ~ NFree y v1 ->
+    ~ NFree x v2 ->
     r_subst x v1 (r_subst y v2 e)
     =
     r_subst y v2 (r_subst x v1 e).
@@ -71,7 +71,7 @@ Section Defs.
 
   Lemma r_subst_subst_eq_2:
     forall x r v e,
-    ~ NFree v x ->
+    ~ NFree x v ->
     r_subst x e (r_subst x v r) = r_subst x v r.
   Proof.
     intros.
@@ -81,14 +81,14 @@ Section Defs.
     rewrite n_subst_subst_eq_2; auto.
   Qed.
 
-  Definition RFree r x :=
+  Definition RFree x r :=
     match r with
-    | (e1, e2) => NFree e1 x \/ NFree e2 x
+    | (e1, e2) => NFree x e1 \/ NFree x e2
     end.
 
   Lemma r_subst_not_free:
     forall x v r,
-    ~ RFree r x ->
+    ~ RFree x r ->
     r_subst x v r = r.
   Proof.
     intros.
@@ -100,7 +100,7 @@ Section Defs.
 
   Lemma r_subst_subst_trans:
     forall e x v y,
-    ~ RFree e x ->
+    ~ RFree x e ->
     r_subst x v (r_subst y (NVar x) e) = r_subst y v e.
   Proof.
     intros.
@@ -112,9 +112,9 @@ Section Defs.
 
   Lemma r_free_subst_neq:
     forall e x y v,
-    RFree (r_subst y v e) x ->
-    ~ NFree v x ->
-    RFree e x.
+    RFree x (r_subst y v e) ->
+    ~ NFree x v ->
+    RFree x e.
   Proof.
     intros.
     destruct e.
@@ -124,9 +124,9 @@ Section Defs.
 
   Lemma r_free_inv_subst:
     forall e x y v,
-    RFree (r_subst y v e) x ->
-    NFree v x \/
-    RFree e x.
+    RFree x (r_subst y v e) ->
+    NFree x v \/
+    RFree x e.
   Proof.
     intros.
     destruct e.
@@ -136,9 +136,9 @@ Section Defs.
 
   Lemma r_free_subst_eq:
     forall x y e,
-    ~ RFree e x ->
-    RFree (r_subst y (NVar x) e) x ->
-    RFree e y.
+    ~ RFree x e ->
+    RFree x (r_subst y (NVar x) e) ->
+    RFree y e.
   Proof.
     intros x y (nx, ny); simpl in *; intros.
     destruct H0.
@@ -877,8 +877,8 @@ Section Defs.
 
   Lemma r_free_inv_subst_eq:
     forall x r e,
-    RFree (r_subst x e r) x ->
-    NFree e x.
+    RFree x (r_subst x e r) ->
+    NFree x e.
   Proof.
     intros.
     destruct r as (e1, e2).
@@ -915,7 +915,7 @@ Section Defs.
 
   Definition RClosed r :=
     forall x,
-    ~ RFree r x.
+    ~ RFree x r.
 
 
   Lemma r_first_to_closed:

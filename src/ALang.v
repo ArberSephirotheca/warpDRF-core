@@ -343,14 +343,14 @@ Section Props.
     | NSeq P Q => Occurs x P \/ Occurs x Q
     | NFor P y r Q =>
       x = y \/
-        Occurs x P \/ RFree r x \/ Occurs x Q
+        Occurs x P \/ RFree x r \/ Occurs x Q
     end.
 
   Lemma occurs_inv_subst_eq:
     forall x v P,
     ~ Var x P ->
     Occurs x (subst x v P) ->
-    NFree v x.
+    NFree x v.
   Proof.
     induction P; simpl; intros.
     - eauto using ULang.occurs_inv_subst_eq.
@@ -395,8 +395,8 @@ Section Props.
   Lemma subst_subst_neq:
     forall P x y v1 v2,
     x <> y ->
-    ~ NFree v1 y ->
-    ~ NFree v2 x ->
+    ~ NFree y v1 ->
+    ~ NFree x v2 ->
     subst x v1 (subst y v2 P)
     =
     subst y v2 (subst x v1 P).
@@ -624,7 +624,7 @@ Section Props.
   Lemma occurs_inv_subst:
     forall x y (v:nexp) P,
     Occurs x (subst y v P) ->
-    Occurs x P \/ NFree v x.
+    Occurs x P \/ NFree x v.
   Proof.
     induction P; simpl; intros.
     - apply ULang.occurs_inv_subst in H.

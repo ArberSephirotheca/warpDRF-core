@@ -229,8 +229,8 @@ Section Defs.
   Lemma i_subst_subst_neq_3:
     forall c x y v1 v2,
     x <> y ->
-    ~ NFree v1 y ->
-    ~ NFree v2 x ->
+    ~ NFree y v1 ->
+    ~ NFree x v2 ->
     i_subst x v1 (i_subst y v2 c)
     =
     i_subst y v2 (i_subst x v1 c).
@@ -266,11 +266,11 @@ Section Defs.
 
   Fixpoint Occurs x (i:inst) : Prop :=
     match i with
-    | MemAcc e n => AFree e x \/ NFree n x
+    | MemAcc e n => AFree x e \/ NFree x n
     | Skip => False
     | Seq i j => Occurs x i \/ Occurs x j
-    | If b i j => BFree b x \/ Occurs x i \/ Occurs x j
-    | Decl y r i => x = y \/ RFree r x \/ Occurs x i 
+    | If b i j => BFree x b \/ Occurs x i \/ Occurs x j
+    | Decl y r i => x = y \/ RFree x r \/ Occurs x i 
     | Fork i j => Occurs x i \/ Occurs x j
     end.
 
@@ -330,7 +330,7 @@ Section Defs.
     forall i x y v,
     Occurs x (i_subst y v i) ->
     x <> y ->
-    ~ NFree v x ->
+    ~ NFree x v ->
     Occurs x i.
   Proof.
     induction i;
@@ -416,7 +416,7 @@ Section Defs.
   match i with
   | Skip | MemAcc _ _ => False
   | If _ i j | Seq i j | Fork i j => InRange x i \/ InRange x j
-  | Decl _ r i => RFree r x \/ InRange x i
+  | Decl _ r i => RFree x r \/ InRange x i
   end.
 
   Lemma in_range_inv_subst_1:

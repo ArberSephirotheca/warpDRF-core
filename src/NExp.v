@@ -325,16 +325,16 @@ Section SO.
     assumption.
   Qed.
 
-  Fixpoint NFree (e: nexp) (x:var) : Prop := 
+  Fixpoint NFree (x:var) (e: nexp) : Prop := 
     match e with
     | NVar y => y = x
-    | NBin _ e1 e2 => NFree e1 x \/ NFree e2 x
+    | NBin _ e1 e2 => NFree x e1 \/ NFree x e2
     | NNum _ => False
     end.
 
   Lemma n_subst_not_free:
     forall x v n,
-    ~ NFree n x ->
+    ~ NFree x n ->
     n_subst x v n = n.
   Proof.
     induction n; intros.
@@ -352,8 +352,8 @@ Section SO.
 
   Lemma n_free_inv_subst_eq:
     forall x e n,
-    NFree (n_subst x e n) x ->
-    NFree e x.
+    NFree x (n_subst x e n) ->
+    NFree x e.
   Proof.
     induction n; intros; simpl in *.
     - invc H.
@@ -369,7 +369,7 @@ Section SO.
   Lemma n_subst_to_not_free:
     forall x v n1 n2,
     n_subst x (NNum v) n1 = n2 ->
-    ~ NFree n2 x.
+    ~ NFree x n2.
   Proof.
     intros.
     intros N.
@@ -381,7 +381,7 @@ Section SO.
 
   Lemma n_subst_subst_eq_2:
     forall x n v e,
-    ~ NFree v x ->
+    ~ NFree x v ->
     n_subst x e (n_subst x v n) = n_subst x v n.
   Proof.
     intros.
@@ -393,9 +393,9 @@ Section SO.
 
   Lemma n_free_subst_neq:
     forall e x y v,
-    NFree (n_subst y v e) x ->
-    ~ NFree v x ->
-    NFree e x.
+    NFree x (n_subst y v e) ->
+    ~ NFree x v ->
+    NFree x e.
   Proof.
     induction e; simpl; intros; auto.
     - destruct (Set_VAR.MF.eq_dec y v). {
@@ -418,8 +418,8 @@ Section SO.
 
   Lemma n_free_inv_subst:
     forall e x y v,
-    NFree (n_subst y v e) x ->
-    NFree v x \/ NFree e x.
+    NFree x (n_subst y v e) ->
+    NFree x v \/ NFree x e.
   Proof.
     induction e; simpl; intros; auto.
     - destruct (Set_VAR.MF.eq_dec y v). {
@@ -436,9 +436,9 @@ Section SO.
 
   Lemma n_free_subst_eq:
     forall x y e,
-    ~ NFree e x ->
-    NFree (n_subst y (NVar x) e) x ->
-    NFree e y.
+    ~ NFree x e ->
+    NFree x (n_subst y (NVar x) e) ->
+    NFree y e.
   Proof.
     induction e; simpl; intros.
     - inversion H0.
@@ -509,8 +509,8 @@ Section SO.
   Lemma n_subst_subst_neq_3:
     forall e x y v1 v2,
     x <> y ->
-    ~ NFree v1 y ->
-    ~ NFree v2 x ->
+    ~ NFree y v1 ->
+    ~ NFree x v2 ->
     n_subst x v1 (n_subst y v2 e)
     =
     n_subst y v2 (n_subst x v1 e).
@@ -610,7 +610,7 @@ Section SO.
 
   Lemma n_subst_subst_trans:
     forall e x v y,
-    ~ NFree e x ->
+    ~ NFree x e ->
     n_subst x v (n_subst y (NVar x) e) = n_subst y v e.
   Proof.
     induction e; simpl; intros.
@@ -638,7 +638,7 @@ Section SO.
   Lemma n_step_inv_subst:
     forall x v e n,
     NStep (n_subst x v e) n ->
-    ~ NFree e x \/ exists n', NStep v n'.
+    ~ NFree x e \/ exists n', NStep v n'.
   Proof.
     induction e; intros; simpl in *.
     - left.
@@ -661,7 +661,7 @@ Section SO.
     forall e n,
     NStep e n ->
     forall x,
-    ~ NFree e x.
+    ~ NFree x e.
   Proof.
     intros e n H.
     induction H; intros; intros N; inversion N; subst; clear N.
@@ -901,12 +901,12 @@ Section SO.
       rewrite IHe3_2; auto.
   Qed.
 
-  Definition NClosed e := forall x, ~ NFree e x.
+  Definition NClosed e := forall x, ~ NFree x e.
 
   Lemma n_closed_to_not_free:
     forall e,
     NClosed e ->
-    forall x, ~ NFree e x.
+    forall x, ~ NFree x e.
   Proof.
     auto.
   Qed.
@@ -915,7 +915,7 @@ Section SO.
     forall v,
     NClosed v ->
     forall x e,
-    ~ NFree (n_subst x v e) x.
+    ~ NFree x (n_subst x v e).
   Proof.
     intros.
     unfold NClosed in H.
@@ -930,7 +930,7 @@ Section SO.
     ~ NClosed (NVar x).
   Proof.
     intros x N.
-    assert (NFree (NVar x) x). {
+    assert (NFree x (NVar x)). {
       constructor.
     }
     assert (N := N x).
@@ -947,7 +947,7 @@ Section SO.
 
   Lemma n_free_num:
     forall n x,
-    ~ NFree (NNum n) x.
+    ~ NFree x (NNum n).
   Proof.
     intros.
     intros N.

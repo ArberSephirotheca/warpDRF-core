@@ -47,24 +47,24 @@ Section C1.
   Fixpoint Occurs (x:var) c :=
     match c with
     | Skip => False
-    | MemAcc e => AFree e x
-    | If b i j => BFree b x \/ Occurs x i \/ Occurs x j
+    | MemAcc e => AFree x e
+    | If b i j => BFree x b \/ Occurs x i \/ Occurs x j
     | Seq i j => Occurs x i \/ Occurs x j
-    | For y r i => x = y \/ RFree r x \/ Occurs x i
+    | For y r i => x = y \/ RFree x r \/ Occurs x i
     end.
 
   Fixpoint Var x i :=
   match i with
   | Skip | MemAcc _ => False
   | If _ i j | Seq i j => Var x i \/ Var x j
-  | For y _ i (*| Loop y _ i*) => x = y \/ Var x i
+  | For y _ i => x = y \/ Var x i
   end.
 
   Fixpoint InRange x i :=
   match i with
   | Skip | MemAcc _ => False
   | If _ i j | Seq i j => InRange x i \/ InRange x j
-  | For _ r i => RFree r x \/ InRange x i
+  | For _ r i => RFree x r \/ InRange x i
   end.
 
   Infix ";;" := Seq (at level 50).
@@ -113,7 +113,7 @@ Section C1.
 
   Lemma i_subst_subst_eq_2
      : forall (x : var) i (v e : nexp),
-       ~ NFree v x -> i_subst x e (i_subst x v i) = i_subst x v i.
+       ~ NFree x v -> i_subst x e (i_subst x v i) = i_subst x v i.
   Proof.
     induction i; intros; simpl.
     - reflexivity.
@@ -159,8 +159,8 @@ Section C1.
   Lemma i_subst_subst_neq_3:
     forall c x y v1 v2,
     x <> y ->
-    ~ NFree v1 y ->
-    ~ NFree v2 x ->
+    ~ NFree y v1 ->
+    ~ NFree x v2 ->
     i_subst x v1 (i_subst y v2 c)
     =
     i_subst y v2 (i_subst x v1 c).
@@ -235,7 +235,7 @@ Section C1.
   Lemma occurs_inv_subst:
     forall y x v i,
     Occurs y (i_subst x v i) ->
-    Occurs y i \/ NFree v y.
+    Occurs y i \/ NFree y v.
   Proof.
     induction i; simpl; intros; auto; intuition.
     - rename_hyp (BFree _ _) as hb.
@@ -426,8 +426,8 @@ Section C1.
       econstructor; eauto.
     - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
       econstructor; eauto.
-      assert (~ NFree (NNum n) x) by auto using n_free_num.
-      assert (~ NFree v y) by eauto using n_step_to_not_free.
+      assert (~ NFree x (NNum n)) by auto using n_free_num.
+      assert (~ NFree y v) by eauto using n_step_to_not_free.
       rewrite i_subst_subst_neq_3; eauto.
   Qed.
 
@@ -477,9 +477,9 @@ Section C1.
     intros.
     assert (r1: NEq v v') by eauto using n_eq_def.
     unfold BData in *.
-    assert (~ NFree (NNum n1) x) by auto using n_free_num.
-    assert (~ NFree v' TID) by eauto using n_step_to_not_free.
-    assert (~ NFree v TID) by eauto using n_step_to_not_free.
+    assert (~ NFree x (NNum n1)) by auto using n_free_num.
+    assert (~ NFree TID v') by eauto using n_step_to_not_free.
+    assert (~ NFree TID v) by eauto using n_step_to_not_free.
     rewrite b_subst_subst_neq_3; auto.
     rewrite b_subst_subst_neq_3 in H2; auto.
     rewrite <- r1.
@@ -497,9 +497,9 @@ Section C1.
     intros.
     assert (r1: NEq v v') by eauto using n_eq_def.
     unfold NData in *.
-    assert (~ NFree (NNum n1) x) by auto using n_free_num.
-    assert (~ NFree v' TID) by eauto using n_step_to_not_free.
-    assert (~ NFree v TID) by eauto using n_step_to_not_free.
+    assert (~ NFree x (NNum n1)) by auto using n_free_num.
+    assert (~ NFree TID v') by eauto using n_step_to_not_free.
+    assert (~ NFree TID v) by eauto using n_step_to_not_free.
     rewrite n_subst_subst_neq_3; auto.
     rewrite n_subst_subst_neq_3 in H2; auto.
     rewrite <- r1.
@@ -543,9 +543,9 @@ Section C1.
       exists l.
       split; auto.
       eapply access_step_proper; eauto.
-      + assert (~ NFree (NNum (access_tid a)) x) by auto using n_free_num.
-        assert (~ NFree v TID) by eauto using n_step_to_not_free.
-        assert (~ NFree v' TID) by eauto using n_step_to_not_free.
+      + assert (~ NFree x (NNum (access_tid a))) by auto using n_free_num.
+        assert (~ NFree TID v) by eauto using n_step_to_not_free.
+        assert (~ NFree TID v') by eauto using n_step_to_not_free.
         rewrite access_subst_subst_neq_3; auto.
         rewrite access_subst_subst_neq_3 with (x0:=TID) (y:=x); auto.
         rewrite r1.
@@ -1171,8 +1171,8 @@ Section C1.
   Lemma c_run_subst:
     forall x e e' c h,
     ~ Var TID c ->
-    ~ NFree e TID ->
-    ~ NFree e' TID ->
+    ~ NFree TID e ->
+    ~ NFree TID e' ->
     x <> TID ->
     forall n,
     NStep e n ->
@@ -1624,7 +1624,7 @@ Section C1.
     forall x e c,
     ~ Var x c ->
     Occurs x (i_subst x e c) ->
-    NFree e x. 
+    NFree x e. 
   Proof.
     intros.
     induction c; simpl in *; intros; intuition.
@@ -1648,7 +1648,7 @@ Section C1.
     - reflexivity.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.
-      assert (~ BExp.BFree b x) by intuition.
+      assert (~ BExp.BFree x b) by intuition.
       rewrite BExp.b_subst_not_free; auto.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.

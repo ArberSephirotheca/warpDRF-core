@@ -1318,8 +1318,8 @@ Section Defs.
     forall x y z a,
     x <> y ->
     x <> z ->
-    AFree (access_subst z (NVar y) a) x ->
-    AFree a x.
+    AFree x (access_subst z (NVar y) a) ->
+    AFree x a.
   Proof.
     intros.
     apply access_in_subst_neq in H1; auto.
