@@ -123,10 +123,13 @@ Section Props.
   Definition Closed p := forall x, ~ Occurs x p.
 
 
-  Lemma subst_eq:
+  Lemma closed_subst_eq:
     forall p,
-    Closed p ->
-    subst x v p = p
+      Closed p ->
+      forall x v,
+        subst x v p = p.
+  Proof.
+  Admitted.
 
   
   Lemma closed_plug_subst:
@@ -136,7 +139,7 @@ Section Props.
         subst x v (plug c p) = plug (c_subst x v c) p.
   Proof.
     induction c; intros; simpl.
-    - 
+    - auto using closed_subst_eq.
     - reflexivity.
     - rewrite IHc.
       reflexivity.
@@ -148,7 +151,7 @@ Section Props.
       destruct (Set_VAR.MF.eq_dec x v).
       + reflexivity.
       + reflexivity.
-  Admitted.
+  Qed.
       
 (*
   Lemma subst_plug_ind:
@@ -189,10 +192,11 @@ Section Props.
     intros c H.    
     induction H; intros; simpl.
     - assumption.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
+    - apply idrf_sync.
+      assumption.
+    - apply idrf_seq; eauto.
+    - apply idrf_seq; eauto.
+    - apply idrf_for; eauto.
     - apply idrf_for.
       + assumption.
       + intros.
@@ -201,5 +205,6 @@ Section Props.
         rewrite closed_plug_subst.
         * assumption.
         * assumption.
+  Qed.
      
     
