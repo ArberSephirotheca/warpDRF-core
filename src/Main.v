@@ -23,11 +23,11 @@ Section Defs.
     | PhaseSplit.Decl x r p => TLang.Decl x r (ph_to_hist p)
     end.
 
-  Definition aligned_to_sym_hist P :=
+  Definition split P :=
     List.map ph_to_hist (PhaseSplit.split P).
 
   Definition w_to_s P :=
-    aligned_to_sym_hist (Align.align P).
+    split (Align.align P).
 
   Notation history := (list access_val).
 
@@ -116,7 +116,7 @@ Section Defs.
 
   Transparent Sequentialize.sequentialize.
 
-  Lemma in_1: (* TODO: EASY *)
+  Lemma in_1:
     forall p ph,
     TLang.IPairIn p (ph_to_hist ph) ->
     ~ PhaseSplit.Var TID ph ->
@@ -504,7 +504,7 @@ Section Defs.
     destruct Hi as (hs, (m1, (Hi, (Hr, Hp)))).
     apply WLang.i_pair_in_2 with (i:=P); auto.
     eapply TLang.run_m_pair_in_to_i_pair_in in Hp; eauto.
-    unfold w_to_s, aligned_to_sym_hist in Hi.
+    unfold w_to_s, split in Hi.
     apply in_map_iff in Hi.
     destruct Hi as (ph, (?, Hi)).
     subst.
@@ -573,7 +573,7 @@ Section Defs.
     apply in_2 in Hp; auto using t1_neq_t2.
     + (* symb trace to h2 *)
       unfold w_to_s in *.
-      unfold aligned_to_sym_hist in *.
+      unfold split in *.
       rename_hyp (SRun _ _) as hs.
       apply s_run_inv with (x:=ph_to_hist ph) in hs; auto. 2: {
         rewrite in_map_iff.
@@ -615,4 +615,5 @@ Section Defs.
     intros.
     split; eauto using drf_1, drf_2.
   Qed.
+
 End Defs.
