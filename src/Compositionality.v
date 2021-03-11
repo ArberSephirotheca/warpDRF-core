@@ -120,6 +120,16 @@ Section Props.
       subst x v (plug c p) == plug (subs c) p 
    *)
 
+  Fixpoint Var x c :=
+  match c with
+  | Hole => False
+  | Sync u => ULang.Var x u
+  | SeqL c p => Var x c \/ ALang.Var x p 
+  | SeqR p c => ALang.Var x p \/ Var x c
+  | ForL c y r n => Var x c \/ x = y \/ ALang.Var x n
+  | ForR p y r c => ALang.Var x p \/ x = y \/ Var x c
+  end.
+
   Fixpoint Free x (p:n_inst) :=
   match p with
   | NSync u => ULang.Free x u
@@ -127,7 +137,7 @@ Section Props.
   | NFor p y r q => Free x p \/ RFree x r \/ (x <> y /\ Free x q)
   end.
 
-  Definition Closed p := forall x, ~ Free x p.
+  Definition Closed p := forall x, x <> TID -> ~ Free x p.
 
   Lemma subst_not_free:
     forall x p v,
@@ -175,6 +185,7 @@ Section Props.
     forall p,
       Closed p ->
       forall x v,
+      x <> TID ->
         subst x v p = p.
   Proof.
     intros.
@@ -186,18 +197,16 @@ Section Props.
     forall p,
       Closed p ->
       forall c x v,
+      x <> TID ->
         subst x v (plug c p) = plug (c_subst x v c) p.
   Proof.
     induction c; intros; simpl.
     - auto using closed_subst_eq.
     - reflexivity.
-    - rewrite IHc.
-      reflexivity.
-    - rewrite IHc.
-      reflexivity.
-    - rewrite IHc.
-      reflexivity.
-    - rewrite IHc.
+    - rewrite IHc; auto.
+    - rewrite IHc; auto.
+    - rewrite IHc; auto.
+    - rewrite IHc; auto.
       destruct (Set_VAR.MF.eq_dec x v).
       + reflexivity.
       + reflexivity.
@@ -234,13 +243,14 @@ Section Props.
   Lemma compo:
     forall c,
       CDRF c ->
+      ~ Var TID c ->
       forall p,
         Closed p ->
         IDRF p ->
         IDRF (plug c p).
   Proof.
     intros c H.    
-    induction H; intros; simpl.
+    induction H; intros; simpl in *.
     - assumption.
     - apply idrf_sync.
       assumption.
@@ -251,11 +261,10 @@ Section Props.
       + assumption.
       + intros.
         assert (IDRF (plug (c_subst x (NNum n) c) p0)).
-        { auto. }
-        rewrite closed_plug_subst.
-        * assumption.
-        * assumption.
-  Qed.
-     
-    
+        { apply H1; auto.
+          intros N.
+          admit. }
+        rewrite closed_plug_subst; auto.
+  Admitted.
+
 End Props.
