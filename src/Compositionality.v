@@ -122,6 +122,26 @@ Section Props.
 
   Definition Closed p := forall x, ~ Occurs x p.
 
+  Lemma subst_not_occurs:
+    forall x p v,
+    ~ Occurs x p ->
+    subst x v p = p.
+  Proof.
+    induction p; intros; simpl in *.
+    - rewrite i_subst_not_occurs; auto.
+    - rewrite IHp1; auto.
+      rewrite IHp2; auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        intuition.
+      }
+      rewrite IHp1; auto.
+      rewrite IHp2; auto. 2: {
+        intuition.
+      }
+      rewrite r_subst_not_free; auto.
+      intuition.
+  Qed.
 
   Lemma closed_subst_eq:
     forall p,
@@ -129,7 +149,10 @@ Section Props.
       forall x v,
         subst x v p = p.
   Proof.
-  Admitted.
+    intros.
+    unfold Closed in *.
+    rewrite subst_not_occurs; auto.
+  Qed.
 
   
   Lemma closed_plug_subst:
@@ -152,7 +175,7 @@ Section Props.
       + reflexivity.
       + reflexivity.
   Qed.
-      
+
 (*
   Lemma subst_plug_ind:
     forall p',
@@ -208,3 +231,4 @@ Section Props.
   Qed.
      
     
+End Props.
