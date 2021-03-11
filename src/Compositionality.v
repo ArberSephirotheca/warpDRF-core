@@ -120,7 +120,35 @@ Section Props.
       subst x v (plug c p) == plug (subs c) p 
    *)
 
-  Definition Closed p := forall x, ~ Occurs x p.
+  Fixpoint Free x (p:n_inst) :=
+  match p with
+  | NSync u => ULang.Free x u
+  | NSeq p q => Free x p \/ Free x q
+  | NFor p y r q => Free x p \/ RFree x r \/ (x <> y /\ Free x q)
+  end.
+
+  Definition Closed p := forall x, ~ Free x p.
+
+  Lemma subst_not_free:
+    forall x p v,
+    ~ Free x p ->
+    subst x v p = p.
+  Proof.
+    induction p; intros; simpl in *.
+    - rewrite i_subst_not_free; auto.
+    - rewrite IHp1; auto.
+      rewrite IHp2; auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        rewrite IHp1; auto.
+        rewrite r_subst_not_free; auto.
+      }
+      rewrite IHp1; auto.
+      rewrite IHp2; auto. 2: {
+        intuition.
+      }
+      rewrite r_subst_not_free; auto.
+  Qed.
 
   Lemma subst_not_occurs:
     forall x p v,
@@ -151,10 +179,9 @@ Section Props.
   Proof.
     intros.
     unfold Closed in *.
-    rewrite subst_not_occurs; auto.
+    rewrite subst_not_free; auto.
   Qed.
 
-  
   Lemma closed_plug_subst:
     forall p,
       Closed p ->

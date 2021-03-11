@@ -53,6 +53,15 @@ Section C1.
     | For y r i => x = y \/ RFree x r \/ Occurs x i
     end.
 
+  Fixpoint Free (x:var) c :=
+    match c with
+    | Skip => False
+    | MemAcc e => AFree x e
+    | If b i j => BFree x b \/ Free x i \/ Free x j
+    | Seq i j => Free x i \/ Free x j
+    | For y r i => RFree x r \/ (x <> y /\ Free x i)
+    end.
+
   Fixpoint Var x i :=
   match i with
   | Skip | MemAcc _ => False
@@ -1656,6 +1665,26 @@ Section C1.
     - rewrite IHc; auto.
       rewrite r_subst_not_free; auto.
       destruct (Set_VAR.MF.eq_dec x v); subst; auto.
+  Qed.
+
+  Lemma i_subst_not_free:
+    forall x c,
+    ~ Free x c ->
+    forall v,
+    i_subst x v c = c.
+  Proof.
+    induction c; simpl; intros.
+    - reflexivity.
+    - rewrite IHc1; auto.
+      rewrite IHc2; auto.
+      assert (~ BExp.BFree x b) by intuition.
+      rewrite BExp.b_subst_not_free; auto.
+    - rewrite IHc1; auto.
+      rewrite IHc2; auto.
+    - rewrite access_subst_not_free; auto.
+    - rewrite r_subst_not_free; auto.
+      destruct (Set_VAR.MF.eq_dec x v); subst; auto.
+      rewrite IHc; auto.
   Qed.
 
   Lemma i_subst_subst_neq_5:
