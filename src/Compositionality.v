@@ -298,4 +298,33 @@ Section Props.
         rewrite closed_plug_subst; auto.
   Qed.
 
+  Lemma i_drf_1:
+    forall p,
+    IDRF p ->
+    DRF p.
+  Proof.
+    intros.
+    induction H; intros.
+    - unfold UDRF, DRF in *.
+      intros.
+      apply H.
+      invc H0.
+      auto.
+    - unfold DRF.
+      intros.
+      rename_hyp (IPairIn _ _) as h.
+      invc h. {
+        apply IHIDRF1; auto.
+      }
+      apply IHIDRF2; auto.
+    - unfold DRF; intros.
+      rename_hyp (IPairIn _ _) as h.
+      invc h. {
+        rename_hyp (IPairIn _ _) as h.
+        apply IHIDRF in h.
+        assumption.
+      }
+      rename_hyp (IPairIn _ _) as h.
+      apply H1 in h; auto.
+  Qed.
 End Props.
