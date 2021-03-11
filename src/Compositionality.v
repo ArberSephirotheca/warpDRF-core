@@ -212,6 +212,35 @@ Section Props.
       + reflexivity.
   Qed.
 
+  Lemma var_inv_subst:
+    forall c x y v,
+    Var x (c_subst y v c) ->
+    Var x c.
+  Proof.
+    induction c; simpl; intros.
+    - assumption.
+    - apply ULang.var_inv_subst in H.
+      assumption.
+    - destruct H as [H|H]. {
+        eauto.
+      }
+      apply ALang.var_inv_subst in H.
+      auto.
+    - destruct H as [H|H]; eauto using ALang.var_inv_subst.
+    - destruct H as [H|[H|H]]; eauto.
+      destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        auto.
+      }
+      eauto using ALang.var_inv_subst.
+    - destruct H as [H|[H|H]]; eauto using ALang.var_inv_subst.
+      destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        auto.
+      }
+      eauto.
+  Qed.
+
 (*
   Lemma subst_plug_ind:
     forall p',
@@ -263,8 +292,10 @@ Section Props.
         assert (IDRF (plug (c_subst x (NNum n) c) p0)).
         { apply H1; auto.
           intros N.
-          admit. }
+          apply var_inv_subst in N.
+          auto.
+        }
         rewrite closed_plug_subst; auto.
-  Admitted.
+  Qed.
 
 End Props.
