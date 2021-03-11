@@ -241,35 +241,7 @@ Section Props.
       eauto.
   Qed.
 
-(*
-  Lemma subst_plug_ind:
-    forall p',
-      IDRF p' ->
-      forall x v c p,
-        Plug p (c_subst x v c) p' -> 
-        IDRF (subst x v (plug c p)).
-  Proof.
-    intros p' H.
-    induction H; intros.
-    - invc H0.
-      + destruct c.
-        * 
-      + destruct c; invc H2.
-        * simpl.
-          apply idrf_sync.
-
-
-  
-  Lemma subst_plug:
-    forall x v c p,
-      IDRF (plug (c_subst x v c) p) ->      
-      IDRF (subst x v (plug c p)).
-  Proof.
-    admit.
-  Admitted.
-
-  *)
-  Lemma compo:
+  Lemma compositionality_1:
     forall c,
       CDRF c ->
       ~ Var TID c ->
