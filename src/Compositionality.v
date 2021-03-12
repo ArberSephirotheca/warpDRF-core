@@ -325,24 +325,54 @@ Section Props.
         eapply i_pair_in_for_2; eauto.
   Qed.
 
+  Inductive CCanRun: ctxt -> Prop :=
+  | c_can_run_hole:
+    CCanRun Hole
+  | c_can_run_sync:
+    forall u,
+    CCanRun (Sync u)
+  | c_can_run_seq_l:
+    forall c q,
+    CCanRun c ->
+    CanRun q ->
+    CCanRun (SeqL c q)
+  | c_can_run_seq_r:
+    forall c p,
+    CCanRun c ->
+    CanRun p ->
+    CCanRun (SeqR p c)
+  | c_can_run_for_l:
+    forall c x r q,
+    CCanRun c ->
+    (forall n, RPick r n -> CanRun (ALang.subst x (NNum n) q)) ->
+    CCanRun (ForL c x r q)
+  | c_can_run_for_r:
+    forall p x r c,
+    CanRun p ->
+    (forall n, RPick r n -> CCanRun (subst x (NNum n) c)) ->
+    CCanRun (ForR p x r c).
   Lemma drf_to_c_drf:
     forall c,
-(*     CanRun (plug c (NSync Skip)) -> *)
-    DRF (plug c (NSync Skip)) ->
+    CCanRun c ->
+    IDRF (plug c (NSync Skip)) ->
     CDRF c.
   Proof.
-    induction c; simpl in *; intros.
+    intros c H.
+    induction H; intros h.
     - admit.
     - admit.
     - admit.
     - admit.
     - admit.
-    - 
+    - invc h.
+      constructor; auto.
+      intros.
+      apply H1; auto.
   Admitted.
 
   Corollary compositionality:
     forall c,
-    DRF (plug c (NSync ULang.Skip)) ->
+    CDRF c ->
     ~ Var TID c ->
     forall p,
     Closed p ->
@@ -351,7 +381,7 @@ Section Props.
     DRF (plug c p).
   Proof.
     intros.
-    apply drf_to_c_drf in H.
+    (* apply drf_to_c_drf in H. *)
     apply i_drf_2 in H2; auto.
     apply i_drf_1.
     auto using compositionality_1.
