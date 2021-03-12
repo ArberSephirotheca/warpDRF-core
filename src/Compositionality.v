@@ -351,28 +351,113 @@ Section Props.
     CanRun p ->
     (forall n, RPick r n -> CCanRun (subst x (NNum n) c)) ->
     CCanRun (ForR p x r c).
+
+  Lemma plug_subst:
+    forall x v c p,
+    ~ Var x c ->
+    ALang.subst x v (plug c p) = plug (subst x v c) (ALang.subst x v p).
+  Proof.
+    induction c; simpl; intros; auto.
+    - rewrite IHc; auto.
+    - rewrite IHc; auto.
+    - rewrite IHc; auto.
+    - rewrite IHc; auto.
+      destruct (Set_VAR.MF.eq_dec x v0). {
+        subst.
+        intuition.
+      }
+      auto.
+  Qed.
+
+  Fixpoint Distinct c :=
+    match c with
+    | Hole => True
+    | Sync u => ULang.Distinct u
+    | SeqL c q => Distinct c /\ ALang.Distinct q
+    | SeqR p c => ALang.Distinct p /\ Distinct c
+    | ForL c x r q => Distinct c /\ ~ ALang.Var x q /\ ALang.Distinct q
+    | ForR p x r c => ALang.Distinct p /\ ~ Var x c /\ Distinct c
+    end.
+
+  Lemma distinct_subst:
+    forall c,
+    Distinct c ->
+    forall x v,
+    Distinct (subst x v c).
+  Proof.
+    induction c; intros; simpl in *.
+    - auto.
+    - auto using ULang.distinct_subst.
+    - intuition.
+      auto using ALang.distinct_subst.
+    - intuition.
+      auto using ALang.distinct_subst.
+    - intuition; destruct (Set_VAR.MF.eq_dec x v); subst; auto.
+      + rename_hyp (ALang.Var _ _) as hx.
+        apply ALang.var_inv_subst in hx.
+        intuition.
+      + auto using ALang.distinct_subst.
+    - intuition;
+        destruct (Set_VAR.MF.eq_dec x v);
+        subst;
+        auto using ALang.distinct_subst.
+      rename_hyp (Var _ _) as hx.
+      apply var_inv_subst in hx.
+      auto.
+  Qed.
+
   Lemma drf_to_c_drf:
     forall c,
     CCanRun c ->
+    Distinct c ->
     IDRF (plug c (NSync Skip)) ->
     CDRF c.
   Proof.
     intros c H.
-    induction H; intros h.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
+    induction H; intros hd h; simpl in h; simpl in *.
+    - constructor.
+    - simpl in *.
+      invc h; constructor; auto.
+    - invc h.
+      simpl in hd.
+      destruct hd.
+      constructor; auto.
     - invc h.
       constructor; auto.
+      simpl in hd.
+      destruct hd.
+      auto.
+    - invc h.
+      simpl in hd.
+      destruct hd as (?, (?, ?)).
+      constructor; auto.
+    - simpl in *.
+      invc h.
+      constructor; auto.
       intros.
-      apply H1; auto.
+      apply H1; auto. {
+        apply distinct_subst.
+        intuition.
+      }
+      assert (ha: IDRF (ALang.subst x (NNum n) (plug c (NSync Skip)))) by auto.
+      rewrite plug_subst in ha.
+      2: { intuition. }
+      simpl in ha.
+      assumption.
+  Qed.
+
+  Lemma can_run_1:
+    forall c,
+    CanRun (plug c (NSync Skip)) ->
+    CCanRun c.
+  Proof.
   Admitted.
 
   Corollary compositionality:
     forall c,
-    CDRF c ->
+    Distinct c ->
+    DRF (plug c (NSync Skip)) ->
+    CanRun (plug c (NSync Skip)) ->
     ~ Var TID c ->
     forall p,
     Closed p ->
@@ -380,9 +465,10 @@ Section Props.
     DRF p ->
     DRF (plug c p).
   Proof.
-    intros.
-    (* apply drf_to_c_drf in H. *)
-    apply i_drf_2 in H2; auto.
+    intros c hd drf1 cr1 hv p hc cr2 drf2.
+    apply i_drf_2 in drf1; auto.
+    apply i_drf_2 in drf2; auto.
+    apply drf_to_c_drf in drf1; auto using can_run_1.
     apply i_drf_1.
     auto using compositionality_1.
   Qed.
