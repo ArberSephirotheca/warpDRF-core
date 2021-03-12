@@ -243,12 +243,12 @@ Section Props.
 
   Lemma compositionality_1:
     forall c,
-      CDRF c ->
-      ~ Var TID c ->
-      forall p,
-        Closed p ->
-        IDRF p ->
-        IDRF (plug c p).
+    CDRF c ->
+    ~ Var TID c ->
+    forall p,
+    Closed p ->
+    IDRF p ->
+    IDRF (plug c p).
   Proof.
     intros c H.    
     induction H; intros; simpl in *.
@@ -299,4 +299,88 @@ Section Props.
       rename_hyp (IPairIn _ _) as h.
       apply H1 in h; auto.
   Qed.
+
+  Inductive CanRun: n_inst -> Prop :=
+  | can_run_sync:
+    forall u,
+    CanRun (NSync u)
+  | can_run_seq:
+    forall p q,
+    CanRun p ->
+    CanRun q ->
+    CanRun (NSeq p q)
+  | can_run_for:
+    forall p x r q,
+    CanRun p ->
+    (forall n, RPick r n -> CanRun (subst x (NNum n) q)) ->
+    CanRun (NFor p x r q).
+
+  Lemma i_drf_2:
+    forall p,
+    CanRun p ->
+    DRF p ->
+    IDRF p.
+  Proof.
+    intros p H.
+    induction H; unfold DRF; intros drf.
+    - constructor.
+      unfold UDRF.
+      intros.
+      apply drf.
+      constructor.
+      assumption.
+    - constructor.
+      + apply IHCanRun1.
+        unfold DRF; intros.
+        apply drf.
+        auto using i_pair_in_seq_l.
+      + apply IHCanRun2.
+        unfold DRF; intros.
+        apply drf.
+        auto using i_pair_in_seq_r.
+    - constructor.
+      + apply IHCanRun.
+        unfold DRF; intros.
+        apply drf.
+        auto using i_pair_in_for_1.
+      + intros.
+        apply H1; auto.
+        unfold DRF.
+        intros.
+        apply drf.
+        eapply i_pair_in_for_2; eauto.
+  Qed.
+
+  Lemma drf_to_c_drf:
+    forall c,
+(*     CanRun (plug c (NSync Skip)) -> *)
+    DRF (plug c (NSync Skip)) ->
+    CDRF c.
+  Proof.
+    induction c; simpl in *; intros.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - 
+  Admitted.
+
+  Corollary compositionality:
+    forall c,
+    DRF (plug c (NSync ULang.Skip)) ->
+    ~ Var TID c ->
+    forall p,
+    Closed p ->
+    CanRun p ->
+    DRF p ->
+    DRF (plug c p).
+  Proof.
+    intros.
+    apply drf_to_c_drf in H.
+    apply i_drf_2 in H2; auto.
+    apply i_drf_1.
+    auto using compositionality_1.
+  Qed.
+
 End Props.
