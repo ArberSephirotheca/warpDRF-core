@@ -449,23 +449,39 @@ Section Props.
   Lemma can_run_1:
     forall c,
     CanRun (plug c (NSync Skip)) ->
+    Distinct c ->
     CCanRun c.
   Proof.
-  Admitted.
+    intros c H.
+    remember (plug _ _) as q.
+    generalize dependent c.
+    induction H;
+      intros c heq hd;
+      destruct c;
+      simpl in hd;
+      simpl in heq;
+      invc heq;
+      intuition;
+      try (constructor; auto).
+    intros m hp.
+    eapply H1; eauto.
+    rewrite plug_subst; simpl; auto.
+    apply distinct_subst; auto.
+  Qed.
 
   Corollary compositionality:
     forall c,
-    Distinct c ->
-    DRF (plug c (NSync Skip)) ->
-    CanRun (plug c (NSync Skip)) ->
-    ~ Var TID c ->
+    Distinct c ->                   (* All loop variables in c must be distinct *)
+    CanRun (plug c (NSync Skip)) -> (* The minimal protocol of c must yield a runnable protocol *)
+    DRF (plug c (NSync Skip)) ->    (* The minimal protocol of c must be DRF *)
+    ~ Var TID c ->                  (* TID is not declared in c *)
     forall p,
-    Closed p ->
-    CanRun p ->
-    DRF p ->
-    DRF (plug c p).
+    Closed p ->                     (* if the only free variable of p is TID *)
+    CanRun p ->                     (* if p can run *)
+    DRF p ->                        (* if p is DRF *)
+    DRF (plug c p).                 (* Then, plugging p in c is also DRF *)
   Proof.
-    intros c hd drf1 cr1 hv p hc cr2 drf2.
+    intros c hd cr1 drf1 hv p hc cr2 drf2.
     apply i_drf_2 in drf1; auto.
     apply i_drf_2 in drf2; auto.
     apply drf_to_c_drf in drf1; auto using can_run_1.
