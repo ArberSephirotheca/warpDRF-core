@@ -238,7 +238,7 @@ Module OneDim.
 
 End OneDim.
 
-Instance ONE_DIM : Access := {|
+Global Instance ONE_DIM : Access := {|
   access_subst := n_subst;
   access_step := OneDim.Step;
   access_safe := OneDim.Safe;

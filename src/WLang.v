@@ -2799,7 +2799,7 @@ Section Defs.
 
 End Defs.
 
-Module ALangNotations.
+Module WLangNotations.
   Import ULang.CLangNotations.
   Infix ";" := WSeq (at level 50, only printing)
     : lang_scope.
@@ -2811,4 +2811,4 @@ Module ALangNotations.
     : lang_scope.
   Infix "∈" := IPairIn (at level 30, only printing)
     : lang_scope.
-End ALangNotations.
+End WLangNotations.

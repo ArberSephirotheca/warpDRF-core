@@ -472,14 +472,14 @@ Section Props.
   Corollary compositionality:
     forall c,
     Distinct c ->                   (* All loop variables in c must be distinct *)
-    CanRun (plug c (NSync Skip)) -> (* The minimal protocol of c must yield a runnable protocol *)
-    DRF (plug c (NSync Skip)) ->    (* The minimal protocol of c must be DRF *)
-    ~ Var TID c ->                  (* TID is not declared in c *)
+    CanRun (plug c (NSync Skip)) -> (* C[skip;sync] must be runnable *)
+    DRF (plug c (NSync Skip)) ->    (* C[skip;sync] must be DRF *)
+    ~ Var TID c ->                  (* TID is not declared in any loop that appears in c *)
     forall p,
     Closed p ->                     (* if the only free variable of p is TID *)
     CanRun p ->                     (* if p can run *)
     DRF p ->                        (* if p is DRF *)
-    DRF (plug c p).                 (* Then, plugging p in c is also DRF *)
+    DRF (plug c p).                 (* Then, C[p] is also DRF *)
   Proof.
     intros c hd cr1 drf1 hv p hc cr2 drf2.
     apply i_drf_2 in drf1; auto.

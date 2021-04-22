@@ -17,17 +17,37 @@ Section Defs.
   Context `{T:Tasks}.
   Context `{A:Access}.
 
+  (*
+    ~~~~~ Function split ~~~~~~~
+
+    -> PhaseSplit.split.
+
+      Takes a protocol and breaks it into a list of sub-protocol, each
+      sub-protocol is called a phase. For instance,
+
+      PhaseSplit.split(for^s x in n..m { P; Q}) =
+        [ for^s x in n..m { P }; for^s x in n..m {Q} ]
+
+    -> ph_to_hist: takes a single phase (sub-protocol) and handles the cases of
+       synchronized loops or unsynchronized protocols, delegating the latter
+       to Sequentialize.sequentialize.
+
+    -> Sequentialize.sequentialize: takes an unsynchronized protocol and does
+       what is in Figure 4.
+
+    *)
+
   Fixpoint ph_to_hist (p:PhaseSplit.phase) :=
     match p with
+      (* case: u;sync *)
     | PhaseSplit.Phase c => Sequentialize.sequentialize c
+      (* case: for^s x in n .. m {q} *)
     | PhaseSplit.Decl x r p => TLang.Decl x r (ph_to_hist p)
     end.
 
   Definition split P :=
     List.map ph_to_hist (PhaseSplit.split P).
 
-  Definition w_to_s P :=
-    split (Align.align P).
 
   Notation history := (list access_val).
 
@@ -488,7 +508,7 @@ Section Defs.
     ~ WLang.Occurs T1 P ->
     ~ WLang.Occurs T2 P ->
     WLang.WRun P h1 ->
-    SRun (w_to_s P) h2 ->
+    SRun (split (Align.align P)) h2 ->
     WLang.Distinct P ->
     PhaseSplit.CanRun (fst (Align.align P)) ->
     VHist.Safe h1 ->
@@ -504,7 +524,7 @@ Section Defs.
     destruct Hi as (hs, (m1, (Hi, (Hr, Hp)))).
     apply WLang.i_pair_in_2 with (i:=P); auto.
     eapply TLang.run_m_pair_in_to_i_pair_in in Hp; eauto.
-    unfold w_to_s, split in Hi.
+    unfold split in Hi.
     apply in_map_iff in Hi.
     destruct Hi as (ph, (?, Hi)).
     subst.
@@ -545,7 +565,7 @@ Section Defs.
     ~ WLang.Occurs T1 P ->
     ~ WLang.Occurs T2 P ->
     WLang.WRun P h1 ->
-    SRun (w_to_s P) h2 ->
+    SRun (split (Align.align P)) h2 ->
     WLang.Distinct P ->
     PhaseSplit.CanRun (fst (Align.align P)) ->
     Hist.MSafeStrong h2 ->
@@ -572,7 +592,6 @@ Section Defs.
     destruct hp as (ph, (Hi, Hp)).
     apply in_2 in Hp; auto using t1_neq_t2.
     + (* symb trace to h2 *)
-      unfold w_to_s in *.
       unfold split in *.
       rename_hyp (SRun _ _) as hs.
       apply s_run_inv with (x:=ph_to_hist ph) in hs; auto. 2: {
@@ -597,23 +616,131 @@ Section Defs.
     + eauto using split_align_distinct.
   Qed.
 
+  (*
+  ~~~~~ Theorem 1 and Theorem 2 ~~~~~~~
+
+  Theorem `drf` subsumes the following two theorems that appear in the paper,
+  by combining both steps into one theorem.
+
+    Theorem 1: let align(p) = (q, u) and p \in mathcal W.
+    If p \downarrow H_1 and q;u \downarrow H_2, then
+    safe(H_1) iff safe(H_2).
+
+    Theorem 2: let p \in \mathcal A such that p \downarrow H_1,
+    and H_2 = [H | h \in split(p) /\ h \Downarrow H],
+    then safe(H_1) iff safe(H_2)
+
+  Understanding the notation below:
+
+  1. `WLang.Run P h1` corresponds to:
+    - P \downarrow h1
+    - P is a well-formed protocol
+  2. `SRun (split (Align.align P)) h2` corresponds to:
+     - align(p) = (q, u)
+     - q;u \downarrow H_2
+     - [H | h \in split(q,u) /\ h \Downarrow H]
+  
+    Note that in the Coq formalism `split` is extended to take a
+    pair (q,u) rather than just a protocol. 
+  
+  -------------- More definitions -----------------
+  - Print Hist.MSafeStrong:
+
+  *)
   Theorem drf:
     forall P h1 h2,
-    (* Things run *)
-    WLang.WRun P h1 ->
-    SRun (w_to_s P) h2 ->
-    PhaseSplit.CanRun (fst (Align.align P)) ->
-    (* Loops have distinct *)
+    (* P runs and yields h1: *)
+    WLang.WRun P h1 ->                      (* p \in mathcal W and p \downarrow h1 *)
+    (* split(align(P)) runs and yields h2: *)
+    SRun (split (Align.align P)) h2 ->      (* split(align(p)) \Downarrow h_2 *)
+    (* align(P) can run: *)
+    PhaseSplit.CanRun (fst (Align.align P)) (* align p \in mathcal A /\ exists H, align P \downarrow H *) ->
+    (* All loop variables in c must be distinct: *)
     WLang.Distinct P ->
-    (* TID is not redeclared in a loop *)
+    (* TID is not declared in a loop *)
     ~ WLang.WVar TID P ->
+    (* T1 (used in sequentialization) cannot appear anywhere in P: *)
     ~ WLang.Occurs T1 P ->
+    (* T2 (used in sequentialization) cannot appear anywhere in P: *)
     ~ WLang.Occurs T2 P ->
     (* Main result: *)
-    Hist.MSafeStrong h2 <-> VHist.Safe h1.
+    Hist.MSafeStrong h2 <-> VHist.Safe h1. (* safe(h2) <-> safe(h1) *)
   Proof.
     intros.
     split; eauto using drf_1, drf_2.
   Qed.
 
 End Defs.
+
+(*
+    ~~~~~ Example ~~~~~~~
+*)
+Require AccExpImpl.
+Require Coq.Strings.String.
+Module Example.
+  Section Defs.
+  Context `{T:Tasks}.
+  Import Coq.Strings.String.
+  Import AccExpImpl.
+  Import NExp.
+  Import Var.
+  Import WLang.WLangNotations.
+  Import ULang.
+  Import WLang.
+  Local Open Scope string_scope.
+  (*
+    skip;
+    for x in 0..10 {
+      wr[x];
+      sync;
+      wr[x];
+    }
+    *)
+  Definition Prog1 :=
+    let x : var := variable "x" in 
+    WFor
+      Skip
+      x
+      (NNum 0, NNum 10)
+      (WSync (MemAcc (NVar x)))
+      (MemAcc (NVar x)).
+  Definition AProg1 := Align.align Prog1.
+  (*
+    ------- phase 0 ----
+    skip;
+    wr[0];
+    sync;
+    ------- phase 1 ----
+    for x in 1+0..10 {
+      skip;
+      wr[x - 1];
+      wr[x];
+      sync
+    };
+    ------- phase 2 ----
+    skip;
+    w[10 - 1];
+    *)
+  Compute AProg1.
+
+  Definition SProg1 := split AProg1.
+  Goal SProg1 = [
+    (* seq(skip; wr[10 - 1]) *)
+  Sequentialize.sequentialize
+   (Seq Skip (MemAcc (NBin NMinus (NNum 10) (NNum 1))));
+    (* seq(skip; wr[0]) *)
+Sequentialize.sequentialize (Seq Skip (MemAcc (NNum 0)));
+    (* var x in 1 + 0..10; seq(skip; wr[x - 1]; wr[x]) *)
+TLang.Decl (variable "x") (NBin NPlus (NNum 1) (NNum 0), NNum 10)
+  (Sequentialize.sequentialize
+     (Seq Skip
+        (Seq (MemAcc (NBin NMinus (NVar (variable "x")) (NNum 1)))
+           (MemAcc (NVar (variable "x"))))))]
+           .
+  Proof.
+    unfold SProg1, AProg1, Prog1, split.
+    simpl.
+    auto.
+  Qed.
+End Defs.
+End Example.

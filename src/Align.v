@@ -13,6 +13,9 @@ Require Import Lia.
 Section Props.
   Context `{T:Tasks}.
   Context `{A:Access}.
+  (*
+    ~~~~~ Function align (Figure 3) ~~~~~~~
+   *)
   Fixpoint align (w:w_inst) : p_inst :=
     match w with
     | WSync c => (NSync c, ULang.Skip)
@@ -536,7 +539,7 @@ Section Props.
     auto.
   Qed.
 
-  Import PLangNotations.
+  Import ALangNotations.
 
   Lemma i_pair_in_align_for_2:
     forall p c1 x r P c2,

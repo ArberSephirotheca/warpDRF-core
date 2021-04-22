@@ -126,7 +126,7 @@ Section Defs.
 End Defs.
 
 
-Module PLangNotations.
+Module ALangNotations.
   Import ULang.CLangNotations.
   Infix ";" := NSeq (at level 50, only printing)
     : lang_scope.
@@ -138,12 +138,12 @@ Module PLangNotations.
     : lang_scope.
   Infix "∈" := IPairIn (at level 30, only printing)
     : lang_scope.
-End PLangNotations.
+End ALangNotations.
 
 Open Scope lang_scope.
 
 Section Props.
-  Import PLangNotations.
+  Import WLangNotations.
   Import ALangNotations.
   Context `{T:Tasks}.
   Context {A:Access}.
