@@ -617,7 +617,7 @@ Section Defs.
   Qed.
 
   (*
-  ~~~~~ Theorem 1 and Theorem 2 ~~~~~~~
+  ~~~~~ Theorem 1 and Theorem 3 ~~~~~~~
 
   Theorem `drf` subsumes the following two theorems that appear in the paper,
   by combining both steps into one theorem.
