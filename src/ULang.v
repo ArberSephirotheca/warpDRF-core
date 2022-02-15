@@ -556,7 +556,7 @@ Section C1.
         assert (~ NFree TID v) by eauto using n_step_to_not_free.
         assert (~ NFree TID v') by eauto using n_step_to_not_free.
         rewrite access_subst_subst_neq_3; auto.
-        rewrite access_subst_subst_neq_3 with (x0:=TID) (y:=x); auto.
+        rewrite access_subst_subst_neq_3 with (x:=TID) (y:=x); auto.
         rewrite r1.
         reflexivity.
       + reflexivity.

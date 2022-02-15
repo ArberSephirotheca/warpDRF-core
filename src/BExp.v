@@ -1,7 +1,6 @@
 Require Import Coq.Lists.List.
 Require Import Var.
 Import ListNotations.
-Require Coq.omega.Omega.
 Require Import NExp.
 Require Import Tictac.
 

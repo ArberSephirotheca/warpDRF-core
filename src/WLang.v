@@ -818,7 +818,7 @@ Section Defs.
       destruct P'; invc heq; simpl.
       + apply i_first_seq.
         simpl in hv.
-        apply IHHf with (n:=n') (e2:=e1); auto.
+        apply IHHf with (n:=n') (e1:=e1); auto.
       + rename_hyp (_ = _) as heq.
         destruct (Set_VAR.MF.eq_dec y v); subst; invc heq.
     - rename_hyp (_ = _) as heq.
@@ -851,7 +851,7 @@ Section Defs.
        eauto using w_subst_subst_neq, n_step_to_not_free.
      }
      assert (IFirst a (w_subst y e2 (w_subst v (NNum n) P'))). {
-       eapply IHHf with (e2:=e1) (e3:=e2); eauto.
+       eapply IHHf with (e1:=e1) (e2:=e2); eauto.
        intros N.
        apply wvar_inv_subst in N.
        auto.
@@ -1065,7 +1065,7 @@ Section Defs.
       rewrite ULang.i_subst_subst_neq_3; auto.
       assert (Hi : CIn a (ULang.i_subst z e (ULang.i_subst y e1 i0))) by eauto.
       rewrite ULang.i_subst_subst_neq_3 in Hi; auto.
-      eapply c_in_subst with (n2:=n0) (v:=e1); eauto.
+      eapply c_in_subst with (n:=n0) (v:=e1); eauto.
   Qed.
 
   Lemma i_last_1:
@@ -1149,7 +1149,7 @@ Section Defs.
           handle_not_var.
         }
         intros e He.
-        apply c_in_subst with (v:=NNum n) (n0:=n); auto using n_step_num.
+        apply c_in_subst with (v:=NNum n) (n:=n); auto using n_step_num.
       }
       inversion Heq; subst; clear Heq.
       eapply i_last_for_1; eauto using r_one_to_last, n_step_num.
@@ -2312,7 +2312,7 @@ Section Defs.
       }
       eapply i_last_for_2; eauto.
       intros.
-      apply c_in_subst with (v:=NNum n) (n0:=n); auto using n_step_num.
+      apply c_in_subst with (v:=NNum n) (n:=n); auto using n_step_num.
   Qed.
 
   Lemma get_last_2:
@@ -2408,7 +2408,7 @@ Section Defs.
       auto.
     }
     assert (RunAll TID_COUNT (i_subst x e c2) h2). {
-      apply c_run_subst with (e0:=NNum n) (n0:=n);
+      apply c_run_subst with (e:=NNum n) (n:=n);
       auto using n_step_num.
       eauto using n_step_to_not_free.
     }
@@ -2532,7 +2532,7 @@ Section Defs.
         apply n_closed_to_not_free.
         eauto using n_step_to_closed.
       }
-      eapply c_run_subst with (e0:=NNum n); eauto using n_step_num.
+      eapply c_run_subst with (e:=NNum n); eauto using n_step_num.
     }
     destruct ho as [(hl, hc)|(hl,hc)];
     apply i_last_2 with (v:=m1) in hl; auto;

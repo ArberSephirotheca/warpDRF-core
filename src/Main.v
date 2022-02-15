@@ -599,7 +599,7 @@ Section Defs.
         eauto.
       }
       destruct hs as (h, (Hsr, hi)).
-      eapply TLang.run_i_pair_in_to_m_pair_in with (h0:=h) in Hp; eauto.
+      eapply TLang.run_i_pair_in_to_m_pair_in with (h:=h) in Hp; eauto.
       eauto using PairInUtil.m_pair_in_incl.
     + intros N.
       rename_hyp (~WLang.WVar TID P) as hv.

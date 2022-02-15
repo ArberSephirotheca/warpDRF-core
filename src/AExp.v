@@ -365,7 +365,7 @@ Section Defs.
   Proof.
     intros x n (e,b) v H m.
     inversion H; subst; clear H;
-      apply access_step_next with (m0:=m) in H5; auto;
+      apply access_step_next with (m:=m) in H5; auto;
       destruct H5 as (v', Hs);
       apply b_step_subst_next with (m:=m) in H4;
       destruct H4 as ([], Hb); eauto using c_step_true;

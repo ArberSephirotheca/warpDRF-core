@@ -243,7 +243,7 @@ Section Defs.
   Proof.
     intros.
     inversion H0; subst; clear H0.
-    apply m_in_def with (l0:=l); auto.
+    apply m_in_def with (l:=l); auto.
   Qed.
 
   (** XXX: MOVE TO ANICETO *)

@@ -561,7 +561,7 @@ Section Defs.
       intros N.
       apply TLang.i_occurs_inv_subst in N; auto using t1_neq_t2, t1_neq_tid.
     }
-    rewrite TLang.i_subst_not_occurs with (x0:=T1); auto.
+    rewrite TLang.i_subst_not_occurs with (x:=T1); auto.
     (* fix the second biding *)
     apply TLang.i_pair_in_decl with (n:=access_tid x) (n1:=0) (n2:=access_tid y);
       auto using n_step_num with *.
@@ -604,7 +604,7 @@ Section Defs.
 
     (* Simplify the assumption of run for t1 *)
     assert (Hrx := Hrc).
-    eapply ULang.run_all_inv_in with (x0:=x) in Hrx; eauto.
+    eapply ULang.run_all_inv_in with (x:=x) in Hrx; eauto.
     destruct Hrx as (nx, (h_x, (?, (Hrx, (_, Hix))))).
     assert (nx = access_tid x). {
       symmetry.
@@ -616,7 +616,7 @@ Section Defs.
 
     (* Simplify the assumption of run for t2 *)
     assert (Hry := Hrc).
-    eapply ULang.run_all_inv_in with (x0:=y) in Hry; eauto.
+    eapply ULang.run_all_inv_in with (x:=y) in Hry; eauto.
     destruct Hry as (ny, (h_y, (?, (Hry, (_, Hiy))))).
     assert (ny = access_tid y). {
       symmetry.

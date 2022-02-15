@@ -458,7 +458,7 @@ Section Props.
       eapply i_pair_in_for_2; eauto using r_pick_subst.
       rename_hyp (IPairIn _ _) as hp.
       rewrite subst_subst_neq; eauto using n_step_to_not_free.
-      eapply IHIPairIn with (e2:=e1) (e3:=e2); eauto.
+      eapply IHIPairIn with (e1:=e1) (e2:=e2); eauto.
       rewrite subst_subst_neq; eauto using n_step_to_not_free.
   Qed.
 

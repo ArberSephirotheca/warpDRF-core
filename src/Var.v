@@ -6,7 +6,6 @@ Require Import Coq.FSets.FMapAVL.
 Require Import Coq.FSets.FSetAVL.
 Require Import Coq.Arith.Peano_dec.
 Require Import Coq.Strings.String.
-Require Import Coq.omega.Omega.
 
 Require Import Aniceto.Map.
 

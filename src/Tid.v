@@ -5,7 +5,6 @@ Require Import Coq.Structures.OrderedTypeEx.
 Require Import Coq.FSets.FMapAVL.
 Require Import Coq.FSets.FSetAVL.
 Require Import Coq.Arith.Peano_dec.
-Require Import Omega.
 
 Require Import Aniceto.Map.
 
@@ -32,7 +31,7 @@ Module TID <: UsualOrderedType.
     unfold lt in *.
     destruct x, y, z.
     simpl in *.
-    omega.
+    transitivity n0; auto.
   Qed.
 
   Lemma lt_not_eq : forall x y : t, lt x y -> x <> y.

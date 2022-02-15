@@ -266,7 +266,7 @@ Section Props.
       simpl in Hc.
       apply i_first_n_seq_r.
       apply i_first_subst with
-        (v1:=NNum n) (n0:=n);
+        (v1:=NNum n) (n:=n);
         auto using n_step_num.
       eauto using r_first_to_eq.
       intros N.
@@ -322,7 +322,7 @@ Section Props.
             rewrite HP.
             simpl.
             apply i_first_subst with
-              (v1:=e1) (n0:=n); auto.
+              (v1:=e1) (n:=n); auto.
             eapply r_first_to_eq; eauto.
             auto using n_step_num.
           }
@@ -409,10 +409,10 @@ Section Props.
         2: { intros N. apply wvar_inv_subst in N. intuition. }
         rewrite Ht1 in Hc.
         simpl in *.
-        apply c_in_subst with (v:=NNum n) (n0 := n);
+        apply c_in_subst with (v:=NNum n) (n := n);
           eauto using n_step_num, r_last_to_eq.
       + apply c_in_c_seq_r.
-        apply c_in_subst with (v:=NNum n) (n0 := n);
+        apply c_in_subst with (v:=NNum n) (n := n);
           eauto using n_step_num, r_last_to_eq.
   Qed.
 
@@ -451,11 +451,11 @@ Section Props.
         * intuition.
           auto using WLang.distinct_subst.
         * intros N. apply wvar_inv_subst in N. intuition.
-        * apply c_in_subst with (v:=NBin NMinus e2 (NNum 1)) (n0 := n);
+        * apply c_in_subst with (v:=NBin NMinus e2 (NNum 1)) (n := n);
           eauto using n_step_num, r_last_to_eq.
       + apply c_in_def in Hi; auto.
         apply c_in_c_seq_r.
-        apply c_in_subst with (v:=NBin NMinus e2 (NNum 1)) (n0 := n);
+        apply c_in_subst with (v:=NBin NMinus e2 (NNum 1)) (n := n);
           eauto using n_step_num, r_last_to_eq.
   Qed.
 
@@ -527,7 +527,7 @@ Section Props.
     WLang.IPairIn p (WFor c1 x r P c2).
   Proof.
     intros.
-    eapply WLang.i_pair_in_for_1 with (e0:=NNum n); eauto using n_step_num.
+    eapply WLang.i_pair_in_for_1 with (e:=NNum n); eauto using n_step_num.
     apply H; auto.
     assert (IPairIn p (subst x (NNum n) P_x)). {
       eapply i_pair_in_subst; eauto using n_step_num.
@@ -558,7 +558,7 @@ Section Props.
     WLang.IPairIn p (WFor c1 x r P c2).
   Proof.
     intros.
-    eapply WLang.i_pair_in_for_1 with (e0:=NNum n); eauto using n_step_num.
+    eapply WLang.i_pair_in_for_1 with (e:=NNum n); eauto using n_step_num.
     apply H; auto.
     apply align_to_subst with (x:=x) (v:=NNum n) in H2; auto using n_closed_num.
     rewrite H2.
@@ -672,7 +672,7 @@ Section Props.
           * rewrite i_subst_subst_eq_1 in Hp.
             simpl in Hp.
             remove_eq x x.
-            eapply c_pair_in_subst with (e3:=NBin NMinus m 1); eauto using n_step_num.
+            eapply c_pair_in_subst with (e1:=NBin NMinus m 1); eauto using n_step_num.
             apply n_step_bin; auto using n_step_num.
         + apply i_pair_in_inv_n_seq in Hp.
           destruct Hp as [Hp|[Hp|Hp]].
@@ -680,10 +680,10 @@ Section Props.
             rewrite i_subst_subst_eq_1 in Hp.
             simpl in Hp.
             remove_eq x x.
-            eapply WLang.i_pair_in_for_2 with (n0:=m - 1); eauto using n_step_num. {
+            eapply WLang.i_pair_in_for_2 with (n:=m - 1); eauto using n_step_num. {
               auto using r_pick_impl_2.
             }
-            apply c_pair_in_subst with (e3:=(NBin NMinus m 1)) (n0:=m - 1);
+            apply c_pair_in_subst with (e1:=(NBin NMinus m 1)) (n:=m - 1);
               auto using n_step_num.
             simpl.
             apply n_step_bin; auto using n_step_num.
@@ -704,7 +704,7 @@ Section Props.
             destruct Hi as (n1, (?, Hi)).
             subst.
             apply i_pair_in_for_mid_1 with
-              (n0:=n1) (e:=(NBin NMinus (S n1) 1)) (e':=NNum (S n1));
+              (n:=n1) (e:=(NBin NMinus (S n1) 1)) (e':=NNum (S n1));
               auto using n_step_num, n_step_succ_minus_one
             .
             destruct Hp as [(Hp1, Hp2)|(Hp1, Hp2)];
@@ -742,7 +742,7 @@ Section Props.
               (* a1 \in cx[m - 1] /\ a2 \in c2[m - 1] *)
               rewrite i_subst_subst_eq_1 in Hp2; simpl in Hp2; remove_eq x x.
               apply WLang.i_pair_in_for_3
-                with (n0:=n1) (e:=(NBin NMinus (S n1) 1));
+                with (n:=n1) (e:=(NBin NMinus (S n1) 1));
                 auto using r_pick_impl_1, r_pick2_to_pick, n_step_succ_minus_one.
               simpl.
               left.
@@ -752,7 +752,7 @@ Section Props.
             }
             (* a1 \in cx[m - 1] /\ a2 \in P[m] *)
             eapply WLang.i_pair_in_for_mid_2 with
-              (n0:=n1)
+              (n:=n1)
               (e:=(NBin NMinus (S n1) 1)) (e':=NNum (S n1));
               eauto using n_step_num, n_step_succ_minus_one.
             simpl.
@@ -768,7 +768,7 @@ Section Props.
           destruct Hp2 as [Hp2|Hp2]. {
             rewrite i_subst_subst_eq_1 in Hp2; simpl in Hp2; remove_eq x x.
             apply WLang.i_pair_in_for_3
-              with (n0:=n1) (e:=(NBin NMinus (S n1) 1));
+              with (n:=n1) (e:=(NBin NMinus (S n1) 1));
               auto using r_pick_impl_1, r_pick2_to_pick, n_step_succ_minus_one.
             simpl.
             right.
@@ -779,7 +779,7 @@ Section Props.
           }
           (* a2 \in cx[m - 1] /\ a2 \in P[m] *)
             eapply WLang.i_pair_in_for_mid_2 with
-              (n0:=n1)
+              (n:=n1)
               (e:=(NBin NMinus (S n1) 1)) (e':=NNum (S n1));
               eauto using n_step_num, n_step_succ_minus_one.
             simpl.
@@ -810,19 +810,19 @@ Section Props.
        intuition.
      + (* cx /\ c2 *)
        apply WLang.i_pair_in_for_3
-         with (n0:=n2) (e:=(NBin NMinus e2 (NNum 1)));
+         with (n:=n2) (e:=(NBin NMinus e2 (NNum 1)));
          auto using r_pick_impl_1.
        simpl.
        eauto using i_last_align_1.
      + (* c2 /\ cx *)
        apply WLang.i_pair_in_for_3
-         with (n0:=n2) (e:=(NBin NMinus e2 (NNum 1)));
+         with (n:=n2) (e:=(NBin NMinus e2 (NNum 1)));
          auto using r_pick_impl_1.
        simpl.
        eauto using i_last_align_1.
      + (* c2 /\ c2 *)
        apply WLang.i_pair_in_for_2 with
-        (e:=NBin NMinus e2 (NNum 1)) (n0:=n2);
+        (e:=NBin NMinus e2 (NNum 1)) (n:=n2);
         auto using c_pair_in_def.
   Qed.
 
@@ -1054,7 +1054,7 @@ Section Props.
           eapply i_pair_in_subst; eauto using r_first_to_eq.
         }
         (* n + 1 *)
-        apply i_pair_in_for_2 with (n0:=n); auto.
+        apply i_pair_in_for_2 with (n:=n); auto.
         rewrite subst_n_seq.
         apply i_pair_in_n_seq_r.
         rewrite subst_n_seq.
@@ -1073,7 +1073,7 @@ Section Props.
       }
       (* All but last iteration *)
       left.
-      eapply i_pair_in_for_2 with (n0:=S n). {
+      eapply i_pair_in_for_2 with (n:=S n). {
         invc hp.
         destruct n2. {
           lia.
@@ -1114,7 +1114,7 @@ Section Props.
       }
       left.
       (* In this case we know that n is inside the loop *)
-      eapply i_pair_in_for_2 with (n0:=S n). {
+      eapply i_pair_in_for_2 with (n:=S n). {
         invc H.
         destruct n2. {
           lia.
@@ -1136,7 +1136,7 @@ Section Props.
       rewrite i_subst_subst_eq_1.
       simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
-      apply c_pair_in_subst with (e3:=e) (n0:=n); auto.
+      apply c_pair_in_subst with (e1:=e) (n:=n); auto.
       auto using n_step_succ_minus_one.
     - (* i_pair_in_for_3 *)
       destruct r as (e1, e2).
@@ -1164,7 +1164,7 @@ Section Props.
           eauto using i_last_to_c_in_1.
       }
       left.
-      apply i_pair_in_for_2 with (n0:=S n). {
+      apply i_pair_in_for_2 with (n:=S n). {
         auto using RExp.r_pick_advance.
       }
       rewrite subst_n_seq.
@@ -1218,7 +1218,7 @@ Section Props.
       simpl in *.
       invc Hc.
       left.
-      apply i_pair_in_for_2 with (n0:=S n). {
+      apply i_pair_in_for_2 with (n:=S n). {
         auto using r_pick2_advance.
       }
       rewrite subst_n_seq.
@@ -1247,7 +1247,7 @@ Section Props.
       simpl in *.
       invc Hc.
       left.
-      apply i_pair_in_for_2 with (n0:=S n). {
+      apply i_pair_in_for_2 with (n:=S n). {
         auto using r_pick2_advance.
       }
       rewrite subst_n_seq.

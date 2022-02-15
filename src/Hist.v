@@ -573,7 +573,7 @@ Section Defs.
     proj n l = l.
   Proof.
     intros.
-    apply cond_access_step_inv_tid with (n0:=n) in H; auto using n_step_num.
+    apply cond_access_step_inv_tid with (n:=n) in H; auto using n_step_num.
     apply forall_tid_proj_id.
     assumption.
   Qed.
@@ -588,7 +588,7 @@ Section Defs.
     rewrite List.filter_forallb.
     rewrite forallb_forall.
     intros v; intros.
-    apply cond_access_step_inv_tid with (n0:=n) in H; auto using n_step_num.
+    apply cond_access_step_inv_tid with (n:=n) in H; auto using n_step_num.
     rewrite Forall_forall in H.
     apply H in H0.
     rewrite H0.
@@ -606,7 +606,7 @@ Section Defs.
     rewrite List.filter_forallb.
     rewrite forallb_forall.
     intros v; intros.
-    apply cond_access_step_inv_tid with (n0:=m) in H; auto using n_step_num.
+    apply cond_access_step_inv_tid with (n:=m) in H; auto using n_step_num.
     rewrite Forall_forall in H.
     apply H in H0.
     rewrite H0.
@@ -629,7 +629,7 @@ Section Defs.
     intros v Hi.
     rewrite Bool.negb_orb.
     assert (R: access_tid v = p). {
-      apply cond_access_step_inv_tid with (n0 := p) in H; auto using n_step_num.
+      apply cond_access_step_inv_tid with (n := p) in H; auto using n_step_num.
       rewrite Forall_forall in *.
       apply H in Hi.
       assumption.
@@ -746,7 +746,7 @@ Section Defs.
     apply forallb_forall.
     intros v Hi.
     assert (R: access_tid v = p). {
-      apply cond_access_step_inv_tid with (n0 := p) in H; auto using n_step_num.
+      apply cond_access_step_inv_tid with (n := p) in H; auto using n_step_num.
       rewrite Forall_forall in *.
       apply H in Hi.
       assumption.

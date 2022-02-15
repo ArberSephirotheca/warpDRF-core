@@ -715,7 +715,7 @@ Section Member.
     MMember ls x.
   Proof.
     intros.
-    apply p_member_def with (l0:=l); auto.
+    apply p_member_def with (l:=l); auto.
   Qed.
 
   Lemma mmember_def:
