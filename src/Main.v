@@ -664,9 +664,10 @@ Section Defs.
     (* T2 (used in sequentialization) cannot appear anywhere in P: *)
     ~ WLang.Occurs T2 P ->
     (* Main result: *)
-    Hist.MSafeStrong h2 <-> VHist.Safe h1. (* safe(h2) <-> safe(h1) *)
+    Hist.MSafeStrong h2 <-> Hist.MSafeStrong (VHist.vhist_to_list h1). (* safe(h2) <-> safe(h1) *)
   Proof.
     intros.
+    rewrite <- VHist.v_safe_spec.
     split; eauto using drf_1, drf_2.
   Qed.
 

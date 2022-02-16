@@ -655,4 +655,23 @@ Section Defs.
     eauto using List.incl_strengthten.
   Qed.
 
+
+  Lemma m_pair_in_app_or_iff:
+    forall (A : Type) (p : A * A) (ls1 ls2 : list (list A)),
+    MPairIn p (ls1 ++ ls2) <-> MPairIn p ls1 \/ MPairIn p ls2.
+  Proof.
+    split; intros.
+    - apply m_pair_in_app_or; auto.
+    - destruct H; auto using m_pair_in_app_r, m_pair_in_app_l.
+  Qed.
+
+  Lemma m_pair_in_cons_or_iff:
+    forall (A : Type) (p : A * A) h l,
+    MPairIn p (h :: l) <-> PairIn p h \/ MPairIn p l.
+  Proof.
+    split; intros.
+    - auto using m_pair_in_inv.
+    - destruct H; auto using m_pair_in_eq, m_pair_in_cons.
+  Qed.
+
 End Defs.

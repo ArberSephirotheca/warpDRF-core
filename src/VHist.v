@@ -3,6 +3,7 @@ Require Import Coq.Lists.List.
 Require Import AExp.
 Require Import PairInUtil.
 Require Import Tictac.
+Require Hist.
 Import ListNotations.
 
 (*
@@ -518,7 +519,66 @@ Section Defs.
     reflexivity.
   Qed.
 
+
+  Lemma m_safe_to_v_safe:
+    forall h,
+    Hist.MSafeStrong (vhist_to_list h) ->
+    Safe h.
+  Proof.
+    unfold Safe, Hist.MSafeStrong.
+    induction h; simpl; intros H x y Hi xy_neq. {
+      apply H;
+      auto using PairInUtil.m_pair_in_eq.
+    }
+    destruct Hi. {
+      apply H;
+      auto using PairInUtil.m_pair_in_eq.
+    }
+    apply IHh; auto.
+    intros a b a_neq_b Hj.
+    apply H; auto.
+    rewrite PairInUtil.m_pair_in_cons_or_iff.
+    intuition.
+  Qed.
+
+  Lemma v_safe_to_m_safe:
+    forall h,
+    Safe h ->
+    Hist.MSafeStrong (vhist_to_list h).
+  Proof.
+    unfold Safe, Hist.MSafeStrong.
+    induction h; intros H x y xy_neq Hi;
+      simpl in *; apply PairInUtil.m_pair_in_inv in Hi;
+      destruct Hi; auto.
+      apply PairInUtil.m_pair_in_nil in H0.
+      contradiction.
+  Qed.
+
+  Lemma m_pair_in_iff:
+    forall p h,
+    MPairIn p h <-> PairInUtil.MPairIn p (vhist_to_list h).
+  Proof.
+    induction h; simpl. {
+      rewrite m_pair_in_cons_or_iff.
+      intuition.
+      apply PairInUtil.m_pair_in_nil in H0; auto.
+      contradiction.
+    }
+    rewrite m_pair_in_cons_or_iff.
+    intuition.
+  Qed.
+
+  (* This shows that we can state MSafeStrong *)
+  Theorem v_safe_spec:
+    forall h,
+    Safe h <-> Hist.MSafeStrong (vhist_to_list h).
+  Proof.
+    split; auto using m_safe_to_v_safe, v_safe_to_m_safe.
+  Qed.
+
 End Defs.
+
+
 
 Declare Scope vhist_scope.
 Delimit Scope vhist_scope with vhist.
