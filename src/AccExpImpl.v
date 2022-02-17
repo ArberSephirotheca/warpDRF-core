@@ -25,19 +25,19 @@ Module OneDim.
 
   Definition subst := n_subst.
 
-  Inductive Step:  (E * nexp) -> list A -> Prop :=
+  Inductive Step:  (E * nexp) -> A -> Prop :=
   | step_def:
     forall idx ni nt t,
     NStep idx ni ->
     NStep t nt ->
-    Step (idx, t) [{| index := ni; tid := nt |}].
+    Step (idx, t) {| index := ni; tid := nt |}.
 
   Definition AStep := Step.
 
   Definition a_step (e:nexp*nexp) :=
     let (idx, t) := e in
     match n_step idx, n_step t with
-    | Some ni, Some nt => Some [{| index := ni; tid:=nt|}]
+    | Some ni, Some nt => Some {| index := ni; tid:=nt|}
     | _, _ => None
     end.
 
@@ -101,20 +101,16 @@ Module OneDim.
   Qed.
 
   Lemma access_step_inv_tid:
-    forall e en n (l:list A),
-    AStep (e, en) l ->
+    forall e en n (a:A),
+    AStep (e, en) a ->
     NStep en n -> 
-    Forall (fun a=> tid a = n) l.
+    tid a = n.
   Proof.
     intros.
-    rewrite Forall_forall; intros.
     inversion H; subst; clear H.
-    destruct H1; subst. {
-      assert (nt = n) by eauto using n_step_fun.
-      simpl.
-      assumption.
-    }
-    contradiction.
+    assert (nt = n) by eauto using n_step_fun.
+    simpl.
+    assumption.
   Qed.
 
   Lemma access_step_next:
@@ -130,7 +126,7 @@ Module OneDim.
     unfold subst in *.
     apply n_step_subst_next with (m1:=m) in H2.
     destruct H2 as (m1, Hn).
-    exists [{| tid := m; index := m1|} ].
+    exists {| tid := m; index := m1|}.
     constructor; auto using n_step_num.
   Qed.
 
@@ -181,40 +177,9 @@ Module OneDim.
     intros.
     auto using NExp.n_subst_subst_neq_2.
   Qed.
-(*
-  Lemma subst_subst_trans:
-    forall e x v y,
-    ~ In x e ->
-    subst x v (subst y (NVar x) e) = subst y v e.
-  Proof.
-    unfold In, subst.
-    intros.
-    auto using n_subst_subst_trans.
-  Qed.
 
-  Lemma subst_not_in:
-    forall x e v,
-    ~ In x e ->
-    subst x v e = e.
-  Proof.
-    unfold In, subst.
-    intros.
-    apply n_subst_not_in; auto.
-  Qed.
-
-  Lemma in_subst_neq:
-    forall e x y v,
-    In x (subst y v e) ->
-    ~ NIn x v ->
-    In x e.
-  Proof.
-    unfold In, n_subst.
-    intros.
-    eapply in_n_subst_neq; eauto.
-  Qed.
-*)
   Lemma step_proper:
-    forall (e' e n n' : nexp) (h : list OneDim.A),
+    forall (e' e n n' : nexp) (h : OneDim.A),
   NEq e e' -> NEq n n' -> Step (e, n) h -> Step (e', n') h.
   Proof.
     intros.

@@ -64,7 +64,7 @@ Section Defs.
   | run_access:
     forall e v n,
     access_step (e, n) v ->
-    Run (MemAcc e n) [v]
+    Run (MemAcc e n) [[v]]
   | run_fork:
     forall i j hs1 hs2,
     Run i hs1 ->
@@ -434,9 +434,8 @@ Section Defs.
 
   Inductive IIn (a:access_val) : inst -> Prop :=
   | i_in_access:
-    forall e n v,
-    access_step (e, n) v ->
-    List.In a v ->
+    forall e n,
+    access_step (e, n) a ->
     IIn a (MemAcc e n)
   | i_in_seq_l:
     forall i j,
@@ -491,6 +490,9 @@ Section Defs.
       }
       eauto using i_in_if_false.
     - apply m_in_inv_cons_nil in Hi.
+      simpl in *.
+      intuition.
+      subst.
       eapply i_in_access; eauto.
     - apply m_in_inv_app in Hi.
       destruct Hi; auto using i_in_fork_l, i_in_fork_r.
@@ -526,9 +528,9 @@ Section Defs.
     - assert (b = false) by eauto using b_step_fun; eauto.
       subst.
       eauto.
-    - assert (v0 = v) by eauto using access_step_fun.
+    - assert (a = v) by eauto using access_step_fun.
       subst.
-      auto using m_in_eq.
+      auto using in_eq, m_in_eq.
     - auto using m_in_app_l.
     - auto using m_in_app_r.
     - assert (n0 = n1) by eauto using n_step_fun.
@@ -565,9 +567,8 @@ Section Defs.
   Context `{T:Tasks}.
   Inductive SIn (a:access_val) (n:nat) : inst -> Prop :=
   | s_in_access:
-    forall e1 e2 v,
-    access_step (access_subst TID (NNum n) e1, n_subst TID (NNum n) e2) v ->
-    List.In a v ->
+    forall e1 e2,
+    access_step (access_subst TID (NNum n) e1, n_subst TID (NNum n) e2) a ->
     SIn a n (MemAcc e1 e2)
   | s_in_seq_l:
     forall i j,
@@ -688,10 +689,12 @@ Section Defs.
     (IIn v2 i /\ IIn v1 j).
 
   Inductive IPairIn p : inst -> Prop :=
+  (*
   | i_pair_in_access e n v:
     access_step (e, n) v ->
     PairIn p v ->
     IPairIn p (MemAcc e n)
+    *)
   | i_pair_in_seq_l i j:
     IPairIn p i ->
     IPairIn p (Seq i j)
@@ -743,7 +746,6 @@ Section Defs.
     generalize dependent x.
     generalize dependent y.
     induction H; intros a1 a2 heq; subst.
-    - eapply i_pair_in_access; eauto using pair_in_sym.
     - eauto using i_pair_in_seq_l.
     - eauto using i_pair_in_seq_r.
     - eauto using i_pair_in_seq_both, i_one_of_sym.
@@ -774,8 +776,6 @@ Section Defs.
     - assert (b = true) by eauto using b_step_fun; subst.
       eauto.
     - assert (b = false) by eauto using b_step_fun; subst; eauto.
-    - assert (v0 = v) by eauto using access_step_fun; subst.
-      auto using m_pair_in_eq.
     - auto using m_pair_in_app_l.
     - auto using m_pair_in_app_r.
     - assert (n0 = n1) by eauto using n_step_fun.
@@ -796,22 +796,23 @@ Section Defs.
       lia.
   Qed.
 
+
   Lemma run_m_pair_in_to_i_pair_in:
     forall i h,
     Run i h ->
-    forall p,
-    MPairIn p h ->
-    IPairIn p i.
+    forall v1 v2,
+    access_tid v1 <> access_tid v2 ->
+    MPairIn (v1, v2) h ->
+    IPairIn (v1, v2) i.
   Proof.
     intros i h Hr.
-    induction Hr; intros p Hi.
+    induction Hr; intros v1 v2 hneq Hi.
     - apply m_pair_in_nil_nil in Hi.
       contradiction.
     - apply m_pair_in_inv_prod in Hi.
       destruct Hi as [Hi|[Hi|[(Ha,Hb)|(Ha,Hb)]]];
         auto using i_pair_in_seq_l, i_pair_in_seq_r;
         apply i_pair_in_seq_both;
-        destruct p as (v1, v2);
         simpl in *;
         eapply run_m_in_to_i_in in Ha; eauto;
         eapply run_m_in_to_i_in in Hb; eauto.
@@ -819,9 +820,18 @@ Section Defs.
         apply i_pair_in_if_true; auto.
       }
       apply i_pair_in_if_false; auto.
-    - apply m_pair_in_inv in Hi.
+    - (* Impossible case since only one access exists *)
+      apply m_pair_in_inv in Hi.
       destruct Hi. {
-        eauto using i_pair_in_access.
+        assert (v1 = v2). {
+          inversion_clear H0.
+          simpl in *.
+          intuition.
+          subst.
+          reflexivity.
+        }
+        subst.
+        contradiction.
       }
       apply m_pair_in_nil in H0.
       contradiction.
@@ -831,7 +841,7 @@ Section Defs.
       destruct Hi as [Hi|Hi]. {
         eapply i_pair_in_decl; eauto.
       }
-      apply IHHr2 in Hi.
+      apply IHHr2 in Hi; auto.
       inversion Hi; subst; clear Hi.
       assert (S n1 = n0) by eauto using n_step_fun, n_step_num.
       assert (n3 = n2) by eauto using n_step_fun, n_step_num.
@@ -841,7 +851,6 @@ Section Defs.
     - apply m_pair_in_nil_nil in Hi.
       contradiction.
   Qed.
-
 
   Lemma i_pair_in_to_i_in:
     forall v1 v2 i,
@@ -853,8 +862,8 @@ Section Defs.
     generalize dependent v1.
     generalize dependent v2.
     induction Hi; intros; subst.
-    - inversion H0; subst; clear H0.
-      eauto using i_in_access.
+(*    - inversion H0; subst; clear H0.
+      eauto using i_in_access.*)
     - edestruct IHHi; eauto.
       auto using i_in_seq_l.
     - edestruct IHHi; eauto.

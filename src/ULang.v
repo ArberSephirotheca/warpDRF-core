@@ -277,7 +277,7 @@ Section C1.
   | run_access:
     forall e v,
     access_step (e, NNum n) v ->
-    Run n (MemAcc e) v
+    Run n (MemAcc e) [v]
   | run_seq:
     forall i j h1 h2,
     Run n i h1 ->
@@ -547,19 +547,17 @@ Section C1.
     generalize dependent n.
     induction H1; intros; assert (r1: NEq v v') by eauto using n_eq_def.
     - constructor.
-      unfold AIn in *.
-      destruct H as (l, (Hs, Hi)).
-      exists l.
-      split; auto.
       eapply access_step_proper; eauto.
-      + assert (~ NFree x (NNum (access_tid a))) by auto using n_free_num.
-        assert (~ NFree TID v) by eauto using n_step_to_not_free.
-        assert (~ NFree TID v') by eauto using n_step_to_not_free.
-        rewrite access_subst_subst_neq_3; auto.
-        rewrite access_subst_subst_neq_3 with (x:=TID) (y:=x); auto.
-        rewrite r1.
-        reflexivity.
-      + reflexivity.
+      2:{ reflexivity. }
+      unfold AIn in *.
+      assert (~ NFree x (NNum (access_tid a))) by auto using n_free_num.
+      assert (~ NFree TID v) by eauto using n_step_to_not_free.
+      assert (~ NFree TID v') by eauto using n_step_to_not_free.
+      rewrite access_subst_subst_neq_3 in H; auto.
+      rewrite access_subst_subst_neq_3; auto.
+      rewrite access_subst_subst_neq_3 with (x:=TID) (y:=x); auto.
+      rewrite r1.
+      reflexivity.
     - apply s_i_in_if_true; eauto.
       eapply b_data_subst with (v:=v); eauto.
     - apply s_i_in_if_false; eauto.
@@ -603,7 +601,10 @@ Section C1.
     intros n i h H.
     induction H; intros.
     - contradiction.
-    - eauto using access_step_inv_in_eq.
+    - simpl in *.
+      intuition.
+      subst.
+      eapply access_step_inv_tid; eauto using n_step_num.
     - apply List.in_app_iff in H1.
       destruct H1; auto.
     - destruct b; auto.
@@ -659,7 +660,7 @@ Section C1.
   | x_run_access:
     forall a v,
     access_step (access_subst x e a, NNum n) v ->
-    XRun (MemAcc a) v
+    XRun (MemAcc a) [v]
   | x_run_seq:
     forall i j h1 h2,
     XRun i h1 ->
@@ -848,7 +849,7 @@ Section C1.
   | s_run_access:
     forall e v,
     access_step (access_subst TID (NNum n) e, NNum n) v ->
-    SRun n (MemAcc e) v
+    SRun n (MemAcc e) [v]
   | s_run_seq:
     forall i j h1 h2,
     SRun n i h1 ->
@@ -970,7 +971,10 @@ Section C1.
     intros m i h Hr.
     induction Hr; intros a Hi.
     - contradiction.
-    - eapply access_step_inv_in_eq in H; eauto.
+    - simpl in *.
+      intuition.
+      subst.
+      eapply access_step_inv_tid; eauto using n_step_num.
     - apply in_app_iff in Hi.
       destruct Hi as [Hi|Hi]; auto.
     - destruct b; auto.
@@ -1003,9 +1007,11 @@ Section C1.
     induction Hr; intros a Hi.
     - contradiction.
     - apply i_in_access.
+      simpl in *.
+      intuition.
+      subst.
       unfold AIn.
-      exists v.
-      erewrite access_step_inv_in_eq; eauto.
+      erewrite access_step_inv_tid; eauto using n_step_num.
     - apply in_app_iff in Hi.
       destruct Hi; eauto using i_in_seq_l, i_in_seq_r.
     - destruct b.
@@ -1075,10 +1081,9 @@ Section C1.
     intros m i h Hr.
     induction Hr; intros a He Hi; inversion Hi; subst; clear Hi.
     - unfold AIn in *.
-      destruct H1 as (l', (Hs, Hi)).
-      assert (l' = v) by eauto using access_step_fun.
+      assert (a = v) by eauto using access_step_fun.
       subst.
-      assumption.
+      auto using in_eq.
     - apply in_app_iff.
       auto.
     - apply in_app_iff.

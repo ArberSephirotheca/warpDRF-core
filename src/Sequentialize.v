@@ -87,9 +87,8 @@ Section Defs.
 
   Inductive PIn a n: ULang.inst -> Prop :=
   | p_in_access:
-    forall e l,
-    access_step (access_subst TID (NNum n) e, NNum n) l -> 
-    List.In a l ->
+    forall e,
+    access_step (access_subst TID (NNum n) e, NNum n) a -> 
     PIn a n (ULang.MemAcc e)
   | p_in_seq_l:
     forall i j,
@@ -196,7 +195,7 @@ Section Defs.
   Proof.
     intros.
     induction H; intros; auto.
-    eauto using access_step_inv_in_eq.
+    eapply access_step_inv_tid; eauto using n_step_num.
   Qed.
 
 
@@ -205,9 +204,8 @@ Section Defs.
 
   Inductive TIn (a:access_val) : ULang.inst -> Prop :=
   | t_in_access:
-    forall e l,
-    access_step (access_subst TID (NNum (access_tid a)) e, NNum (access_tid a)) l -> 
-    List.In a l ->
+    forall e,
+    access_step (access_subst TID (NNum (access_tid a)) e, NNum (access_tid a)) a -> 
     TIn a (ULang.MemAcc e)
   | t_in_seq_l:
     forall i j,
@@ -508,8 +506,7 @@ Section Defs.
     intros a i Hi.
     induction Hi;
     auto using t_in_if_true, t_in_if_false, t_in_seq_l, t_in_seq_r.
-    - destruct H as (l, (Hi, Hj)).
-      eapply t_in_access; eauto.
+    - eapply t_in_access; eauto.
     - destruct r as (e1, e2).
       destruct H as (Ha, Hb).
       eapply t_in_for; eauto.

@@ -74,12 +74,7 @@ Section Defs.
   Context `{A:Access}.
 
   Definition AIn a e : Prop :=
-    (
-    exists l,
-    access_step (access_subst TID (NNum (access_tid a)) e, NNum (access_tid a)) l
-    /\
-    List.In a l
-    ).
+    access_step (access_subst TID (NNum (access_tid a)) e, NNum (access_tid a)) a.
 
   Lemma b_data_fun:
     forall n e b b',
