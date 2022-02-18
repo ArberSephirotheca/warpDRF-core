@@ -201,70 +201,40 @@ Section Defs.
 
   (* ----------------------------- IN TRANSLATION ------------------ *)
 
-
-  Inductive TIn (a:access_val) : ULang.inst -> Prop :=
-  | t_in_access:
-    forall e,
-    access_step (access_subst TID (NNum (access_tid a)) e, NNum (access_tid a)) a -> 
-    TIn a (ULang.MemAcc e)
-  | t_in_seq_l:
-    forall i j,
-    TIn a i ->
-    TIn a (ULang.Seq i j)
-  | t_in_seq_r:
-    forall i j,
-    TIn a j ->
-    TIn a (ULang.Seq i j)
-  | t_in_if_true:
-    forall b i j,
-    BData (access_tid a) b true ->
-    TIn a i ->
-    TIn a (ULang.If b i j)
-  | t_in_if_false:
-    forall b i j,
-    BData (access_tid a) b false ->
-    TIn a j ->
-    TIn a (ULang.If b i j)
-  | t_in_for:
-    forall e1 e2 n n1 n2 x i,
-    NData (access_tid a) e1 n1 ->
-    NData (access_tid a) e2 n2 ->
-    n1 <= n < n2 ->
-    TIn a (ULang.i_subst x (NNum n) i) ->
-    TIn a (ULang.For x (e1, e2) i)
-  .
-
-
   Lemma t_in_to_p_in:
     forall a i,
-    TIn a i ->
+    ULang.IIn a i ->
     PIn a (access_tid a) i.
   Proof.
     intros a i Hi.
     induction Hi; intros;
       eauto using p_in_access,
         p_in_seq_l, p_in_seq_r,
-        p_in_if_true, p_in_if_false, p_in_for.
+        p_in_if_true, p_in_if_false.
+    destruct r as (e1, e2).
+    inversion_clear H.
+   eapply p_in_for; eauto.
   Qed.
 
   Lemma p_in_to_t_in:
     forall a n i,
     PIn a n i ->
-    TIn a i.
+    ULang.IIn a i.
   Proof.
     intros.
     assert (Heq: access_tid a = n) by eauto using p_in_inv_access_tid.
     generalize dependent Heq.
-    induction H; intros; auto using t_in_seq_l, t_in_seq_r.
+    induction H; intros; auto using ULang.i_in_seq_l, ULang.i_in_seq_r.
     - rewrite <- Heq in *.
-      eauto using t_in_access.
-    - apply t_in_if_true; auto.
+      eauto using ULang.i_in_access.
+    - apply ULang.i_in_if_true; auto.
       rewrite Heq.
       assumption.
-    - apply t_in_if_false; auto.
+    - apply ULang.i_in_if_false; auto.
       rewrite Heq.
       assumption.
-    - eapply t_in_for; eauto.
+    - eapply ULang.i_in_for; eauto.
+      split.
       + rewrite Heq.
         assumption.
       + rewrite Heq.
@@ -288,7 +258,7 @@ Section Defs.
     forall i,
     ~ ULang.Var TID i ->
     forall a,
-    TIn a i ->
+    ULang.IIn a i ->
     TLang.IIn a (TLang.i_subst TID (NNum (access_tid a)) (trace i)).
   Proof.
     intros.
@@ -302,7 +272,7 @@ Section Defs.
     ~ ULang.Var TID i ->
     forall a,
     TLang.IIn a (TLang.i_subst TID (NNum (access_tid a)) (trace i)) ->
-    TIn a i.
+    ULang.IIn a i.
   Proof.
     intros i Hv a Hi.
     eapply p_in_to_t_in; eauto.
@@ -330,7 +300,7 @@ Section Defs.
     ~ ULang.Occurs T2 i ->
     forall a,
     access_tid a < TID_COUNT -> (* needed for the second branch, can we prove this? *)
-    TIn a i ->
+    ULang.IIn a i ->
     TLang.IIn a (sequentialize i).
   Proof.
     intros i Hv t1_nin t2_nin a a_lt_tc Hi.
@@ -417,7 +387,7 @@ Section Defs.
     ~ ULang.Occurs T2 i ->
     forall a,
     TLang.IIn a (sequentialize i) ->
-    TIn a i /\ access_tid a < TID_COUNT.
+    ULang.IIn a i /\ access_tid a < TID_COUNT.
   Proof.
     intros i Hv t1_nin t2_nin a Hi.
     unfold sequentialize in Hi.
@@ -495,37 +465,6 @@ Section Defs.
       apply TLang.i_occurs_inv_subst in N; auto using t1_neq_t2, t1_neq_tid.
   Qed.
 
-
-  (* ---------------------- PAIR IN TRANSLATION ------------------- *)
-
-  Lemma c_i_in_to_t_in:
-    forall a i,
-    ULang.IIn a i ->
-    TIn a i.
-  Proof.
-    intros a i Hi.
-    induction Hi;
-    auto using t_in_if_true, t_in_if_false, t_in_seq_l, t_in_seq_r.
-    - eapply t_in_access; eauto.
-    - destruct r as (e1, e2).
-      destruct H as (Ha, Hb).
-      eapply t_in_for; eauto.
-  Qed.
-
-  Lemma t_in_to_c_i_in:
-    forall a i,
-    TIn a i ->
-    ULang.IIn a i.
-  Proof.
-    intros a i Hi.
-    induction Hi; auto using ULang.i_in_seq_l, ULang.i_in_seq_r, ULang.i_in_if_true, ULang.i_in_if_false.
-    - apply ULang.i_in_access.
-      unfold AIn.
-      eauto.
-    - eapply ULang.i_in_for; eauto.
-      split; auto.
-  Qed.
-
   (* ===================== Main results ========================= *)
 
   Lemma t_pair_in_lt:
@@ -536,9 +475,9 @@ Section Defs.
     ~ TLang.Occurs T1 (trace i) ->
     ~ TLang.Occurs T2 (trace i) ->
     access_tid x < TID_COUNT ->
-    TIn x i ->
+    ULang.IIn x i ->
     access_tid y < TID_COUNT ->
-    TIn y i ->
+    ULang.IIn y i ->
     access_tid x < access_tid y ->
     TLang.IPairIn (x, y)
       (TLang.Decl T1 (NNum 1, NNum TID_COUNT)
@@ -639,9 +578,6 @@ Section Defs.
       apply in_trace_to_in in N; auto using t2_neq_tid.
     }
 
-    apply c_i_in_to_t_in in Hix.
-    apply c_i_in_to_t_in in Hiy.
-
     assert (X: access_tid x < access_tid y \/ access_tid y < access_tid x). {
       lia.
     }
@@ -671,8 +607,6 @@ Section Defs.
     destruct Hxi as (Hxi, Hlt_x).
     apply i_in_sequentialize_to_t_in in Hyi; auto.
     destruct Hyi as (Hyi, Hlt_y).
-    apply t_in_to_c_i_in in Hxi.
-    apply t_in_to_c_i_in in Hyi.
     eauto using ULang.c_pair_in_def, ULang.c_in_def.
   Qed.
 
@@ -711,9 +645,6 @@ Section Defs.
     rename_hyp (ULang.IIn x i) as hi1.
     invc hi2.
     rename_hyp (ULang.IIn y i) as hi2.
-
-    apply c_i_in_to_t_in in hi1.
-    apply c_i_in_to_t_in in hi2.
 
     assert (X: access_tid x < access_tid y \/ access_tid y < access_tid x). {
       lia.
@@ -808,8 +739,6 @@ Section Defs.
     destruct Hxi as (Hxi, Hlt_x).
     apply i_in_sequentialize_to_t_in in Hyi; auto.
     destruct Hyi as (Hyi, Hlt_y).
-    apply t_in_to_c_i_in in Hxi.
-    apply t_in_to_c_i_in in Hyi.
     apply Hs1; auto; clear Hs1.
     - eapply ULang.run_all_i_in_to_in in Hxi; eauto.
     - eapply ULang.run_all_i_in_to_in in Hyi; eauto.
