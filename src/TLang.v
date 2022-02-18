@@ -689,12 +689,6 @@ Section Defs.
     (IIn v2 i /\ IIn v1 j).
 
   Inductive IPairIn p : inst -> Prop :=
-  (*
-  | i_pair_in_access e n v:
-    access_step (e, n) v ->
-    PairIn p v ->
-    IPairIn p (MemAcc e n)
-    *)
   | i_pair_in_seq_l i j:
     IPairIn p i ->
     IPairIn p (Seq i j)
