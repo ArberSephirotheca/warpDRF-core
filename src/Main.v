@@ -1,5 +1,6 @@
 Require Import Coq.Lists.List.
 
+Require Import Tictac.
 Require Import Tasks.
 Require Import AExp.
 Require Import Tictac.
@@ -10,6 +11,7 @@ Require PhaseSplit.
 Require WLang.
 Require Hist.
 Require VHist.
+Require ALang.
 
 Import ListNotations.
 
@@ -45,9 +47,85 @@ Section Defs.
     | PhaseSplit.Decl x r p => TLang.Decl x r (ph_to_hist p)
     end.
 
+  Fixpoint split_a (a:ALang.n_inst) : list TLang.inst :=
+  match a with
+  | ALang.NSync u => [ Sequentialize.sequentialize u ]
+  | ALang.NSeq p q => split_a p ++ split_a q
+  | ALang.NFor p x r q => split_a p ++ List.map (fun p => TLang.Decl x r p) (split_a q)
+  end.
+
+  Definition split_a_u (a_u: ALang.p_inst) :=
+    let (a, u) := a_u in
+    split_a (ALang.NSeq a (ALang.NSync u)).
+
   Definition split P :=
     List.map ph_to_hist (PhaseSplit.split P).
 
+  Lemma map_ph_to_hist:
+    forall v r l,
+    map ph_to_hist (map (PhaseSplit.Decl v r) l) =
+    map (TLang.Decl v r) (map ph_to_hist l).
+  Proof.
+    induction l. {
+      reflexivity.
+    }
+    simpl.
+    rewrite IHl.
+    reflexivity.
+  Qed.
+
+  Lemma ph_to_hist_eq_split_a:
+    forall a,
+    List.map ph_to_hist (PhaseSplit.a_split a) = split_a a.
+  Proof.
+    induction a.
+    - simpl.
+      reflexivity.
+    - simpl.
+      repeat rewrite map_app.
+      rewrite IHa1.
+      rewrite IHa2.
+      reflexivity.
+    - simpl.
+      repeat rewrite map_app.
+      rewrite IHa1.
+      f_equal.
+      rewrite <- IHa2.
+      rewrite map_ph_to_hist.
+      reflexivity.
+  Qed.
+
+  Lemma split_a_u_eq_split:
+    forall i,
+    split i = split_a_u i.
+  Proof.
+    intros (a, u).
+    generalize dependent u.
+    unfold split.
+    induction a; intros u.
+    - simpl.
+      reflexivity.
+    - simpl in *.
+      rewrite map_app.
+      assert (IHa1 := IHa1 u).
+      assert (IHa2 := IHa2 u).
+      repeat rewrite map_app in *.
+      f_equal.
+      rewrite app_inv_tail_iff in *.
+      rewrite IHa1.
+      rewrite IHa2.
+      reflexivity.
+    - simpl in *.
+      f_equal.
+      assert (IHa1 := IHa1 u).
+      assert (IHa2 := IHa2 u).
+      repeat rewrite map_app in *.
+      repeat rewrite app_inv_tail_iff in *.
+      rewrite map_ph_to_hist.
+      rewrite IHa2.
+      rewrite IHa1.
+      reflexivity.
+  Qed.
 
   Notation history := (list access_val).
 
@@ -275,13 +353,16 @@ Section Defs.
     ALang.PVar x P.
   Proof.
     induction P; simpl; intros ph hv he.
+    rewrite in_app_iff in *.
     destruct he as [he|he]. {
-      subst.
-      simpl in *.
-      auto.
+      left.
+      eauto using a_split_var.
     }
-    left.
-    eauto using a_split_var.
+    simpl in *.
+    intuition.
+    subst.
+    simpl in *.
+    auto.
   Qed.
 
   Lemma split_occurs:
@@ -291,13 +372,16 @@ Section Defs.
     ALang.POccurs x P.
   Proof.
     induction P; simpl; intros ph hv he.
+    rewrite in_app_iff in *.
     destruct he as [he|he]. {
-      subst.
-      simpl in *.
-      auto.
+      left.
+      eapply a_split_occurs; eauto.
     }
-    left.
-    eapply a_split_occurs; eauto.
+    simpl in *.
+    intuition.
+    subst.
+    simpl in *.
+    auto.
   Qed.
 
   Lemma split_distinct:
@@ -309,11 +393,14 @@ Section Defs.
     intros.
     destruct P as (px, cx).
     simpl in *.
+    rewrite in_app_iff in *.
     intuition.
-    - subst.
+    - eauto using a_split_distinct.
+    - simpl in *.
+      intuition.
+      subst.
       simpl.
       auto.
-    - eauto using a_split_distinct.
   Qed.
 
   Lemma align_var:
@@ -726,9 +813,6 @@ Module Example.
 
   Definition SProg1 := split AProg1.
   Goal SProg1 = [
-    (* seq(skip; wr[10 - 1]) *)
-  Sequentialize.sequentialize
-   (Seq Skip (MemAcc (NBin NMinus (NNum 10) (NNum 1))));
     (* seq(skip; wr[0]) *)
 Sequentialize.sequentialize (Seq Skip (MemAcc (NNum 0)));
     (* var x in 1 + 0..10; seq(skip; wr[x - 1]; wr[x]) *)
@@ -736,7 +820,12 @@ TLang.Decl (variable "x") (NBin NPlus (NNum 1) (NNum 0), NNum 10)
   (Sequentialize.sequentialize
      (Seq Skip
         (Seq (MemAcc (NBin NMinus (NVar (variable "x")) (NNum 1)))
-           (MemAcc (NVar (variable "x"))))))]
+           (MemAcc (NVar (variable "x"))))));
+    (* seq(skip; wr[10 - 1]) *)
+  Sequentialize.sequentialize
+   (Seq Skip (MemAcc (NBin NMinus (NNum 10) (NNum 1))))
+
+   ]
            .
   Proof.
     unfold SProg1, AProg1, Prog1, split.

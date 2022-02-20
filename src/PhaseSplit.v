@@ -46,7 +46,7 @@ Section Defs.
 
   Definition split (P:p_inst) :=
     let (P, c) := P in
-    Phase c :: a_split P.
+    a_split P ++ [Phase c].
 
   Fixpoint ph_subst x (v:nexp) (P:phase) : phase :=
     match P with
@@ -286,9 +286,12 @@ Section Defs.
     destruct H as [H|H]. {
       apply in_phases_1 in H; auto.
       destruct H as (ph, (Ha, Hb)).
-      eauto using in_cons.
+      exists ph.
+      rewrite in_app_iff.
+      intuition.
     }
     exists (Phase u).
+    rewrite in_app_iff.
     simpl.
     split; auto.
     auto using p_pair_in_phase.
@@ -403,6 +406,43 @@ Section Defs.
       + apply in_ph_subst; auto.
   Qed.
 
+  Lemma in_phases_app_or:
+    forall p l r,
+    InPhases p (l ++ r) ->
+    InPhases p l \/ InPhases p r.
+  Proof.
+    intros.
+    remember (l ++ r) as i.
+    generalize dependent l.
+    generalize dependent r.
+    induction H.
+    destruct H as (Ha, Hb).
+    generalize dependent i.
+    induction Hb; intros i hi r1 l1 i_eq; subst. {
+      rewrite in_app_iff in *.
+      intuition.
+      - left.
+        exists (Phase c).
+        intuition.
+        constructor.
+        assumption.
+      - right.
+        exists (Phase c).
+        intuition.
+        constructor.
+        assumption.
+    }
+    rewrite in_app_iff in *.
+    destruct hi as [hi|hi]. {
+      left.
+      eexists; split; eauto.
+      apply p_pair_in_decl with (n:=n); auto.
+    }
+    right.
+    eexists; split; eauto.
+    apply p_pair_in_decl with (n:=n); auto.
+  Qed.
+
   Lemma in_2:
     forall p P,
     InPhases p (split P) ->
@@ -414,13 +454,16 @@ Section Defs.
     destruct P as (a, u).
     simpl in *.
     destruct H as (ph, (Hi, Hp)).
+    apply in_app_iff in Hi.
     destruct Hi as [Hi|Hi]. {
-      subst.
-      invc Hp.
-      auto.
+      left.
+      eapply i_pair_in_ph; eauto.
     }
-    left.
-    eapply i_pair_in_ph; eauto.
+    subst.
+    simpl in Hi.
+    intuition.
+    subst.
+    invc Hp; auto.
   Qed.
 
   Theorem drf_2:
