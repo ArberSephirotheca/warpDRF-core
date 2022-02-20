@@ -201,7 +201,7 @@ Section Defs.
 
   (* ----------------------------- IN TRANSLATION ------------------ *)
 
-  Lemma t_in_to_p_in:
+  Lemma u_in_to_p_in:
     forall a i,
     ULang.IIn a i ->
     PIn a (access_tid a) i.
@@ -216,7 +216,7 @@ Section Defs.
    eapply p_in_for; eauto.
   Qed.
 
-  Lemma p_in_to_t_in:
+  Lemma p_in_to_u_in:
     forall a n i,
     PIn a n i ->
     ULang.IIn a i.
@@ -254,7 +254,7 @@ Section Defs.
     contradiction.
   Qed.
 
-  Lemma t_in_to_i_in:
+  Lemma u_in_to_t_in:
     forall i,
     ~ ULang.Var TID i ->
     forall a,
@@ -264,10 +264,10 @@ Section Defs.
     intros.
     apply TLang.s_in_to_i_in; auto using not_var_trace.
     apply p_in_to_s_in; auto.
-    apply t_in_to_p_in; auto.
+    apply u_in_to_p_in; auto.
   Qed.
 
-  Lemma i_in_to_t_in:
+  Lemma t_in_to_u_in:
     forall i,
     ~ ULang.Var TID i ->
     forall a,
@@ -275,7 +275,7 @@ Section Defs.
     ULang.IIn a i.
   Proof.
     intros i Hv a Hi.
-    eapply p_in_to_t_in; eauto.
+    eapply p_in_to_u_in; eauto.
     apply s_in_to_p_in; eauto.
     apply TLang.i_in_to_s_in; eauto using not_var_trace.
   Qed.
@@ -342,7 +342,7 @@ Section Defs.
       rewrite TLang.i_subst_subst_trans; auto.
       rewrite TLang.i_subst_not_occurs. {
         rewrite <- Hx.
-        apply t_in_to_i_in; auto.
+        apply u_in_to_t_in; auto.
       }
       intros N.
       apply TLang.i_occurs_subst_neq in N; auto using t1_neq_tid. 
@@ -369,7 +369,7 @@ Section Defs.
     apply TLang.i_in_seq_l.
     rewrite TLang.i_subst_not_occurs. {
       rewrite TLang.i_subst_subst_trans; auto.
-      apply t_in_to_i_in; auto.
+      apply u_in_to_t_in; auto.
     }
     intros N.
     apply TLang.i_occurs_subst_neq in N; auto using t1_neq_t2.
@@ -440,29 +440,35 @@ Section Defs.
     simpl in Hi.
     (* Is a in T1 or in T2? *)
     unfold do_trace in *.
-    inversion Hi; subst; clear Hi;
-    rename_hyp (TLang.IIn _ _) as Hi.
-    - (* a is in T1 *)
-      rewrite TLang.i_subst_not_occurs in Hi. {
-        rewrite TLang.i_subst_subst_trans in Hi; auto.
-        assert (R:  t1 = access_tid a) by eauto using i_in_inv_access_tid.
-        rewrite R in Hi.
-        auto using i_in_to_t_in with *.
-      }
+    (* Remove subst T1 (subst TID ... ) *)
+    rewrite TLang.i_subst_not_occurs in Hi.
+    2: {
       intros N.
       apply TLang.i_occurs_inv_subst_neq_num in N; auto.
       apply TLang.i_occurs_inv_subst in N; auto using t1_neq_t2, t2_neq_tid.
-    - (* a is in T2 *)
-      rewrite TLang.i_subst_subst_neq in Hi; auto using t1_neq_t2.
-      rewrite TLang.i_subst_not_occurs in Hi. {
-        rewrite TLang.i_subst_subst_trans in Hi; auto.
-        assert (R: t2 = access_tid a) by eauto using i_in_inv_access_tid.
-        rewrite R in Hi.
-        auto using i_in_to_t_in with *.
-      }
+    }
+    (* Remove subs T1 (subs TID T1 ...) *)
+    rewrite TLang.i_subst_subst_trans in Hi; auto.
+    rewrite TLang.i_subst_subst_neq in Hi; auto using t1_neq_t2.
+    (* Remove subs T2 (subs TID T2 ...) *)
+    rewrite TLang.i_subst_subst_trans in Hi; auto.
+
+    rewrite TLang.i_subst_not_occurs with (x:=T1) in Hi.
+    2: {
       intros N.
-      apply TLang.i_occurs_subst_neq in N; auto using t1_neq_t2.
-      apply TLang.i_occurs_inv_subst in N; auto using t1_neq_t2, t1_neq_tid.
+      apply TLang.i_occurs_subst_neq in N; auto using t1_neq_t2, t1_neq_tid.
+    }
+
+    inversion Hi; subst; clear Hi;
+    rename_hyp (TLang.IIn _ _) as Hi.
+    - (* a is in T1 *)
+      assert (R:  t1 = access_tid a) by eauto using i_in_inv_access_tid.
+      rewrite R in Hi.
+      auto using t_in_to_u_in with *.
+    - (* a is in T2 *)
+      assert (R:  t2 = access_tid a) by eauto using i_in_inv_access_tid.
+      rewrite R in Hi.
+      auto using t_in_to_u_in with *.
   Qed.
 
   (* ===================== Main results ========================= *)
@@ -508,12 +514,12 @@ Section Defs.
     right.
     split. {
       rewrite TLang.i_subst_not_occurs. {
-        apply t_in_to_i_in; auto.
+        apply u_in_to_t_in; auto.
       }
       intros N.
       apply TLang.i_occurs_inv_subst_neq_num in N; auto.
     }
-    apply t_in_to_i_in; auto.
+    apply u_in_to_t_in; auto.
   Qed.
 
   Corollary soundness:
