@@ -12,6 +12,7 @@ Require WLang.
 Require Hist.
 Require VHist.
 Require ALang.
+Require Import Lia.
 
 Import ListNotations.
 
@@ -220,14 +221,13 @@ Section Defs.
     ~ PhaseSplit.Var TID ph ->
     ~ PhaseSplit.Occurs T1 ph ->
     ~ PhaseSplit.Occurs T2 ph ->
-    T1 <> T2 ->
     PhaseSplit.Distinct ph ->
     PhaseSplit.PPairIn p ph.
   Proof.
     intros p ph hp.
     remember (ph_to_hist ph) as P.
     generalize dependent ph.
-    induction hp; intros ph heq htid ht1 ht2 htneq hd; destruct ph; invc heq.
+    induction hp; intros ph heq htid ht1 ht2 hd; destruct ph; invc heq.
     - constructor.
       apply Sequentialize.i_pair_in_1; auto.
       unfold Sequentialize.sequentialize.
@@ -255,7 +255,6 @@ Section Defs.
     ~ PhaseSplit.Var TID ph ->
     ~ PhaseSplit.Occurs T1 ph ->
     ~ PhaseSplit.Occurs T2 ph ->
-    T1 <> T2 ->
     PhaseSplit.Distinct ph ->
     TLang.IPairIn (x,y) (ph_to_hist ph).
   Proof.
@@ -263,7 +262,7 @@ Section Defs.
     remember (x, y) as p.
     generalize dependent x.
     generalize dependent y.
-    induction H; simpl; intros a1 a2 heq hneq hv ht1 ht2 ht1t2 hvv.
+    induction H; simpl; intros a1 a2 heq hneq hv ht1 ht2 hvv.
     - subst.
       auto using Sequentialize.i_pair_in_2.
     - destruct r as (e1, e2).
@@ -589,6 +588,136 @@ Section Defs.
     eauto using split_distinct.
   Qed.
 
+  Lemma w_run_to_a_can_run:
+    forall P h,
+    WLang.Distinct P ->
+    WLang.WRun P h ->
+    PhaseSplit.CanRun (fst (Align.align P)).
+  Proof.
+    intros P h Hd H.
+    generalize dependent Hd.
+    induction H; simpl; intros Hd.
+    - constructor.
+    - destruct (Align.align i) as (a1, u1) eqn:eq_1.
+      destruct (Align.align j) as (a2, u2) eqn:eq_2.
+      simpl in *.
+      destruct Hd as (Hd1, Hd2).
+      constructor; auto.
+      rewrite PhaseSplit.can_run_n_seq_iff.
+      auto.
+    - destruct r as (e1, e2).
+      destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
+      destruct (Align.align P) as (a1, u1) eqn:eq_1.
+      simpl in *.
+      destruct r' as (e1', e2').
+      rewrite eq_1 in *.
+      simpl in *.
+      constructor; auto. {
+        rewrite PhaseSplit.can_run_n_seq_iff.
+        simpl in *.
+        erewrite Align.align_to_subst in IHWRun1; eauto using NExp.n_closed_num.
+        simpl in *.
+        rename_hyp (RExp.RStep _ _ _) as hr.
+        inversion_clear hr.
+        assert (PhaseSplit.CanRun (ALang.subst x (NExp.NNum n) a1)). {
+          apply IHWRun1.
+          auto using WLang.distinct_subst.
+        }
+        eauto using PhaseSplit.can_run_subst, NExp.n_step_num.
+      }
+      clear IHWRun1.
+      intros m hr1.
+      repeat rewrite ALang.n_seq_subst.
+      repeat rewrite PhaseSplit.can_run_n_seq_iff.
+      simpl in *.
+      assert (IH: PhaseSplit.CanRun
+          (ALang.NFor (ALang.n_seq ULang.Skip (ALang.subst x e1' a1)) x
+             (NExp.NBin NExp.NPlus (NExp.NNum 1) e1', e2')
+             (ALang.n_seq
+                (ULang.i_subst x
+                   (NExp.NBin NExp.NMinus (NExp.NVar x) (NExp.NNum 1)) u1)
+                (ALang.n_seq
+                   (ULang.i_subst x
+                      (NExp.NBin NExp.NMinus (NExp.NVar x) (NExp.NNum 1)) c2)
+                   a1)))). {
+        apply IHWRun2.
+        intuition.
+      }
+      clear IHWRun2.
+      inversion_clear IH.
+      rewrite PhaseSplit.can_run_n_seq_iff in H5.
+      assert (NExp.NStep e1' (S n)). {
+        invc H.
+        auto.
+      }
+      assert (e1'_e2': m = S n \/ RExp.RPick (NExp.NBin NExp.NPlus (NExp.NNum 1) e1', e2') m). {
+        invc hr1.
+        invc H.
+        assert (n3 = n2) by eauto using NExp.n_step_fun.
+        subst.
+        rename_hyp (NExp.NStep (NExp.NBin _ _ _) _) as hn1.
+        invc hn1.
+        simpl in *.
+        assert (n3 = n) by eauto using NExp.n_step_fun.
+        subst.
+        assert (n0 = 1) by eauto using NExp.n_step_fun, NExp.n_step_num.
+        subst.
+        assert (m = S n \/ m > S n) by lia.
+        intuition.
+        right.
+        eapply RExp.r_pick_def; eauto.
+        eapply NExp.n_step_add_eq; eauto.
+      }
+      destruct e1'_e2' as [?|e1'_e2']. {
+        subst.
+        eauto using PhaseSplit.can_run_subst, NExp.n_step_num.
+      }
+      rename_hyp (PhaseSplit.CanRun _) as rm.
+      clear rm.
+      rename_hyp (forall n, RExp.RPick _ _ -> _) as IH.
+      apply IH in e1'_e2'.
+      repeat rewrite ALang.n_seq_subst in e1'_e2'.
+      repeat rewrite PhaseSplit.can_run_n_seq_iff in e1'_e2'.
+      eauto using PhaseSplit.can_run_subst, NExp.n_step_num.
+    - destruct r as (e1, e2).
+      destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
+      destruct (Align.align P) as (a1, u1) eqn:eq_1.
+      simpl in *.
+      constructor. {
+        rewrite PhaseSplit.can_run_n_seq_iff.
+        erewrite Align.align_to_subst in IHWRun; eauto using NExp.n_closed_num.
+        simpl in *.
+        eapply PhaseSplit.can_run_subst with (e1:=(NExp.NNum n)); eauto using NExp.n_step_num.
+        - inversion_clear H; eauto.
+        - apply IHWRun.
+          auto using WLang.distinct_subst.
+      }
+      intros o r_o.
+      invc r_o.
+      assert (o = n). {
+        rename_hyp (NExp.NStep (NExp.NBin  _ _ _) _) as s_n1.
+        invc s_n1.
+        rename_hyp (NExp.NStep (NExp.NNum _) _) as hn.
+        inversion_clear hn.
+        simpl in *.
+        invc H.
+        assert (n2 = S n) by eauto using NExp.n_step_fun.
+        subst.
+        assert (n3 = n) by eauto using NExp.n_step_fun.
+        subst.
+        lia.
+      }
+      subst.
+      simpl in *.
+      repeat rewrite ALang.n_seq_subst.
+      repeat rewrite PhaseSplit.can_run_n_seq_iff.
+      erewrite Align.align_to_subst in IHWRun; eauto using NExp.n_closed_num.
+      simpl in *.
+      apply IHWRun.
+      auto using WLang.distinct_subst.
+  Qed.
+
+
   Theorem drf_1:
     forall P h1 h2,
     ~ WLang.WVar TID P ->
@@ -597,7 +726,6 @@ Section Defs.
     WLang.WRun P h1 ->
     SRun (split (Align.align P)) h2 ->
     WLang.Distinct P ->
-    PhaseSplit.CanRun (fst (Align.align P)) ->
     VHist.Safe h1 ->
     Hist.MSafeStrong h2.
   Proof.
@@ -619,6 +747,9 @@ Section Defs.
     assert (Hp': PhaseSplit.InPhases (x,y) (PhaseSplit.split (Align.align P))). {
       eexists.
       eauto.
+    }
+    assert (PhaseSplit.CanRun (fst (Align.align P))). {
+      eauto using w_run_to_a_can_run.
     }
     apply PhaseSplit.in_2 in Hp'.
     - apply Align.in_1; auto.
@@ -642,7 +773,6 @@ Section Defs.
       rename_hyp (~ WLang.Occurs T2 P) as ht1.
       contradict ht1.
       eauto using split_align_occurs.
-    - auto using t1_neq_t2.
     - eauto using split_align_distinct.
   Qed.
 

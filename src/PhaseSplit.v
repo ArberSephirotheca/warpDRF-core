@@ -235,44 +235,6 @@ Section Defs.
       apply p_pair_in_decl with (n:=n); auto.
   Qed.
 
-  Inductive PhasePairIn (p:access_val * access_val) : phase -> n_inst -> Prop :=
-  | ph_pair_in_sync:
-    forall c,
-    ULang.CPairIn p c ->
-    PhasePairIn p (Phase c) (NSync c)
-  | ph_pair_in_seq_l:
-    forall ph P Q,
-    PhasePairIn p ph P ->
-    PhasePairIn p ph (NSeq P Q)
-  | ph_pair_in_seq_r:
-    forall ph P Q,
-    PhasePairIn p ph Q ->
-    PhasePairIn p ph (NSeq P Q)
-  | p_pair_in_for_1:
-    forall x r P Q ph,
-    PhasePairIn p ph P ->
-    PhasePairIn p ph (NFor P x r Q)
-  | p_pair_in_for_2:
-    forall x r P Q ph n,
-    RPick r n ->
-    PhasePairIn p (ph_subst x (NNum n) ph) (subst x (NNum n) Q) ->
-    PhasePairIn p (Decl x r ph) (NFor P x r Q).
-
-  Lemma in_phases_2:
-    forall p P ph,
-    PhasePairIn p ph P ->
-    IPairIn p P.
-  Proof.
-    intros.
-    induction H;
-      eauto using
-        i_pair_in_seq_l,
-        i_pair_in_seq_r,
-        i_pair_in_for_1,
-        i_pair_in_sync,
-        i_pair_in_for_2.
-  Qed.
-
   Lemma in_1:
     forall p P,
     ALang.PPairIn p P ->
@@ -325,6 +287,84 @@ Section Defs.
     CanRun P ->
     (forall n, RPick r n -> CanRun (subst x (NNum n) Q)) ->
     CanRun (NFor P x r Q).
+(*
+  Definition ACanRun (p:p_inst) : Prop :=
+    let (a, u) := p in
+    CanRun a.
+*)
+  Lemma can_run_n_seq_1:
+    forall u a,
+    CanRun (n_seq u a) ->
+    CanRun a.
+  Proof.
+    induction a; intros; simpl in *.
+    - constructor.
+    - inversion_clear H.
+      constructor; auto.
+    - inversion_clear H.
+      constructor; auto.
+  Qed.
+
+  Lemma can_run_n_seq_2:
+    forall u a,
+    CanRun a ->
+    CanRun (n_seq u a).
+  Proof.
+    induction a; intros; simpl in *.
+    - constructor.
+    - inversion_clear H.
+      constructor; auto.
+    - inversion_clear H.
+      constructor; auto.
+  Qed.
+
+  Lemma can_run_n_seq_iff:
+    forall u a,
+    CanRun (n_seq u a) <-> CanRun a.
+  Proof.
+    split; intros; eauto using can_run_n_seq_1, can_run_n_seq_2.
+  Qed.
+
+
+  Lemma can_run_subst:
+    forall a e1 e2 n x,
+    NExp.NStep e1 n ->
+    NExp.NStep e2 n ->
+    CanRun (ALang.subst x e1 a) ->
+    CanRun (ALang.subst x e2 a).
+  Proof.
+    intros.
+    remember (subst _ _ _) as p.
+    generalize dependent e1.
+    generalize dependent x.
+    generalize dependent e2.
+    generalize dependent n.
+    generalize dependent a.
+    induction H1;
+      intros a n e2 e2_n y e1 e1_n r_eq;
+      destruct a;
+      simpl in r_eq;
+      inversion r_eq;
+      subst;
+      simpl;
+      constructor;
+      eauto;
+      clear r_eq.
+    intros m r_m.
+    simpl.
+    destruct (Set_VAR.MF.eq_dec y v) as [y_v|y_v]. {
+      subst.
+      eapply r_pick_subst in r_m; eauto.
+    }
+    clear IHCanRun.
+    eapply r_pick_subst in r_m; eauto.
+    clear H.
+    assert (hc: CanRun (subst y e2 (subst v (NNum m) a2))). {
+      eapply H0; eauto.
+      rewrite subst_subst_neq; eauto using n_step_to_not_free.
+    }
+    rewrite subst_subst_neq; eauto using n_step_to_not_free.
+  Qed.
 
   Lemma in_ph_subst:
     forall P ph,
@@ -380,7 +420,7 @@ Section Defs.
   Proof.
     intros P H.
     induction H; intros Hd ph Hi p Hp; simpl in *.
-    - destruct Hi; try (intuition; fail).
+    - intuition.
       subst.
       invc Hp.
       auto using i_pair_in_sync.
