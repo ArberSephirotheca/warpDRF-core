@@ -666,50 +666,73 @@ Section Defs.
     Hist.MSafeStrong h2.
   Proof.
     intros.
+    (* We first simplify our goal. *)
     unfold Hist.MSafeStrong, VHist.Safe in *.
     intros.
     rename_hyp (forall x y, _) as Hi.
     apply Hi; auto; clear Hi.
-    rename_hyp (PairInUtil.MPairIn _ _) as Hi.
-    eapply s_run_inv_in in Hi; eauto.
-    destruct Hi as (hs, (m1, (Hi, (Hr, Hp)))).
     apply WLang.i_pair_in_2 with (i:=P); auto.
-    eapply TLang.run_m_pair_in_to_i_pair_in in Hp; eauto.
-    unfold split in Hi.
-    apply in_map_iff in Hi.
-    destruct Hi as (ph, (?, Hi)).
-    subst.
-    apply in_1 in Hp.
-    assert (Hp': PhaseSplit.InPhases (x,y) (PhaseSplit.split (Align.align P))). {
-      eexists.
-      eauto.
-    }
-    assert (PhaseSplit.CanRun (fst (Align.align P))). {
-      eauto using w_run_to_a_can_run.
-    }
-    apply PhaseSplit.in_2 in Hp'.
-    - apply Align.in_1; auto.
-      eauto using WLang.run_to_can_run.
-    - assert (ALang.PDistinct (Align.align P)). {
-        eauto using Align.distinct_w_to_a.
+    (* We now simplify an assumption. *)
+    assert (ALang.PPairIn (x, y) (Align.align P)). {
+      assert (Hp':
+        PhaseSplit.InPhases (x,y) (PhaseSplit.split (Align.align P)) /\
+        ALang.Distinct (fst (Align.align P)) /\
+        PhaseSplit.CanRun (fst (Align.align P))
+      ). {
+        assert (Hphs: exists s,
+          In s (PhaseSplit.split (Align.align P)) /\
+          ~ PhaseSplit.Var TID s /\
+          ~ PhaseSplit.Occurs T1 s /\
+          ~ PhaseSplit.Occurs T2 s /\
+          PhaseSplit.Distinct s /\
+          TLang.IPairIn (x, y) (ph_to_hist s)
+        ). {
+          assert (Hip: exists hs,
+            In hs (seq (PhaseSplit.split (Align.align P))) /\
+            TLang.IPairIn (x, y) hs
+          ). {
+            rename_hyp (PairInUtil.MPairIn _ _) as Hi.
+            eapply s_run_inv_in in Hi; eauto.
+            destruct Hi as (hs, (m1, (Hi, (Hr, Hp)))).
+            eapply TLang.run_m_pair_in_to_i_pair_in in Hp; eauto.
+          }
+          destruct Hip as (e, (Hi, Hp)).
+          apply in_map_iff in Hi.
+          destruct Hi as (ph, (?, Hi)).
+          subst.
+          exists ph.
+          repeat split; auto.
+          - intros N.
+            rename_hyp (~WLang.WVar TID P) as hv.
+            contradict hv.
+            eauto using split_align_var.
+          - intros N.
+            rename_hyp (~ WLang.Occurs T1 P) as ht1.
+            contradict ht1.
+            eauto using split_align_occurs.
+          - intros N.
+            rename_hyp (~ WLang.Occurs T2 P) as ht1.
+            contradict ht1.
+            eauto using split_align_occurs.
+          - eapply split_align_distinct; eauto.
+        }
+        destruct Hphs as (s, Hi).
+        intuition.
+        rename_hyp (TLang.IPairIn _ _) as hi.
+        apply in_1 in hi; auto.
+        eexists.
+        eauto.
+        - rename_hyp (WLang.Distinct P) as hd.
+          apply Align.distinct_w_to_a in hd.
+          destruct (Align.align P).
+          simpl in *.
+          intuition.
+        - eauto using w_run_to_a_can_run.
       }
-      destruct (Align.align P) as (Px, cx).
-      simpl in *.
       intuition.
-    - assumption.
-    - intros N.
-      rename_hyp (~WLang.WVar TID P) as hv.
-      contradict hv.
-      eauto using split_align_var.
-    - intros N.
-      rename_hyp (~ WLang.Occurs T1 P) as ht1.
-      contradict ht1.
-      eauto using split_align_occurs.
-    - intros N.
-      rename_hyp (~ WLang.Occurs T2 P) as ht1.
-      contradict ht1.
-      eauto using split_align_occurs.
-    - eauto using split_align_distinct.
+      apply PhaseSplit.in_2; auto.
+    }
+    apply Align.in_1; eauto using WLang.run_to_can_run.
   Qed.
 
   Theorem drf_2:
