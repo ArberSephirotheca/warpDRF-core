@@ -784,7 +784,6 @@ Section Defs.
     WLang.WRun P h1 ->
     SRun (split (Align.align P)) h2 ->
     WLang.Distinct P ->
-    PhaseSplit.CanRun (fst (Align.align P)) ->
     Hist.MSafeStrong h2 ->
     VHist.Safe h1.
   Proof.
@@ -870,8 +869,6 @@ Section Defs.
     WLang.WRun P h1 ->                      (* p \in mathcal W and p \downarrow h1 *)
     (* split(align(P)) runs and yields h2: *)
     SRun (split (Align.align P)) h2 ->      (* split(align(p)) \Downarrow h_2 *)
-    (* align(P) can run: *)
-    PhaseSplit.CanRun (fst (Align.align P)) (* align p \in mathcal A /\ exists H, align P \downarrow H *) ->
     (* All loop variables in c must be distinct: *)
     WLang.Distinct P ->
     (* TID is not declared in a loop *)
