@@ -188,6 +188,14 @@ Section Defs.
       auto.
   Qed.
 
+  Lemma s_in_p_in_iff:
+    forall a n i,
+    ~ ULang.Var TID i ->
+    PIn a n i <-> TLang.SIn a n (trace i).
+  Proof.
+    split; auto using s_in_to_p_in, p_in_to_s_in.
+  Qed.
+
   Lemma p_in_inv_access_tid:
     forall a n i,
     PIn a n i ->

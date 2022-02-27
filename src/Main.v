@@ -40,17 +40,17 @@ Section Defs.
 
     *)
 
-  Fixpoint ph_to_hist (p:PhaseSplit.phase) :=
+  Fixpoint seq (p:PhaseSplit.phase) :=
     match p with
       (* case: u;sync *)
     | PhaseSplit.Phase c => Sequentialize.sequentialize c
       (* case: for^s x in n .. m {q} *)
-    | PhaseSplit.Decl x r p => TLang.Decl x r (ph_to_hist p)
+    | PhaseSplit.Decl x r p => TLang.Decl x r (seq p)
     end.
 
-  Definition seq l :=
-    List.map ph_to_hist l.
-
+  Definition seq_l l :=
+    List.map seq l.
+(*
   Lemma map_ph_to_hist:
     forall v r l,
     map ph_to_hist (map (PhaseSplit.Decl v r) l) =
@@ -63,7 +63,7 @@ Section Defs.
     rewrite IHl.
     reflexivity.
   Qed.
-
+*)
   Notation history := (list access_val).
 
   Inductive SRun : list TLang.inst -> list history -> Prop :=
@@ -123,7 +123,7 @@ Section Defs.
 
   Lemma ph_to_hist_phase:
     forall u,
-    ph_to_hist (PhaseSplit.Phase u) = Sequentialize.sequentialize u.
+    seq (PhaseSplit.Phase u) = Sequentialize.sequentialize u.
   Proof.
     intros.
     reflexivity.
@@ -137,8 +137,8 @@ Section Defs.
     x <> TID ->
     NExp.NClosed v ->
     ~ PhaseSplit.Var x ph ->
-    TLang.i_subst x v (ph_to_hist ph) =
-    ph_to_hist (PhaseSplit.ph_subst x v ph). 
+    TLang.i_subst x v (seq ph) =
+    seq (PhaseSplit.ph_subst x v ph). 
   Proof.
     induction ph; intros ht1 ht2 htid hc hv; simpl; simpl in hv.
     - rewrite Sequentialize.sequentialize_subst_rw; auto.
@@ -153,7 +153,7 @@ Section Defs.
 
   Lemma in_1:
     forall p ph,
-    TLang.IPairIn p (ph_to_hist ph) ->
+    TLang.IPairIn p (seq ph) ->
     ~ PhaseSplit.Var TID ph ->
     ~ PhaseSplit.Occurs T1 ph ->
     ~ PhaseSplit.Occurs T2 ph ->
@@ -161,7 +161,7 @@ Section Defs.
     PhaseSplit.PPairIn p ph.
   Proof.
     intros p ph hp.
-    remember (ph_to_hist ph) as P.
+    remember (seq ph) as P.
     generalize dependent ph.
     induction hp; intros ph heq htid ht1 ht2 hd; destruct ph; invc heq.
     - constructor.
@@ -192,7 +192,7 @@ Section Defs.
     ~ PhaseSplit.Occurs T1 ph ->
     ~ PhaseSplit.Occurs T2 ph ->
     PhaseSplit.Distinct ph ->
-    TLang.IPairIn (x,y) (ph_to_hist ph).
+    TLang.IPairIn (x,y) (seq ph).
   Proof.
     intros x y ph H.
     remember (x, y) as p.
@@ -660,7 +660,7 @@ Section Defs.
     ~ WLang.Occurs T1 P ->
     ~ WLang.Occurs T2 P ->
     WLang.WRun P h1 ->
-    SRun (seq (PhaseSplit.split (Align.align P))) h2 ->
+    SRun (seq_l (PhaseSplit.split (Align.align P))) h2 ->
     WLang.Distinct P ->
     VHist.Safe h1 ->
     Hist.MSafeStrong h2.
@@ -685,10 +685,10 @@ Section Defs.
           ~ PhaseSplit.Occurs T1 s /\
           ~ PhaseSplit.Occurs T2 s /\
           PhaseSplit.Distinct s /\
-          TLang.IPairIn (x, y) (ph_to_hist s)
+          TLang.IPairIn (x, y) (seq s)
         ). {
           assert (Hip: exists hs,
-            In hs (seq (PhaseSplit.split (Align.align P))) /\
+            In hs (seq_l (PhaseSplit.split (Align.align P))) /\
             TLang.IPairIn (x, y) hs
           ). {
             rename_hyp (PairInUtil.MPairIn _ _) as Hi.
@@ -741,7 +741,7 @@ Section Defs.
     ~ WLang.Occurs T1 P ->
     ~ WLang.Occurs T2 P ->
     WLang.WRun P h1 ->
-    SRun (seq (PhaseSplit.split (Align.align P))) h2 ->
+    SRun (seq_l (PhaseSplit.split (Align.align P))) h2 ->
     WLang.Distinct P ->
     Hist.MSafeStrong h2 ->
     VHist.Safe h1.
@@ -769,8 +769,8 @@ Section Defs.
     + (* symb trace to h2 *)
       unfold split in *.
       rename_hyp (SRun _ _) as hs.
-      apply s_run_inv with (x:=ph_to_hist ph) in hs; auto. 2: {
-        unfold seq.
+      apply s_run_inv with (x:=seq ph) in hs; auto. 2: {
+        unfold seq_l.
         rewrite in_map_iff.
         eauto.
       }
@@ -828,7 +828,7 @@ Section Defs.
     (* P runs and yields h1: *)
     WLang.WRun P h1 ->                      (* p \in mathcal W and p \downarrow h1 *)
     (* split(align(P)) runs and yields h2: *)
-    SRun (seq (PhaseSplit.split (Align.align P))) h2 ->      (* split(align(p)) \Downarrow h_2 *)
+    SRun (seq_l (PhaseSplit.split (Align.align P))) h2 ->      (* split(align(p)) \Downarrow h_2 *)
     (* All loop variables in c must be distinct: *)
     WLang.Distinct P ->
     (* TID is not declared in a loop *)
@@ -898,7 +898,7 @@ Module Example.
     *)
   Compute AProg1.
 
-  Definition SProg1 := seq (PhaseSplit.split AProg1).
+  Definition SProg1 := seq_l (PhaseSplit.split AProg1).
   Goal SProg1 = [
     (* seq(skip; wr[0]) *)
 Sequentialize.sequentialize (Seq Skip (MemAcc (NNum 0)));
