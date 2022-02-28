@@ -20,26 +20,6 @@ Section Defs.
   Context `{T:Tasks}.
   Context `{A:Access}.
 
-  (*
-    ~~~~~ Function split ~~~~~~~
-
-    -> PhaseSplit.split.
-
-      Takes a protocol and breaks it into a list of sub-protocol, each
-      sub-protocol is called a phase. For instance,
-
-      PhaseSplit.split(for^s x in n..m { P; Q}) =
-        [ for^s x in n..m { P }; for^s x in n..m {Q} ]
-
-    -> ph_to_hist: takes a single phase (sub-protocol) and handles the cases of
-       synchronized loops or unsynchronized protocols, delegating the latter
-       to Sequentialize.sequentialize.
-
-    -> Sequentialize.sequentialize: takes an unsynchronized protocol and does
-       what is in Figure 4.
-
-    *)
-
   Fixpoint seq (p:PhaseSplit.phase) :=
     match p with
       (* case: u;sync *)
@@ -50,20 +30,7 @@ Section Defs.
 
   Definition seq_l l :=
     List.map seq l.
-(*
-  Lemma map_ph_to_hist:
-    forall v r l,
-    map ph_to_hist (map (PhaseSplit.Decl v r) l) =
-    map (TLang.Decl v r) (map ph_to_hist l).
-  Proof.
-    induction l. {
-      reflexivity.
-    }
-    simpl.
-    rewrite IHl.
-    reflexivity.
-  Qed.
-*)
+
   Notation history := (list access_val).
 
   Inductive SRun : list TLang.inst -> list history -> Prop :=
@@ -792,43 +759,13 @@ Section Defs.
     + eauto using split_align_distinct.
   Qed.
 
-  (*
-  ~~~~~ Theorem 1 and Theorem 3 ~~~~~~~
-
-  Theorem `drf` subsumes the following two theorems that appear in the paper,
-  by combining both steps into one theorem.
-
-    Theorem 1: let align(p) = (q, u) and p \in mathcal W.
-    If p \downarrow H_1 and q;u \downarrow H_2, then
-    safe(H_1) iff safe(H_2).
-
-    Theorem 2: let p \in \mathcal A such that p \downarrow H_1,
-    and H_2 = [H | h \in split(p) /\ h \Downarrow H],
-    then safe(H_1) iff safe(H_2)
-
-  Understanding the notation below:
-
-  1. `WLang.Run P h1` corresponds to:
-    - P \downarrow h1
-    - P is a well-formed protocol
-  2. `SRun (split (Align.align P)) h2` corresponds to:
-     - align(p) = (q, u)
-     - q;u \downarrow H_2
-     - [H | h \in split(q,u) /\ h \Downarrow H]
-  
-    Note that in the Coq formalism `split` is extended to take a
-    pair (q,u) rather than just a protocol. 
-  
-  -------------- More definitions -----------------
-  - Print Hist.MSafeStrong:
-
-  *)
+  (* ~~~~~ Theorem 1 ~~~~~~~ *)
   Theorem drf:
     forall P h1 h2,
     (* P runs and yields h1: *)
-    WLang.WRun P h1 ->                      (* p \in mathcal W and p \downarrow h1 *)
-    (* split(align(P)) runs and yields h2: *)
-    SRun (seq_l (PhaseSplit.split (Align.align P))) h2 ->      (* split(align(p)) \Downarrow h_2 *)
+    WLang.WRun P h1 -> (* p \in mathcal W and p \downarrow h1 *)
+    (* seq(split(align(P))) runs and yields h2: *)
+    SRun (seq_l (PhaseSplit.split (Align.align P))) h2 -> (* seq(split(align(p))) \Downarrow h_2 *)
     (* All loop variables in c must be distinct: *)
     WLang.Distinct P ->
     (* TID is not declared in a loop *)
@@ -860,9 +797,31 @@ Module Example.
   Import NExp.
   Import Var.
   Import WLang.WLangNotations.
+  Import ULang.CLangNotations.
   Import ULang.
   Import WLang.
   Local Open Scope string_scope.
+  Local Open Scope lang_scope.
+
+  (* Example 1: Protocols containing empty loops do not evaluate *)
+  Example empty_loop:
+    forall x p u1 u2 h,
+    ~ WRun (WFor
+      u1
+      x
+      (NNum 0, NNum 0)
+      p u2) h.
+  Proof.
+    intros x p u1 u2 h N.
+    assert (he: RExp.REmpty (NNum 0, NNum 0)) by auto using RExp.r_empty_eq.
+    contradict he.
+    apply RExp.r_has_next_to_empty.
+    inversion_clear N. {
+      eauto using RExp.r_step_to_has_next.
+    }
+    eauto using RExp.r_one_to_has_next.
+  Qed.
+
   (*
     skip;
     for x in 0..10 {
@@ -919,5 +878,6 @@ TLang.Decl (variable "x") (NBin NPlus (NNum 1) (NNum 0), NNum 10)
     simpl.
     auto.
   Qed.
+  
 End Defs.
 End Example.
