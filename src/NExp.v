@@ -1000,6 +1000,16 @@ Section SO.
     eauto using n_step_to_not_free.
   Qed.
 
+  Lemma n_step_iff_closed:
+    forall e,
+    (exists n, NStep e n) <-> NClosed e.
+  Proof.
+    split; intros.
+    - destruct H.
+      eauto using n_step_to_closed.
+    - auto using n_closed_to_step.
+  Qed.
+
   Lemma n_subst_subst_neq_4:
     forall e3 e1 e2 x y,
     NClosed e1 -> 
