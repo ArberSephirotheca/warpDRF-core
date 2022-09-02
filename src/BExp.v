@@ -253,6 +253,37 @@ Section SO.
     assumption.
   Qed.
 
+  Lemma b_free_inv_bool:
+    forall x b,
+    ~ BFree x (BBool b).
+  Proof.
+    auto.
+  Qed.
+
+  Lemma b_free_inv_not:
+    forall x e,
+    BFree x (BNot e) ->
+    BFree x e.
+  Proof.
+    auto.
+  Qed.
+
+  Lemma b_free_inv_n_rel:
+    forall x o e1 e2,
+    BFree x (NRel o e1 e2) ->
+    NFree x e1 \/ NFree x e2.
+  Proof.
+    auto.
+  Qed.
+
+  Lemma b_free_inv_b_rel:
+    forall x o e1 e2,
+    BFree x (BRel o e1 e2) ->
+    BFree x e1 \/ BFree x e2.
+  Proof.
+    auto.
+  Qed.
+
   Lemma b_subst_not_free:
     forall x v b,
     ~ BFree x b ->
@@ -666,6 +697,59 @@ Section SO.
 
   Definition BClosed e := forall x, ~ BFree x e.
 
+  Lemma b_closed_bool:
+    forall b,
+    BClosed (BBool b).
+  Proof.
+    unfold BClosed.
+    intros b x N.
+    apply b_free_inv_bool in N.
+    assumption.
+  Qed.
+
+  Lemma b_closed_not:
+    forall e,
+    BClosed e ->
+    BClosed (BNot e).
+  Proof.
+    unfold BClosed.
+    intros.
+    intros N.
+    specialize (H x).
+    apply b_free_inv_not in N.
+    contradiction.
+  Qed.
+
+  Lemma b_closed_n_rel:
+    forall e1 e2 o,
+    NClosed e1 ->
+    NClosed e2 ->
+    BClosed (NRel o e1 e2).
+  Proof.
+    unfold BClosed.
+    intros.
+    intros N.
+    apply b_free_inv_n_rel in N.
+    destruct N as [N|N].
+    - apply n_closed_to_not_free in N; auto.
+    - apply n_closed_to_not_free in N; auto.
+  Qed.
+
+  Lemma b_closed_b_rel:
+    forall e1 e2 o,
+    BClosed e1 ->
+    BClosed e2 ->
+    BClosed (BRel o e1 e2).
+  Proof.
+    unfold BClosed.
+    intros.
+    intros N.
+    apply b_free_inv_b_rel in N.
+    destruct N as [N|N].
+    - specialize (H x). contradiction.
+    - specialize (H0 x). contradiction.
+  Qed.
+
   Lemma b_closed_inv_n_rel_l:
     forall o n1 n2,
     BClosed (NRel o n1 n2) ->
@@ -785,4 +869,28 @@ Section SO.
       destruct H as (e_v, H).
       eauto using b_step_not.
   Qed.
+
+  Lemma b_step_to_closed:
+    forall b e,
+    BStep e b ->
+    BClosed e.
+  Proof.
+    intros.
+    induction H.
+    - apply b_closed_bool.
+    - eauto using b_closed_n_rel, n_step_to_closed.
+    - auto using b_closed_b_rel.
+    - auto using b_free_inv_not.
+  Qed.
+
+  Lemma b_step_iff_closed:
+    forall e,
+    (exists b, BStep e b) <-> BClosed e.
+  Proof.
+    split; intros.
+    - destruct H.
+      eauto using b_step_to_closed.
+    - auto using b_closed_to_step.
+  Qed.
+
 End SO.
