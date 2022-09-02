@@ -199,6 +199,60 @@ Section SO.
     | BBool _ => False
     end.
 
+  Lemma b_free_n_rel_l:
+    forall x n1,
+    NFree x n1 ->
+    forall o n2,
+    BFree x (NRel o n1 n2).
+  Proof.
+    intros.
+    simpl.
+    auto.
+  Qed.
+
+  Lemma b_free_n_rel_r:
+    forall x n2,
+    NFree x n2 ->
+    forall o n1,
+    BFree x (NRel o n1 n2).
+  Proof.
+    intros.
+    simpl.
+    auto.
+  Qed.
+
+  Lemma b_free_b_rel_l:
+    forall x e1,
+    BFree x e1 ->
+    forall o e2,
+    BFree x (BRel o e1 e2).
+  Proof.
+    intros.
+    simpl.
+    auto.
+  Qed.
+
+  Lemma b_free_b_rel_r:
+    forall x e2,
+    BFree x e2 ->
+    forall o e1,
+    BFree x (BRel o e1 e2).
+  Proof.
+    intros.
+    simpl.
+    auto.
+  Qed.
+
+  Lemma b_free_not:
+    forall x e,
+    BFree x e ->
+    BFree x (BNot e).
+  Proof.
+    intros.
+    simpl.
+    assumption.
+  Qed.
+
   Lemma b_subst_not_free:
     forall x v b,
     ~ BFree x b ->
@@ -212,6 +266,46 @@ Section SO.
       rewrite IHb1; auto.
       rewrite IHb2; auto.
     - rewrite IHb; auto.
+  Qed.
+
+  Lemma b_free_subst_neq:
+    forall e x y v,
+    BFree x (b_subst y v e) ->
+    ~ NFree x v ->
+    BFree x e.
+  Proof.
+    induction e; simpl; intros.
+    - assumption.
+    - destruct H; eauto using n_free_subst_neq.
+    - destruct H; eauto using n_free_subst_neq.
+    - eauto.
+  Qed.
+
+  Lemma b_free_inv_subst:
+    forall e x y v,
+    BFree x (b_subst y v e) ->
+    NFree x v \/ BFree x e.
+  Proof.
+    induction e; simpl; intros; auto.
+    - intuition; apply n_free_inv_subst in H0; intuition.
+    - intuition; rename_hyp (BFree _ _) as hb.
+      + apply IHe1 in hb; intuition.
+      + apply IHe2 in hb; intuition.
+    - apply IHe in H.
+      intuition.
+  Qed.
+
+  Lemma b_free_inv_subst_eq:
+    forall x e b,
+    BFree x (b_subst x e b) ->
+    NFree x e.
+  Proof.
+    induction b; simpl; intros.
+    - invc H.
+    - destruct H;
+        eauto using n_free_inv_subst_eq.
+    - destruct H; auto.
+    - auto.
   Qed.
 
   Lemma b_subst_subst_neq_2:
@@ -246,19 +340,6 @@ Section SO.
     - rewrite IHe1; auto.
       rewrite IHe2; auto.
     - rewrite IHe; auto.
-  Qed.
-
-  Lemma b_free_subst_neq:
-    forall e x y v,
-    BFree x (b_subst y v e) ->
-    ~ NFree x v ->
-    BFree x e.
-  Proof.
-    induction e; simpl; intros.
-    - assumption.
-    - destruct H; eauto using n_free_subst_neq.
-    - destruct H; eauto using n_free_subst_neq.
-    - eauto.
   Qed.
 
   Lemma b_subst_subst_trans:
@@ -528,55 +609,6 @@ Section SO.
       eapply b_eq_proper_6; eauto.
   Qed.
 
-(*
-  Lemma b_subst_not_in_rw:
-    forall x b,
-    ~ BFree x b ->
-    forall v,
-    b_subst x v b = b.
-  Proof.
-    induction b; intros; simpl; rename_hyp (~ _) as N.
-    - reflexivity.
-    - apply not_in_n_bin_n_rel in N.
-      destruct N as (Ha, Hb).
-      rewrite n_subst_not_in_rw; auto.
-      rewrite n_subst_not_in_rw; auto.
-    - apply not_in_n_bin_b_rel in N.
-      destruct N.
-      rewrite IHb1; auto.
-      rewrite IHb2; auto.
-    - apply not_in_not in N.
-      rewrite IHb; auto.
-  Qed.
-*)
-
-  Lemma b_free_inv_subst:
-    forall e x y v,
-    BFree x (b_subst y v e) ->
-    NFree x v \/ BFree x e.
-  Proof.
-    induction e; simpl; intros; auto.
-    - intuition; apply n_free_inv_subst in H0; intuition.
-    - intuition; rename_hyp (BFree _ _) as hb.
-      + apply IHe1 in hb; intuition.
-      + apply IHe2 in hb; intuition.
-    - apply IHe in H.
-      intuition.
-  Qed.
-
-  Lemma b_free_inv_subst_eq:
-    forall x e b,
-    BFree x (b_subst x e b) ->
-    NFree x e.
-  Proof.
-    induction b; simpl; intros.
-    - invc H.
-    - destruct H;
-        eauto using n_free_inv_subst_eq.
-    - destruct H; auto.
-    - auto.
-  Qed.
-
   Lemma b_subst_subst_eq_1:
     forall e1 e2 x b,
     b_subst x e1 (b_subst x e2 b)
@@ -630,5 +662,127 @@ Section SO.
     - rewrite IHb1; auto.
       rewrite IHb2; auto.
     - rewrite IHb; auto.
+  Qed.
+
+  Definition BClosed e := forall x, ~ BFree x e.
+
+  Lemma b_closed_inv_n_rel_l:
+    forall o n1 n2,
+    BClosed (NRel o n1 n2) ->
+    NClosed n1.
+  Proof.
+    intros.
+    unfold BClosed in *.
+    unfold NClosed.
+    intros x.
+    specialize (H x).
+    intros N.
+    contradict H.
+    auto using b_free_n_rel_l.
+  Qed.
+
+  Lemma b_closed_inv_n_rel_r:
+    forall o n1 n2,
+    BClosed (NRel o n1 n2) ->
+    NClosed n2.
+  Proof.
+    intros.
+    unfold BClosed in *.
+    unfold NClosed.
+    intros x.
+    specialize (H x).
+    intros N.
+    contradict H.
+    auto using b_free_n_rel_r.
+  Qed.
+
+  Lemma b_closed_inv_n_rel:
+    forall o e1 e2,
+    BClosed (NRel o e1 e2) ->
+    NClosed e1 /\ NClosed e2.
+  Proof.
+    intros.
+    split.
+    - eauto using b_closed_inv_n_rel_l.
+    - eauto using b_closed_inv_n_rel_r.
+  Qed.
+
+  Lemma b_closed_inv_b_rel_l:
+    forall o e1 e2,
+    BClosed (BRel o e1 e2) ->
+    BClosed e1.
+  Proof.
+    intros.
+    unfold BClosed in *.
+    intros x.
+    specialize (H x).
+    intros N.
+    contradict H.
+    auto using b_free_b_rel_l.
+  Qed.
+
+  Lemma b_closed_inv_b_rel_r:
+    forall o e1 e2,
+    BClosed (BRel o e1 e2) ->
+    BClosed e2.
+  Proof.
+    intros.
+    unfold BClosed in *.
+    intros x.
+    specialize (H x).
+    intros N.
+    contradict H.
+    auto using b_free_b_rel_r.
+  Qed.
+
+  Lemma b_closed_inv_b_rel:
+    forall o e1 e2,
+    BClosed (BRel o e1 e2) ->
+    BClosed e1 /\ BClosed e2.
+  Proof.
+    intros.
+    split.
+    - eauto using b_closed_inv_b_rel_l.
+    - eauto using b_closed_inv_b_rel_r.
+  Qed.
+
+  Lemma b_closed_inv_not:
+    forall e,
+    BClosed (BNot e) ->
+    BClosed e.
+  Proof.
+    unfold BClosed.
+    intros.
+    intros N.
+    specialize (H x).
+    contradict H.
+    auto using b_free_not.
+  Qed.
+
+  Lemma b_closed_to_step:
+    forall e,
+    BClosed e ->
+    exists b, BStep e b.
+  Proof.
+    induction e; intros.
+    - eauto using b_step_bool.
+    - apply b_closed_inv_n_rel in H.
+      destruct H as [Ha Hb].
+      apply n_closed_to_step in Ha.
+      apply n_closed_to_step in Hb.
+      destruct Ha as (a, Ha).
+      destruct Hb as (b, Hb).
+      eauto using b_step_nrel.
+    - apply b_closed_inv_b_rel in H.
+      destruct H as [Ha Hb].
+      apply IHe1 in Ha.
+      apply IHe2 in Hb.
+      destruct Ha as (e1_v, Ha).
+      destruct Hb as (e2_v, Hb).
+      eauto using b_step_brel.
+    - apply b_closed_inv_not in H.
+      apply IHe in H.
+      destruct H as (e_v, H).
+      eauto using b_step_not.
   Qed.
 End SO.
