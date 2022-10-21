@@ -4,7 +4,7 @@ Require Import Coq.micromega.Lia.
 
 Import ListNotations.
 
-Require Import NExp.
+Require Import Pure.NExp.
 Require Import Tictac.
 Require Import Util.
 
@@ -152,10 +152,6 @@ Section Defs.
 
   Import Morphisms.
 
-  Variable tid: nat.
-
-  Notation NEq := (NEq tid).
-
   Global Instance n_eq_proper_4: Proper (eq ==> NEq ==> eq ==> NEq * NEq ) r_subst.
   Proof.
     unfold Proper, respectful, RelCompFun, RelProd.
@@ -171,8 +167,6 @@ Section Defs.
   Qed.
 
   (* ------------------ ABSTRACTION OF RANGE ------------------------- *)
-
-  Notation NStep := (NStep tid).
 
   Inductive RStep : range -> nat -> range -> Prop :=
   | r_step_def:

@@ -5,36 +5,29 @@ Require Import Var.
 Require Import Coq.micromega.Lia.
 Require Import Coq.Classes.RelationPairs.
 Require Import Tictac.
+Require Pure.NExp.
 
 Section Defs.
-
-  Inductive nbin :=
-  | NPlus
-  | NMinus
-  | NMult
-  | NDiv
-  | NMod.
 
   Inductive nexp :=
   | NTid : nexp
   | NNum : nat -> nexp
   | NVar : var -> nexp
-  | NBin : nbin ->  nexp -> nexp -> nexp.
+  | NBin : Pure.NExp.nbin ->  nexp -> nexp -> nexp.
+
+  Fixpoint from_pure (n:Pure.NExp.nexp) : nexp :=
+    match n with
+    | Pure.NExp.NNum n => NNum n
+    | Pure.NExp.NVar x => NVar x
+    | Pure.NExp.NBin o e1 e2 => NBin o (from_pure e1) (from_pure e2)
+    end.
 
 End Defs.
 
 Section SO.
 
-  Definition eval_nbin o :=
-    match o with
-    | NPlus => Nat.add
-    | NMinus => Nat.sub
-    | NMult => Nat.mul
-    | NDiv => Nat.div
-    | NMod => Nat.modulo
-    end.
-
   Variable tid: nat.
+  Notation eval_nbin := Pure.NExp.eval_nbin.
 
   Inductive NStep: nexp -> nat -> Prop :=
   | n_step_tid:
@@ -47,16 +40,6 @@ Section SO.
     NStep e1 n1 ->
     NStep e2 n2 ->
     NStep (NBin o e1 e2) (eval_nbin o n1 n2). 
-
-  Inductive NPure: nexp -> nat -> Prop :=
-  | n_pure_num:
-    forall n,
-    NPure (NNum n) n
-  | n_pure_bin:
-    forall n1 n2 o e1 e2,
-    NPure e1 n1 ->
-    NPure e2 n2 ->
-    NPure (NBin o e1 e2) (eval_nbin o n1 n2). 
 
   Fixpoint n_subst x v e :=
     match e with
@@ -76,6 +59,29 @@ Section SO.
     intros.
     subst.
     constructor; auto.
+  Qed.
+
+  Lemma n_step_from_pure:
+    forall e n,
+    Pure.NExp.NStep e n <->
+    NStep (from_pure e) n.
+  Proof.
+    induction e; simpl in *; intros.
+    - split; intros; invc H; constructor.
+    - split; intros; invc H.
+    - split.
+      all: intros.
+      all: invc H.
+      + eapply n_step_bin_eq; eauto.
+        * apply IHe1.
+          assumption.
+        * apply IHe2.
+          assumption.
+      + constructor.
+        * apply IHe1.
+          assumption.
+        * apply IHe2.
+          assumption.
   Qed.
 
   Lemma n_step_subst_next:
@@ -194,6 +200,8 @@ Section SO.
       eauto using n_step_bin.
   Qed.
 
+  Notation NPlus := Pure.NExp.NPlus.
+
   Lemma add_inv_n_0:
     forall n1 n2, NStep (NBin NPlus (NNum n1) (NNum 0)) n2 ->
     n1 = n2.
@@ -218,6 +226,8 @@ Section SO.
     unfold eval_nbin in *.
     assumption.
   Qed.
+
+  Notation NMinus := Pure.NExp.NMinus.
 
   Lemma n_step_minus:
     forall n1 n2 e1 e2,
@@ -364,6 +374,33 @@ Section SO.
     | NBin _ e1 e2 => NFree x e1 \/ NFree x e2
     | NNum _ | NTid => False
     end.
+
+  Lemma n_free_from_pure:
+    forall x e,
+    Pure.NExp.NFree x e <-> NFree x (from_pure e).
+  Proof.
+    induction e; simpl.
+    all: try reflexivity.
+    rewrite IHe1.
+    rewrite IHe2.
+    reflexivity.
+  Qed.
+
+  Lemma n_subst_from_pure:
+    forall x v e,
+    n_subst x (from_pure v) (from_pure e) =
+    from_pure (Pure.NExp.n_subst x v e).
+  Proof.
+    induction e; intros; simpl.
+    - reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v0). {
+        reflexivity.
+      }
+      reflexivity.
+    - rewrite IHe1.
+      rewrite IHe2.
+      reflexivity.
+  Qed.
 
   Lemma n_subst_not_free:
     forall x v n,
@@ -699,6 +736,20 @@ Section SO.
     forall n,
     NStep e1 n <-> NStep e2 n.
 
+  Lemma n_eq_from_pure:
+    forall e e',
+    Pure.NExp.NEq e e' <->
+    NEq (from_pure e) (from_pure e').
+  Proof.
+    unfold NExp.NEq, NEq.
+    split; intros; split; intros.
+    all: (
+      rewrite <- n_step_from_pure in *
+      || rewrite n_step_from_pure in * ).
+    all: apply H.
+    all: assumption.
+  Qed.
+
   Lemma n_eq_refl:
     forall e,
     NEq e e.
@@ -915,6 +966,18 @@ Section SO.
   Qed.
 
   Definition NClosed e := forall x, ~ NFree x e.
+
+  Lemma n_closed_from_pure:
+    forall e,
+    Pure.NExp.NClosed e <-> NClosed (from_pure e).
+  Proof.
+    unfold Pure.NExp.NClosed, NClosed.
+    split; intros.
+    - rewrite <- n_free_from_pure in *.
+      auto.
+    - rewrite n_free_from_pure in *.
+      auto.
+  Qed.
 
   Lemma n_closed_to_not_free:
     forall e,
@@ -1160,11 +1223,11 @@ End SO.
 
 Module NExpNotations.
   Declare Scope exp_scope.
-  Infix "-" := (NBin NMinus)  (at level 50, left associativity, only printing) : exp_scope. 
-  Infix "+" := (NBin NPlus)  (at level 50, left associativity, only printing) : exp_scope. 
-  Infix "*" := (NBin NMult)  (at level 40, left associativity, only printing) : exp_scope. 
-  Infix "/" := (NBin NDiv)  (at level 40, left associativity, only printing) : exp_scope. 
-  Infix "%" := (NBin NMod)  (at level 40, left associativity, only printing) : exp_scope. 
+  Infix "-" := (NBin Pure.NExp.NMinus)  (at level 50, left associativity, only printing) : exp_scope. 
+  Infix "+" := (NBin Pure.NExp.NPlus)  (at level 50, left associativity, only printing) : exp_scope. 
+  Infix "*" := (NBin Pure.NExp.NMult)  (at level 40, left associativity, only printing) : exp_scope. 
+  Infix "/" := (NBin Pure.NExp.NDiv)  (at level 40, left associativity, only printing) : exp_scope. 
+  Infix "%" := (NBin Pure.NExp.NMod)  (at level 40, left associativity, only printing) : exp_scope. 
   Coercion NNum : nat >-> nexp.
   Coercion NVar : var >-> nexp.
   Notation "e [ x := v ]" := (n_subst x v e) (at level 30, only printing) : exp_scope. 

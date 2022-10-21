@@ -2,8 +2,6 @@ Require Import Coq.Lists.List.
 Require Import Coq.micromega.Lia.
 
 Require Import AExp.
-Require Import NExp.
-Require Import BExp.
 Require Import InUtil.
 Require Import PairInUtil.
 Require Import Util.
@@ -748,14 +746,4 @@ Section Defs.
     unfold PairInclMPair in *; auto.
   Qed.
 
-  Lemma access_in_inv_neq:
-    forall x y z a,
-    x <> y ->
-    x <> z ->
-    NFree x (ae_index (a_subst z (NVar y) a)) ->
-    NFree x (ae_index a).
-  Proof.
-    intros.
-    apply a_in_subst_neq in H1; auto.
-  Qed.
 End Defs.

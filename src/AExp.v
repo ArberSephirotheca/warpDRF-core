@@ -1,5 +1,5 @@
-Require Import NExp.
-Require Import BExp.
+Require Import SIMT.NExp.
+Require Import SIMT.BExp.
 Require Import Coq.Lists.List.
 Require Import Tictac.
 
@@ -472,6 +472,17 @@ Section Defs.
     simpl in *.
     apply n_free_inv_subst_eq in H.
     auto.
+  Qed.
+
+  Lemma a_in_inv_neq:
+    forall x y z a,
+    x <> y ->
+    x <> z ->
+    NFree x (ae_index (a_subst z (NVar y) a)) ->
+    NFree x (ae_index a).
+  Proof.
+    intros.
+    apply a_in_subst_neq in H1; auto.
   Qed.
 
 End Defs.

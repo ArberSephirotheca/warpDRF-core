@@ -5,9 +5,12 @@ src/Util.v
 src/Tid.v
 src/Loc.v
 src/Var.v
-src/NExp.v
-src/BExp.v
-src/RExp.v
+src/SIMT/NExp.v
+src/SIMT/BExp.v
+src/SIMT/RExp.v
+src/Pure/NExp.v
+src/Pure/BExp.v
+src/Pure/RExp.v
 src/InUtil.v
 src/PairInUtil.v
 src/AExp.v

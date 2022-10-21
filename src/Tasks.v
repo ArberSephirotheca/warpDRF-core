@@ -1,9 +1,5 @@
 Require Import Var.
 Require Import Coq.micromega.Lia.
-Require Import NExp.
-Require Import BExp.
-Require Import RExp.
-Require Import AExp.
 Class Tasks := {
   TID_COUNT: nat;
   T1: var;

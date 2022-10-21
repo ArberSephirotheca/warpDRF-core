@@ -2,9 +2,9 @@ Require Import Coq.Lists.List.
 
 Require Import Coq.micromega.Lia.
 Require Import Var.
-Require Import NExp.
-Require Import BExp.
-Require Import RExp.
+Require Import SIMT.NExp.
+Require Import SIMT.BExp.
+Require Import SIMT.RExp.
 Require Import AExp.
 Require Import Util.
 Require Import Tasks.
@@ -12,6 +12,7 @@ Require Import PairInUtil.
 Require Import Tictac.
 
 Require Hist.
+Require Pure.NExp.
 
 Import NExpNotations.
 Import RExpNotations.
@@ -1144,22 +1145,25 @@ Section C1.
     inversion H0; subst; clear H0.
     apply run_all_succ; eauto.
   Qed.
-(*
+
   Lemma c_run_subst:
     forall x e e' c h n,
-    NEq e n ->
-    NPure e' n ->
-    CRun (i_subst x e c) h ->
-    CRun (i_subst x e' c) h.
+    Pure.NExp.NEq e e' ->
+    Pure.NExp.NStep e' n ->
+    CRun (i_subst x (from_pure e) c) h ->
+    CRun (i_subst x (from_pure e') c) h.
   Proof.
     intros.
-    apply run_all_impl with (c1:=i_subst x e c); auto.
+    apply run_all_impl with (c1:=i_subst x (from_pure e) c); auto.
     intros.
-    rewrite i_subst_subst_neq_3; auto.
-    rewrite i_subst_subst_neq_3 in H7; auto.
-    apply run_subst with (e1:=e)(n:=n); eauto.
+    apply run_subst with (e1:=from_pure e)(n:=n); eauto.
+    - rewrite <- NExp.n_step_from_pure.
+      rewrite H.
+      assumption.
+    - rewrite <- NExp.n_step_from_pure.
+      assumption.
   Qed.
-*)
+
   Inductive CIn : access_val -> inst -> Prop :=
   | c_in_def:
     forall a c,
@@ -1219,18 +1223,17 @@ Section C1.
     inversion H; subst; clear H.
     inversion H1; subst; clear H1; auto using c_in_def.
   Qed.
-
 (*
   Lemma c_in_subst:
-    forall (x : VAR.t) (a : access_val) (i : inst) (v v' : nexp) (n : nat),
-    NStep v n ->
-    NStep v' n ->
-    CIn a (i_subst x v i) ->
-    CIn a (i_subst x v' i).
+    forall (x : VAR.t) (a : access_val) (i : inst) (v v' : Pure.NExp.nexp) (n : nat),
+    Pure.NExp.NStep v n ->
+    Pure.NExp.NStep v' n ->
+    CIn a (i_subst x (from_pure v) i) ->
+    CIn a (i_subst x (from_pure v') i).
   Proof.
     intros.
-    inversion H2; subst; clear H2.
-    eapply i_in_subst with (v':=v') in H4; eauto.
+    invc H1.
+    eapply i_in_subst with (v':=v') in H1; eauto.
     eauto using c_in_def.
   Qed.
 *)
@@ -1540,9 +1543,9 @@ Section C1.
     forall p x e1 c,
     CPairIn p (i_subst x e1 c) ->
     forall n,
-    NStep e1 n ->
+    Pure.NExp.NStep e1 n ->
     forall e2,
-    NStep e2 n ->
+    NExp.NStep e2 n ->
     CPairIn p (i_subst x e2 c).
   Proof.
     intros.
