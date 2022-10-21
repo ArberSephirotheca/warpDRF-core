@@ -16,6 +16,8 @@ Section Defs.
   | BRel : brel -> bexp -> bexp -> bexp
   | BNot : bexp -> bexp.
 
+  (* TODO: remove me *)
+
   Inductive mode := R | W.
 
   Definition mode_eqb m1 m2 :=
@@ -40,6 +42,29 @@ Section SO.
   | BOr => orb
   | BAnd => andb
   end.
+
+  Variable tid: nat.
+  Notation NStep := (NStep tid).
+
+  Inductive BPure: bexp -> bool -> Prop :=
+  | b_pure_bool:
+    forall b,
+    BPure (BBool b) b
+  | b_pure_nrel:
+    forall e1 e2 n1 n2 o,
+    NPure e1 n1 ->
+    NPure e2 n2 ->
+    BPure (NRel o e1 e2) (eval_nrel o n1 n2)
+  | b_pure_brel:
+    forall e1 e2 b1 b2 o,
+    BPure e1 b1 ->
+    BPure e2 b2 ->
+    BPure (BRel o e1 e2) (eval_brel o b1 b2)
+  | b_pure_not:
+    forall e b,
+    BPure e b ->
+    BPure (BNot e) (negb b).
+
 
   Inductive BStep: bexp -> bool -> Prop :=
   | b_step_bool:
@@ -112,6 +137,7 @@ Section SO.
     rewrite R.
     auto using b_step_nrel.
   Qed.
+  Notation n_step := (n_step tid).
 
   Fixpoint b_step (e:bexp) :=
   match e with
@@ -584,6 +610,8 @@ Section SO.
       auto using b_step_bool.
   Qed.
 
+  Notation NEq := (NEq tid).
+
   Lemma b_eq_proper_4:
     forall b n1 n1' n2 n2' o,
     NEq n1 n1' ->
@@ -852,8 +880,8 @@ Section SO.
     - eauto using b_step_bool.
     - apply b_closed_inv_n_rel in H.
       destruct H as [Ha Hb].
-      apply n_closed_to_step in Ha.
-      apply n_closed_to_step in Hb.
+      apply (n_closed_to_step tid) in Ha.
+      apply (n_closed_to_step tid) in Hb.
       destruct Ha as (a, Ha).
       destruct Hb as (b, Hb).
       eauto using b_step_nrel.

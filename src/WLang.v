@@ -31,7 +31,6 @@ Section Defs.
   Notation histpair := (mhistory * history) % type.
 
   Context `{T:Tasks}.
-  Context {A:Access}.
 
   Open Scope vhist_scope.
 

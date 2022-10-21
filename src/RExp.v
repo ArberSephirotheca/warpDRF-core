@@ -152,6 +152,10 @@ Section Defs.
 
   Import Morphisms.
 
+  Variable tid: nat.
+
+  Notation NEq := (NEq tid).
+
   Global Instance n_eq_proper_4: Proper (eq ==> NEq ==> eq ==> NEq * NEq ) r_subst.
   Proof.
     unfold Proper, respectful, RelCompFun, RelProd.
@@ -168,6 +172,7 @@ Section Defs.
 
   (* ------------------ ABSTRACTION OF RANGE ------------------------- *)
 
+  Notation NStep := (NStep tid).
 
   Inductive RStep : range -> nat -> range -> Prop :=
   | r_step_def:
@@ -556,6 +561,27 @@ Section Defs.
     assert (n0 = n2) by eauto using n_step_fun.
     subst.
     lia.
+  Qed.
+
+  Lemma r_pick_to_has_next:
+    forall r n,
+    RPick r n ->
+    RHasNext r.
+  Proof.
+    intros.
+    invc H.
+    apply r_first_to_has_next with (n1).
+    eapply r_first_def; eauto with *.
+  Qed.
+
+  Lemma r_pick_to_empty:
+    forall r n,
+    RPick r n ->
+    ~ REmpty r.
+  Proof.
+    intros.
+    apply r_has_next_to_empty.
+    eauto using r_pick_to_has_next.
   Qed.
 
   Lemma r_first_to_eq:
@@ -1073,6 +1099,136 @@ Section Defs.
     destruct N as [N|N]; contradict N; eauto using n_step_to_not_free.
   Qed.
 
+  Lemma r_subst_closed:
+    forall x v r,
+    RClosed r ->
+    r_subst x v r = r.
+  Proof.
+    intros.
+    unfold RClosed in *.
+    apply r_subst_not_free.
+    auto.
+  Qed.
+
+  Definition REq (r1 r2:range) := NEq (fst r1) (fst r2) /\ NEq (snd r1) (snd r2).
+
+  Lemma r_eq_subst:
+    forall x r v1 v2,
+    NEq v1 v2 ->
+    REq (r_subst x v1 r) (r_subst x v2 r).
+  Proof.
+    intros x (n1, n2) v1 v2 Ha.
+    split; simpl.
+    all: rewrite Ha.
+    all: reflexivity.
+  Qed.
+
+  Global Instance r_eq_subst_proper: Proper (eq ==> NEq ==> eq ==> REq) r_subst.
+  Proof.
+    unfold Proper, respectful.
+    intros.
+    subst.
+    auto using r_eq_subst.
+  Qed.
+
+  Lemma r_eq_step:
+    forall r1 r1' r2 r2' n,
+    REq r1 r1' ->
+    REq r2 r2' ->
+    RStep r1 n r2 <-> RStep r1' n r2'.
+  Proof.
+    intros (e1, e2) (e1', e2') (e3, e4) (e3', e4') n (ha, hb) (hc, hd).
+    simpl in *.
+    split.
+    all: intros Hx. {
+      invc Hx.
+      rewrite ha in *.
+      rewrite hb in *.
+      rewrite hc in *.
+      rewrite hd in *.
+      econstructor; eauto.
+    }
+    invc Hx.
+    rewrite <- ha in *.
+    rewrite <- hb in *.
+    rewrite <- hc in *.
+    rewrite <- hd in *.
+    econstructor; eauto.
+  Qed.
+
+  Global Instance r_eq_step_proper: Proper (REq ==> eq ==> REq ==> iff) RStep.
+  Proof.
+    unfold Proper, respectful.
+    intros r1 r1' Hr n' n ? r2 r2' Hr2.
+    subst.
+    eauto using r_eq_step.
+  Qed.
+
+  Lemma r_eq_empty:
+    forall r r',
+    REq r r' ->
+    REmpty r <-> REmpty r'.
+  Proof.
+    intros (e1, e2) (e1', e2') (ha, hb).
+    simpl in *.
+    split.
+    all: intros Hx. {
+      invc Hx.
+      rewrite ha in *.
+      rewrite hb in *.
+      econstructor; eauto.
+    }
+    invc Hx.
+    rewrite <- ha in *.
+    rewrite <- hb in *.
+    econstructor; eauto.
+  Qed.
+
+  Global Instance r_eq_empty_proper: Proper (REq ==> iff) REmpty.
+  Proof.
+    unfold Proper, respectful.
+    intros.
+    subst.
+    eauto using r_eq_empty.
+  Qed.
+
+  Lemma r_eq_refl:
+    forall e,
+    REq e e.
+  Proof.
+    intros.
+    split; reflexivity.
+  Qed.
+
+  Lemma r_eq_sym:
+    forall e1 e2,
+    REq e1 e2 ->
+    REq e2 e1.
+  Proof.
+    unfold REq; intros.
+    intuition.
+  Qed.
+
+  Lemma r_eq_trans:
+    forall e1 e2 e3,
+    REq e1 e2 ->
+    REq e2 e3 ->
+    REq e1 e3.
+  Proof.
+    unfold REq.
+    intros.
+    intuition.
+    - transitivity (fst e2); auto.
+    - transitivity (snd e2); auto.
+  Qed.
+
+  (** Register [NEq] in Coq's tactics. *)
+  Global Add Parametric Relation : _ REq
+    reflexivity proved by r_eq_refl
+    symmetry proved by r_eq_sym
+    transitivity proved by r_eq_trans
+    as r_eq_setoid.
+
   Lemma r_step_to_closed_r:
     forall r n r',
     RStep r n r' ->
@@ -1272,6 +1428,6 @@ End Defs.
 
 Module RExpNotations.
   Import NExpNotations.
-  Notation "x '∈'  r " := (RPick r x) (at level 30, only printing) : exp_scope.
+(*   Notation "x '∈'  r " := (RPick r x) (at level 30, only printing) : exp_scope. *)
   Notation "r [ x := v ]" := (r_subst x v r) (at level 30, only printing) : exp_scope. 
 End RExpNotations.

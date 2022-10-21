@@ -20,7 +20,6 @@ Import ListNotations.
 Open Scope exp_scope.
 
 Section C1.
-  Context {A:Access}.
   Inductive inst :=
   | Skip: inst
   | If: bexp -> inst -> inst -> inst
@@ -34,7 +33,7 @@ Section C1.
   | Skip => Skip
   | If b i j => If (b_subst x v b) (i_subst x v i) (i_subst x v j)
   | Seq i j => Seq (i_subst x v i) (i_subst x v j)
-  | MemAcc a => MemAcc (access_subst x v a)  
+  | MemAcc a => MemAcc (a_subst x v a)  
   | For y r i =>
     let i' := if VAR.eq_dec x y then i else i_subst x v i in
     For y (r_subst x v r) i'
@@ -47,7 +46,7 @@ Section C1.
   Fixpoint Occurs (x:var) c :=
     match c with
     | Skip => False
-    | MemAcc e => AFree x e
+    | MemAcc e => NFree x (ae_index e)
     | If b i j => BFree x b \/ Occurs x i \/ Occurs x j
     | Seq i j => Occurs x i \/ Occurs x j
     | For y r i => x = y \/ RFree x r \/ Occurs x i
@@ -56,7 +55,7 @@ Section C1.
   Fixpoint Free (x:var) c :=
     match c with
     | Skip => False
-    | MemAcc e => AFree x e
+    | MemAcc e => NFree x (ae_index e)
     | If b i j => BFree x b \/ Free x i \/ Free x j
     | Seq i j => Free x i \/ Free x j
     | For y r i => RFree x r \/ (x <> y /\ Free x i)
@@ -109,7 +108,7 @@ Section C1.
       reflexivity.
     - rewrite IHi1; auto.
       rewrite IHi2; auto.
-    - rewrite access_subst_subst_eq; auto.
+    - rewrite a_subst_subst_eq; auto.
     - destruct (Set_VAR.MF.eq_dec x v). {
         subst.
         rewrite r_subst_subst_eq.
@@ -130,7 +129,7 @@ Section C1.
       rewrite IHi1; auto.
       rewrite IHi2; auto.
     - rewrite IHi1; auto; rewrite IHi2; auto.
-    - rewrite access_subst_subst_eq_2; auto.
+    - rewrite a_subst_subst_eq_2; auto.
     - rewrite r_subst_subst_eq_2; auto.
       destruct (Set_VAR.MF.eq_dec x v). { reflexivity. }
       rewrite IHi; auto.
@@ -149,7 +148,7 @@ Section C1.
       rewrite b_subst_subst_neq; auto.
     - rewrite IHi1; auto.
       rewrite IHi2; auto.
-    - rewrite access_subst_subst_neq; auto.
+    - rewrite a_subst_subst_neq; auto.
     - destruct (Set_VAR.MF.eq_dec x v). {
         destruct (Set_VAR.MF.eq_dec y v). {
           subst.
@@ -181,7 +180,7 @@ Section C1.
       rewrite b_subst_subst_neq_3; auto.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.
-    - rewrite access_subst_subst_neq_3; auto.
+    - rewrite a_subst_subst_neq_3; auto.
     - rewrite r_subst_subst_neq_3; auto.
       destruct (Set_VAR.MF.eq_dec x v). {
         subst.
@@ -250,7 +249,7 @@ Section C1.
     - rename_hyp (BFree _ _) as hb.
       apply b_free_inv_subst in hb.
       intuition.
-    - apply access_free_inv_subst in H.
+    - apply n_free_inv_subst in H.
       intuition.
     - apply r_free_inv_subst in H; intuition.
     - destruct (Set_VAR.MF.eq_dec x v0); auto.
@@ -271,47 +270,48 @@ Section C1.
   (** Parallelize an access for [n] tasks. *)
 
   Context `{T:Tasks}.
-  Inductive Run (n:nat) : inst -> history -> Prop :=
+  Section RUN.
+  Variable tid: nat.
+  Notation NStep := (NStep tid).
+  Notation BStep := (BStep tid).
+  Notation AStep := (AStep tid).
+
+  Inductive Run : inst -> history -> Prop :=
   | run_skip:
-    Run n Skip []
+    Run Skip []
   | run_access:
     forall e v,
-    access_step (e, NNum n) v ->
-    Run n (MemAcc e) [v]
+    AStep e v ->
+    Run (MemAcc e) [v]
   | run_seq:
     forall i j h1 h2,
-    Run n i h1 ->
-    Run n j h2 ->
-    Run n (Seq i j) (h1 ++ h2)
+    Run i h1 ->
+    Run j h2 ->
+    Run (Seq i j) (h1 ++ h2)
   | run_if:
     forall i j e b hi hj,
     BStep e b ->
-    Run n i hi ->
-    Run n j hj ->
-    Run n (If e i j) (if b then hi else hj)
-  
+    Run i hi ->
+    Run j hj ->
+    Run (If e i j) (if b then hi else hj)
   | run_for_cons:
-    forall e1 e2 n1 n2 i x h1 h2,
-    NStep e1 n1 ->
-    NStep e2 n2 ->
-    n1 < n2 ->
-    Run n (i_subst x (NNum n1) i) h1 ->
-    Run n (For x (NNum (S n1), NNum n2) i) h2 ->
-    Run n (For x (e1, e2) i) (h1 ++ h2)
+    forall r r' n i x h1 h2,
+    RStep tid r n r' ->
+    Run (i_subst x (NNum n) i) h1 ->
+    Run (For x r' i) h2 ->
+    Run (For x r i) (h1 ++ h2)
   | run_for_nil:
-    forall x i e1 e2 n1 n2,
-    NStep e1 n1 ->
-    NStep e2 n2 ->
-    n1 >= n2 ->
-    Run n (For x (e1, e2) i) []
+    forall x i r,
+    REmpty tid r ->
+    Run (For x r i) []
   .
 
   Lemma run_if_true:
-    forall e n i j hi hj,
+    forall e i j hi hj,
     BStep e true ->
-    Run n i hi ->
-    Run n j hj ->
-    Run n (If e i j) hi.
+    Run i hi ->
+    Run j hj ->
+    Run (If e i j) hi.
   Proof.
     intros.
     eapply run_if with (i:=i) (j:=j) in H1; eauto.
@@ -319,16 +319,17 @@ Section C1.
   Qed.
 
   Lemma run_if_false:
-    forall e n i j hi hj,
+    forall e i j hi hj,
     BStep e false ->
-    Run n i hi ->
-    Run n j hj ->
-    Run n (If e i j) hj.
+    Run i hi ->
+    Run j hj ->
+    Run (If e i j) hj.
   Proof.
     intros.
     eapply run_if with (i:=i) (j:=j) in H1; eauto.
     assumption.
   Qed.
+  End RUN.
 
   Definition REq i1 i2 :=
    forall n h,
@@ -340,23 +341,23 @@ Section C1.
     RunAll 0 i []
   | run_all_succ:
     forall i n h1 h2,
-    Run n (i_subst TID (NNum n) i) h1 ->
+    Run n i h1 ->
     RunAll n i h2 ->
     RunAll (S n) i (h1 ++ h2).
 
   Inductive IIn (a:access_val) : inst -> Prop :=
   | i_in_access:
     forall e,
-    AIn a e ->
+    AStep (av_owner a) e a ->
     IIn a (MemAcc e)
   | i_in_if_true:
     forall b i j,
-    BData (access_tid a) b true ->
+    BStep (av_owner a) b true ->
     IIn a i ->
     IIn a (If b i j)
   | i_in_if_false:
     forall b i j,
-    BData (access_tid a) b false ->
+    BStep (av_owner a) b false ->
     IIn a j ->
     IIn a (If b i j)
   | i_in_seq_l:
@@ -368,13 +369,12 @@ Section C1.
     IIn a j ->
     IIn a (Seq i j)
   | i_in_for:
-    forall i r x n1 n n2,
-    RData (access_tid a) r (n1, n2) ->
-    n1 <= n < n2 ->
+    forall i r x n,
+    RPick (av_owner a) r n ->
     IIn a (i_subst x (NNum n) i) ->
     IIn a (For x r i)
   .
-
+(*
   Section S_IIn.
   Variable x:var.
   Variable v:nexp.
@@ -386,12 +386,12 @@ Section C1.
     S_IIn a (MemAcc e)
   | s_i_in_if_true:
     forall b i j,
-    BData (access_tid a) (b_subst x v b) true ->
+    BData (av_owner a) (b_subst x v b) true ->
     S_IIn a i ->
     S_IIn a (If b i j)
   | s_i_in_if_false:
     forall b i j,
-    BData (access_tid a) (b_subst x v b) false ->
+    BData (av_owner a) (b_subst x v b) false ->
     S_IIn a j ->
     S_IIn a (If b i j)
   | s_i_in_seq_l:
@@ -404,14 +404,14 @@ Section C1.
     S_IIn a (Seq i j)
   | s_i_in_for_eq:
     forall i r n1 n n2,
-    RData (access_tid a) (r_subst x v r) (n1, n2) ->
+    RData (av_owner a) (r_subst x v r) (n1, n2) ->
     n1 <= n < n2 ->
     IIn a (i_subst x (NNum n) i) ->
     S_IIn a (For x r i)
   | s_i_in_for_neq:
     forall i r y n1 n n2,
     x <> y ->
-    RData (access_tid a) (r_subst x v r) (n1, n2) ->
+    RData (av_owner a) (r_subst x v r) (n1, n2) ->
     n1 <= n < n2 ->
     S_IIn a (i_subst y (NNum n) i) ->
     S_IIn a (For y r i)
@@ -474,7 +474,8 @@ Section C1.
       eapply IHHi in r1; eauto.
       eapply s_i_in_for_neq; eauto.
   Qed.
-
+  *)
+  (*
   Lemma b_data_subst:
     forall v v' n n1 x e b,
     NStep v n ->
@@ -531,7 +532,8 @@ Section C1.
     eapply n_data_subst with (v':=v') in Hi; eauto.
     eapply n_data_subst with (v':=v') in Hj; eauto.
   Qed.
-
+  *)
+  (*
   Lemma i_in_subst:
     forall x a i v v' n,
     NStep v n ->
@@ -550,7 +552,7 @@ Section C1.
       eapply access_step_proper; eauto.
       2:{ reflexivity. }
       unfold AIn in *.
-      assert (~ NFree x (NNum (access_tid a))) by auto using n_free_num.
+      assert (~ NFree x (NNum (av_owner a))) by auto using n_free_num.
       assert (~ NFree TID v) by eauto using n_step_to_not_free.
       assert (~ NFree TID v') by eauto using n_step_to_not_free.
       rewrite access_subst_subst_neq_3 in H; auto.
@@ -569,14 +571,14 @@ Section C1.
     - eapply r_data_subst with (v':=v') in H0; eauto.
       eauto using s_i_in_for_neq.
   Qed.
-
+*)
   Lemma run_all_inv_in:
     forall n i h,
     RunAll n i h ->
     forall x,
     List.In x h ->
     exists m h',
-    m < n /\ Run m (i_subst TID (NNum m )i) h' /\ incl h' h /\ List.In x h'.
+    m < n /\ Run m i h' /\ incl h' h /\ List.In x h'.
   Proof.
     intros n i h H.
     induction H; intros. { contradiction. }
@@ -596,7 +598,7 @@ Section C1.
     Run n i h ->
     forall a,
     List.In a h ->
-    access_tid a = n.
+    av_owner a = n.
   Proof.
     intros n i h H.
     induction H; intros.
@@ -604,12 +606,12 @@ Section C1.
     - simpl in *.
       intuition.
       subst.
-      eapply access_step_inv_tid; eauto using n_step_num.
+      eauto using a_step_inv_tid.
     - apply List.in_app_iff in H1.
       destruct H1; auto.
     - destruct b; auto.
-    - apply List.in_app_iff in H4.
-      destruct H4; auto.
+    - apply List.in_app_iff in H2.
+      intuition.
     - contradiction.
   Qed.
 
@@ -618,7 +620,7 @@ Section C1.
     RunAll n i h ->
     forall x,
     List.In x h ->
-    access_tid x < n.
+    av_owner x < n.
   Proof.
     intros.
     eapply run_all_inv_in in H0; eauto.
@@ -634,7 +636,7 @@ Section C1.
     forall m,
     m < n ->
     exists h',
-    Run m (i_subst TID (NNum m )i) h' /\ incl h' h.
+    Run m i h' /\ incl h' h.
   Proof.
     intros n i h H.
     induction H; intros m Hl. { inversion Hl. }
@@ -650,16 +652,21 @@ Section C1.
     apply incl_tran with (m:= h2); auto.
     apply InUtil.incl_app_refl_r.
   Qed.
+
   Section XRun.
-  Variable n:nat.
+  Variable tid:nat.
   Variable x:var.
   Variable e:nexp.
+  Notation AStep := (AStep tid).
+  Notation NStep := (NStep tid).
+  Notation BStep := (BStep tid).
+
   Inductive XRun : inst -> history -> Prop :=
   | x_run_skip:
     XRun Skip []
   | x_run_access:
     forall a v,
-    access_step (access_subst x e a, NNum n) v ->
+    AStep (a_subst x e a) v ->
     XRun (MemAcc a) [v]
   | x_run_seq:
     forall i j h1 h2,
@@ -673,28 +680,22 @@ Section C1.
     XRun j hj ->
     XRun (If e' i j) (if b then hi else hj)
   | x_run_for_cons_eq:
-    forall e1 e2 n1 n2 i h1 h2,
-    NStep (n_subst x e e1) n1 ->
-    NStep (n_subst x e e2) n2 ->
-    n1 < n2 ->
-    Run n (i_subst x (NNum n1) i) h1 ->
-    Run n (For x (NNum (S n1), NNum n2) i) h2 ->
-    XRun (For x (e1, e2) i) (h1 ++ h2) 
+    forall r r' n i h1 h2,
+    RStep tid (r_subst x e r) n r' ->
+    Run tid (i_subst x (NNum n) i) h1 ->
+    Run tid (For x r' i) h2 ->
+    XRun (For x r i) (h1 ++ h2) 
   | x_run_for_cons_neq:
-    forall e1 e2 n1 n2 y i h1 h2,
+    forall r r' n y i h1 h2,
     x <> y ->
-    NStep (n_subst x e e1) n1 ->
-    NStep (n_subst x e e2) n2 ->
-    n1 < n2 ->
-    XRun (i_subst y (NNum n1) i) h1 ->
-    XRun (For y (NNum (S n1), NNum n2) i) h2 ->
-    XRun (For y (e1, e2) i) (h1 ++ h2) 
+    RStep tid (r_subst x e r) n r' ->
+    XRun (i_subst y (NNum n) i) h1 ->
+    XRun (For y r' i) h2 ->
+    XRun (For y r i) (h1 ++ h2) 
   | x_run_for_nil:
-    forall e1 e2 n1 n2 y i,
-    NStep (n_subst x e e1) n1 ->
-    NStep (n_subst x e e2) n2 ->
-    n1 >= n2 ->
-    XRun (For y (e1, e2) i) []
+    forall r y i,
+    REmpty tid (r_subst x e r) ->
+    XRun (For y r i) []
   .
   End XRun.
 
@@ -702,7 +703,7 @@ Section C1.
     forall n x e i h,
     Run n (i_subst x e i) h ->
     forall m,
-    NStep e m ->
+    NStep n e m ->
     XRun n x e i h.
   Proof.
     intros.
@@ -721,16 +722,15 @@ Section C1.
     - destruct i0; inversion Heqj; subst; clear Heqj.
       eauto using x_run_if.
     - destruct i0; inversion Heqj; subst; clear Heqj.
-      destruct r as (e1', e2').
-      simpl in *.
-      inversion H7; subst; clear H7.
       rename x0 into y.
       rename v into z.
       destruct (Set_VAR.MF.eq_dec y z). {
         subst.
         eapply x_run_for_cons_eq; eauto.
       }
-      apply x_run_for_cons_neq with (n1:=n1) (n2:=n2); auto.
+      rename r0 into r.
+      rename n0 into n'.
+      apply x_run_for_cons_neq with (r:=r) (r':=r') (n:=n'); auto.
       + apply IHRun1; auto.
         rewrite i_subst_subst_neq_3; auto.
         eauto using n_step_to_not_free.
@@ -739,24 +739,24 @@ Section C1.
         destruct (Set_VAR.MF.eq_dec y z). {
           contradiction.
         }
-        auto.
+        simpl.
+        f_equal.
+        rewrite r_subst_closed; eauto using r_step_to_closed_r.
     - destruct i0; inversion Heqj; subst; clear Heqj.
-      destruct r as (e1', e2').
-      inversion H5; subst; clear H5.
       rename x0 into x.
       rename v into y.
       destruct (Set_VAR.MF.eq_dec x y). {
         subst.
         eauto using x_run_for_nil.
       }
-      apply x_run_for_nil with (n1:=n1) (n2:=n2); auto.
+      eapply x_run_for_nil; auto.
   Qed.
 
   Lemma x_run_to_run:
     forall n x e i h,
     XRun n x e i h ->
     forall m,
-    NStep e m ->
+    NStep n e m ->
     Run n (i_subst x e i) h.
   Proof.
     intros n x e i h H.
@@ -774,8 +774,12 @@ Section C1.
       }
       simpl in *.
       destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
+      assert (Hy: r_subst x e r' = r'). {
+       rewrite r_subst_closed; eauto using r_step_to_closed_r.
+      }
+      rewrite Hy in *.
       eapply run_for_cons; eauto.
-      assert (Hx: Run n (i_subst x e (i_subst y (NNum n1) i)) h1). {
+      assert (Hx: Run n (i_subst x e (i_subst y (NNum n0) i)) h1). {
         eauto.
       }
       rewrite i_subst_subst_neq_3 in Hx; auto.
@@ -789,10 +793,10 @@ Section C1.
 
   Lemma run_subst t:
     forall c x e1 h n,
-    NStep e1 n ->
+    NStep t e1 n ->
     Run t (i_subst x e1 c) h ->
     forall e2,
-    NStep e2 n ->
+    NStep t e2 n ->
     Run t (i_subst x e2 c) h.
   Proof.
     intros c x e1 h n He1 Hr.
@@ -806,43 +810,36 @@ Section C1.
       constructor.
     - simpl.
       constructor.
-      assert (r1: NEq e1 e2) by eauto using n_eq_def.
-      eapply access_step_proper; eauto.
-      + rewrite r1.
-        reflexivity.
-      + reflexivity.
+      assert (r1: NEq t e1 e2) by eauto using n_eq_def.
+      eapply a_step_proper; eauto using eq_subst_proper.
     - simpl.
       constructor; eauto.
-    - assert (r1: NEq e1 e2) by eauto using n_eq_def.
+    - eapply x_run_if; eauto.
+      assert (r1: NEq t e1 e2) by eauto using n_eq_def.
       rewrite r1 in H.
       eauto using x_run_if.
     - simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
-      rename e1 into e.
-      rename e3 into e'.
-      assert (r1: NEq e e') by eauto using n_eq_def.
+      assert (r1: NEq t e1 e2) by eauto using n_eq_def.
       eapply x_run_for_cons_eq; eauto.
-      + rewrite <- r1.
-        auto.
-      + rewrite <- r1.
-        auto.
+      rewrite <- r1.
+      assumption.
     - simpl in *.
       rename e1 into e.
-      rename e3 into e'.
-      assert (r1: NEq e e') by eauto using n_eq_def.
+      rename e2 into e'.
+      assert (r1: NEq t e e') by eauto using n_eq_def.
       eapply x_run_for_cons_neq; eauto.
-      + rewrite <- r1.
-        auto.
-      + rewrite <- r1; auto.
+      rewrite <- r1.
+      auto.
     - rename e1 into e.
-      rename e3 into e'.
-      assert (r1: NEq e e') by eauto using n_eq_def.
+      rename e2 into e'.
+      assert (r1: NEq t e e') by eauto using n_eq_def.
       eapply x_run_for_nil; eauto.
-      + rewrite <- r1.
-        auto.
-      + rewrite <- r1; auto.
+      rewrite <- r1.
+      auto.
   Qed.
 
+  (*
   Inductive SRun n: inst -> history -> Prop :=
   | s_run_skip:
     SRun n Skip []
@@ -961,12 +958,12 @@ Section C1.
     split; intros; auto using s_run_to_run, run_to_s_run.
   Qed.
 
-  Lemma s_run_access_tid:
+  Lemma s_run_av_owner:
     forall m i h,
     SRun m i h ->
     forall a,
     List.In a h ->
-    access_tid a = m.
+    av_owner a = m.
   Proof.
     intros m i h Hr.
     induction Hr; intros a Hi.
@@ -982,23 +979,23 @@ Section C1.
       destruct Hi; auto.
     - contradiction.
   Qed.
-
-  Lemma run_access_tid:
-    forall i,
-    ~ Var TID i ->
-    forall m h,
-    Run m (i_subst TID (NNum m) i) h ->
+  *)
+  (*
+  Lemma run_av_owner:
+    forall i m h,
+    Run m i h ->
     forall a,
     List.In a h ->
-    access_tid a = m.
+    av_owner a = m.
   Proof.
     intros i Hv m h Hr.
-    apply s_run_iff in Hr; eauto using s_run_access_tid.
+    apply s_run_iff in Hr; eauto using s_run_av_owner.
   Qed.
-
-  Lemma s_run_i_in:
+  *)
+  
+  Lemma run_in_to_i_in:
     forall m i h,
-    SRun m i h ->
+    Run m i h ->
     forall a,
     List.In a h ->
     IIn a i.
@@ -1010,41 +1007,34 @@ Section C1.
       simpl in *.
       intuition.
       subst.
-      unfold AIn.
-      erewrite access_step_inv_tid; eauto using n_step_num.
+      erewrite a_step_inv_tid; eauto using n_step_num.
     - apply in_app_iff in Hi.
       destruct Hi; eauto using i_in_seq_l, i_in_seq_r.
     - destruct b.
       + apply i_in_if_true; auto.
-        unfold BData in *.
-        erewrite s_run_access_tid with (i:=i); eauto.
+        erewrite run_inv_in_eq with (i:=i); eauto.
       + apply i_in_if_false; auto.
-        unfold BData in *.
-        erewrite s_run_access_tid with (i:=j); eauto.
+        erewrite run_inv_in_eq with (i:=j); eauto.
     - apply in_app_iff in Hi.
       destruct Hi.
-      + apply i_in_for with (n1:=n1) (n2:=n2) (n:=n1); auto.
-        assert (R: access_tid a = m). { eauto using s_run_access_tid. }
+      + apply i_in_for with (n:=n); auto.
+        assert (R: av_owner a = m). { eauto using run_inv_in_eq. }
         rewrite R.
-        split; auto.
-      + assert (Hi := H2).
-        apply IHHr2 in H2.
-        inversion H2; subst; clear H2.
-        destruct H6 as (Ha, Hb).
-        assert (n0 = S n1) by eauto using n_step_fun, n_step_num.
-        assert (n3 = n2) by eauto using n_step_fun, n_step_num.
-        subst.
-        apply i_in_for with (n1:=n1) (n:=n) (n2:=n2); auto with *.
-        assert (R: access_tid a = m). { eauto using s_run_access_tid. }
+        eauto using r_step_to_pick.
+      + rename_hyp (In a _) as ha.
+        assert (Hi := ha).
+        apply IHHr2 in ha.
+        invc ha.
+        apply i_in_for with (n:=n0); eauto with *.
+        apply r_step_pick_rev with (n':=n) (r':=r'); auto.
+        assert (R: av_owner a = m). { eauto using run_inv_in_eq. }
         rewrite R.
-        split; auto.
+        assumption.
     - contradiction.
   Qed.
 
-  Lemma run_all_to_i_in:
-    forall i,
-    ~ Var TID i ->
-    forall n h,
+  Lemma run_all_in_to_i_in:
+    forall n i h,
     RunAll n i h ->
     forall a,
     List.In a h ->
@@ -1053,35 +1043,20 @@ Section C1.
     intros.
     eapply run_all_inv_in in H0; eauto.
     destruct H0 as (m, (h', (Hi, (Hm, (Hinc,Hj))))).
-    apply run_to_s_run in Hm; auto.
-    eauto using s_run_i_in.
+    eauto using run_in_to_i_in.
   Qed.
 
-  Lemma in_to_i_in:
-    forall i,
-    ~ Var TID i ->
-    forall m h,
-    Run m (i_subst TID (NNum m) i) h ->
-    forall a,
-    List.In a h ->
-    IIn a i.
-  Proof.
-    intros i Hv m h Hr.
-    apply s_run_iff in Hr; eauto using s_run_i_in.
-  Qed.
-
-  Lemma s_run_i_in_to_in:
+  Lemma run_i_in_to_in:
     forall m i h,
-    SRun m i h ->
+    Run m i h ->
     forall a,
-    access_tid a = m ->
+    av_owner a = m ->
     IIn a i ->
     List.In a h.
   Proof.
     intros m i h Hr.
     induction Hr; intros a He Hi; inversion Hi; subst; clear Hi.
-    - unfold AIn in *.
-      assert (a = v) by eauto using access_step_fun.
+    - assert (a = v) by eauto using a_step_fun.
       subst.
       auto using in_eq.
     - apply in_app_iff.
@@ -1095,51 +1070,39 @@ Section C1.
       subst.
       eauto.
     - apply in_app_iff.
-      destruct H5 as (Hn1, Hn2).
-      assert (n0 = n1) by eauto using n_step_fun.
-      assert (n3 = n2) by eauto using n_step_fun.
-      subst.
-      assert (Hn: n1 = n \/ n1 < n). {
-        assert (Hn: n1 <= n) by auto with *.
-        inversion Hn; subst; clear Hn; auto with *.
-      }
-      destruct Hn. { subst. eauto. }
-      apply i_in_for with (r:=(NNum (S n1), NNum n2)) (n1:=S n1) (n2:=n2) in H7; auto with *.
-      split; apply n_step_num.
-    - destruct H5 as (Hn1, Hn2).
-      assert (n0 = n1) by eauto using n_step_fun.
-      assert (n3 = n2) by eauto using n_step_fun.
-      subst.
-      lia.
+      rename_hyp (RPick _ _ _) as hr.
+      apply r_step_pick_advance with (n:=n) (r':=r') in hr; auto.
+      destruct hr. { subst. eauto. }
+      eauto using i_in_for.
+    - rename_hyp (REmpty _ _) as he.
+      contradict he.
+      eauto using r_pick_to_empty.
   Qed.
 
-  Lemma s_run_i_in_iff:
+  Lemma run_i_in_iff:
     forall m i h,
-    SRun m i h ->
+    Run m i h ->
     forall a,
-    access_tid a = m ->
+    av_owner a = m ->
     IIn a i <-> List.In a h.
   Proof.
     intros.
-    split; eauto using s_run_i_in_to_in, s_run_i_in.
+    split; eauto using run_i_in_to_in, run_in_to_i_in.
   Qed.
 
   Lemma run_all_i_in_to_in:
-    forall i,
-    ~ Var TID i ->
-    forall n h,
+    forall n i h,
     RunAll n i h ->
     forall a,
-    access_tid a < n ->
+    av_owner a < n ->
     IIn a i ->
     List.In a h.
   Proof.
-    intros i Hv n h Hr a Hlt Hi.
-    eapply run_all_inv_run in Hr; eauto.
-    destruct Hr as (h', (Hr, Hinc)).
+    intros.
+    eapply run_all_inv_run in H; eauto.
+    destruct H as (h', (Hr, Hinc)).
     apply Hinc; clear Hinc.
-    apply s_run_iff in Hr; auto.
-    eapply s_run_i_in_to_in; eauto.
+    eapply run_i_in_to_in; eauto.
   Qed.
 
   Lemma run_all_inv_skip:
@@ -1169,7 +1132,7 @@ Section C1.
   Lemma run_all_impl:
     forall m,
     forall c1 c2,
-    (forall n h, n < m -> Run n (i_subst TID (NNum n) c1) h -> Run n (i_subst TID (NNum n) c2) h) ->
+    (forall n h, n < m -> Run n c1 h -> Run n c2 h) ->
     forall h,
     RunAll m c1 h ->
     RunAll m c2 h.
@@ -1181,16 +1144,11 @@ Section C1.
     inversion H0; subst; clear H0.
     apply run_all_succ; eauto.
   Qed.
-
+(*
   Lemma c_run_subst:
-    forall x e e' c h,
-    ~ Var TID c ->
-    ~ NFree TID e ->
-    ~ NFree TID e' ->
-    x <> TID ->
-    forall n,
-    NStep e n ->
-    NStep e' n ->
+    forall x e e' c h n,
+    NEq e n ->
+    NPure e' n ->
     CRun (i_subst x e c) h ->
     CRun (i_subst x e' c) h.
   Proof.
@@ -1201,34 +1159,32 @@ Section C1.
     rewrite i_subst_subst_neq_3 in H7; auto.
     apply run_subst with (e1:=e)(n:=n); eauto.
   Qed.
-
+*)
   Inductive CIn : access_val -> inst -> Prop :=
   | c_in_def:
     forall a c,
-    access_tid a < TID_COUNT ->
+    av_owner a < TID_COUNT ->
     IIn a c ->
     CIn a c.
 
   Lemma c_in_1:
     forall c h a,
-    ~ Var TID c ->
     RunAll TID_COUNT c h ->
     List.In a h ->
     CIn a c.
   Proof.
-    intros c h a Hv Hr Hi.
-      eauto using c_in_def, run_all_inv_in_eq, run_all_to_i_in.
+    intros.
+    eauto using c_in_def, run_all_inv_in_eq, run_all_in_to_i_in.
   Qed.
 
   Lemma c_in_2:
     forall c h a,
-    ~ Var TID c ->
     RunAll TID_COUNT c h ->
     CIn a c ->
     List.In a h.
   Proof.
     intros.
-    inversion H1; subst; clear H1.
+    invc H0.
     eapply run_all_i_in_to_in; eauto.
   Qed.
 
@@ -1264,12 +1220,11 @@ Section C1.
     inversion H1; subst; clear H1; auto using c_in_def.
   Qed.
 
-
+(*
   Lemma c_in_subst:
     forall (x : VAR.t) (a : access_val) (i : inst) (v v' : nexp) (n : nat),
     NStep v n ->
     NStep v' n ->
-    x <> TID ->
     CIn a (i_subst x v i) ->
     CIn a (i_subst x v' i).
   Proof.
@@ -1278,7 +1233,7 @@ Section C1.
     eapply i_in_subst with (v':=v') in H4; eauto.
     eauto using c_in_def.
   Qed.
-
+*)
   (* -------------------------------- C PAIR IN ---------------------- *)
 
   Inductive CPairIn : (access_val * access_val) -> inst -> Prop :=
@@ -1290,13 +1245,12 @@ Section C1.
 
   Lemma c_pair_in_1:
     forall c h p,
-    ~ Var TID c ->
     RunAll TID_COUNT c h ->
     PairIn p h ->
     CPairIn p c.
   Proof.
-    intros c h (a1, a2) Hv Hr Hi.
-    inversion Hi; subst; clear Hi.
+    intros.
+    invc H0.
     eauto using c_pair_in_def, c_in_1.
   Qed.
 
@@ -1306,7 +1260,7 @@ Section C1.
     CPairIn a (Seq i j).
   Proof.
     intros.
-    inversion H; subst; clear H.
+    invc H.
     apply c_pair_in_def; auto using c_in_seq_l.
   Qed.
 
@@ -1571,21 +1525,19 @@ Section C1.
 
   Lemma c_pair_in_to_pair_in:
     forall c h,
-    ~ Var TID c ->
     RunAll TID_COUNT c h ->
     forall p,
     CPairIn p c ->
     PairIn p h.
   Proof.
     intros.
-    invc H1.
+    invc H0.
     apply pair_in_def; auto;
     eapply c_in_2; eauto.
   Qed.
-
+(*
   Lemma c_pair_in_subst:
     forall p x e1 c,
-    x <> TID ->
     CPairIn p (i_subst x e1 c) ->
     forall n,
     NStep e1 n ->
@@ -1601,7 +1553,7 @@ Section C1.
     eapply c_in_subst in Hc2; eauto.
     eauto using c_pair_in_def.
   Qed.
-
+*)
   Lemma c_seq_subst:
     forall x v c1 c2,
     i_subst x v (c_seq c1 c2) = c_seq (i_subst x v c1) (i_subst x v c2).
@@ -1623,7 +1575,7 @@ Section C1.
       rewrite IHc2; auto.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.
-    - rewrite access_subst_subst_eq_1.
+    - rewrite a_subst_subst_eq_1.
       reflexivity.
     - destruct (Set_VAR.MF.eq_dec x v). {
         subst.
@@ -1643,7 +1595,7 @@ Section C1.
     intros.
     induction c; simpl in *; intros; intuition.
     - eauto using b_free_inv_subst_eq.
-    - eauto using access_free_inv_subst_eq.
+    - eauto using n_free_inv_subst_eq.
     - eauto using r_free_inv_subst_eq.
     - destruct (Set_VAR.MF.eq_dec x v). {
         subst.
@@ -1666,7 +1618,7 @@ Section C1.
       rewrite BExp.b_subst_not_free; auto.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.
-    - rewrite access_subst_not_free; auto.
+    - rewrite a_subst_not_free; auto.
     - rewrite IHc; auto.
       rewrite r_subst_not_free; auto.
       destruct (Set_VAR.MF.eq_dec x v); subst; auto.
@@ -1686,7 +1638,7 @@ Section C1.
       rewrite BExp.b_subst_not_free; auto.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.
-    - rewrite access_subst_not_free; auto.
+    - rewrite a_subst_not_free; auto.
     - rewrite r_subst_not_free; auto.
       destruct (Set_VAR.MF.eq_dec x v); subst; auto.
       rewrite IHc; auto.
@@ -1707,7 +1659,7 @@ Section C1.
       rewrite IHc2; auto.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.
-    - rewrite access_subst_subst_neq_5; auto.
+    - rewrite a_subst_subst_neq_5; auto.
     - rename v into z.
       rewrite <- r_subst_subst_neq_5; auto.
       destruct (Set_VAR.MF.eq_dec y z). {

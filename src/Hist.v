@@ -11,11 +11,12 @@ Require Import Util.
 Import ListNotations.
 
 Section Defs.
-  Context {A:Access}.
 
   Notation history := (list access_val).
-  (*Global Transparent history.*)
-  Definition Safe2 (h1 h2:history) := forall x y, List.In x h1 -> List.In y h2 -> access_safe x y.
+
+  Definition Safe2 (h1 h2:history) := forall x y, List.In x h1 -> List.In y h2 -> AExp.Safe x y.
+
+  Notation access_safe := AExp.Safe.
 
   Definition Safe (h:history) := forall x y, List.In x h -> List.In y h -> access_safe x y.
 
@@ -24,7 +25,7 @@ Section Defs.
   (* Strong safety holds when every history is safe independently of the others. *)
   Definition MSafeStrong (m:list history) :=
     forall x y,
-    access_tid x <> access_tid y ->
+    av_owner x <> av_owner y ->
     MPairIn (x,y) m ->
     access_safe x y.
 
@@ -32,7 +33,7 @@ Section Defs.
 
   Definition APairIncl hs hss :=
     forall x y,
-    access_tid x <> access_tid y ->
+    av_owner x <> av_owner y ->
     MIn x hs ->
     MIn y hs ->
     MPairIn (x, y) hss.
@@ -59,13 +60,13 @@ Section Defs.
   Definition Proj tid h1 h2 :=
     (forall a,
       List.In a h1 ->
-      access_tid a = tid ->
+      av_owner a = tid ->
       List.In a h2) /\ incl h2 h1.
 
   Definition Proj2 h1 tid1 tid2 h2 :=
     (forall a,
       List.In a h1 ->
-      (access_tid a = tid1 \/ access_tid a = tid2) ->
+      (av_owner a = tid1 \/ av_owner a = tid2) ->
       List.In a h2) /\ incl h2 h1.
 
   Lemma proj_to_incl:
@@ -93,7 +94,7 @@ Section Defs.
     Proj tid h1 h2 ->
     forall a,
     List.In a h1 ->
-    access_tid a = tid ->
+    av_owner a = tid ->
     List.In a h2.
   Proof.
     intros.
@@ -106,7 +107,7 @@ Section Defs.
     Proj2 h1 tid1 tid2 h2 ->
     forall a,
     List.In a h1 ->
-    access_tid a = tid1 ->
+    av_owner a = tid1 ->
     List.In a h2.
   Proof.
     intros.
@@ -119,7 +120,7 @@ Section Defs.
     Proj2 h1 tid1 tid2 h2 ->
     forall a,
     List.In a h1 ->
-    access_tid a = tid2 ->
+    av_owner a = tid2 ->
     List.In a h2.
   Proof.
     intros.
@@ -136,10 +137,10 @@ Section Defs.
     intros.
     unfold Safe.
     intros.
-    assert (H := H (access_tid x) (access_tid y)).
+    assert (H := H (av_owner x) (av_owner y)).
     destruct H as (Hp, Hs).
-    assert (List.In x (f (access_tid x) (access_tid y) h)) by eauto using proj2_in_l.
-    assert (List.In y (f (access_tid x) (access_tid y) h)) by eauto using proj2_in_r.
+    assert (List.In x (f (av_owner x) (av_owner y) h)) by eauto using proj2_in_l.
+    assert (List.In y (f (av_owner x) (av_owner y) h)) by eauto using proj2_in_r.
     eauto using safe_in.
   Qed.
 
@@ -154,24 +155,24 @@ Section Defs.
     intros.
     unfold Safe.
     intros.
-    assert (H := H (access_tid x) (access_tid y)).
+    assert (H := H (av_owner x) (av_owner y)).
     destruct H as (Hp1, (Hp2, Hs)).
-    assert (List.In x (f (access_tid x) h)) by eauto using proj_in.
-    assert (List.In y (f (access_tid y) h)) by eauto using proj_in.
-    apply safe_in with (h:=f (access_tid x) h ++ f (access_tid y) h); auto;
+    assert (List.In x (f (av_owner x) h)) by eauto using proj_in.
+    assert (List.In y (f (av_owner y) h)) by eauto using proj_in.
+    apply safe_in with (h:=f (av_owner x) h ++ f (av_owner y) h); auto;
       apply in_or_app; auto.
   Qed.
 
   Definition proj task : history -> history :=
-    List.filter (fun a => (Nat.eqb (access_tid a) task)).
+    List.filter (fun a => (Nat.eqb (av_owner a) task)).
 
   Definition m_proj task : list history -> list history :=
     List.map (proj task).
 
   Definition proj2 t1 t2 := List.filter
     (fun a => orb
-      (Nat.eqb (access_tid a) t1)
-      (Nat.eqb (access_tid a) t2)).
+      (Nat.eqb (av_owner a) t1)
+      (Nat.eqb (av_owner a) t2)).
 
   Definition proj2_seq t1 t2 h := proj t1 h ++ proj t2 h.
 
@@ -189,7 +190,7 @@ Section Defs.
   Lemma in_proj:
     forall a h tid,
     List.In a h ->
-    access_tid a = tid ->
+    av_owner a = tid ->
     List.In a (proj tid h).
   Proof.
     intros.
@@ -201,7 +202,7 @@ Section Defs.
   Lemma in_proj2_seq_or:
     forall tid1 tid2 h a,
     List.In a h ->
-    (access_tid a = tid1 \/ access_tid a = tid2) ->
+    (av_owner a = tid1 \/ av_owner a = tid2) ->
     List.In a (proj2_seq tid1 tid2 h).
   Proof.
     intros.
@@ -228,7 +229,7 @@ Section Defs.
   Lemma in_proj_inv:
     forall a tid h,
     List.In a (proj tid h) ->
-    List.In a h /\ access_tid a = tid.
+    List.In a h /\ av_owner a = tid.
   Proof.
     unfold proj. intros.
     apply filter_In in H.
@@ -250,7 +251,7 @@ Section Defs.
   Lemma in_proj_inv_tid:
     forall a tid h,
     List.In a (proj tid h) ->
-    access_tid a = tid.
+    av_owner a = tid.
   Proof.
     intros.
     apply in_proj_inv in H; auto.
@@ -270,7 +271,7 @@ Section Defs.
   Lemma in_proj2_seq_inv_tid:
     forall a tid1 tid2 h,
     List.In a (proj2_seq tid1 tid2 h) ->
-    access_tid a = tid1 \/ access_tid a = tid2.
+    av_owner a = tid1 \/ av_owner a = tid2.
   Proof.
     intros.
     apply in_proj2_seq_inv in H.
@@ -319,7 +320,7 @@ Section Defs.
   Lemma in_proj2_inv_tid:
     forall x y a h,
     List.In a (proj2 x y h) ->
-    access_tid a = x \/ access_tid a = y.
+    av_owner a = x \/ av_owner a = y.
   Proof.
     intros.
     unfold proj2 in *.
@@ -332,7 +333,7 @@ Section Defs.
   Lemma in_proj2_inv_tid_eq:
     forall x a h,
     List.In a (proj2 x x h) ->
-    access_tid a = x.
+    av_owner a = x.
   Proof.
     intros.
     apply in_proj2_inv_tid in H.
@@ -346,7 +347,7 @@ Section Defs.
     intros.
     unfold Safe.
     intros a b Hi Hj.
-    apply access_safe_eq_tid.
+    apply a_safe_eq_tid.
     apply in_proj2_inv_tid in Hi.
     apply in_proj2_inv_tid in Hj.
     destruct Hi as [Hi|Hi]; destruct Hj as [Hj|Hj]; subst; rewrite Hj; reflexivity.
@@ -450,7 +451,7 @@ Section Defs.
   Lemma in_m_proj:
     forall x t hs,
     MIn x hs ->
-    access_tid x = t ->
+    av_owner x = t ->
     MIn x (m_proj t hs).
   Proof.
     induction hs; intros. {
@@ -470,7 +471,7 @@ Section Defs.
 
   Lemma forall_tid_proj_id:
     forall n l,
-    Forall (fun a => access_tid a = n) l ->
+    Forall (fun a => av_owner a = n) l ->
     proj n l = l.
   Proof.
     intros.
@@ -504,7 +505,7 @@ Section Defs.
     Safe h.
   Proof.
     unfold Safe, Safe2; intros.
-    assert (Hx := H (access_tid x) (access_tid y) x y).
+    assert (Hx := H (av_owner x) (av_owner y) x y).
     apply Hx; apply in_proj; auto.
   Qed.
 
@@ -513,8 +514,8 @@ Section Defs.
     Safe2 h1 h2 <-> Safe2 h2 h1.
   Proof.
     unfold Safe2; split; intros.
-    - auto using access_safe_sym.
-    - auto using access_safe_sym.
+    - auto using a_safe_sym.
+    - auto using a_safe_sym.
   Qed.
 
   Lemma safe2_app:
@@ -525,7 +526,7 @@ Section Defs.
     - destruct H as (Ha, (Hb, Hc)).
       apply in_app_or in H0.
       apply in_app_or in H1.
-      destruct H0, H1; auto using access_safe_sym.
+      destruct H0, H1; auto using a_safe_sym.
     - repeat split; intros; apply H; apply in_app_iff; auto.
   Qed.
 
@@ -598,7 +599,7 @@ Section Defs.
     }
     apply in_app_iff in Hi.
     apply in_app_iff in Hj.
-    destruct Hi, Hj; auto using access_safe_sym.
+    destruct Hi, Hj; auto using a_safe_sym.
   Qed.
 
   Lemma safe_to_msafe:
@@ -721,8 +722,8 @@ Section Defs.
   Proof.
     intros.
     unfold MSafeStrong, AllInclAll,Ensembles.Included,Ensembles.In, MPairIncl, MSafe, Safe2; intros.
-    destruct (PeanoNat.Nat.eq_dec (access_tid x) (access_tid y)). {
-      auto using access_safe_eq_tid.
+    destruct (PeanoNat.Nat.eq_dec (av_owner x) (av_owner y)). {
+      auto using a_safe_eq_tid.
     }
     eauto using m_in_def.
   Qed.
@@ -740,9 +741,9 @@ Section Defs.
     Safe h.
   Proof.
     unfold MSafeStrong, Safe; intros.
-    assert (X: access_tid x = access_tid y \/ access_tid x <> access_tid y) by lia.
+    assert (X: av_owner x = av_owner y \/ av_owner x <> av_owner y) by lia.
     destruct X. {
-      auto using access_safe_eq_tid.
+      auto using a_safe_eq_tid.
     }
     unfold PairInclMPair in *; auto.
   Qed.
@@ -751,10 +752,10 @@ Section Defs.
     forall x y z a,
     x <> y ->
     x <> z ->
-    AFree x (access_subst z (NVar y) a) ->
-    AFree x a.
+    NFree x (ae_index (a_subst z (NVar y) a)) ->
+    NFree x (ae_index a).
   Proof.
     intros.
-    apply access_in_subst_neq in H1; auto.
+    apply a_in_subst_neq in H1; auto.
   Qed.
 End Defs.

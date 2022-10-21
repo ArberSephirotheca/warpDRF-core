@@ -16,6 +16,7 @@ Section Defs.
   | NMod.
 
   Inductive nexp :=
+  | NTid : nexp
   | NNum : nat -> nexp
   | NVar : var -> nexp
   | NBin : nbin ->  nexp -> nexp -> nexp.
@@ -33,7 +34,11 @@ Section SO.
     | NMod => Nat.modulo
     end.
 
+  Variable tid: nat.
+
   Inductive NStep: nexp -> nat -> Prop :=
+  | n_step_tid:
+    NStep NTid tid
   | n_step_num:
     forall n,
     NStep (NNum n) n
@@ -43,11 +48,22 @@ Section SO.
     NStep e2 n2 ->
     NStep (NBin o e1 e2) (eval_nbin o n1 n2). 
 
+  Inductive NPure: nexp -> nat -> Prop :=
+  | n_pure_num:
+    forall n,
+    NPure (NNum n) n
+  | n_pure_bin:
+    forall n1 n2 o e1 e2,
+    NPure e1 n1 ->
+    NPure e2 n2 ->
+    NPure (NBin o e1 e2) (eval_nbin o n1 n2). 
+
   Fixpoint n_subst x v e :=
     match e with
     | NBin o e1 e2 => NBin o (n_subst x v e1) (n_subst x v e2)
     | NVar y => if VAR.eq_dec x y then v else e  
     | NNum n => NNum n
+    | NTid => NTid
     end.
 
   Lemma n_step_subst_next:
@@ -56,6 +72,8 @@ Section SO.
     forall m1, exists m2, NStep (n_subst x (NNum m1) a) m2.
   Proof.
     induction a; simpl; intros.
+    - exists tid.
+      constructor.
     - exists n.
       constructor.
     - destruct (Set_VAR.MF.eq_dec x v). {
@@ -83,6 +101,7 @@ Section SO.
       | _ , _ => None
       end
     | NVar _ => None
+    | NTid => Some tid
     end.
 
   Lemma n_step_to_prop:
@@ -91,7 +110,8 @@ Section SO.
     NStep e n.
   Proof.
     induction e; intros; simpl in *; inversion H; subst; clear H.
-    - auto using n_step_num.
+    - constructor.
+    - constructor.
     - destruct (n_step e1). {
         destruct (n_step e2);
            inversion H1; subst; clear H1.
@@ -106,6 +126,7 @@ Section SO.
     n_step e = Some n.
   Proof.
     induction e; intros; inversion H; subst; clear H.
+    - reflexivity.
     - reflexivity.
     - apply IHe1 in H4.
       apply IHe2 in H5.
@@ -130,6 +151,8 @@ Section SO.
   Qed.
 
   Inductive NTypes (l: list var) : nexp -> Prop :=
+  | n_types_tid:
+    NTypes l NTid
   | n_types_num:
     forall n,
     NTypes l (NNum n)
@@ -149,6 +172,7 @@ Section SO.
     exists n, NStep e n.
   Proof.
     induction e; intros.
+    - eexists. constructor.
     - eauto using n_step_num.
     - inversion H; subst; clear H.
       contradiction.
@@ -235,10 +259,7 @@ Section SO.
     exists n1 n2, n = n1 + n2 /\ NStep e1 n1 /\ NStep e2 n2.
   Proof.
     destruct e1; intros; inversion H; subst; clear H.
-    - eauto.
-    - eauto.
-    - simpl.
-      eauto.
+    all: eauto.
   Qed.
 
   Lemma n_step_plus_num:
@@ -329,7 +350,7 @@ Section SO.
     match e with
     | NVar y => y = x
     | NBin _ e1 e2 => NFree x e1 \/ NFree x e2
-    | NNum _ => False
+    | NNum _ | NTid => False
     end.
 
   Lemma n_subst_not_free:
@@ -338,6 +359,7 @@ Section SO.
     n_subst x v n = n.
   Proof.
     induction n; intros.
+    - reflexivity.
     - reflexivity.
     - simpl in *.
       destruct (Set_VAR.MF.eq_dec x v0). {
@@ -356,14 +378,13 @@ Section SO.
     NFree x e.
   Proof.
     induction n; intros; simpl in *.
-    - invc H.
-    - destruct (Set_VAR.MF.eq_dec x v). {
-        subst.
-        assumption.
-      }
-      invc H.
-      contradiction.
-    - invc H; auto.
+    all: try invc H; auto.
+    destruct (Set_VAR.MF.eq_dec x v). {
+      subst.
+      assumption.
+    }
+    invc H.
+    contradiction.
   Qed.
 
   Lemma n_subst_to_not_free:
@@ -404,17 +425,6 @@ Section SO.
       auto.
     - destruct H; eauto.
   Qed.
-(*
-  Lemma n_free_inv_subst:
-    forall x y z n,
-    x <> y ->
-    x <> z ->
-    NFree (n_subst z (NVar y) n) x ->
-    NFree n x.
-  Proof.
-    intros.
-    apply n_free_subst_neq in H1; auto.
-  Qed.*)
 
   Lemma n_free_inv_subst:
     forall e x y v,
@@ -441,7 +451,7 @@ Section SO.
     NFree y e.
   Proof.
     induction e; simpl; intros.
-    - inversion H0.
+    all: auto.
     - destruct (Set_VAR.MF.eq_dec y v); auto.
       simpl in *.
       subst.
@@ -462,7 +472,7 @@ Section SO.
     n_subst z (NNum n) (n_subst x (NVar y) e).
   Proof.
     induction e; intros.
-    - reflexivity.
+    all: auto.
     - (* variable v *)
       simpl.
       destruct (Set_VAR.MF.eq_dec z v). {
@@ -550,7 +560,7 @@ Section SO.
     n_subst x (NNum n1) (n_subst x (NNum n2) n) = n_subst x (NNum n2) n.
   Proof.
     induction n; intros; simpl.
-    - reflexivity.
+    all: auto.
     - destruct (Set_VAR.MF.eq_dec x v). {
         subst.
         simpl.
@@ -575,7 +585,7 @@ Section SO.
     n_subst y (NNum n2) (n_subst x (NNum n1) n).
   Proof.
     induction n; simpl; intros.
-    - reflexivity.
+    all: auto.
     - destruct (Set_VAR.MF.eq_dec y v). {
         subst.
         simpl.
@@ -614,7 +624,7 @@ Section SO.
     n_subst x v (n_subst y (NVar x) e) = n_subst y v e.
   Proof.
     induction e; simpl; intros.
-    - reflexivity.
+    all: auto.
     - destruct (Set_VAR.MF.eq_dec y v). {
         subst.
         simpl.
@@ -641,6 +651,7 @@ Section SO.
     ~ NFree x e \/ exists n', NStep v n'.
   Proof.
     induction e; intros; simpl in *.
+    - auto.
     - left.
       intros N.
       inversion N.
@@ -670,14 +681,6 @@ Section SO.
     - apply IHNStep2 in H1; auto.
   Qed.
 
-  Inductive IStep: list nexp -> list nat -> Prop :=
-  | i_step_nil:
-    IStep [] []
-  | i_step_cons:
-    forall i l e n,
-    IStep i l ->
-    NStep e n ->
-    IStep (e::i) (n::l).
   (* ------------------------------ EQUIVALENCE ------------------ *)
 
   Definition NEq e1 e2 :=
@@ -809,14 +812,12 @@ Section SO.
     NStep (n_subst x v' e) n.
   Proof.
     induction e; intros.
-    - simpl in *.
-      assumption.
-    - simpl in *.
-      destruct (Set_VAR.MF.eq_dec x v0); auto.
+    all: simpl in *.
+    all: auto.
+    - destruct (Set_VAR.MF.eq_dec x v0); auto.
       subst.
       apply H; auto.
-    - simpl in *.
-      inversion H0; subst; clear H0.
+    - invc H0.
       eauto using n_step_bin.
   Qed.
 
@@ -887,7 +888,7 @@ Section SO.
     n_subst x (n_subst x e1 e2) e3.
   Proof.
     induction e3; intros; simpl in *.
-    - reflexivity.
+    all: auto.
     - destruct (Set_VAR.MF.eq_dec x v). {
         subst.
         reflexivity.
@@ -980,6 +981,7 @@ Section SO.
     exists n, NStep e n.
   Proof.
     induction e; intros.
+    - eexists. constructor.
     - eauto using n_step_num.
     - contradict H.
       auto using n_closed_var.
@@ -1018,7 +1020,7 @@ Section SO.
     n_subst y e1 (n_subst x (n_subst y e1 e2) e3).
   Proof.
     induction e3; intros.
-    - reflexivity.
+    all: auto.
     - simpl.
       destruct (Set_VAR.MF.eq_dec x v). {
         subst.
@@ -1039,7 +1041,7 @@ Section SO.
     n_subst x (n_subst y e1 e2) (n_subst y e1 e3).
   Proof.
     induction e3; intros; simpl.
-    - reflexivity.
+    all: auto.
     - rename v into z.
       (* e3 = z *)
       destruct (Set_VAR.MF.eq_dec x z). {

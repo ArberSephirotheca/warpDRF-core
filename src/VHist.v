@@ -11,7 +11,6 @@ Import ListNotations.
   *)
 
 Section Defs.
-  Context {A:Access}.
 
   Notation history := (list access_val).
 
@@ -71,8 +70,8 @@ Section Defs.
   Definition Safe m :=
     forall x y,
     MPairIn (x, y) m ->
-    access_tid x <> access_tid y ->
-    access_safe x y.
+    av_owner x <> av_owner y ->
+    AExp.Safe x y.
 
   Fixpoint vhist_to_list (p:vhist) : list history :=
     match p with
