@@ -146,6 +146,7 @@ Section Props.
   Import WLangNotations.
   Import ALangNotations.
   Context `{T:Tasks}.
+  Notation from_pure := NExp.from_pure.
 
   Lemma n_seq_seq:
     forall i c c',
@@ -320,12 +321,12 @@ Section Props.
 
   Definition p_subst x v (P:p_inst) :=
     match P with
-    (Q, c) => (subst x v Q, ULang.i_subst x v c)
+    (Q, c) => (subst x v Q, ULang.i_subst x (from_pure v) c)
     end.
 
   Lemma n_seq_subst:
     forall x v c P,
-    subst x v (n_seq c P) = n_seq (ULang.i_subst x v c) (subst x v P).
+    subst x v (n_seq c P) = n_seq (ULang.i_subst x (from_pure v) c) (subst x v P).
   Proof.
     induction P; intros; simpl; auto.
     - rewrite ULang.c_seq_subst.
@@ -352,7 +353,8 @@ Section Props.
     NFree x v.
   Proof.
     induction P; simpl; intros.
-    - eauto using ULang.occurs_inv_subst_eq.
+    - rewrite NExp.n_free_from_pure.
+      eauto using ULang.occurs_inv_subst_eq.
     - intuition.
     - intuition.
       + eauto using r_free_inv_subst_eq.
@@ -367,7 +369,6 @@ Section Props.
     NStep v1 n ->
     forall v2,
     NStep v2 n ->
-    x <> TID ->
     IFirst a (subst x v2 P).
   Proof.
     intros a x v1 P H.
@@ -402,6 +403,8 @@ Section Props.
   Proof.
     induction P; intros; simpl.
     - rewrite i_subst_subst_neq_3; auto.
+      all: rewrite <- NExp.n_free_from_pure.
+      all: auto.
     - rewrite IHP1; auto.
       rewrite IHP2; auto.
     - destruct (Set_VAR.MF.eq_dec x v). {
@@ -430,7 +433,6 @@ Section Props.
     NStep e1 n ->
     forall e2,
     NStep e2 n ->
-    x <> TID ->
     IPairIn p (subst x e2 P).
   Proof.
     intros p x e1 P H.
@@ -438,11 +440,11 @@ Section Props.
     generalize dependent P.
     generalize dependent x.
     generalize dependent e1.
-    induction H;
-      intros e1 y Q heq n' he1 e2 he2 hn;
-      destruct Q;
-      invc heq;
-      simpl.
+    induction H.
+    all: intros e1 y Q heq n' he1 e2 he2.
+    all: destruct Q.
+    all: invc heq.
+    all: simpl.
     - constructor.
       eapply c_pair_in_subst; eauto.
     - constructor.
@@ -467,6 +469,7 @@ Section Props.
   Proof.
     induction P; intros; simpl.
     - rewrite i_subst_subst_eq_1.
+      rewrite NExp.n_subst_from_pure.
       reflexivity.
     - rewrite IHP1.
       rewrite IHP2.
@@ -533,6 +536,10 @@ Section Props.
     induction P; intros.
     - simpl.
       rewrite ULang.i_subst_subst_neq_5; auto.
+      + rewrite NExp.n_subst_from_pure.
+        reflexivity.
+      + rewrite <- NExp.n_closed_from_pure.
+        assumption.
     - simpl in *.
       rewrite IHP1; auto.
       rewrite IHP2; auto.
@@ -627,7 +634,9 @@ Section Props.
   Proof.
     induction P; simpl; intros.
     - apply ULang.occurs_inv_subst in H.
-      assumption.
+      intuition.
+      rewrite NExp.n_free_from_pure.
+      intuition.
     - intuition.
     - intuition.
       destruct (Set_VAR.MF.eq_dec x v0). {
