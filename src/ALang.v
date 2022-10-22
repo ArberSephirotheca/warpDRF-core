@@ -1,14 +1,15 @@
 Require Import AExp.
 Require Import Tasks.
 Require Import ULang.
-Require Import NExp.
-Require Import RExp.
+Require Import Pure.NExp.
+Require Import Pure.RExp.
 Require Import Var.
 Require Import WLang.
 Require Import Tictac.
 Require Import Util.
 Require Import Coq.Lists.List.
 Require Import Coq.micromega.Lia.
+Require Pure.NExp.
 
 Import ListNotations.
 Import NExpNotations.
@@ -20,8 +21,7 @@ Open Scope lang_scope.
 
 Section Defs.
   Context `{T:Tasks}.
-  Context `{A:Access}.
-
+  Notation from_pure := NExp.from_pure.
   Inductive n_inst :=
   | NSync: ULang.inst -> n_inst
   | NSeq: n_inst -> n_inst -> n_inst
@@ -29,7 +29,7 @@ Section Defs.
 
   Fixpoint subst x v i :=
     match i with
-    | NSync c => NSync (ULang.i_subst x v c)
+    | NSync c => NSync (ULang.i_subst x (from_pure v) c)
     | NSeq i1 i2 => NSeq (subst x v i1) (subst x v i2)
     | NFor P y r Q =>
       let Q' := if VAR.eq_dec x y
@@ -121,7 +121,7 @@ Section Defs.
   Definition DRF (P:p_inst) :=
     forall p,
     PPairIn p P ->
-    access_safe (fst p) (snd p).
+    AExp.Safe (fst p) (snd p).
 
 End Defs.
 
@@ -146,7 +146,6 @@ Section Props.
   Import WLangNotations.
   Import ALangNotations.
   Context `{T:Tasks}.
-  Context {A:Access}.
 
   Lemma n_seq_seq:
     forall i c c',
@@ -290,7 +289,7 @@ Section Props.
   Lemma subst_n_seq:
     forall P x v c,
     subst x v (n_seq c P) =
-      n_seq (ULang.i_subst x v c) (subst x v P).
+      n_seq (ULang.i_subst x (from_pure v) c) (subst x v P).
   Proof.
     induction P; simpl; intros.
     - rewrite i_subst_c_seq.

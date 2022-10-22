@@ -982,20 +982,9 @@ Section Defs.
   | i_last_for_2:
     forall r n c1 P c2 x,
     RLast r n ->
-    (forall e, NStep e n -> CIn a (ULang.i_subst x e c2)) ->
+    (forall e, NStep e n -> CIn a (ULang.i_subst x (SIMT.NExp.from_pure e) c2)) ->
     ILast a (WFor c1 x r P c2)
   .
-
-  Ltac handle_not_var :=
-    match goal with
-    | [  |- ~ WVar TID (w_subst _ _ _) ]  =>
-      let N := fresh in
-      intros N; apply wvar_inv_subst in N; intuition
-    | [  |- ~ ULang.Var TID (ULang.i_subst _ _ _) ] =>
-      let N := fresh in
-      intros N; apply ULang.var_inv_subst in N; intuition
-    | [ |- ~ WVar TID _ ] => simpl in *; intuition
-   end.
 
   Lemma i_last_subst:
     forall a P x e1 n,
@@ -1003,7 +992,6 @@ Section Defs.
     ILast a (w_subst x e1 P) ->
     forall e2,
     NStep e2 n ->
-    x <> TID ->
     ILast a (w_subst x e2 P).
   Proof.
     intros a P x e1 n Hn Hl.
@@ -1016,17 +1004,17 @@ Section Defs.
     - destruct P; inversion HeqQ; subst; clear HeqQ; simpl.
       + constructor.
         eauto.
-      + destruct (Set_VAR.MF.eq_dec x v); inversion H2.
+      + destruct (Set_VAR.MF.eq_dec x v); inversion H1.
     - assert (r1: NEq e1 e2) by eauto using n_eq_def.
       destruct P0; inversion HeqQ; subst; clear HeqQ; simpl.
       destruct (Set_VAR.MF.eq_dec x0 v). {
         subst.
-        inversion H5; subst; clear H5.
+        invc H4.
         eapply i_last_for_1; eauto.
         rewrite r1 in *.
         assumption.
       }
-      inversion H5; subst; clear H5.
+      invc H4.
       rename x0 into y.
       rename P0 into Q.
       destruct r0 as (e1', e2').
@@ -1034,8 +1022,9 @@ Section Defs.
       rewrite r1 in H.
       eapply i_last_for_1 with (n:=n); eauto.
       intros.
-      assert (H0 := H0 _ H4).
-      assert (H1 := H1 _ H4 y (w_subst v e Q) n0 e1 Hn).
+      rename_hyp (NStep e n) as hn.
+      assert (H0 := H0 _ hn).
+      assert (H1 := H1 _ hn y (w_subst v e Q) _ _ Hn).
       assert (ILast a (w_subst y e2 (w_subst v e Q))). {
         apply H1; auto.
         rewrite w_subst_subst_neq; eauto using n_step_to_not_free.
@@ -1045,9 +1034,8 @@ Section Defs.
     rename x0 into y.
     rename v into z.
     assert (r1: NEq e2 e1) by eauto using n_eq_def.
-    destruct (Set_VAR.MF.eq_dec y z);
-      inversion H4; subst; clear H4. {
-      subst.
+    destruct (Set_VAR.MF.eq_dec y z).
+    all: invc H3. {
       eapply i_last_for_2; eauto.
       rewrite r1.
       auto.
@@ -1056,11 +1044,20 @@ Section Defs.
     + rewrite r1.
       auto.
     + intros e He.
-      assert (~ NFree z e2) by eauto using n_step_to_not_free.
-      assert (~ NFree y e) by eauto using n_step_to_not_free.
-      assert (~ NFree z e1) by eauto using n_step_to_not_free.
+      assert (~ NExp.NFree z (NExp.from_pure e2)). {
+        rewrite <- NExp.n_free_from_pure.
+        eauto using n_step_to_not_free.
+      }
+      assert (~ NExp.NFree y (NExp.from_pure e)). {
+        rewrite <- NExp.n_free_from_pure.
+        eauto using n_step_to_not_free.
+      }
+      assert (~ NExp.NFree z (NExp.from_pure e1)). {
+        rewrite <- NExp.n_free_from_pure.
+        eauto using n_step_to_not_free.
+      }
       rewrite ULang.i_subst_subst_neq_3; auto.
-      assert (Hi : CIn a (ULang.i_subst z e (ULang.i_subst y e1 i0))) by eauto.
+      assert (Hi : CIn a (ULang.i_subst z (NExp.from_pure e) (ULang.i_subst y (NExp.from_pure e1) i0))) by eauto.
       rewrite ULang.i_subst_subst_neq_3 in Hi; auto.
       eapply c_in_subst with (n:=n0) (v:=e1); eauto.
   Qed.
@@ -1068,7 +1065,6 @@ Section Defs.
   Lemma i_last_1:
     forall i v,
     WRun i v ->
-    ~ WVar TID i ->
     forall a,
     List.In a (last v) ->
     ILast a i.
@@ -1078,9 +1074,7 @@ Section Defs.
     - contradiction.
     - constructor.
       subst.
-      match goal with
-        H: List.In _ _ |- _ => rename H into Hi
-      end.
+      rename_hyp (List.In _ _) as Hi.
       apply last_inv_in_seq in Hi.
       destruct Hi as [Hi| (h', (?, Hi))]. {
         auto.
@@ -1089,9 +1083,7 @@ Section Defs.
       apply wrun_one in H0.
       contradiction.
     - subst.
-      match goal with
-        H: List.In _ _ |- _ => rename H into Hi
-      end.
+      rename_hyp (List.In _ _) as Hi.
       apply last_inv_in_prefix in Hi.
       destruct Hi as [(h', (Heq, Hi))|Hi]. {
         symmetry in Heq.
@@ -1113,7 +1105,6 @@ Section Defs.
           contradiction.
         }
         apply IHWRun2 in Hi.
-        2: { intros N. intuition. }
         inversion Hi; subst; clear Hi.
         - apply i_last_for_1 with (n:=n0); eauto using r_step_last.
         - eapply i_last_for_2; eauto using r_step_last.
@@ -1125,9 +1116,7 @@ Section Defs.
       apply wrun_one in H3.
       contradiction.
     - subst.
-      match goal with
-        H: List.In _ _ |- _ => rename H into Hi
-      end.
+      rename_hyp (List.In _ _) as Hi.
       apply last_inv_in_prefix in Hi.
       destruct Hi as [(h', (Heq, Hi))|Hi]. {
         symmetry in Heq.
@@ -1141,9 +1130,8 @@ Section Defs.
       simpl in *.
       destruct Hi as [Hi|(h', (Heq, Hi))]. {
         eapply i_last_for_2; eauto using r_one_to_last, n_step_num.
-        assert (CIn a (ULang.i_subst x (NNum n) c2)). {
+        assert (CIn a (ULang.i_subst x (NExp.NNum n) c2)). {
           eapply c_in_1; eauto.
-          handle_not_var.
         }
         intros e He.
         apply c_in_subst with (v:=NNum n) (n:=n); auto using n_step_num.
@@ -1153,7 +1141,6 @@ Section Defs.
       {
         assert ( ILast a (w_subst x (NNum n) P)). {
           apply IHWRun; auto.
-          handle_not_var.
         }
         intros.
         auto.
@@ -1164,15 +1151,13 @@ Section Defs.
   Lemma i_last_2:
     forall i v,
     WRun i v ->
-    ~ WVar TID i ->
     forall a,
     ILast a i ->
     List.In a (last v).
   Proof.
     intros i v H.
-    induction H; intros Hv a Hl; invc Hl.
-    - simpl in Hv.
-      apply last_in_seq_r; auto.
+    induction H; intros a Hl; invc Hl.
+    - apply last_in_seq_r; auto.
     - destruct (r_step_unfold r n r') as [hl|hl]; auto. {
         rename_hyp (WRun (WFor Skip _ _ _ _) _) as hr.
         (* If r' is empty, then hr could not have happened. *)
@@ -1184,10 +1169,7 @@ Section Defs.
         eauto using r_one_to_has_next.
       }
       assert (List.In a (last m2)). {
-        apply IHWRun2. {
-          simpl in *.
-          intuition.
-        }
+        apply IHWRun2.
         assert (RLast r' n0) by eauto using r_step_last_2.
         eapply i_last_for_1; eauto.
       }
@@ -1203,21 +1185,13 @@ Section Defs.
         eauto using r_one_to_has_next.
       }
       assert (List.In a (last m2)). {
-        apply IHWRun2. {
-          simpl in *.
-          intuition.
-        }
+        apply IHWRun2.
         assert (RLast r' n0) by eauto using r_step_last_2.
         eapply i_last_for_2; eauto.
       }
       auto using last_in_seq_r.
     - assert (List.In a (last m1)). {
-        apply IHWRun. {
-          simpl in *.
-          intros N.
-          apply wvar_inv_subst in N.
-          intuition.
-        }
+        apply IHWRun.
         assert (n0 = n) by eauto using r_one_last_fun.
         subst.
         eauto using n_step_num.
@@ -1225,13 +1199,11 @@ Section Defs.
       auto using last_in_seq_r, last_in_seq_l_one.
     - assert (n0 = n) by eauto using r_one_last_fun.
       subst.
-      assert (hi: CIn a (i_subst x (NNum n) c2)) by eauto using n_step_num.
+      assert (hi: CIn a (i_subst x (NExp.from_pure (NNum n)) c2)). {
+        eauto using n_step_num.
+      }
       assert (List.In a h2). {
         eapply c_in_2; eauto.
-        intros N.
-        apply var_inv_subst in N.
-        simpl in *.
-        auto.
       }
       auto using last_in_seq_r.
   Qed.
@@ -1284,13 +1256,13 @@ Section Defs.
     forall r e n c1 p P x c2,
     RPick r n ->
     NStep e n ->
-    CPairIn p (ULang.i_subst x e c2) ->
+    CPairIn p (ULang.i_subst x (NExp.from_pure e) c2) ->
     IPairIn p (WFor c1 x r P c2)
   | i_pair_in_for_3:
     forall r e n c1 x p P c2,
     RPick r n ->
     NStep e n ->
-    OneOf p (inr (w_subst x e P)) (inl (ULang.i_subst x e c2)) ->
+    OneOf p (inr (w_subst x e P)) (inl (ULang.i_subst x (NExp.from_pure e) c2)) ->
     IPairIn p (WFor c1 x r P c2)
   (* ---- FIRST ITERATION ONLY ---- *)
   | i_pair_in_for_first_1:
@@ -1309,7 +1281,7 @@ Section Defs.
     RPick2 r n ->
     NStep e n ->
     NStep e' (S n) ->
-    OneOf p (inl (ULang.i_subst x e c2)) (inr (w_subst x e' P)) ->
+    OneOf p (inl (ULang.i_subst x (NExp.from_pure e) c2)) (inr (w_subst x e' P)) ->
     IPairIn p (WFor c1 x r P c2)
 
   | i_pair_in_for_mid_2:
@@ -1325,7 +1297,6 @@ Section Defs.
     forall r c1 p h x P c2,
     ULang.RunAll TID_COUNT c1 h ->
     PairIn p h ->
-    ~ ULang.Var TID c1 ->
     IPairIn p (WFor c1 r x P c2).
   Proof.
     intros.
@@ -1336,13 +1307,12 @@ Section Defs.
   Lemma i_pair_in_for_run_0_2:
     forall r n c1 P c2 h2 x p,
     RFirst r n ->
-    ULang.RunAll TID_COUNT (ULang.i_subst x  (NNum n) c2) h2 ->
+    ULang.RunAll TID_COUNT (ULang.i_subst x (NExp.NNum n) c2) h2 ->
     PairIn p h2 ->
-    ~ ULang.Var TID (ULang.i_subst x (NNum n) c2) ->
     IPairIn p (WFor c1 x r P c2).
   Proof.
     intros.
-    assert (CPairIn p (ULang.i_subst x (NNum n) c2)). {
+    assert (CPairIn p (ULang.i_subst x (NExp.NNum n) c2)). {
       eapply c_pair_in_1; eauto.
     }
     eapply i_pair_in_for_2; eauto using n_step_num.
@@ -1353,8 +1323,6 @@ Section Defs.
     forall i j vi vj,
     WRun i vi ->
     WRun j vj ->
-    ~ WVar TID i ->
-    ~ WVar TID j ->
     forall p,
     MOneOf p (last vi) (first vj) ->
     OneOf p (inr i) (inr j).
@@ -1362,7 +1330,7 @@ Section Defs.
     intros.
     destruct p as (a1, a2).
     unfold MOneOf in *.
-    destruct H3 as [(Hi, Hj)|(Hi, Hj)];
+    destruct H1 as [(Hi, Hj)|(Hi, Hj)];
       eapply i_last_1 in Hi; eauto;
       eapply i_first_1 in Hj; eauto; simpl; intuition.
   Qed.
@@ -1373,8 +1341,6 @@ Section Defs.
     RFirst r n ->
     WRun (WFor ULang.Skip x r P c2) v ->
     MOneOf p h (first v) ->
-    ~ ULang.Var TID c1 ->
-    ~ WVar TID (w_subst x (NNum n) P) ->
     OneOf p (inl c1) (inr (w_subst x (NNum n) P)).
   Proof.
     intros.
@@ -1412,8 +1378,6 @@ Section Defs.
     WRun i v ->
     ULang.RunAll TID_COUNT c h ->
     MOneOf p (last v) h ->
-    ~ WVar TID i ->
-    ~ ULang.Var TID c ->
     OneOf p (inr i) (inl c).
   Proof.
     intros.
@@ -1429,8 +1393,6 @@ Section Defs.
     ULang.RunAll TID_COUNT c1 h1 ->
     WRun i m1 ->
     MOneOf p h1 (first m1) ->
-    ~ ULang.Var TID c1 ->
-    ~ WVar TID i ->
     OneOf p (inl c1) (inr i).
   Proof.
     intros.
@@ -1474,13 +1436,12 @@ Section Defs.
   Lemma i_pair_in_1:
     forall i h,
     WRun i h ->
-    ~ WVar TID i -> 
     forall p,
     VHist.MPairIn p h ->
     IPairIn p i.
   Proof.
     intros i h H.
-    induction H; intros Hv p Hi; simpl in *.
+    induction H; intros p Hi; simpl in *.
     - destruct Hi as [Hi|Hi]. 2: {
         apply par_not_in_nil in Hi.
         contradiction.
@@ -1506,7 +1467,6 @@ Section Defs.
         destruct Hi as [Hi|Hi]. {
           assert (IPairIn p (w_subst x (NNum n) P)). {
             apply IHWRun1; auto.
-            handle_not_var.
           }
           eapply i_pair_in_for_1; eauto using r_step_to_pick, n_step_num.
         }
@@ -1515,14 +1475,11 @@ Section Defs.
           destruct Hi as [Hi|Hi]. {
             assert (Hc := H2).
             eapply c_pair_in_1 in Hc; eauto.
-            2: { handle_not_var. }
             simpl in *.
             eapply i_pair_in_for_run_0_2; eauto using r_step_to_first.
-            handle_not_var.
           }
           destruct Hi as [Hi|Hi]. {
             apply IHWRun2 in Hi.
-            2: { intuition. }
             eapply i_pair_in_for_cons; eauto.
           }
           (* are we mid or are we last? *)
@@ -1538,13 +1495,13 @@ Section Defs.
           destruct Hr as (n', Hr).
           assert (n' = S n) by eauto using r_step_inv_next_eq.
           subst.
-          eapply i_one_of_2 in Hi; eauto; try handle_not_var.
+          eapply i_one_of_2 in Hi; eauto.
           apply r_first_to_has_next in Hr.
           eapply i_pair_in_for_mid_1 with (n:=n); eauto using r_step_to_pick2, n_step_num.
         }
         apply m_one_of_inv_first_prefix_l in Hi.
         destruct Hi as [Hi|Hi]. {
-          eapply i_one_of_3 in Hi; eauto; try handle_not_var.
+          eapply i_one_of_3 in Hi; eauto.
           eapply i_pair_in_for_3 with (n:=n); eauto using r_step_to_pick, n_step_num.
         }
         assert (OneOf p (inr (w_subst x (NNum n) P)) (inr (w_subst x (NNum (S n)) P))). {
@@ -1553,14 +1510,14 @@ Section Defs.
           assert (n_b = S n) by eauto using r_step_inv_next_eq.
           subst.
           apply m_one_of_inv_first_seq_l in Hi.
-          eapply i_one_of_1 in Hi; eauto; try handle_not_var.
+          eapply i_one_of_1 in Hi; eauto.
           eauto using wrun_has_many.
         }
         eapply i_pair_in_for_mid_2 with (n:=n); eauto using r_step_to_pick2, n_step_num.
         eapply r_step_to_pick2; eauto using wrun_for_inv_has_next.
       }
       apply m_one_of_inv_first_seq_l in Hi. 2: { eauto using wrun_has_many. }
-      eapply i_one_of_4 in Hi; eauto; try handle_not_var.
+      eapply i_one_of_4 in Hi; eauto.
       eapply i_pair_in_for_first_2; eauto using r_step_to_first, n_step_num.
     - subst.
       apply m_pair_in_inv_prefix in Hi.
@@ -1571,20 +1528,20 @@ Section Defs.
       + apply m_pair_in_inv_seq in Hi.
         destruct Hi as [Hi|[Hi|Hi]].
         * (* w_subst x (NNum n) i *)
-          apply IHWRun in Hi; try handle_not_var.
+          apply IHWRun in Hi.
           eapply i_pair_in_for_1; eauto using r_one_to_pick, n_step_num.
         * simpl in *.
           (* c2 *)
           eapply i_pair_in_for_2; eauto using r_one_to_pick, n_step_num.
-          eapply c_pair_in_1; eauto; try handle_not_var.
+          eapply c_pair_in_1; eauto.
         * simpl in *.
           (* c2 / w_subst x (NNum n) i *)
-          eapply i_one_of_3 in Hi; eauto; try handle_not_var.
+          eapply i_one_of_3 in Hi; eauto.
           eapply i_pair_in_for_3 with (n:=n); eauto using r_one_to_pick, n_step_num.
       + (* c1 / w_subst x (NNum n) i *)
         apply m_one_of_inv_first_seq_l in Hi.
         2: { eauto using wrun_has_many. }
-        eapply i_one_of_4 in Hi; eauto; try handle_not_var.
+        eapply i_one_of_4 in Hi; eauto.
         eapply i_pair_in_for_first_2; eauto using r_one_to_first, n_step_num.
   Qed.
 
@@ -1611,7 +1568,6 @@ Section Defs.
 
   Lemma one_of_subst_r_r:
     forall x e1 e2 P Q p n,
-    x <> TID ->
     ~ WVar x Q ->
     OneOf p (inr (w_subst x e1 P)) (inr (w_subst x e1 Q)) ->
     NStep e1 n ->
@@ -1630,11 +1586,10 @@ Section Defs.
     forall x e1 e2 P c p n,
     NStep e1 n ->
     NStep e2 n ->
-    x <> TID ->
     OneOf p (inr (w_subst x e1 P))
-            (inl (i_subst x e1 c)) ->
+            (inl (i_subst x (NExp.from_pure e1) c)) ->
     OneOf p (inr (w_subst x e2 P))
-            (inl (i_subst x e2 c)).
+            (inl (i_subst x (NExp.from_pure e2) c)).
   Proof.
     intros.
     destruct p as (a1, a2).
@@ -1648,11 +1603,10 @@ Section Defs.
     forall x e1 e2 P c p n,
     NStep e1 n ->
     NStep e2 n ->
-    x <> TID ->
     ~ WVar x P ->
-    OneOf p (inl (i_subst x e1 c))
+    OneOf p (inl (i_subst x (NExp.from_pure e1) c))
             (inr (w_subst x e1 P)) ->
-    OneOf p (inl (i_subst x e2 c))
+    OneOf p (inl (i_subst x (NExp.from_pure e2) c))
             (inr (w_subst x e2 P)).
   Proof.
     intros.
@@ -1670,7 +1624,7 @@ Section Defs.
   Inductive X_IPairIn : (access_val * access_val) -> w_inst -> Prop :=
   | x_i_pair_in_sync:
     forall p c,
-    CPairIn p (ULang.i_subst x v c) ->
+    CPairIn p (ULang.i_subst x (NExp.from_pure v) c) ->
     X_IPairIn p (WSync c)
   | x_i_pair_in_seq_l:
     forall p i j,
@@ -1695,7 +1649,7 @@ Section Defs.
     forall r e n c1 p P y c2,
     RPick (r_subst x v r) n ->
     NStep (n_subst x v e) n ->
-    CPairIn p (ULang.i_subst x v (ULang.i_subst y e c2)) ->
+    CPairIn p (ULang.i_subst x (NExp.from_pure v) (ULang.i_subst y (NExp.from_pure e) c2)) ->
     X_IPairIn p (WFor c1 y r P c2)
   | x_i_pair_in_for_3:
     forall r e n c1 y p P c2,
@@ -1703,19 +1657,19 @@ Section Defs.
     NStep (n_subst x v e) n ->
     OneOf p
       (inr (w_subst x v (w_subst y e P)))
-      (inl (ULang.i_subst x v (ULang.i_subst y e c2))) ->
+      (inl (ULang.i_subst x (NExp.from_pure v) (ULang.i_subst y (NExp.from_pure e) c2))) ->
     X_IPairIn p (WFor c1 y r P c2)
   (* ---- FIRST ITERATION ONLY ---- *)
   | x_i_pair_in_for_first_1:
     forall r c1 p P c2 y,
-    CPairIn p (ULang.i_subst x v c1) ->
+    CPairIn p (ULang.i_subst x (NExp.from_pure v) c1) ->
     X_IPairIn p (WFor c1 y r P c2)
   | x_i_pair_in_for_first_2:
     forall r e n c1 p P y c2,
     RFirst (r_subst x v r) n ->
     NStep (n_subst x v e) n ->
     OneOf p
-      (inl (ULang.i_subst x v c1))
+      (inl (ULang.i_subst x (NExp.from_pure v) c1))
       (inr (w_subst x v (w_subst y e P))) ->
     X_IPairIn p (WFor c1 y r P c2)
   (* -------- ALL BUT FIRST ---- *)
@@ -1725,7 +1679,7 @@ Section Defs.
     NStep (n_subst x v e) n ->
     NStep (n_subst x v e') (S n) ->
     OneOf p
-      (inl (ULang.i_subst x v (ULang.i_subst y e c2)))
+      (inl (ULang.i_subst x (NExp.from_pure v) (ULang.i_subst y (NExp.from_pure e) c2)))
       (inr (w_subst x v (w_subst y e' P))) ->
     X_IPairIn p (WFor c1 y r P c2)
 
@@ -1813,7 +1767,11 @@ Section Defs.
         intuition.
       }
       eapply x_i_pair_in_for_2 with (e:=e); eauto using n_step_to_subst.
-      rewrite i_subst_subst_neq_3; eauto using n_step_to_not_free.
+      rewrite i_subst_subst_neq_3; eauto.
+      + rewrite <- NExp.n_free_from_pure.
+        eauto using n_step_to_not_free.
+      + rewrite <- NExp.n_free_from_pure.
+        eauto using n_step_to_not_free.
     - destruct P'; invc Heq.
       rename_hyp (_ = _) as Heq.
       rename v0 into y.
@@ -1823,7 +1781,11 @@ Section Defs.
       }
       eapply x_i_pair_in_for_3 with (e:=e); eauto using n_step_to_subst.
       rewrite w_subst_subst_neq; eauto using n_step_to_not_free.
-      rewrite i_subst_subst_neq_3; eauto using n_step_to_not_free.
+      rewrite i_subst_subst_neq_3; eauto.
+      + rewrite <- NExp.n_free_from_pure.
+        eauto using n_step_to_not_free.
+      + rewrite <- NExp.n_free_from_pure.
+        eauto using n_step_to_not_free.
     - destruct P'; invc Heq.
       rename_hyp (_ = _) as Heq.
       rename v0 into y.
@@ -1850,7 +1812,11 @@ Section Defs.
       }
       apply x_i_pair_in_for_mid_1 with (e:=e) (n:=n) (e':=e'); auto using n_step_to_subst.
       rewrite w_subst_subst_neq; eauto using n_step_to_not_free.
-      rewrite i_subst_subst_neq_3; eauto using n_step_to_not_free.
+      rewrite i_subst_subst_neq_3; eauto.
+      + rewrite <- NExp.n_free_from_pure.
+        eauto using n_step_to_not_free.
+      + rewrite <- NExp.n_free_from_pure.
+        eauto using n_step_to_not_free.
     - destruct P'; invc Heq.
       rename_hyp (_ = _) as Heq.
       rename v0 into y.
@@ -1872,12 +1838,11 @@ Section Defs.
     forall p P,
     X_IPairIn p P ->
     ~ WVar x P ->
-    ~ WVar TID P ->
     NClosed v ->
     IPairIn p (w_subst x v P).
   Proof.
     intros p P H.
-    induction H; intros Hv Ht Hn; simpl in Hv, Ht; simpl.
+    induction H; intros Ht Hn; simpl in Ht; simpl.
     - eauto using i_pair_in_sync.
     - apply i_pair_in_seq_l.
       auto.
@@ -1888,12 +1853,9 @@ Section Defs.
     - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try (intuition; fail).
       assert (hp: IPairIn p (w_subst x v (w_subst y e P))). {
         eapply IHX_IPairIn; auto.
-        + intros N.
-          apply wvar_inv_subst in N.
-          auto.
-        + intros N.
-          apply wvar_inv_subst in N.
-          auto.
+        intros N.
+        apply wvar_inv_subst in N.
+        auto.
       }
       apply n_closed_to_step in Hn.
       destruct Hn as (n', Hn).
@@ -1902,20 +1864,28 @@ Section Defs.
       apply i_pair_in_for_1 with
         (r:=r_subst x v r)
         (n:=n)
-        (c2:=i_subst x v c2)
-        (c1:=i_subst x v c1) in hp; eauto.
+        (c2:=i_subst x (NExp.from_pure v) c2)
+        (c1:=i_subst x (NExp.from_pure v) c1) in hp; eauto.
     - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try (intuition; fail).
       apply i_pair_in_for_2 with (e:=n_subst x v e) (n:=n); auto.
       eapply c_pair_in_subst with (e1:=n_subst x v e); eauto.
       rename_hyp (CPairIn _ _) as hp.
       rewrite i_subst_subst_neq_5 in hp; auto.
-      intuition.
+      + rewrite <- NExp.n_subst_from_pure.
+        auto.
+      + rewrite <- NExp.n_closed_from_pure.
+        assumption.
+      + intuition.
     - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try (intuition; fail).
       apply i_pair_in_for_3 with (e:=n_subst x v e) (n:=n); auto.
       rename_hyp (OneOf _ _ _) as ho.
-      rewrite i_subst_subst_neq_5 in ho; auto. 2: { intuition. }
+      rewrite i_subst_subst_neq_5 in ho; auto.
+      2: { rewrite <- NExp.n_closed_from_pure. assumption. }
+      2: { intuition. }
       rewrite w_subst_subst_neq_5 in ho; auto.
-      intuition.
+      2: { intuition. }
+      rewrite <- NExp.n_subst_from_pure.
+      auto.
     - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try (intuition; fail).
       auto using i_pair_in_for_first_1.
     - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try (intuition; fail).
@@ -1927,9 +1897,13 @@ Section Defs.
       apply i_pair_in_for_mid_1 with
         (n:=n) (e:=n_subst x v e) (e':=n_subst x v e'); auto.
       rename_hyp (OneOf _ _ _) as ho.
-      rewrite i_subst_subst_neq_5 in ho; auto. 2: { intuition. }
+      rewrite i_subst_subst_neq_5 in ho; auto.
+      2: { rewrite <- NExp.n_closed_from_pure. assumption. }
+      2: { intuition. }
       rewrite w_subst_subst_neq_5 in ho; auto.
-      intuition.
+      2: { intuition. }
+      rewrite <- NExp.n_subst_from_pure.
+      assumption.
     - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try (intuition; fail).
       apply i_pair_in_for_mid_2 with
         (n:=n) (e:=n_subst x v e) (e':=n_subst x v e'); auto.
@@ -1948,7 +1922,6 @@ Section Defs.
   Lemma x_i_pair_in_subst:
     forall p x e1 P,
     X_IPairIn x e1 p P ->
-    x <> TID ->
     forall e2 n,
     NStep e1 n ->
     NStep e2 n ->
@@ -2009,8 +1982,6 @@ Section Defs.
   Lemma i_pair_in_subst:
     forall e1 e2 n p x P,
     ~ WVar x P ->
-    x <> TID ->
-    ~ WVar TID P ->
     NStep e1 n ->
     NStep e2 n ->
     IPairIn p (w_subst x e1 P) ->
@@ -2038,7 +2009,8 @@ Section Defs.
     NFree x e.
   Proof.
     induction P; simpl; intros.
-    - eapply occurs_inv_subst_eq; eauto.
+    - rewrite NExp.n_free_from_pure.
+      eapply occurs_inv_subst_eq; eauto.
     - intuition.
     - rename_hyp (Occurs _ _) as Hw.
       destruct (Set_VAR.MF.eq_dec x v); simpl in *. {
@@ -2046,9 +2018,11 @@ Section Defs.
         intuition.
       }
       intuition.
-      + eauto using occurs_inv_subst_eq.
+      + rewrite NExp.n_free_from_pure.
+        eauto using occurs_inv_subst_eq.
       + eauto using r_free_inv_subst_eq.
-      + eauto using occurs_inv_subst_eq.
+      + rewrite NExp.n_free_from_pure.
+        eauto using occurs_inv_subst_eq.
   Qed.
 
   Lemma w_subst_not_occurs:
@@ -2144,7 +2118,7 @@ Section Defs.
     forall x v,
     NClosed v ->
     ~ WVar x P ->
-    GetFirst (w_subst x v P) (i_subst x v c).
+    GetFirst (w_subst x v P) (i_subst x (NExp.from_pure v) c).
   Proof.
     intros P c H.
     induction H; intros y v Hc Hv.
@@ -2279,18 +2253,17 @@ Section Defs.
     forall c1 x r P n c2 c,
     RLast r n ->
     GetLast (w_subst x (NNum n) P) c ->
-    GetLast (WFor c1 x r P c2) (ULang.c_seq c (i_subst x (NNum n) c2)).
+    GetLast (WFor c1 x r P c2) (ULang.c_seq c (i_subst x (NExp.NNum n) c2)).
 
   Lemma get_last_1:
     forall P c,
     GetLast P c ->
     forall a,
-    ~ WVar TID P ->
     CIn a c ->
     ILast a P.
   Proof.
     intros P c H.
-    induction H; intros a Hv Hc.
+    induction H; intros a Hc.
     - apply c_in_skip in Hc.
       contradiction.
     - constructor.
@@ -2302,10 +2275,6 @@ Section Defs.
         eapply i_last_for_1; eauto.
         intros.
         apply i_last_subst with (e1:=NNum n) (n:=n); auto using n_step_num.
-        apply IHGetLast; auto.
-        intros N.
-        apply wvar_inv_subst in N.
-        intuition.
       }
       eapply i_last_for_2; eauto.
       intros.
@@ -2327,13 +2296,15 @@ Section Defs.
       eauto using c_in_c_seq_l, n_step_num.
     - assert (n0 = n) by eauto using r_last_fun.
       subst.
+      rename_hyp (forall e, _ -> _) as hi.
+      assert (hi := hi (NNum n)).
+      simpl in *.
       eauto using c_in_c_seq_r, n_step_num.
   Qed.
 
   Corollary get_last_spec:
     forall P c,
     GetLast P c ->
-    ~ WVar TID P ->
     forall a,
     ILast a P <-> CIn a c.
   Proof.
@@ -2366,15 +2337,12 @@ Section Defs.
   Qed.
 
   Lemma i_pair_in_2_for_1:
-    forall x n c2 h2 r P e' e p (* r'*) h0 m0 h1 m1 m2,
-    RunAll TID_COUNT (i_subst x (NNum n) c2) h2 ->
-    ~ Var TID c2 ->
-    ~ WVar TID P ->
+    forall x n c2 h2 r P e' e p h0 m0 h1 m1 m2,
+    RunAll TID_COUNT (i_subst x (NExp.NNum n) c2) h2 ->
     ~ WVar x P ->
-    x <> TID ->
     NStep e' (S n) ->
     NStep e n ->
-    OneOf p (inl (i_subst x e c2)) (inr (w_subst x e' P)) ->
+    OneOf p (inl (i_subst x (NExp.from_pure e) c2)) (inr (w_subst x e' P)) ->
     RFirst r (S n) ->
     RunAll TID_COUNT Skip h0 ->
     WRun (w_subst x (NNum (S n)) P) m0 ->
@@ -2394,20 +2362,9 @@ Section Defs.
     assert (WRun (w_subst x e' P) m0). {
       eapply w_run_subst; eauto using n_step_num.
     }
-    assert (~ WVar TID (w_subst x e' P)). {
-      intros N.
-      apply wvar_inv_subst in N.
-      auto.
-    }
-    assert (~ Var TID (i_subst x e c2)). {
-      intros N.
-      apply var_inv_subst in N.
-      auto.
-    }
-    assert (RunAll TID_COUNT (i_subst x e c2) h2). {
+    assert (RunAll TID_COUNT (i_subst x (NExp.from_pure e) c2) h2). {
       apply c_run_subst with (e:=NNum n) (n:=n);
-      auto using n_step_num.
-      eauto using n_step_to_not_free.
+      eauto using n_step_num, n_eq_def.
     }
     destruct ho as [(hc2,hf)|(hc2,hf)];
     eapply i_first_2 with (v:=m0) in hf; auto;
@@ -2419,11 +2376,8 @@ Section Defs.
   Qed.
 
   Lemma i_pair_in_2_for_2:
-    forall x n c2 h2 P e' e p (* r'*) h0 m0 h1 m1 m2,
-    ~ Var TID c2 ->
-    ~ WVar TID P ->
+    forall x n h2 P e' e p h0 m0 h1 m1 m2,
     ~ WVar x P ->
-    x <> TID ->
     WRun (w_subst x (NNum n) P) m1 ->
     NStep e' (S n) ->
     NStep e n ->
@@ -2448,16 +2402,6 @@ Section Defs.
     assert (WRun (w_subst x e' P) m0). {
       eapply w_run_subst; eauto using n_step_num.
     }
-    assert (~ WVar TID (w_subst x e' P)). {
-      intros N.
-      apply wvar_inv_subst in N.
-      auto.
-    }
-    assert (~ WVar TID (w_subst x e P)). {
-      intros N.
-      apply wvar_inv_subst in N.
-      auto.
-    }
     apply m_pair_in_prefix_r.
     destruct ho as [(hl,hf)|(hl,hf)];
       apply i_first_2 with (v:=m0) in hf; auto;
@@ -2468,10 +2412,7 @@ Section Defs.
 
   Lemma i_pair_in_2_for_3:
     forall x n P e p c1 h1 m1 m2,
-    ~ Var TID c1 ->
-    ~ WVar TID P ->
     ~ WVar x P ->
-    x <> TID ->
     RunAll TID_COUNT c1 h1 ->
     WRun (w_subst x (NNum n) P) m1 ->
     NStep e n ->
@@ -2484,11 +2425,6 @@ Section Defs.
     assert (WRun (w_subst x e P) m1). {
       eapply w_run_subst; eauto using n_step_num.
     }
-    assert (~ WVar TID (w_subst x e P)). {
-      intros N.
-      apply wvar_inv_subst in N.
-      intuition.
-    }
     destruct ho as [(hc,hf)|(hc,hf)];
     apply c_in_2 with (h:=h1) in hc; auto;
     apply i_first_2 with (v:=m1) in hf; auto.
@@ -2498,38 +2434,21 @@ Section Defs.
 
   Lemma i_pair_in_2_for_4:
     forall x n P e p h1 m1 m2 c2 h2,
-    ~ Var TID c2 ->
-    ~ WVar TID P ->
     ~ WVar x P ->
-    x <> TID ->
     WRun (w_subst x (NNum n) P) m1 ->
-    RunAll TID_COUNT (i_subst x (NNum n) c2) h2 ->
+    RunAll TID_COUNT (i_subst x (NExp.NNum n) c2) h2 ->
     NStep e n ->
-    OneOf p (inr (w_subst x e P)) (inl (i_subst x e c2)) ->
+    OneOf p (inr (w_subst x e P)) (inl (i_subst x (NExp.from_pure e) c2)) ->
     MPairIn p (v_prefix h1 (v_seq m1 (v_prefix h2 m2))).
   Proof.
     intros.
     destruct p as (a1, a2).
     rename_hyp (OneOf _ _ _) as ho.
-    assert (~ WVar TID (w_subst x e P)). {
-      intros N.
-      apply wvar_inv_subst in N.
-      auto.
-    }
     assert (WRun (w_subst x e P) m1). {
       eapply w_run_subst; eauto using n_step_num.
     }
-    assert (~ Var TID (i_subst x e c2)). {
-      intros N.
-      apply var_inv_subst in N.
-      auto.
-    }
-    assert (RunAll TID_COUNT (i_subst x e c2) h2). {
-      assert (~ NFree TID e). {
-        apply n_closed_to_not_free.
-        eauto using n_step_to_closed.
-      }
-      eapply c_run_subst with (e:=NNum n); eauto using n_step_num.
+    assert (RunAll TID_COUNT (i_subst x (NExp.from_pure e) c2) h2). {
+      eapply c_run_subst with (e:=NNum n); eauto using n_step_num, n_eq_def.
     }
     destruct ho as [(hl, hc)|(hl,hc)];
     apply i_last_2 with (v:=m1) in hl; auto;
@@ -2544,18 +2463,16 @@ Section Defs.
     forall i h,
     WRun i h ->
     Distinct i ->
-    ~ WVar TID i -> 
     forall p,
     IPairIn p i ->
     VHist.MPairIn p h.
   Proof.
     intros i h H.
-    induction H; intros Hd Hv p Hp.
+    induction H; intros Hd p Hp.
     - invc Hp.
       left.
       eauto using c_pair_in_to_pair_in.
     - subst.
-      simpl in Hv.
       destruct Hd as (Hd1, Hd2).
       invc Hp.
       + apply m_pair_in_seq_l.
@@ -2564,11 +2481,11 @@ Section Defs.
         apply IHWRun2; auto.
       + destruct p as (a1, a2).
         simpl in *.
-        intuition;
-        rename_hyp (ILast _ _) as hl;
-        rename_hyp (IFirst _ _) as hf;
-        eapply i_first_2 in hf; eauto;
-        eapply i_last_2 in hl; eauto.
+        all: intuition.
+        all: rename_hyp (ILast _ _) as hl.
+        all: rename_hyp (IFirst _ _) as hf.
+        all: eapply i_first_2 in hf; eauto.
+        all: eapply i_last_2 in hl; eauto.
         * auto using m_pair_in_seq_both_1.
         * auto using m_pair_in_seq_both_2.
     - subst.
@@ -2581,24 +2498,15 @@ Section Defs.
         destruct hp as [hp|hp]. {
           subst.
           assert (MPairIn p m1). {
-            simpl in Hv.
             apply IHWRun1.
             - auto using distinct_subst.
-            - simpl in Hv.
-              intros N.
-              apply wvar_inv_subst in N.
-              auto.
             - eapply i_pair_in_subst; eauto using n_step_num.
-              intuition.
           }
           auto using m_pair_in_prefix_r, m_pair_in_seq_l.
         }
         assert (MPairIn p m2). {
           apply IHWRun2.
           - simpl.
-            intuition.
-          - simpl in *.
-            intros N.
             intuition.
           - eapply i_pair_in_for_1; eauto.
         }
@@ -2610,22 +2518,14 @@ Section Defs.
           apply m_pair_in_prefix_r.
           apply m_pair_in_seq_r.
           apply m_pair_in_prefix_l.
-          eapply c_pair_in_to_pair_in; eauto. {
-            intros N.
-            apply var_inv_subst in N.
-            simpl in Hv.
-            intuition.
-          }
+          eapply c_pair_in_to_pair_in; eauto.
+          assert (hx: NExp.NNum n = NExp.from_pure (NNum n)) by reflexivity.
+          rewrite hx.
           eapply c_pair_in_subst; eauto using n_step_num.
-          simpl in Hv.
-          intuition.
         }
         assert (MPairIn p m2). {
           apply IHWRun2.
           - simpl; intuition.
-          - simpl in *.
-            intros N.
-            intuition.
           - eapply i_pair_in_for_2; eauto using r_step_inv_r.
         }
         auto using m_pair_in_prefix_r, m_pair_in_seq_r.
@@ -2633,29 +2533,22 @@ Section Defs.
         eapply r_step_pick_advance in hp; eauto.
         destruct hp as [hp|hp]. {
           subst.
-          simpl in Hv.
           apply i_pair_in_2_for_4 with (x:=x) (n:=n) (P:=P) (c2:=c2) (e:=e);
             auto; intuition.
         }
         assert (MPairIn p m2). {
           apply IHWRun2.
           - simpl; intuition.
-          - simpl in *.
-            intros N.
-            intuition.
           - eapply i_pair_in_for_3; eauto using r_step_inv_r.
         }
         auto using m_pair_in_prefix_r, m_pair_in_seq_r.
       + apply m_pair_in_prefix_l.
         eapply c_pair_in_to_pair_in; eauto.
-        simpl in Hv.
-        auto.
       + assert (n0 = n). {
           assert (RFirst r n) by eauto using r_step_to_first.
           eauto using r_first_fun.
         }
         subst.
-        simpl in Hv.
         apply i_pair_in_2_for_3 with (x:=x) (n:=n) (P:=P) (e:=e) (c1:=c1);
           eauto using n_step_num; intuition.
       + rename_hyp (RPick2 _ _) as hp.
@@ -2670,7 +2563,6 @@ Section Defs.
               eauto using r_first_fun.
             }
             subst.
-            simpl in Hv.
             eapply i_pair_in_2_for_1; eauto; intuition.
           }
           assert (n0 = S n). {
@@ -2678,14 +2570,11 @@ Section Defs.
             eauto using r_first_fun.
           }
           subst.
-          simpl in Hv.
           eapply i_pair_in_2_for_1; eauto; intuition.
         }
         assert (MPairIn p m2). {
           apply IHWRun2.
           - simpl; intuition.
-          - simpl in *.
-            intuition.
           - eapply i_pair_in_for_mid_1; eauto.
         }
         apply m_pair_in_prefix_r.
@@ -2703,24 +2592,18 @@ Section Defs.
               eauto using r_first_fun.
             }
             subst.
-            simpl in Hv.
             eapply i_pair_in_2_for_2; eauto.
-            intuition.
           }
           assert (n0 = S n). {
             assert (RFirst r' n0) by eauto using r_step_to_first.
             eauto using r_first_fun.
           }
           subst.
-          simpl in Hv.
           eapply i_pair_in_2_for_2; eauto.
-          intuition.
         }
         assert (MPairIn p m2). {
           apply IHWRun2.
           - simpl; intuition.
-          - simpl in *.
-            intuition.
           - eapply i_pair_in_for_mid_2; eauto.
         }
         apply m_pair_in_prefix_r.
@@ -2733,16 +2616,11 @@ Section Defs.
       + simpl in Hd.
         destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
         assert (MPairIn p m1). {
-          simpl in Hv.
           apply IHWRun.
           - auto using distinct_subst.
-          - intros N.
-            apply wvar_inv_subst in N.
-            intuition.
           - assert (n0 = n) by eauto using r_one_pick_fun.
             subst.
             eapply i_pair_in_subst; eauto using n_step_num.
-            intuition.
         }
         auto using m_pair_in_prefix_r, m_pair_in_seq_l.
       + assert (n0 = n) by eauto using r_one_pick_fun.
@@ -2750,15 +2628,10 @@ Section Defs.
         apply m_pair_in_prefix_r.
         apply m_pair_in_seq_r.
         simpl.
-        eapply c_pair_in_to_pair_in; eauto. {
-          intros N.
-          apply var_inv_subst in N.
-          simpl in Hv.
-          auto.
-        }
+        eapply c_pair_in_to_pair_in; eauto.
+        assert (hx: NExp.NNum n = NExp.from_pure (NNum n)) by reflexivity.
+        rewrite hx.
         eapply c_pair_in_subst; eauto using n_step_num.
-        simpl in Hv.
-        intuition.
       + assert (n0 = n) by eauto using r_one_pick_fun.
         subst.
         assert (rx: v_one h2 = v_prefix h2 (v_one [])). {
@@ -2767,17 +2640,13 @@ Section Defs.
           reflexivity.
         }
         rewrite rx.
-        simpl in Hv.
         destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
         apply i_pair_in_2_for_4 with (x:=x) (n:=n) (P:=P) (c2:=c2) (e:=e);
           auto; intuition.
       + apply m_pair_in_prefix_l.
         eapply c_pair_in_to_pair_in; eauto.
-        simpl in Hv.
-        auto.
       + assert (n0 = n) by eauto using r_one_to_first, r_first_fun.
         subst.
-        simpl in Hv.
         destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
         apply i_pair_in_2_for_3 with (x:=x) (n:=n) (P:=P) (e:=e) (c1:=c1);
           auto using n_step_num; intuition.
@@ -2792,7 +2661,7 @@ Section Defs.
   Definition DRF P :=
     forall p,
     IPairIn p P ->
-    access_safe (fst p) (snd p).
+    AExp.Safe (fst p) (snd p).
 
 End Defs.
 

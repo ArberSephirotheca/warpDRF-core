@@ -787,13 +787,11 @@ End Defs.
 (*
     ~~~~~ Example ~~~~~~~
 *)
-Require AccExpImpl.
 Require Coq.Strings.String.
 Module Example.
   Section Defs.
   Context `{T:Tasks}.
   Import Coq.Strings.String.
-  Import AccExpImpl.
   Import NExp.
   Import Var.
   Import WLang.WLangNotations.

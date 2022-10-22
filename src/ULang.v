@@ -1529,25 +1529,25 @@ Section C1.
     apply pair_in_def; auto;
     eapply c_in_2; eauto.
   Qed.
-(*
+
   Lemma c_pair_in_subst:
     forall p x e1 c,
-    CPairIn p (i_subst x e1 c) ->
+    CPairIn p (i_subst x (NExp.from_pure e1) c) ->
     forall n,
     Pure.NExp.NStep e1 n ->
     forall e2,
-    NExp.NStep e2 n ->
-    CPairIn p (i_subst x e2 c).
+    Pure.NExp.NStep e2 n ->
+    CPairIn p (i_subst x (NExp.from_pure e2) c).
   Proof.
     intros.
-    invc H0.
+    invc H.
     rename_hyp (CIn a1 _) as Hc1.
     rename_hyp (CIn a2 _) as Hc2.
     eapply c_in_subst in Hc1; eauto.
     eapply c_in_subst in Hc2; eauto.
     eauto using c_pair_in_def.
   Qed.
-*)
+
   Lemma c_seq_subst:
     forall x v c1 c2,
     i_subst x v (c_seq c1 c2) = c_seq (i_subst x v c1) (i_subst x v c2).
