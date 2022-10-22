@@ -3,16 +3,17 @@ Require Import Tasks.
 Require Import Var.
 Require Import WLang.
 Require Import ULang.
-Require Import NExp.
+Require Import Pure.NExp.
+Require Import Pure.RExp.
 Require Import Tictac.
 Require Import ALang.
 Require Import Util.
-Require Import RExp.
 Require Import Lia.
+Require SIMT.NExp.
 
 Section Props.
   Context `{T:Tasks}.
-  Context `{A:Access}.
+  Notation from_pure := SIMT.NExp.from_pure.
   (*
     ~~~~~ Function align (Figure 3) ~~~~~~~
    *)
@@ -26,9 +27,9 @@ Section Props.
     | WFor c1 x (e1, e2) P c2 =>
       let (P_x, c_x) := align P in
       let P_e1 := subst x e1 P_x in
-      let c_e1 := i_subst x e1 c_x in
-      let dec_x := NBin NMinus (NVar x) (NNum 1) in
-      let dec_e2 := NBin NMinus e2 (NNum 1) in
+      let c_e1 := i_subst x (from_pure e1) c_x in
+      let dec_x := from_pure (NBin NMinus (NVar x) (NNum 1)) in
+      let dec_e2 := from_pure (NBin NMinus e2 (NNum 1)) in
       let c_dec_x := i_subst x dec_x c_x in
       let c2_dec_x := i_subst x dec_x c2 in
       let c_dec_e2 := i_subst x dec_e2 c_x in
@@ -162,10 +163,12 @@ Section Props.
         }
         apply eq_c_seq_def. {
           repeat rewrite i_subst_subst_eq_1.
+          rewrite <- NExp.n_subst_from_pure.
           simpl.
           reflexivity.
         }
         repeat rewrite i_subst_subst_eq_1.
+        rewrite <- NExp.n_subst_from_pure.
         simpl.
         reflexivity.
       }
@@ -190,13 +193,25 @@ Section Props.
           simpl in Ht'.
           invc Ht'.
           rewrite i_subst_subst_neq_3; auto.
-          simpl.
-          intuition.
+          - rewrite <- NExp.n_free_from_pure.
+            auto.
+          - assert (hx :
+              NExp.NBin NMinus (NExp.NVar x) (NExp.NNum 1) =
+              from_pure (NBin NMinus (NVar x) (NNum 1))
+            ) by reflexivity.
+            simpl.
+            intuition.
         }
         apply eq_n_seq_def. {
           rewrite i_subst_subst_neq_3; auto.
-          simpl.
-          intuition.
+          - rewrite <- NExp.n_free_from_pure.
+            auto.
+          - assert (hx :
+              NExp.NBin NMinus (NExp.NVar x) (NExp.NNum 1) =
+              from_pure (NBin NMinus (NVar x) (NNum 1))
+            ) by reflexivity.
+            simpl.
+            intuition.
         }
         rewrite <- IHP in Ht'; auto.
         2: { intuition. }
@@ -210,9 +225,17 @@ Section Props.
       invc Ht'.
       apply eq_c_seq_def. {
         rewrite i_subst_subst_neq_5; auto.
+        + rewrite <- NExp.n_subst_from_pure.
+          reflexivity.
+        + rewrite <- NExp.n_closed_from_pure.
+          assumption.
       }
       rewrite i_subst_subst_neq_5; auto.
-      intuition.
+      + rewrite <- NExp.n_subst_from_pure.
+        reflexivity.
+      + rewrite <- NExp.n_closed_from_pure.
+        assumption.
+      + intuition.
   Qed.
 
   Lemma align_to_subst:
@@ -221,7 +244,7 @@ Section Props.
     forall x v,
     NClosed v ->
     ~ WVar x P ->
-    align (w_subst x v P) = (subst x v P_x, i_subst x v c_x).
+    align (w_subst x v P) = (subst x v P_x, i_subst x (from_pure v) c_x).
   Proof.
     intros.
     rewrite <- align_subst; auto.
@@ -235,13 +258,14 @@ Section Props.
     forall P c,
     GetFirst P c ->
     WLang.Distinct P ->
-    ~ WLang.WVar TID P ->
     forall a,
     CIn a c ->
     IFirst a (fst (align P)).
   Proof.
     intros P c H.
-    induction H; simpl; intros Hd Hv a Hc; simpl in Hv.
+    induction H.
+    all: simpl.
+    all: intros Hd a Hc.
     - constructor.
       auto.
     - destruct (align P) as (Px1, cx1) eqn:Ht1.
@@ -269,22 +293,18 @@ Section Props.
         (v1:=NNum n) (n:=n);
         auto using n_step_num.
       eauto using r_first_to_eq.
-      intros N.
-      apply wvar_inv_subst in N.
-      auto.
   Qed.
 
   Lemma get_first_align_2:
     forall P c,
     GetFirst P c ->
     WLang.Distinct P ->
-    ~ WVar TID P ->
     forall a,
     IFirst a (fst (align P)) ->
     CIn a c.
   Proof.
     intros P c H.
-    induction H; simpl; intros Hd Hv a Hf; invc Hf; simpl in Hv.
+    induction H; simpl; intros Hd a Hf; invc Hf.
     - assumption.
     - destruct (align P).
       destruct (align Q).
@@ -316,7 +336,6 @@ Section Props.
         apply IHGetFirst.
         * apply WLang.distinct_subst.
           intuition.
-        * intros N; apply wvar_inv_subst in N; auto.
         * apply align_to_subst with (x:=x) (v:=NNum n) in HP;
             eauto using n_step_to_closed, n_step_num. {
             rewrite HP.
@@ -333,7 +352,6 @@ Section Props.
     forall P,
     CanRun P ->
     WLang.Distinct P ->
-    ~ WVar TID P ->
     forall a,
     IFirst a (fst (align P)) <->
     WLang.IFirst a P.
@@ -355,7 +373,6 @@ Section Props.
     align P = (P_x, c_x) ->
     NStep v n ->
     RPick r n ->
-    ~ WVar TID P ->
     ~ WVar x P ->
     forall a,
     IFirst a (subst x v P_x) ->
@@ -370,9 +387,6 @@ Section Props.
     }
     apply i_first_align; auto.
     - auto using WLang.distinct_subst.
-    - intros N.
-      apply wvar_inv_subst in N.
-      auto.
     - rewrite Ht.
       simpl.
       assumption.
@@ -384,13 +398,12 @@ Section Props.
     forall P c,
     GetLast P c ->
     WLang.Distinct P ->
-    ~ WVar TID P ->
     forall a,
     CIn a c ->
     CIn a (snd (align P)).
   Proof.
     intros P c H.
-    induction H; simpl; intros Hd Htid a Hc.
+    induction H; simpl; intros Hd a Hc.
     - assumption.
     - destruct (align P) as (P',c_p) eqn:Ht1.
       destruct (align Q) as (Q',c_q) eqn:Ht2.
@@ -406,12 +419,21 @@ Section Props.
       + apply c_in_c_seq_l.
         apply IHGetLast in Hc; clear IHGetLast.
         2: { apply WLang.distinct_subst. intuition. }
-        2: { intros N. apply wvar_inv_subst in N. intuition. }
         rewrite Ht1 in Hc.
         simpl in *.
+        assert (hx:
+          NExp.NBin NMinus (from_pure e2) (NExp.NNum 1) =
+          from_pure (NBin NMinus e2 (NNum 1))
+        ) by reflexivity.
+        rewrite hx.
         apply c_in_subst with (v:=NNum n) (n := n);
           eauto using n_step_num, r_last_to_eq.
       + apply c_in_c_seq_r.
+        assert (hx:
+          NExp.NBin NMinus (from_pure e2) (NExp.NNum 1) =
+          from_pure (NBin NMinus e2 (NNum 1))
+        ) by reflexivity.
+        rewrite hx.
         apply c_in_subst with (v:=NNum n) (n := n);
           eauto using n_step_num, r_last_to_eq.
   Qed.
@@ -420,13 +442,12 @@ Section Props.
     forall P c,
     GetLast P c ->
     WLang.Distinct P ->
-    ~ WVar TID P ->
     forall a,
     CIn a (snd (align P)) ->
     CIn a c.
   Proof.
     intros P c H.
-    induction H; simpl; intros Hd Hv a Hf; invc Hf.
+    induction H; simpl; intros Hd a Hf; invc Hf.
     - invc H0.
     - destruct (align P).
       destruct (align Q) as (Q',c_q) eqn:Ht2.
@@ -450,11 +471,14 @@ Section Props.
         apply IHGetLast; clear IHGetLast.
         * intuition.
           auto using WLang.distinct_subst.
-        * intros N. apply wvar_inv_subst in N. intuition.
-        * apply c_in_subst with (v:=NBin NMinus e2 (NNum 1)) (n := n);
+        * assert (hx: NExp.NNum n = from_pure (NNum n) ) by reflexivity.
+          rewrite hx.
+          apply c_in_subst with (v:=NBin NMinus e2 (NNum 1)) (n := n);
           eauto using n_step_num, r_last_to_eq.
       + apply c_in_def in Hi; auto.
         apply c_in_c_seq_r.
+        assert (hx: NExp.NNum n = from_pure (NNum n) ) by reflexivity.
+        rewrite hx.
         apply c_in_subst with (v:=NBin NMinus e2 (NNum 1)) (n := n);
           eauto using n_step_num, r_last_to_eq.
   Qed.
@@ -463,7 +487,6 @@ Section Props.
     forall P,
     CanRun P ->
     WLang.Distinct P ->
-    ~ WVar TID P ->
     forall a,
     CIn a (snd (align P)) <->
     WLang.ILast a P.
@@ -485,10 +508,9 @@ Section Props.
     align P = (P_x, c_x) ->
     NStep v n ->
     RPick r n ->
-    ~ WVar TID P ->
     ~ WVar x P ->
     forall a,
-    CIn a (i_subst x v c_x) ->
+    CIn a (i_subst x (from_pure v) c_x) ->
     WLang.ILast a (w_subst x v P).
   Proof.
     intros.
@@ -500,9 +522,6 @@ Section Props.
     }
     apply i_last_align; auto.
     - auto using WLang.distinct_subst.
-    - intros N.
-      apply wvar_inv_subst in N.
-      intuition.
     - rewrite Ht.
       simpl.
       assumption.
@@ -517,7 +536,6 @@ Section Props.
      forall p,
      PPairIn p (align (w_subst x (NNum n) P)) -> WLang.IPairIn p (w_subst x (NNum n) P)) ->
     ~ WVar x P ->
-    x <> TID ->
     forall P_x c_x,
     align P = (P_x, c_x) ->
     forall e n,
@@ -548,22 +566,24 @@ Section Props.
      forall p,
      PPairIn p (align (w_subst x (NNum n) P)) -> WLang.IPairIn p (w_subst x (NNum n) P)) ->
     ~ WVar x P ->
-    TID <> x ->
     forall P_x c_x,
     align P = (P_x, c_x) ->
     forall e n,
     RPick r n ->
     NStep e n ->
-    CPairIn p (i_subst x e c_x) ->
+    CPairIn p (i_subst x (from_pure e) c_x) ->
     WLang.IPairIn p (WFor c1 x r P c2).
   Proof.
     intros.
     eapply WLang.i_pair_in_for_1 with (e:=NNum n); eauto using n_step_num.
     apply H; auto.
-    apply align_to_subst with (x:=x) (v:=NNum n) in H2; auto using n_closed_num.
-    rewrite H2.
+    rename_hyp (align _ = _) as hr.
+    apply align_to_subst with (x:=x) (v:=NNum n) in hr; auto using n_closed_num.
+    rewrite hr.
     simpl.
     right.
+    assert (hx: NExp.NNum n = from_pure (NNum n) ) by reflexivity.
+    rewrite hx.
     eapply c_pair_in_subst; eauto using n_step_num.
   Qed.
 
@@ -573,13 +593,12 @@ Section Props.
     forall P,
     CanRun P ->
     WLang.Distinct P ->
-    ~ WVar TID P -> 
     forall p,
     PPairIn p (align P) ->
     WLang.IPairIn p P.
   Proof.
     intros P H.
-    induction H; intros Hd H_tid p Hp; simpl in Hp; try (destruct Hp as [Hp|Hp]).
+    induction H; intros Hd p Hp; simpl in Hp; try (destruct Hp as [Hp|Hp]).
     - invc Hp.
       constructor.
       assumption.
@@ -647,9 +666,6 @@ Section Props.
             eapply i_pair_in_align_for_1; eauto.
             intros.
             eapply IH; auto using WLang.distinct_subst.
-            intros N.
-            apply wvar_inv_subst in N.
-            intuition.
           - (* a1 \in c1 /\ a2 \in P[e1] *)
             eapply WLang.i_pair_in_for_first_2; eauto.
             destruct p as (a1, a2).
@@ -665,13 +681,14 @@ Section Props.
           eapply i_pair_in_align_for_2 with (e:=m - 1) (n:=m - 1); eauto using n_step_num.
           * intros.
             apply IH; auto using WLang.distinct_subst.
-            intros N.
-            apply WLang.wvar_inv_subst in N.
-            intuition.
           * auto using r_pick_impl_2.
           * rewrite i_subst_subst_eq_1 in Hp.
             simpl in Hp.
             remove_eq x x.
+            assert (hy: NExp.NNum (m - 1) =
+              from_pure (NNum (m - 1))
+            ) by reflexivity.
+            rewrite hy.
             eapply c_pair_in_subst with (e1:=NBin NMinus m 1); eauto using n_step_num.
             apply n_step_bin; auto using n_step_num.
         + apply i_pair_in_inv_n_seq in Hp.
@@ -693,9 +710,6 @@ Section Props.
               eauto using n_step_num, r_pick_impl_1.
             intros.
             apply IH; auto using WLang.distinct_subst.
-            intros N.
-            apply wvar_inv_subst in N.
-            intuition.
           * destruct p as (a1, a2).
             simpl in *.
             rename_hyp (RPick _ m) as Hi.
@@ -805,9 +819,6 @@ Section Props.
         eauto using n_step_num, c_pair_in_def.
        intros.
        apply IH; auto using WLang.distinct_subst.
-       intros N.
-       apply wvar_inv_subst in N.
-       intuition.
      + (* cx /\ c2 *)
        apply WLang.i_pair_in_for_3
          with (n:=n2) (e:=(NBin NMinus e2 (NNum 1)));
@@ -830,14 +841,13 @@ Section Props.
     forall P,
     CanRun P ->
     WLang.Distinct P ->
-    ~ WVar TID P ->
     WLang.DRF P ->
     DRF (align P).
   Proof.
     intros.
     unfold DRF, WLang.DRF.
     intros.
-    apply in_1 in H3; auto.
+    apply in_1 in H2; auto.
   Qed.
 
   Lemma i_pair_in_n_seq_r:
@@ -898,8 +908,6 @@ Section Props.
 
   Lemma i_first_to_c_in_1:
     forall e n x P P_x c_x a e',
-    x <> TID ->
-    ~ WVar TID P ->
     WLang.Distinct P ->
     NStep e n ->
     ~ WVar x P ->
@@ -919,8 +927,6 @@ Section Props.
     eapply i_first_subst; eauto.
     * eauto using n_step_to_closed.
     * auto.
-    * intros N; apply wvar_inv_subst in N.
-      auto.
   Qed.
 
   Lemma i_last_to_c_in_1:
@@ -932,9 +938,7 @@ Section Props.
     align P = (P_x, c_x) ->
     CanRun (w_subst x n P) ->
     ILast a (w_subst x e P) ->
-    TID <> x ->
-    ~ WVar TID P ->
-    CIn a (i_subst x e' c_x).
+    CIn a (i_subst x (from_pure e') c_x).
   Proof.
     intros.
     rename_hyp (ILast _ _) as hl.
@@ -946,9 +950,6 @@ Section Props.
       eapply c_in_subst; eauto using n_step_succ_minus_one.
     * eapply can_run_subst with (v1:=NNum n); eauto using n_step_num.
     * auto using WLang.distinct_subst.
-    * intros N.
-      apply wvar_inv_subst in N.
-      contradiction.
   Qed.
 
   (* ---------------------------------------------------------------- *)
@@ -958,11 +959,10 @@ Section Props.
     WLang.IPairIn p P ->
     CanRun P ->
     WLang.Distinct P ->
-    ~ WVar TID P ->
     PPairIn p (align P).
   Proof.
     intros p P H.
-    induction H; intros Hc Hd Hv; simpl in *.
+    induction H; intros Hc Hd; simpl in *.
     - (* i_pair_in_sync *)
       left.
       constructor.
@@ -1031,12 +1031,7 @@ Section Props.
       assert (Hx2: WLang.Distinct (w_subst x e P)). {
         auto using WLang.distinct_subst.
       }
-      assert (Hx3: ~ WVar TID (w_subst x e P)). {
-        intros N.
-        apply WLang.wvar_inv_subst in N.
-        intuition.
-      }
-      assert (IHIPairIn := IHIPairIn Hx1 Hx2 Hx3); clear Hx1 Hx2 Hx3.
+      assert (IHIPairIn := IHIPairIn Hx1 Hx2); clear Hx1 Hx2.
       apply align_to_subst with (x:=x) (v:=e) in r1.
       2: { eauto using n_step_to_closed. }
       2: { intuition. }
@@ -1069,6 +1064,11 @@ Section Props.
         (* last iteration *)
         right.
         apply c_pair_in_c_seq_l.
+        assert (hx:
+          NExp.NBin NMinus (from_pure e2) (NExp.NNum 1) =
+          from_pure (NBin NMinus e2 (NNum 1))
+        ) by reflexivity.
+        rewrite hx.
         eapply c_pair_in_subst; eauto using r_last_to_eq.
       }
       (* All but last iteration *)
@@ -1093,12 +1093,13 @@ Section Props.
       rewrite i_subst_subst_eq_1.
       simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
-      eapply c_pair_in_subst; eauto.
-      assert (rx : S n - 1 = n) by lia.
-      rewrite <- rx.
-      apply n_step_minus; auto using n_step_num.
-      rewrite rx.
-      auto using n_step_num.
+      assert (hx:
+        NExp.NBin NMinus (NExp.NNum (S n)) (NExp.NNum 1) =
+        from_pure (NBin NMinus (NNum (S n)) (NNum 1))
+      ) by reflexivity.
+      rewrite hx.
+      eapply c_pair_in_subst; eauto using n_step_num.
+      apply n_step_bin_eq with (n1:=S n) (n2:=1); eauto using n_step_num with *.
     - (* i_pair_in_for_2 *)
       destruct r as (e1, e2).
       destruct (align P) as (P_x, c_x) eqn:r1.
@@ -1110,6 +1111,11 @@ Section Props.
       destruct H as [H|H]. {
         right.
         apply c_pair_in_c_seq_r.
+        assert (hx:
+          NExp.NBin NMinus (NExp.from_pure e2) (NExp.NNum 1) =
+          from_pure (NBin NMinus e2 (NNum 1))
+        ) by reflexivity.
+        rewrite hx.
         eapply c_pair_in_subst; eauto using r_last_to_eq.
       }
       left.
@@ -1136,6 +1142,11 @@ Section Props.
       rewrite i_subst_subst_eq_1.
       simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
+      assert (hx:
+        NExp.NBin NMinus (NExp.NNum (S n)) (NExp.NNum 1) =
+        from_pure (NBin NMinus (NNum (S n)) (NNum 1))
+      ) by reflexivity.
+      rewrite hx.
       apply c_pair_in_subst with (e1:=e) (n:=n); auto.
       auto using n_step_succ_minus_one.
     - (* i_pair_in_for_3 *)
@@ -1155,17 +1166,37 @@ Section Props.
           rename_hyp (ILast _ _) as hl
         .
         + apply ULang.c_in_c_seq_l.
+          assert (hx:
+            NExp.NBin NMinus (NExp.from_pure e2) (NExp.NNum 1) =
+            from_pure (NBin NMinus e2 (NNum 1))
+          ) by reflexivity.
+          rewrite hx.
           eauto using i_last_to_c_in_1.
         + apply ULang.c_in_c_seq_r.
+          assert (hx:
+            NExp.NBin NMinus (NExp.from_pure e2) (NExp.NNum 1) =
+            from_pure (NBin NMinus e2 (NNum 1))
+          ) by reflexivity.
+          rewrite hx.
           eapply ULang.c_in_subst; eauto.
         + apply ULang.c_in_c_seq_r.
+          assert (hx:
+            NExp.NBin NMinus (NExp.from_pure e2) (NExp.NNum 1) =
+            from_pure (NBin NMinus e2 (NNum 1))
+          ) by reflexivity.
+          rewrite hx.
           eapply ULang.c_in_subst; eauto.
         + apply ULang.c_in_c_seq_l.
+          assert (hx:
+            NExp.NBin NMinus (NExp.from_pure e2) (NExp.NNum 1) =
+            from_pure (NBin NMinus e2 (NNum 1))
+          ) by reflexivity.
+          rewrite hx.
           eauto using i_last_to_c_in_1.
       }
       left.
       apply i_pair_in_for_2 with (n:=S n). {
-        auto using RExp.r_pick_advance.
+        eauto using Pure.RExp.r_pick_advance.
       }
       rewrite subst_n_seq.
       rewrite subst_n_seq.
@@ -1176,12 +1207,32 @@ Section Props.
       simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       apply c_pair_in_def; intuition.
-      + eauto using ULang.c_in_c_seq_l, i_last_to_c_in_1, n_step_succ_minus_one.
+      + assert (hx:
+           NExp.NBin NMinus (NExp.NNum (S n)) (NExp.NNum 1) =
+          from_pure (NBin NMinus (NNum (S n)) (NNum 1))
+        ) by reflexivity.
+        rewrite hx.
+        eauto using ULang.c_in_c_seq_l, i_last_to_c_in_1, n_step_succ_minus_one.
       + apply ULang.c_in_c_seq_r.
+        assert (hx:
+           NExp.NBin NMinus (NExp.NNum (S n)) (NExp.NNum 1) =
+          from_pure (NBin NMinus (NNum (S n)) (NNum 1))
+        ) by reflexivity.
+        rewrite hx.
         eapply ULang.c_in_subst; eauto using n_step_succ_minus_one.
       + apply ULang.c_in_c_seq_r.
+        assert (hx:
+           NExp.NBin NMinus (NExp.NNum (S n)) (NExp.NNum 1) =
+          from_pure (NBin NMinus (NNum (S n)) (NNum 1))
+        ) by reflexivity.
+        rewrite hx.
         eapply ULang.c_in_subst; eauto using n_step_succ_minus_one.
-      + eauto using ULang.c_in_c_seq_l, i_last_to_c_in_1, n_step_succ_minus_one.
+      + assert (hx:
+           NExp.NBin NMinus (NExp.NNum (S n)) (NExp.NNum 1) =
+          from_pure (NBin NMinus (NNum (S n)) (NNum 1))
+        ) by reflexivity.
+        rewrite hx.
+        eauto using ULang.c_in_c_seq_l, i_last_to_c_in_1, n_step_succ_minus_one.
     - (* i_pair_in_for_first_1 *)
       destruct r as (e1, e2).
       destruct (align P) as (P_x, c_x) eqn:r1.
@@ -1234,11 +1285,21 @@ Section Props.
       }
       intuition.
       + apply i_pair_in_n_seq_1.
-        * eapply c_in_subst with (v:=e); eauto using n_step_succ_minus_one. 
+        * assert (hx:
+            NExp.NBin NMinus (NExp.NNum (S n)) (NExp.NNum 1) =
+            from_pure (NBin NMinus (NNum (S n)) (NNum 1))
+          ) by reflexivity.
+          rewrite hx.
+          eapply c_in_subst with (v:=e); eauto using n_step_succ_minus_one. 
         * eapply i_first_to_c_in_1; eauto using n_step_num.
       + apply i_pair_in_n_seq_2.
         * eapply i_first_to_c_in_1; eauto using n_step_num.
-        * eapply c_in_subst with (v:=e); eauto using n_step_succ_minus_one. 
+        * assert (hx:
+            NExp.NBin NMinus (NExp.NNum (S n)) (NExp.NNum 1) =
+            from_pure (NBin NMinus (NNum (S n)) (NNum 1))
+          ) by reflexivity.
+          rewrite hx.
+          eapply c_in_subst with (v:=e); eauto using n_step_succ_minus_one. 
     - (* i_pair_in_for_mid_2 *)
       destruct r as (e1, e2).
       destruct (align P) as (P_x, c_x) eqn:r1.
@@ -1263,26 +1324,34 @@ Section Props.
       }
       intuition.
       + apply i_pair_in_n_seq_1.
-        * eapply i_last_to_c_in_1 with (e:=e); eauto using n_step_succ_minus_one.
+        * assert (hx:
+            NExp.NBin NMinus (NExp.NNum (S n)) (NExp.NNum 1) =
+            from_pure (NBin NMinus (NNum (S n)) (NNum 1))
+          ) by reflexivity.
+          rewrite hx.
+          eapply i_last_to_c_in_1 with (e:=e); eauto using n_step_succ_minus_one.
         * apply i_first_n_seq_r.
           eapply i_first_to_c_in_1; eauto using n_step_num.
       + apply i_pair_in_n_seq_2.
         * apply i_first_n_seq_r.
           eapply i_first_to_c_in_1; eauto using n_step_num.
-        * eapply i_last_to_c_in_1 with (e:=e); eauto using n_step_succ_minus_one.
+        * assert (hx:
+            NExp.NBin NMinus (NExp.NNum (S n)) (NExp.NNum 1) =
+            from_pure (NBin NMinus (NNum (S n)) (NNum 1))
+          ) by reflexivity.
+          rewrite hx.
+          eapply i_last_to_c_in_1 with (e:=e); eauto using n_step_succ_minus_one.
   Qed.
 
   Corollary drf_2:
     forall P,
     CanRun P ->
     WLang.Distinct P ->
-    ~ WVar TID P ->
     DRF (align P) ->
     WLang.DRF P.
   Proof.
     unfold DRF, WLang.DRF.
     intros.
-    apply H2; clear H2.
     auto using in_2.
   Qed.
 
@@ -1290,7 +1359,6 @@ Section Props.
     forall P,
     CanRun P ->
     WLang.Distinct P ->
-    ~ WVar TID P ->
     DRF (align P) <-> WLang.DRF P.
   Proof.
     intros.
