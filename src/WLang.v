@@ -875,13 +875,12 @@ Section Defs.
   Lemma i_first_1:
     forall i v,
     WRun i v ->
-    ~ WVar TID i ->
     forall a,
     List.In a (first v) ->
     IFirst a i.
   Proof.
     intros i v H.
-    induction H; intros Hv a Hi; simpl in *.
+    induction H; intros a Hi; simpl in *.
     - apply i_first_sync.
       eapply c_in_1; eauto.
     - subst.
@@ -904,7 +903,6 @@ Section Defs.
       apply first_inv_in_seq in Hi.
       destruct Hi as [Hi|(h', (?, Hi))]. {
         apply IHWRun1 in Hi; auto.
-        2: { intros N. intuition. apply wvar_inv_subst in N. intuition.  }
         eapply i_first_for_2; eauto using r_step_to_first.
       }
       subst.
@@ -921,10 +919,6 @@ Section Defs.
       apply first_inv_in_seq in Hi.
       destruct Hi as [Hi|(h', (?, Hi))]. {
         eapply i_first_for_2; eauto using r_one_to_first.
-        apply IHWRun; auto.
-        intros N.
-        apply wvar_inv_subst in N.
-        intuition.
       }
       subst.
       simpl in *.
@@ -935,7 +929,6 @@ Section Defs.
   Lemma i_first_2:
     forall i v,
     WRun i v ->
-    ~ WVar TID i ->
     forall a,
     IFirst a i ->
     List.In a (first v).
@@ -943,18 +936,15 @@ Section Defs.
     intros i v H.
     induction H; intros.
     - simpl.
-      inversion H1; subst; clear H1.
-      inversion H3; subst.
+      invc H0.
+      invc H2.
       eapply ULang.run_all_i_in_to_in; eauto.
     - subst.
-      inversion H3; subst; clear H3.
-      apply IHWRun1 in H4; auto using first_in_seq_l.
-      simpl in *.
-      auto.
+      invc H2.
+      apply IHWRun1 in H3; auto using first_in_seq_l.
     - subst.
       simpl.
-      inversion H6; subst; clear H6. {
-        simpl in *.
+      invc H5. {
         apply first_in_prefix_l.
         eapply c_in_2; eauto.
       }
@@ -963,20 +953,17 @@ Section Defs.
       assert (n0 = n) by eauto using r_first_fun.
       subst.
       apply first_in_prefix_r.
-      apply IHWRun1 in H12.
-      2: { intros N. apply wvar_inv_subst in N. intuition. }
+      apply IHWRun1 in H11.
       auto using first_in_seq_l.
     - simpl in *.
-      inversion H5; subst; clear H5. {
-        simpl.
+      invc H4. {
         apply first_in_prefix_l.
         eapply c_in_2; eauto.
       }
       apply r_one_to_first in H.
       assert (n0 = n) by eauto using r_first_fun.
       subst.
-      apply IHWRun in H12.
-      2: { intros N. apply wvar_inv_subst in N. intuition. }
+      apply IHWRun in H11.
       auto using first_in_seq_l, first_in_prefix_r, first_in_seq_l.
   Qed.
 

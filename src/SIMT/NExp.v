@@ -1221,6 +1221,20 @@ Section SO.
   Qed.
 End SO.
 
+Section Props.
+  Lemma n_step_pure:
+    forall e n,
+    Pure.NExp.NStep e n ->
+    forall tid,
+    NStep tid (from_pure e) n.
+  Proof.
+    intros e n H.
+    induction H; simpl; intros.
+    - constructor.
+    - constructor; auto.
+  Qed.
+End Props.
+
 Module NExpNotations.
   Declare Scope exp_scope.
   Infix "-" := (NBin Pure.NExp.NMinus)  (at level 50, left associativity, only printing) : exp_scope. 

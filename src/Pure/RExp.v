@@ -152,7 +152,7 @@ Section Defs.
 
   Import Morphisms.
 
-  Global Instance n_eq_proper_4: Proper (eq ==> NEq ==> eq ==> NEq * NEq ) r_subst.
+  Global Instance r_subst_proper: Proper (eq ==> NEq ==> eq ==> NEq * NEq ) r_subst.
   Proof.
     unfold Proper, respectful, RelCompFun, RelProd.
     split; intros; subst; unfold RelCompFun.
@@ -806,7 +806,7 @@ Section Defs.
   Qed.
   (* ---------------------- NEq -------------------------------- *)
 
-  Global Instance n_eq_proper_5: Proper (NEq * NEq ==> eq ==> iff) RLast.
+  Global Instance r_last_proper_1: Proper (NEq * NEq ==> eq ==> iff) RLast.
   Proof.
     unfold Proper, respectful, RelCompFun, RelProd.
     intros (e1,e2) (e1', e2') (Ha, Hb) n' n ?.

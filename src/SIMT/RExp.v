@@ -1136,6 +1136,43 @@ Section Defs.
     auto using r_eq_subst.
   Qed.
 
+  Lemma r_eq_pick:
+    forall r1 r2 n,
+    REq r1 r2 ->
+    RPick r1 n <-> RPick r2 n.
+  Proof.
+    intros.
+    split; intros. {
+      inversion H0; subst; clear H0.
+      destruct r2 as (e1', e2').
+      destruct H.
+      simpl in *.
+      eapply r_pick_def; eauto.
+      - rewrite <- H.
+        assumption.
+      - rewrite <- H0.
+        assumption.
+    }
+    inversion H0; subst; clear H0.
+    destruct r1 as (e1', e2').
+    destruct H.
+    simpl in *.
+    eapply r_pick_def; eauto.
+    - rewrite H.
+      assumption.
+    - rewrite H0.
+      assumption.
+  Qed.
+
+  Global Instance r_pick_proper: Proper (REq ==> eq ==> iff) RPick.
+  Proof.
+    unfold Proper, respectful.
+    intros.
+    subst.
+    apply r_eq_pick.
+    assumption.
+  Qed.
+
   Lemma r_eq_step:
     forall r1 r1' r2 r2' n,
     REq r1 r1' ->

@@ -375,7 +375,7 @@ Section C1.
     IIn a (i_subst x (NNum n) i) ->
     IIn a (For x r i)
   .
-(*
+
   Section S_IIn.
   Variable x:var.
   Variable v:nexp.
@@ -383,16 +383,16 @@ Section C1.
   Inductive S_IIn (a:access_val) : inst -> Prop :=
   | s_i_in_access:
     forall e,
-    AIn a (access_subst x v e) ->
+    AStep (av_owner a) (a_subst x v e) a ->
     S_IIn a (MemAcc e)
   | s_i_in_if_true:
     forall b i j,
-    BData (av_owner a) (b_subst x v b) true ->
+    BStep (av_owner a) (b_subst x v b) true ->
     S_IIn a i ->
     S_IIn a (If b i j)
   | s_i_in_if_false:
     forall b i j,
-    BData (av_owner a) (b_subst x v b) false ->
+    BStep (av_owner a) (b_subst x v b) false ->
     S_IIn a j ->
     S_IIn a (If b i j)
   | s_i_in_seq_l:
@@ -404,16 +404,14 @@ Section C1.
     S_IIn a j ->
     S_IIn a (Seq i j)
   | s_i_in_for_eq:
-    forall i r n1 n n2,
-    RData (av_owner a) (r_subst x v r) (n1, n2) ->
-    n1 <= n < n2 ->
+    forall i r n,
+    RPick (av_owner a) (r_subst x v r) n ->
     IIn a (i_subst x (NNum n) i) ->
     S_IIn a (For x r i)
   | s_i_in_for_neq:
-    forall i r y n1 n n2,
+    forall i r y n,
     x <> y ->
-    RData (av_owner a) (r_subst x v r) (n1, n2) ->
-    n1 <= n < n2 ->
+    RPick (av_owner a) (r_subst x v r) n ->
     S_IIn a (i_subst y (NNum n) i) ->
     S_IIn a (For y r i)
   .
@@ -422,7 +420,7 @@ Section C1.
   Lemma s_i_in_to_i_in:
     forall x v a i,
     S_IIn x v a i ->
-    forall n, NStep v n ->
+    forall n, NStep (av_owner a) v n ->
     IIn a (i_subst x v i).
   Proof.
     intros x v a i H.
@@ -434,17 +432,17 @@ Section C1.
     - apply i_in_seq_r; eauto.
     - destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       econstructor; eauto.
-    - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
-      econstructor; eauto.
-      assert (~ NFree x (NNum n)) by auto using n_free_num.
-      assert (~ NFree y v) by eauto using n_step_to_not_free.
-      rewrite i_subst_subst_neq_3; eauto.
+   - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
+     econstructor; eauto.
+     assert (~ NFree x (NNum n)) by auto using n_free_num.
+     assert (~ NFree y v) by eauto using n_step_to_not_free.
+     rewrite i_subst_subst_neq_3; eauto.
   Qed.
 
   Lemma i_in_to_s_i_in:
     forall x v a i,
     IIn a (i_subst x v i) ->
-    forall n, NStep v n ->
+    forall n, NStep (av_owner a) v n ->
     S_IIn x v a i.
   Proof.
     intros x v a i Hi.
@@ -475,7 +473,7 @@ Section C1.
       eapply IHHi in r1; eauto.
       eapply s_i_in_for_neq; eauto.
   Qed.
-  *)
+
   (*
   Lemma b_data_subst:
     forall v v' n n1 x e b,
@@ -534,45 +532,38 @@ Section C1.
     eapply n_data_subst with (v':=v') in Hj; eauto.
   Qed.
   *)
-  (*
+
   Lemma i_in_subst:
     forall x a i v v' n,
-    NStep v n ->
-    NStep v' n ->
-    IIn a (i_subst x v i) ->
-    x <> TID ->
-    IIn a (i_subst x v' i).
+    Pure.NExp.NStep v n ->
+    Pure.NExp.NStep v' n ->
+    IIn a (i_subst x (from_pure v) i) ->
+    IIn a (i_subst x (from_pure v') i).
   Proof.
     intros.
+    apply n_step_pure with (tid:=av_owner a) in H.
+    apply n_step_pure with (tid:=av_owner a) in H0.
     eapply i_in_to_s_i_in in H1; eauto.
     eapply s_i_in_to_i_in; eauto.
     generalize dependent v'.
     generalize dependent n.
-    induction H1; intros; assert (r1: NEq v v') by eauto using n_eq_def.
+    induction H1; intros; assert (r1: NEq (av_owner a) (from_pure v) (from_pure v')) by eauto using n_eq_def.
     - constructor.
-      eapply access_step_proper; eauto.
-      2:{ reflexivity. }
-      unfold AIn in *.
-      assert (~ NFree x (NNum (av_owner a))) by auto using n_free_num.
-      assert (~ NFree TID v) by eauto using n_step_to_not_free.
-      assert (~ NFree TID v') by eauto using n_step_to_not_free.
-      rewrite access_subst_subst_neq_3 in H; auto.
-      rewrite access_subst_subst_neq_3; auto.
-      rewrite access_subst_subst_neq_3 with (x:=TID) (y:=x); auto.
-      rewrite r1.
-      reflexivity.
-    - apply s_i_in_if_true; eauto.
-      eapply b_data_subst with (v:=v); eauto.
-    - apply s_i_in_if_false; eauto.
-      eapply b_data_subst with (v:=v); eauto.
+      eapply a_step_proper; eauto.
+      apply eq_subst_proper.
+      assumption.
+    - apply s_i_in_if_true; eauto using b_eq_proper_6.
+    - apply s_i_in_if_false; eauto using b_eq_proper_6.
     - constructor; eauto.
     - eapply s_i_in_seq_r; eauto.
-    - eapply r_data_subst with (v':=v') in H; eauto.
-      eauto using s_i_in_for_eq.
-    - eapply r_data_subst with (v':=v') in H0; eauto.
-      eauto using s_i_in_for_neq.
+    - eapply s_i_in_for_eq; eauto.
+      rewrite <- r1.
+      assumption.
+    - eapply s_i_in_for_neq; eauto.
+      rewrite <- r1.
+      assumption.
   Qed.
-*)
+
   Lemma run_all_inv_in:
     forall n i h,
     RunAll n i h ->
@@ -1223,7 +1214,7 @@ Section C1.
     inversion H; subst; clear H.
     inversion H1; subst; clear H1; auto using c_in_def.
   Qed.
-(*
+
   Lemma c_in_subst:
     forall (x : VAR.t) (a : access_val) (i : inst) (v v' : Pure.NExp.nexp) (n : nat),
     Pure.NExp.NStep v n ->
@@ -1233,10 +1224,10 @@ Section C1.
   Proof.
     intros.
     invc H1.
-    eapply i_in_subst with (v':=v') in H1; eauto.
+    eapply i_in_subst with (v':=v') in H3; eauto.
     eauto using c_in_def.
   Qed.
-*)
+
   (* -------------------------------- C PAIR IN ---------------------- *)
 
   Inductive CPairIn : (access_val * access_val) -> inst -> Prop :=
