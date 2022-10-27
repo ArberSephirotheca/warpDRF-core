@@ -4,8 +4,6 @@ Require Import Coq.micromega.Lia.
 Require Import Tictac.
 Require Import Tasks.
 
-(* Require Import AExp. *)
-
 Require Pure.NExp.
 Require ULang.
 Require Align.

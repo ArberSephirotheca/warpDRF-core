@@ -185,46 +185,6 @@ Section Defs.
         assumption.
   Qed.
 
-(*
-  Lemma a_step_inv_tid:
-    forall e en n (l:list A),
-    AStep (e, en) l ->
-    NStep en n -> 
-    Forall (fun a=> av_owner a = n) l.
-  Proof.
-    intros.
-    rewrite Forall_forall; intros.
-    inversion H; subst; clear H.
-    destruct H1; subst. {
-      assert (nt = n) by eauto using n_step_fun.
-      simpl.
-      assumption.
-    }
-    contradiction.
-  Qed.
-*)
-(*
-  Lemma access_step_next:
-    forall x n a v,
-    AStep (subst x (NNum n) a, NNum n) v ->
-    forall m,
-    exists v',
-    AStep (subst x (NNum m) a, NNum m) v'.
-  Proof.
-    intros.
-    inversion H; subst; clear H.
-    inversion H3; subst; clear H3.
-    unfold subst in *.
-    apply n_step_subst_next with (m1:=m) in H2.
-    destruct H2 as (m1, Hn).
-    exists [{| av_owner := m; av_index := m1; av_mode := (ae_mode a)|} ].
-    apply step_def_eq.
-    simpl.
-    { apply Hn. }
-    { auto using n_step_num. }
-    { constructor. }
-  Qed.
-*)
   Lemma a_subst_to_pure_eq:
     forall tid v a,
     ~ Pure.NExp.NFree tid v ->
