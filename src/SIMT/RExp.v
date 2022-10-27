@@ -5,6 +5,7 @@ Require Import Coq.micromega.Lia.
 Import ListNotations.
 
 Require Pure.NExp.
+Require Pure.RExp.
 Require Import SIMT.NExp.
 Require Import Tictac.
 Require Import Util.
@@ -12,9 +13,13 @@ Require Import Util.
 Section Defs.
   Definition range := (nexp * nexp) % type.
 
+  Definition to_pure (tid:Pure.NExp.nexp) (r:range) : Pure.RExp.range :=
+    let (n1, n2) := r in
+    (NExp.to_pure tid n1, NExp.to_pure tid n2).
+
   Definition r_subst x v (r:range) :=
-  let (n1, n2) := r in
-  (n_subst x v n1, n_subst x v n2).
+    let (n1, n2) := r in
+    (n_subst x v n1, n_subst x v n2).
 
   Lemma r_subst_subst_neq_2:
     forall x y z n e,
@@ -86,6 +91,45 @@ Section Defs.
     match r with
     | (e1, e2) => NFree x e1 \/ NFree x e2
     end.
+
+  Lemma r_subst_to_pure:
+    forall r tid x (v:nexp),
+    ~ Pure.NExp.NFree x tid ->
+    to_pure tid (r_subst x v r) =
+    Pure.RExp.r_subst x (SIMT.NExp.to_pure tid v) (to_pure tid r).
+  Proof.
+    intros [e1 e2] y x v hneq.
+    unfold r_subst.
+    simpl.
+    repeat rewrite n_subst_to_pure; auto.
+  Qed.
+
+  Lemma r_subst_to_pure_eq:
+    forall tid v r,
+    ~ Pure.NExp.NFree tid v ->
+    ~ RFree tid r ->
+    Pure.RExp.r_subst tid v (to_pure (Pure.NExp.NVar tid) r)
+    = to_pure v r.
+  Proof.
+    intros.
+    destruct r as (e1, e2).
+    simpl in *.
+    f_equal.
+    all: rewrite n_subst_to_pure_eq; auto.
+  Qed.
+
+  Lemma r_free_to_pure:
+    forall x tid e,
+    ~ Pure.NExp.NFree x tid ->
+    Pure.RExp.RFree x (to_pure tid e) ->
+    RFree x e.
+  Proof.
+    intros.
+    destruct e as [e1 e2].
+    simpl in *.
+    intuition.
+    all: eauto using n_free_to_pure.
+  Qed.
 
   Lemma r_subst_not_free:
     forall x v r,
@@ -1466,6 +1510,40 @@ Section Defs.
     eauto using r_one_def, NExp.n_step_subst.
   Qed.
 
+  Lemma r_step_inv_pick:
+    forall r n r',
+    RStep r n r' ->
+    forall n',
+    RPick r n' ->
+    n = n' \/ RPick r' n'.
+  Proof.
+    intros.
+    invc H.
+    invc H0.
+    assert (n = n1) by eauto using n_step_fun; subst.
+    assert (n0 = n2) by eauto using n_step_fun; subst.
+    assert (Hx: n1 = n' \/ S n1 <= n' < n2) by lia.
+    destruct Hx; auto.
+    right.
+    eauto using r_pick_def.
+  Qed.
+
+  Lemma r_pick_to_pure:
+    forall r n,
+    Pure.RExp.RPick (to_pure (Pure.NExp.NNum tid) r) n <->
+    RPick r n.
+  Proof.
+    intros.
+    destruct r.
+    simpl.
+    split; intros.
+    all: invc H.
+    - rewrite n_step_to_pure in *.
+      eauto using r_pick_def.
+    - eapply RExp.r_pick_def; eauto.
+      all: rewrite n_step_to_pure.
+      all: auto.
+  Qed.
 End Defs.
 
 Module RExpNotations.

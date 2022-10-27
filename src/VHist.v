@@ -1,6 +1,6 @@
 Require Import Coq.Lists.List.
 
-Require Import AExp.
+Require Import AVal.
 Require Import PairInUtil.
 Require Import Tictac.
 Require Hist.
@@ -71,7 +71,7 @@ Section Defs.
     forall x y,
     MPairIn (x, y) m ->
     av_owner x <> av_owner y ->
-    AExp.Safe x y.
+    AVal.Safe x y.
 
   Fixpoint vhist_to_list (p:vhist) : list history :=
     match p with

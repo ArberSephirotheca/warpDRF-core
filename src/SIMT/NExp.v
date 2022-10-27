@@ -15,11 +15,24 @@ Section Defs.
   | NVar : var -> nexp
   | NBin : Pure.NExp.nbin ->  nexp -> nexp -> nexp.
 
-  Fixpoint from_pure (n:Pure.NExp.nexp) : nexp :=
+  Notation pexp := Pure.NExp.nexp.
+  Notation PNum := Pure.NExp.NNum.
+  Notation PVar := Pure.NExp.NVar.
+  Notation PBin := Pure.NExp.NBin.
+
+  Fixpoint from_pure (n:pexp) : nexp :=
     match n with
-    | Pure.NExp.NNum n => NNum n
-    | Pure.NExp.NVar x => NVar x
-    | Pure.NExp.NBin o e1 e2 => NBin o (from_pure e1) (from_pure e2)
+    | PNum n => NNum n
+    | PVar x => NVar x
+    | PBin o e1 e2 => NBin o (from_pure e1) (from_pure e2)
+    end.
+
+  Fixpoint to_pure (tid:pexp) (n:nexp) : pexp :=
+    match n with
+    | NNum n => PNum n
+    | NVar x => PVar x
+    | NBin o n1 n2 => PBin o (to_pure tid n1) (to_pure tid n2)
+    | NTid => tid
     end.
 
 End Defs.
@@ -28,6 +41,11 @@ Section SO.
 
   Variable tid: nat.
   Notation eval_nbin := Pure.NExp.eval_nbin.
+  Notation pexp := Pure.NExp.nexp.
+  Notation PNum := Pure.NExp.NNum.
+  Notation PVar := Pure.NExp.NVar.
+  Notation PBin := Pure.NExp.NBin.
+  Notation PStep := Pure.NExp.NStep.
 
   Inductive NStep: nexp -> nat -> Prop :=
   | n_step_tid:
@@ -63,7 +81,7 @@ Section SO.
 
   Lemma n_step_from_pure:
     forall e n,
-    Pure.NExp.NStep e n <->
+    PStep e n <->
     NStep (from_pure e) n.
   Proof.
     induction e; simpl in *; intros.
@@ -83,6 +101,70 @@ Section SO.
         * apply IHe2.
           assumption.
   Qed.
+
+  Lemma n_step_to_pure:
+    forall e n,
+    PStep (to_pure (Pure.NExp.NNum tid) e) n <-> NStep e n.
+  Proof.
+    split; intros.
+    - generalize dependent n.
+      induction e; simpl in *; intros; invc H.
+      + constructor.
+      + constructor.
+      + constructor; eauto.
+    - induction H.
+      + constructor.
+      + constructor.
+      + constructor; auto.
+  Qed.
+
+  Lemma n_subst_from_pure:
+    forall x v e,
+    n_subst x (from_pure v) (from_pure e) =
+    from_pure (Pure.NExp.n_subst x v e).
+  Proof.
+    induction e; intros; simpl.
+    - reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v0). {
+        reflexivity.
+      }
+      reflexivity.
+    - rewrite IHe1.
+      rewrite IHe2.
+      reflexivity.
+  Qed.
+
+  Lemma n_subst_to_pure:
+    forall n tid x (v:nexp),
+    ~ Pure.NExp.NFree x tid ->
+    to_pure tid (n_subst x v n) = Pure.NExp.n_subst x (to_pure tid v) (to_pure tid n).
+  Proof.
+    induction n; intros; simpl.
+    - rewrite NExp.n_subst_not_free; auto.
+    - reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        reflexivity.
+      }
+      simpl.
+      reflexivity.
+    - rewrite IHn1; auto.
+      rewrite IHn2; auto.
+  Qed.
+
+  Lemma to_pure_from_pure:
+    forall m n,
+    to_pure n (from_pure m) = m.
+  Proof.
+    induction m.
+    all: simpl.
+    all: intros p.
+    all: auto.
+    rewrite IHm1.
+    rewrite IHm2.
+    reflexivity.
+  Qed.
+
 
   Lemma n_step_subst_next:
     forall x a n1 n2,
@@ -386,20 +468,15 @@ Section SO.
     reflexivity.
   Qed.
 
-  Lemma n_subst_from_pure:
-    forall x v e,
-    n_subst x (from_pure v) (from_pure e) =
-    from_pure (Pure.NExp.n_subst x v e).
+  Lemma n_free_to_pure:
+    forall x tid e,
+    ~ Pure.NExp.NFree x tid ->
+    Pure.NExp.NFree x (to_pure tid e) ->
+    NFree x e.
   Proof.
-    induction e; intros; simpl.
-    - reflexivity.
-    - destruct (Set_VAR.MF.eq_dec x v0). {
-        reflexivity.
-      }
-      reflexivity.
-    - rewrite IHe1.
-      rewrite IHe2.
-      reflexivity.
+    intros.
+    induction e; simpl in *; intros; auto.
+    intuition.
   Qed.
 
   Lemma n_subst_not_free:
@@ -417,6 +494,33 @@ Section SO.
       }
       reflexivity.
     - simpl in *.
+      rewrite IHn1; auto.
+      rewrite IHn2; auto.
+  Qed.
+
+  Lemma n_subst_to_pure_eq:
+    forall tid v n,
+    ~ Pure.NExp.NFree tid v ->
+    ~ NFree tid n ->
+    Pure.NExp.n_subst tid v (to_pure (Pure.NExp.NVar tid) n)
+    = to_pure v n.
+  Proof.
+    intros.
+    induction n; intros.
+    all: simpl.
+    - destruct (Set_VAR.MF.eq_dec tid0 tid0). {
+        reflexivity.
+      }
+      contradiction.
+    - reflexivity.
+    - destruct (Set_VAR.MF.eq_dec tid0 v0). {
+        subst.
+        contradict H0.
+        simpl.
+        reflexivity.
+      }
+      reflexivity.
+    - simpl in H0.
       rewrite IHn1; auto.
       rewrite IHn2; auto.
   Qed.

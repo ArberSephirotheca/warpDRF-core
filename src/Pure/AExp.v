@@ -1,102 +1,78 @@
-Require Import SIMT.NExp.
-Require Import SIMT.BExp.
+Require Import Pure.NExp.
+Require Import Pure.BExp.
 Require Import Coq.Lists.List.
 Require Import Tictac.
+Require Import AVal.
 
 Import ListNotations.
 Section Defs.
-  Inductive mode := m_read | m_write.
-
-  Definition mode_eqb m1 m2 :=
-  match m1, m2 with
-  | m_read, m_read | m_write, m_write => true
-  | _, _ => false
-  end.
-
-  (** One dimension *)
-  Record access_val := {
-    av_owner : nat;
-    av_index: nat;
-    av_mode: mode;
-  }.
-
-  Variable tid : nat.
-
-  Definition av_write (index:nat) : access_val := {|
-    av_owner := tid;
-    av_index := index;
-    av_mode := m_write;
-  |}.
-
-  Definition av_read (index:nat) : access_val := {|
-    av_owner := tid;
-    av_index := index;
-    av_mode := m_write;
-  |}.
 
   Record access_exp := {
+    ae_owner: nexp;
     ae_index: nexp;
     ae_mode: mode;
   }.
 
-  Definition ae_write (index:nexp) := {|
+  Definition ae_write (owner:nexp) (index:nexp) := {|
+    ae_owner := owner;
     ae_index := index;
     ae_mode := m_write;
   |}.
 
-  Definition ae_read (index:nexp) := {|
+  Definition ae_read (owner:nexp) (index:nexp) := {|
+    ae_owner := owner;
     ae_index := index;
     ae_mode := m_write;
   |}.
 
   Definition a_subst x v e :=
   {|
+    ae_owner := n_subst x v (ae_owner e);
     ae_index := n_subst x v (ae_index e);
     ae_mode := ae_mode e
   |}.
 
   Inductive AStep : access_exp -> access_val -> Prop :=
   | a_step_def:
-    forall e_idx n_idx m,
-    NStep tid e_idx n_idx ->
-    AStep {| ae_index := e_idx; ae_mode := m |}
-          {| av_index := n_idx; av_owner := tid; av_mode := m |}.
+    forall e_index n_index m e_owner n_owner,
+    NStep e_owner n_owner ->
+    NStep e_index n_index ->
+    AStep {| ae_owner := e_owner; ae_index := e_index; ae_mode := m |}
+          {| av_owner := n_owner; av_index := n_index; av_mode := m |}.
 
-  Lemma a_step_inv_tid:
-    forall e a,
-    AStep e a ->
-    av_owner a = tid.
-  Proof.
-    intros.
-    invc H.
-    reflexivity.
-  Qed.
+  Definition AFree x (e:access_exp) :=
+    NFree x (ae_owner e) \/ NFree x (ae_index e).
 
   Definition access_eq x y :=
     ae_mode x = ae_mode y /\
-    NEq tid (ae_index x) (ae_index y).
+    NEq (ae_owner x) (ae_owner y) /\
+    NEq (ae_index x) (ae_index y).
 
   Lemma a_step_write:
-    forall e n,
-    NStep tid e n ->
-    AStep (ae_write e) (av_write n).
+    forall e_owner n_owner e_index n_index,
+    NStep e_owner n_owner ->
+    NStep e_index n_index ->
+    AStep (ae_write e_owner e_index) (av_write n_owner n_index).
   Proof.
     unfold ae_write, av_write.
     intros.
     constructor.
-    assumption.
+    all: assumption.
   Qed.
 
   Lemma a_step_read:
-    forall e n,
-    NStep tid e n ->
-    AStep (ae_read e) (av_read n).
+    forall e_owner n_owner e_index n_index,
+    NStep e_owner n_owner ->
+    NStep e_index n_index ->
+    AStep (ae_read e_owner e_index) (av_read n_owner n_index).
   Proof.
     unfold ae_read, av_read.
     intros.
     constructor.
-    assumption.
+    all: assumption.
   Qed.
+
+(*
   Lemma ae_read_subst_commute:
     forall x v e,
     ae_read (n_subst x v e) =
@@ -149,15 +125,7 @@ Section Defs.
     rewrite H0.
     reflexivity.
   Qed.
-
-  Definition Conflict (a1 a2:access_val) :=
-    av_owner a1 <> av_owner a2 /\
-    av_index a1 = av_index a2 /\
-    (av_mode a1 = m_write \/ av_mode a2 = m_write).
-
-  Definition Safe (a1 a2:access_val) :=
-    ~ Conflict a1 a2.
-
+*)
   Lemma a_step_fun:
     forall e v1 v2,
     AStep e v1 ->
@@ -168,9 +136,9 @@ Section Defs.
     invc H.
     invc H0.
     f_equal.
-    eauto using n_step_fun.
+    all: eauto using n_step_fun.
   Qed.
-
+(*
   Lemma a_safe_eq_tid:
     forall v1 v2,
     av_owner v1 = av_owner v2 -> 
@@ -239,7 +207,7 @@ Section Defs.
     unfold not.
     intuition.
   Qed.
-
+  *)
   Lemma a_subst_subst_eq:
     forall x n1 n2 a,
     a_subst x (NNum n1) (a_subst x (NNum n2) a) = a_subst x (NNum n2) a.
@@ -247,10 +215,10 @@ Section Defs.
     intros.
     unfold a_subst.
     simpl.
-    rewrite NExp.n_subst_subst_eq.
+    repeat rewrite NExp.n_subst_subst_eq.
     reflexivity.
   Qed.
-
+(*
   Lemma a_subst_subst_eq_2: 
     forall (x : Var.var) n v e ,
     ~ NFree x v ->
@@ -261,7 +229,7 @@ Section Defs.
     simpl.
     rewrite NExp.n_subst_subst_eq_2; auto.
   Qed.
-
+  *)
 
   Lemma a_subst_subst_neq:
     forall x y n1 n2 a,
@@ -272,9 +240,8 @@ Section Defs.
     unfold a_subst.
     intros.
     simpl.
-    rewrite NExp.n_subst_subst_neq.
-    { reflexivity. }
-    { apply H. }
+    f_equal.
+    all: rewrite NExp.n_subst_subst_neq; auto.
   Qed.
 
   Lemma a_subst_subst_neq_2:
@@ -288,10 +255,8 @@ Section Defs.
     unfold a_subst.
     intros.
     simpl.
-    rewrite NExp.n_subst_subst_neq_2.
-    { reflexivity. }
-    { apply H0. }
-    { apply H. }
+    rewrite NExp.n_subst_subst_neq_2; auto.
+    rewrite NExp.n_subst_subst_neq_2; auto.
   Qed.
 
   Lemma a_subst_subst_neq_3 : 
@@ -305,11 +270,8 @@ Section Defs.
     unfold a_subst.
     intros.
     simpl.
-    rewrite NExp.n_subst_subst_neq_3.
-    { reflexivity. }
-    { apply H. }
-    { apply H0. }
-    { apply H1. }
+    f_equal.
+    all: rewrite NExp.n_subst_subst_neq_3; auto.
   Qed.
 
   Lemma a_subst_subst_neq_5 : 
@@ -322,12 +284,10 @@ Section Defs.
     unfold a_subst.
     intros.
     simpl.
-    rewrite NExp.n_subst_subst_neq_5.
-    { reflexivity. }
-    { apply H. }
-    { apply H0. }
+    f_equal.
+    all: rewrite NExp.n_subst_subst_neq_5; auto.
   Qed.
-
+(*
   Lemma a_subst_subst_eq_1 : 
       forall (e1 e2 : nexp) (x : Var.VAR.t) a,
        a_subst x e1 (a_subst x e2 a) = a_subst x (n_subst x e1 e2) a.
@@ -335,35 +295,36 @@ Section Defs.
     unfold a_subst.
     intros.
     simpl.
-    rewrite NExp.n_subst_subst_eq_1.
+    f_equal.
+    all: rewrite NExp.n_subst_subst_eq_1; auto.
     reflexivity.
   Qed.
-
+*)
   Lemma a_subst_subst_trans:
     forall e (x : Var.var) v (y : Var.VAR.t),
-    ~ NFree x (ae_index e) ->
+    ~ AFree x e ->
     a_subst x v (a_subst y (NVar x) e) = a_subst y v e.
   Proof.
-    unfold In, a_subst.
+    unfold AFree, In, a_subst.
     intros.
     simpl in *.
-    rewrite NExp.n_subst_subst_trans.
-    { reflexivity. }
-    { apply H. }
+    f_equal.
+    all: rewrite NExp.n_subst_subst_trans; auto.
   Qed.
 
   Lemma a_subst_not_free
      : forall (x : Var.var) v n,
-     ~ NFree x (ae_index n) ->
+     ~ AFree x n ->
      a_subst x v n = n.
   Proof.
-    unfold a_subst.
-    intros.
-    rewrite NExp.n_subst_not_free.
-    { destruct n. simpl. reflexivity. } 
-    { apply H. }
+    unfold a_subst, AFree.
+    intros x v (o, i, m) Ha.
+    simpl in *.
+    f_equal.
+    all: rewrite NExp.n_subst_not_free; auto.
   Qed.
 
+  (*
   Lemma a_subst_not_in: 
     forall x (e:access_exp) v,
     ~ NFree x (ae_index e) ->
@@ -376,21 +337,20 @@ Section Defs.
     f_equal.
     eauto using n_subst_not_free.
   Qed.
-
-  Lemma a_in_subst_neq:
+*)
+  Lemma a_free_inv_subst:
     forall e x y v,
-    NFree x (ae_index (a_subst y v e)) ->
+    AFree x (a_subst y v e) ->
     ~ NFree x v ->
-    NFree x (ae_index e).
+    AFree x e.
   Proof.
-    unfold a_subst.
+    unfold AFree, a_subst.
     simpl.
     intros.
-    apply n_free_inv_subst in H.
     intuition.
+    all: apply n_free_inv_subst in H1.
+    all: intuition.
   Qed.
-
-  Notation NEq := (NEq tid).
 
   Lemma a_step_proper:
     forall e' e v,
@@ -404,22 +364,51 @@ Section Defs.
     destruct e'.
     simpl in *.
     subst.
+    intuition.
     constructor.
-    apply H2.
-    assumption.
+    - rewrite <- H.
+      assumption.
+    - rewrite <- H0.
+      assumption.
+  Qed.
+
+  Lemma ae_owner_subst:
+    forall x v e,
+    ae_owner (a_subst x v e)
+    = n_subst x v (ae_owner e).
+  Proof.
+    intros.
+    unfold ae_owner.
+    destruct e; simpl.
+    reflexivity.
+  Qed.
+
+  Lemma ae_index_subst:
+    forall x v e,
+    ae_index (a_subst x v e)
+    = n_subst x v (ae_index e).
+  Proof.
+    intros.
+    unfold ae_index.
+    destruct e; simpl.
+    reflexivity.
   Qed.
 
   Lemma a_free_subst_neq : 
-    forall e (x y : Var.var) (v : nexp),
-    NFree x (ae_index (a_subst y v e)) ->
+    forall e (x y : Var.var) (v:nexp),
+    AFree x (a_subst y v e) ->
     ~ NFree x v ->
-    NFree x (ae_index e).
+    AFree x e.
   Proof.
+    unfold AFree.
     intros.
-    simpl in *.
-    eauto using n_free_subst_neq.
+    rewrite ae_index_subst in *.
+    rewrite ae_owner_subst in *.
+    intuition.
+    all: eauto using n_free_subst_neq.
   Qed.
 
+(*
   Lemma eq_subst_proper:
     forall (x : Var.var) (v v' : nexp) e,
     NEq v v' -> access_eq (a_subst x v e) (a_subst x v' e).
@@ -484,5 +473,5 @@ Section Defs.
     intros.
     apply a_in_subst_neq in H1; auto.
   Qed.
-
+*)
 End Defs.

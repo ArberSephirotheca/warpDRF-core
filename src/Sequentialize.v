@@ -4,9 +4,10 @@ Require Import Coq.micromega.Lia.
 Require Import Util.
 
 Require Import Var.
-Require Import NExp.
-Require Import BExp.
-Require Import AExp.
+Require Import Pure.NExp.
+Require Import Pure.BExp.
+Require Import Pure.AExp.
+Require Import Pure.RExp.
 Require Import Tasks.
 Require Import Tictac.
 
@@ -15,42 +16,48 @@ Require TLang.
 Import ListNotations.
 
 Section Defs.
-  Context {A:Access}.
   Context {T:Tasks}.
+  Section TRACE.
+  Variable tid:Pure.NExp.nexp.
 
   Fixpoint trace (c:ULang.inst) : TLang.inst :=
     match c with
     | ULang.Skip => TLang.Skip
     | ULang.Seq i j => TLang.Seq (trace i) (trace j)
-    | ULang.If b i j => TLang.If b (trace i) (trace j)
-    | ULang.MemAcc a => TLang.MemAcc a (NVar TID)
-    | ULang.For x r i => TLang.Decl x r (trace i)
+    | ULang.If b i j => TLang.If (BExp.to_pure tid b) (trace i) (trace j)
+    | ULang.MemAcc a => TLang.MemAcc (AExp.to_pure tid a)
+    | ULang.For x r i => TLang.Decl x (RExp.to_pure tid r) (trace i)
     end.
-
-  Definition do_trace x i := TLang.i_subst TID (NVar x) (trace i).
+  End TRACE.
 
   Definition sequentialize c : TLang.inst :=
     TLang.Decl T1 (NNum 1, NNum TID_COUNT)
       (TLang.Decl T2 (NNum 0, NVar T1)
-        (TLang.Seq (do_trace T1 c) (do_trace T2 c))).
-
-
+        (TLang.Seq (trace (NVar T1) c) (trace (NVar T2) c))).
 
   (* ----------------------- SUBSTITUTION --------------------------- *)
 
   Lemma i_subst_trace_rw:
-    forall x i n,
-    x <> TID ->
-    trace (ULang.i_subst x (NNum n) i) = TLang.i_subst x (NNum n) (trace i).
+    forall tid x i n,
+    ~ NFree x tid ->
+    trace tid (ULang.i_subst x (NExp.NNum n) i) =
+    TLang.i_subst x (NNum n) (trace tid i).
   Proof.
-    induction i; simpl; intros; destruct (Set_VAR.MF.eq_dec x TID); try contradiction.
+    induction i; simpl; intros.
     - reflexivity.
     - rewrite IHi1; auto.
+      rewrite BExp.b_subst_to_pure; auto.
       rewrite IHi2; auto.
     - rewrite IHi1; auto.
       rewrite IHi2; auto.
-    - reflexivity.
-    - destruct (Set_VAR.MF.eq_dec x v). {
+    - rewrite NExp.n_subst_to_pure; auto.
+      simpl in *.
+      destruct a.
+      unfold a_subst.
+      simpl.
+      rewrite n_subst_not_free with (n:=tid); auto.
+    - rewrite RExp.r_subst_to_pure; auto.
+      destruct (Set_VAR.MF.eq_dec x v). {
         auto.
       }
       rewrite IHi; auto.
@@ -58,195 +65,195 @@ Section Defs.
 
   (* ---------------------------- IN PROJECTION -------------------- *)
 
-   Lemma in_trace_to_in:
-    forall x i,
-    x <> TID ->
-    TLang.Occurs x (trace i) ->
+  Lemma in_trace_to_in:
+    forall x tid i,
+    ~ NFree x tid ->
+    TLang.Occurs x (trace tid i) ->
     ULang.Occurs x i.
   Proof.
-    induction i; simpl; intros; inversion H0; subst; clear H0; auto.
-    + destruct H1; auto.
-    + contradiction.
-    + destruct H1; auto.
+    induction i; simpl; intros; auto.
+    all: intuition.
+    - eauto using BExp.b_free_to_pure.
+    - destruct a.
+      unfold AFree in *.
+      simpl in *.
+      intuition.
+      eauto using NExp.n_free_to_pure. 
+    - eauto using RExp.r_free_to_pure.
   Qed.
 
   Lemma var_inv_trace:
-    forall x i,
-    TLang.Var x (trace i) ->
+    forall x i tid,
+    TLang.Var x (trace tid i) ->
     ULang.Var x i.
   Proof.
-    induction i; simpl; intros.
-    - assumption.
-    - destruct H; auto.
-    - destruct H; auto.
-    - assumption.
-    - destruct H; auto.
+    induction i.
+    all: simpl.
+    all: intros.
+    all: intuition.
+    all: eauto.
   Qed.
 
   (* ------------------------- IN PROJECTION ----------------------- *)
 
-  Inductive PIn a n: ULang.inst -> Prop :=
+  Inductive PIn a: ULang.inst -> Prop :=
   | p_in_access:
     forall e,
-    access_step (access_subst TID (NNum n) e, NNum n) a -> 
-    PIn a n (ULang.MemAcc e)
+    SIMT.AExp.AStep (AVal.av_owner a) e a ->
+    PIn a (ULang.MemAcc e)
   | p_in_seq_l:
     forall i j,
-    PIn a n i ->
-    PIn a n (ULang.Seq i j)
+    PIn a i ->
+    PIn a (ULang.Seq i j)
   | p_in_seq_r:
     forall i j,
-    PIn a n j ->
-    PIn a n (ULang.Seq i j)
+    PIn a j ->
+    PIn a (ULang.Seq i j)
   | p_in_if_true:
     forall b i j,
-    BData n b true ->
-    PIn a n i ->
-    PIn a n (ULang.If b i j)
+    SIMT.BExp.BStep (AVal.av_owner a) b true ->
+    PIn a i ->
+    PIn a (ULang.If b i j)
   | p_in_if_false:
     forall b i j,
-    BData n b false ->
-    PIn a n j ->
-    PIn a n (ULang.If b i j)
+    SIMT.BExp.BStep (AVal.av_owner a) b false ->
+    PIn a j ->
+    PIn a (ULang.If b i j)
   | p_in_for:
-    forall e1 e2 n' n1 n2 x i,
-    NData n e1 n1 ->
-    NData n e2 n2 ->
-    n1 <= n' < n2 ->
-    PIn a n (ULang.i_subst x (NNum n') i) ->
-    PIn a n (ULang.For x (e1, e2) i)
+    forall r n x i,
+    SIMT.RExp.RPick (AVal.av_owner a) r n ->
+    PIn a (ULang.i_subst x (SIMT.NExp.NNum n) i) ->
+    PIn a (ULang.For x r i)
   .
 
-
-  Lemma s_in_to_p_in:
-    forall a n i,
-    ~ ULang.Var TID i ->
-    TLang.SIn a n (trace i) ->
-    PIn a n i.
+  Lemma n_step_to_pure:
+    forall tid e n,
+    NStep (NExp.to_pure (NNum tid) e) n ->
+    NExp.NStep tid e n.
   Proof.
-    intros a n i Hv Hi.
-    remember (trace i) as j.
+    induction e; simpl; intros.
+    all: invc H.
+    - constructor.
+    - constructor.
+    - constructor.
+      all: auto.
+  Qed.
+
+  Lemma b_step_to_pure:
+    forall tid e n,
+    BStep (BExp.to_pure (NNum tid) e) n ->
+    BExp.BStep tid e n.
+  Proof.
+    induction e; simpl; intros.
+    all: invc H.
+    all: constructor.
+    all: auto using n_step_to_pure.
+  Qed.
+(*
+  Lemma r_step_to_pure:
+    forall tid e n,
+    RStep (r_to_pure (NNum tid) e) n ->
+    RExp.RStep tid e n.
+  Proof.
+  Qed.
+*)
+  Lemma i_in_to_p_in:
+    forall a i,
+    TLang.IIn a (trace (NNum (AVal.av_owner a)) i) ->
+    PIn a i.
+  Proof.
+    intros a i Hi.
+    remember (trace _ i) as j.
     generalize dependent i.
-    induction Hi; intros i' Hv Heq.
-    - destruct i'; inversion Heq; subst; clear Heq.
+    induction Hi; intros i' Heq.
+    all: destruct i'.
+    all: invc Heq.
+    all: simpl in *.
+    - destruct a0.
       simpl in *.
-      remove_eq TID TID.
-      eapply p_in_access; eauto.
-    - destruct i'; inversion Heq; subst; clear Heq.
+      invc H.
       simpl in *.
-      apply p_in_seq_l; auto.
-    - destruct i'; inversion Heq; subst; clear Heq.
-      simpl in *.
-      apply p_in_seq_r; auto.
-    - destruct i'; inversion Heq; subst; clear Heq.
-      simpl in *.
-      apply p_in_if_true; auto.
-    - destruct i'; inversion Heq; subst; clear Heq.
-      simpl in *.
-      apply p_in_if_false; auto.
-    - destruct i'; inversion Heq; subst; clear Heq.
-    - destruct i'; inversion Heq; subst; clear Heq.
-    - destruct i'; inversion Heq; subst; clear Heq.
-      eapply p_in_for; eauto.
-      simpl in *.
-      assert (TID <> v) by auto.
+      constructor.
+      constructor.
+      eauto using n_step_to_pure.
+    - constructor; auto.
+    - constructor 3; auto.
+    - eauto using p_in_if_true, b_step_to_pure.
+    - eauto using p_in_if_false, b_step_to_pure.
+    - (*destruct i'; inversion Heq; subst; clear Heq.*)
+      apply RExp.r_pick_to_pure in H.
+      apply p_in_for with (n:=n); auto.
       apply IHHi.
-      + intros N.
-        apply ULang.var_inv_subst in N.
-        auto.
-      + rewrite i_subst_trace_rw; auto.
+      rewrite i_subst_trace_rw; auto.
   Qed.
 
-  Lemma p_in_to_s_in:
-    forall a n i,
-    ~ ULang.Var TID i ->
-    PIn a n i ->
-    TLang.SIn a n (trace i).
+  Lemma p_in_to_i_in:
+    forall a i,
+    PIn a i ->
+    TLang.IIn a (trace (NNum (AVal.av_owner a)) i).
   Proof.
-    intros a n i Hv Hi.
-    generalize dependent Hv.
-    induction Hi; intros Hv; simpl.
-    - eapply TLang.s_in_access; eauto.
-      simpl.
-      remove_eq TID TID.
+    intros a i Hi.
+    induction Hi; simpl.
+    - eapply TLang.i_in_access; eauto.
+      rewrite AExp.a_step_to_pure.
       assumption.
-    - simpl in *.
-      apply TLang.s_in_seq_l; auto.
-    - simpl in *.
-      apply TLang.s_in_seq_r; auto.
-    - simpl in *.
-      apply TLang.s_in_if_true; auto.
-    - simpl in *.
-      apply TLang.s_in_if_false; auto.
-    - simpl in *.
-      assert (TID <> x) by auto.
-      eapply TLang.s_in_decl; eauto.
+    - apply TLang.i_in_seq_l; auto.
+    - apply TLang.i_in_seq_r; auto.
+    - apply TLang.i_in_if_true; auto.
+      rewrite BExp.b_step_to_pure.
+      assumption.
+    - apply TLang.i_in_if_false; auto.
+      rewrite BExp.b_step_to_pure.
+      assumption.
+    - rewrite <- RExp.r_pick_to_pure in H.
+      apply TLang.i_in_decl with (n:=n); auto.
       rewrite <- i_subst_trace_rw; auto.
-      apply IHHi.
-      intros N.
-      apply ULang.var_inv_subst in N.
-      auto.
   Qed.
 
-  Lemma s_in_p_in_iff:
-    forall a n i,
-    ~ ULang.Var TID i ->
-    PIn a n i <-> TLang.SIn a n (trace i).
+  Lemma i_in_p_in_iff:
+    forall a i,
+    PIn a i <-> TLang.IIn a (trace (NNum (AVal.av_owner a)) i).
   Proof.
-    split; auto using s_in_to_p_in, p_in_to_s_in.
+    split; auto using i_in_to_p_in, p_in_to_i_in.
   Qed.
-
+(*
   Lemma p_in_inv_access_tid:
     forall a n i,
-    PIn a n i ->
-    access_tid a = n.
+    PIn a i ->
+    AVal.av_owner a = n.
   Proof.
     intros.
     induction H; intros; auto.
     eapply access_step_inv_tid; eauto using n_step_num.
   Qed.
-
+*)
 
   (* ----------------------------- IN TRANSLATION ------------------ *)
 
   Lemma u_in_to_p_in:
     forall a i,
     ULang.IIn a i ->
-    PIn a (access_tid a) i.
+    PIn a i.
   Proof.
     intros a i Hi.
     induction Hi; intros;
       eauto using p_in_access,
         p_in_seq_l, p_in_seq_r,
         p_in_if_true, p_in_if_false.
-    destruct r as (e1, e2).
-    inversion_clear H.
-   eapply p_in_for; eauto.
+    eapply p_in_for; eauto.
   Qed.
 
   Lemma p_in_to_u_in:
-    forall a n i,
-    PIn a n i ->
+    forall a i,
+    PIn a i ->
     ULang.IIn a i.
   Proof.
     intros.
-    assert (Heq: access_tid a = n) by eauto using p_in_inv_access_tid.
-    generalize dependent Heq.
     induction H; intros; auto using ULang.i_in_seq_l, ULang.i_in_seq_r.
-    - rewrite <- Heq in *.
-      eauto using ULang.i_in_access.
+    - eauto using ULang.i_in_access.
     - apply ULang.i_in_if_true; auto.
-      rewrite Heq.
-      assumption.
     - apply ULang.i_in_if_false; auto.
-      rewrite Heq.
-      assumption.
     - eapply ULang.i_in_for; eauto.
-      split.
-      + rewrite Heq.
-        assumption.
-      + rewrite Heq.
-        assumption.
   Qed.
 
   (* ------------------------- TIN TO IIN ------------------------ *)
@@ -254,7 +261,8 @@ Section Defs.
   Lemma not_var_trace:
     forall x i,
     ~ ULang.Var x i ->
-    ~ TLang.Var x (trace i).
+    forall tid,
+    ~ TLang.Var x (trace tid i).
   Proof.
     intros.
     intros N.
@@ -263,34 +271,27 @@ Section Defs.
   Qed.
 
   Lemma u_in_to_t_in:
-    forall i,
-    ~ ULang.Var TID i ->
-    forall a,
+    forall a i,
     ULang.IIn a i ->
-    TLang.IIn a (TLang.i_subst TID (NNum (access_tid a)) (trace i)).
+    TLang.IIn a (trace (NNum (AVal.av_owner a)) i).
   Proof.
     intros.
-    apply TLang.s_in_to_i_in; auto using not_var_trace.
-    apply p_in_to_s_in; auto.
+    apply p_in_to_i_in; auto.
     apply u_in_to_p_in; auto.
   Qed.
 
   Lemma t_in_to_u_in:
-    forall i,
-    ~ ULang.Var TID i ->
-    forall a,
-    TLang.IIn a (TLang.i_subst TID (NNum (access_tid a)) (trace i)) ->
+    forall a i,
+    TLang.IIn a (trace (NNum (AVal.av_owner a)) i) ->
     ULang.IIn a i.
   Proof.
-    intros i Hv a Hi.
+    intros.
     eapply p_in_to_u_in; eauto.
-    apply s_in_to_p_in; eauto.
-    apply TLang.i_in_to_s_in; eauto using not_var_trace.
+    apply i_in_to_p_in; eauto.
   Qed.
-
+(*
   Lemma i_in_inv_access_tid:
     forall a t i,
-    ~ ULang.Var TID i ->
     TLang.IIn a (TLang.i_subst TID (NNum t) (trace i)) ->
     t = access_tid a.
   Proof.
@@ -300,33 +301,57 @@ Section Defs.
     apply p_in_inv_access_tid in Hi.
     auto.
   Qed.
+*)
+  Lemma i_subst_trace_eq:
+    forall v tid i,
+    ~ NFree tid v ->
+    ~ ULang.Occurs tid i ->
+    TLang.i_subst tid v (trace (NVar tid) i) =
+    trace v i.
+  Proof.
+    induction i; simpl; intros.
+    all: auto.
+    - rewrite IHi1; auto.
+      rewrite IHi2; auto.
+      rewrite BExp.b_subst_to_pure_eq; auto.
+    - rewrite IHi1; auto.
+      rewrite IHi2; auto.
+    - rewrite AExp.a_subst_to_pure_eq; auto.
+    - rewrite IHi; auto.
+      destruct (Set_VAR.MF.eq_dec tid v0). {
+        subst.
+        intuition.
+      }
+      rewrite RExp.r_subst_to_pure_eq; auto.
+  Qed.
 
   Lemma i_in_sequentialize_to_t_in:
     forall i,
-    ~ ULang.Var TID i ->
     ~ ULang.Occurs T1 i ->
     ~ ULang.Occurs T2 i ->
     forall a,
     TLang.IIn a (sequentialize i) ->
-    ULang.IIn a i /\ access_tid a < TID_COUNT.
+    ULang.IIn a i /\ AVal.av_owner a < TID_COUNT.
   Proof.
-    intros i Hv t1_nin t2_nin a Hi.
+    intros i t1_nin t2_nin a Hi.
     unfold sequentialize in Hi.
 
-    inversion Hi; subst; clear Hi.
+    invc Hi.
 
     (* Useful results *)
-    assert (t1_nin_p: ~ TLang.Occurs T1 (trace i)). {
+    (*
+    assert (t1_nin_p: ~ TLang.Occurs T1 (trace (NVar T1) i)). {
       intros N.
-      apply in_trace_to_in in N; auto using t1_neq_tid.
+      apply in_trace_to_in in N; auto.
     }
     assert (t2_nin_p: ~ TLang.Occurs T2 (trace i)). {
       intros N.
       apply in_trace_to_in in N; auto using t2_neq_tid.
     }
-
+    *)
 
     (* Remove temporary variables introduced in NStep *)
+    (*
     assert (n1 = 1) by eauto using n_step_fun, n_step_num.
     assert (n2 = TID_COUNT) by eauto using n_step_fun, n_step_num.
     subst.
@@ -336,6 +361,7 @@ Section Defs.
     match goal with
       H: _ <= ?n < _ |- _ => rename n into t1
     end.
+    *)
 
     (* Rename assumption (IIn a ...) *)
     match goal with
@@ -346,7 +372,8 @@ Section Defs.
     simpl in Hi.
     remove_eq T1 T2.
     remove_eq T1 T1.
-    inversion Hi; subst; clear Hi.
+    invc Hi.
+    (*
     assert (n1 = 0) by eauto using n_step_fun, n_step_num.
     assert (n2 = t1) by eauto using n_step_fun, n_step_num.
     subst.
@@ -356,37 +383,49 @@ Section Defs.
     match goal with
       H: 0 <= ?n < _ |- _ => rename n into t2
     end.
+    *)
 
     rename_hyp (TLang.IIn _ _) as Hi.
     simpl in Hi.
     (* Is a in T1 or in T2? *)
-    unfold do_trace in *.
     (* Remove subst T1 (subst TID ... ) *)
     rewrite TLang.i_subst_not_occurs in Hi.
     2: {
       intros N.
       apply TLang.i_occurs_inv_subst_neq_num in N; auto.
-      apply TLang.i_occurs_inv_subst in N; auto using t1_neq_t2, t2_neq_tid.
+      apply in_trace_to_in in N; auto.
+      simpl.
+      auto using t1_neq_t2.
     }
+    (*
     (* Remove subs T1 (subs TID T1 ...) *)
     rewrite TLang.i_subst_subst_trans in Hi; auto.
     rewrite TLang.i_subst_subst_neq in Hi; auto using t1_neq_t2.
     (* Remove subs T2 (subs TID T2 ...) *)
     rewrite TLang.i_subst_subst_trans in Hi; auto.
-
     rewrite TLang.i_subst_not_occurs with (x:=T1) in Hi.
     2: {
       intros N.
       apply TLang.i_occurs_subst_neq in N; auto using t1_neq_t2, t1_neq_tid.
     }
-
-    inversion Hi; subst; clear Hi;
-    rename_hyp (TLang.IIn _ _) as Hi.
+  *)
+    invc Hi.
+    all: rename_hyp (TLang.IIn _ _) as Hi.
     - (* a is in T1 *)
-      assert (R:  t1 = access_tid a) by eauto using i_in_inv_access_tid.
-      rewrite R in Hi.
-      auto using t_in_to_u_in with *.
+      rewrite i_subst_trace_eq in Hi; auto.
+      admit.
+(*       apply t_in_to_u_in in Hi. *)
     - (* a is in T2 *)
+      
+(*     rewrite TLang.i_subst_subst_trans in Hi; auto. *)
+    rewrite TLang.i_subst_not_occurs with (x:=T1) in Hi.
+    2: {
+      intros N.
+      apply in_trace_to_in in N; auto.
+      simpl.
+      auto using t1_neq_t2.
+    }
+
       assert (R:  t2 = access_tid a) by eauto using i_in_inv_access_tid.
       rewrite R in Hi.
       auto using t_in_to_u_in with *.

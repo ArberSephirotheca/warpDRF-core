@@ -10,7 +10,8 @@ Require Import Pure.NExp.
 Require SIMT.NExp.
 Require Import Pure.RExp.
 Require Import Pure.BExp.
-Require Import AExp.
+Require Import SIMT.AExp.
+Require Import AVal.
 Require Import Tasks.
 Require Import InUtil.
 Require Import PairInUtil.
@@ -2661,7 +2662,7 @@ Section Defs.
   Definition DRF P :=
     forall p,
     IPairIn p P ->
-    AExp.Safe (fst p) (snd p).
+    AVal.Safe (fst p) (snd p).
 
 End Defs.
 

@@ -1,6 +1,6 @@
 Require Import Coq.Lists.List.
 
-Require Import AExp.
+Require Import AVal.
 Require Import Util.
 Require Import SetTh.
 Require Import Util.
@@ -10,7 +10,6 @@ Require Import PairInUtil.
 Import ListNotations.
 
 Section Defs.
-  Context {A:Access}.
   Notation history := (list access_val).
   Definition MemEquiv (m1 m2:list history) :=
     forall p,
@@ -652,7 +651,6 @@ End Defs.
 
 
 Section Member.
-  Context `{A:Access}.
   Definition Member {A} l a := List.In (A:=A) a l.
 
   Inductive PMember {A : Type} {B: Type} (P: B -> list A -> Prop) (ls : B) (a:A)  : Prop :=

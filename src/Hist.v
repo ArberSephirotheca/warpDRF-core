@@ -1,7 +1,7 @@
 Require Import Coq.Lists.List.
 Require Import Coq.micromega.Lia.
 
-Require Import AExp.
+Require Import AVal.
 Require Import InUtil.
 Require Import PairInUtil.
 Require Import Util.
@@ -12,9 +12,9 @@ Section Defs.
 
   Notation history := (list access_val).
 
-  Definition Safe2 (h1 h2:history) := forall x y, List.In x h1 -> List.In y h2 -> AExp.Safe x y.
+  Definition Safe2 (h1 h2:history) := forall x y, List.In x h1 -> List.In y h2 -> AVal.Safe x y.
 
-  Notation access_safe := AExp.Safe.
+  Notation access_safe := AVal.Safe.
 
   Definition Safe (h:history) := forall x y, List.In x h -> List.In y h -> access_safe x y.
 

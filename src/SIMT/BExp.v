@@ -2,13 +2,10 @@ Require Import Coq.Lists.List.
 Require Import Var.
 Import ListNotations.
 Require Import SIMT.NExp.
+Require Import Pure.BExp.
 Require Import Tictac.
 
 Section Defs.
-
-  Inductive nrel := NEquals | NLe | NLt.
-
-  Inductive brel := BOr | BAnd.
 
   Inductive bexp :=
   | BBool: bool -> bexp
@@ -19,22 +16,24 @@ Section Defs.
 End Defs.
 
 Section SO.
+  Notation p_nexp := Pure.NExp.nexp.
+  Notation P_NVar := Pure.NExp.NVar.
+  Notation p_bexp := Pure.BExp.bexp.
+  Notation P_NRel := Pure.BExp.NRel.
+  Notation P_BRel := Pure.BExp.BRel.
+  Notation P_BNot := Pure.BExp.BNot.
+  Notation P_BBool := Pure.BExp.BBool.
 
-  Definition eval_nrel (o:nrel) :=
-  match o with
-  | NEquals => Nat.eqb
-  | NLt => Nat.ltb
-  | NLe => Nat.leb
-  end.
-
-  Definition eval_brel (o:brel) :=
-  match o with
-  | BOr => orb
-  | BAnd => andb
-  end.
+  Fixpoint to_pure (tid:p_nexp) (b:bexp) : p_bexp :=
+    match b with
+    | NRel o n1 n2 => P_NRel o (SIMT.NExp.to_pure tid n1) (SIMT.NExp.to_pure tid n2)
+    | BRel o b1 b2 => P_BRel o (to_pure tid b1) (to_pure tid b2)
+    | BNot b => P_BNot (to_pure tid b)
+    | BBool b => P_BBool b
+    end.
 
   Variable tid: nat.
-  Notation NStep := (NStep tid).
+  Notation NStep := (NStep tid).  
 
   Inductive BStep: bexp -> bool -> Prop :=
   | b_step_bool:
@@ -56,12 +55,47 @@ Section SO.
     BStep (BNot e) (negb b).
 
   Fixpoint b_subst x v e :=
-  match e with
-  | NRel o e1 e2 => NRel o (n_subst x v e1) (n_subst x v e2)
-  | BRel o e1 e2 => BRel o (b_subst x v e1) (b_subst x v e2)
-  | BNot b => BNot (b_subst x v b)
-  | BBool b => BBool b
-  end.
+    match e with
+    | NRel o e1 e2 => NRel o (n_subst x v e1) (n_subst x v e2)
+    | BRel o e1 e2 => BRel o (b_subst x v e1) (b_subst x v e2)
+    | BNot b => BNot (b_subst x v b)
+    | BBool b => BBool b
+    end.
+
+  Lemma b_subst_to_pure:
+    forall b tid x (v:nexp),
+    ~ Pure.NExp.NFree x tid ->
+    to_pure tid (b_subst x v b) =
+    Pure.BExp.b_subst x (SIMT.NExp.to_pure tid v) (to_pure tid b).
+  Proof.
+    induction b; intros; simpl.
+    - reflexivity.
+    - repeat rewrite n_subst_to_pure; eauto.
+    - rewrite IHb1; auto.
+      rewrite IHb2; auto.
+    - rewrite IHb; auto.
+  Qed.
+
+  Lemma b_step_to_pure:
+    forall e b,
+    BExp.BStep (to_pure (Pure.NExp.NNum tid) e) b <-> BStep e b.
+  Proof.
+    split; intros.
+    - generalize dependent b.
+      induction e; intros b' Hs.
+      all: simpl in Hs.
+      all: invc Hs.
+      all: constructor.
+      all: eauto.
+      all: rewrite n_step_to_pure in *.
+      all: assumption.
+    - induction H.
+      all: simpl.
+      all: constructor.
+      all: eauto.
+      all: rewrite n_step_to_pure.
+      all: assumption.
+  Qed.
 
   Lemma b_step_subst_next:
     forall x e n b1,
@@ -194,6 +228,32 @@ Section SO.
     | BNot b => BFree x b
     | BBool _ => False
     end.
+
+  Lemma b_subst_to_pure_eq:
+    forall tid v (b:bexp),
+    ~ Pure.NExp.NFree tid v ->
+    ~ BFree tid b ->
+    Pure.BExp.b_subst tid v (to_pure (Pure.NExp.NVar tid) b)
+    = to_pure v b.
+  Proof.
+    induction b; simpl; intros.
+    - reflexivity.
+    - repeat rewrite n_subst_to_pure_eq; auto.
+    - rewrite IHb1; auto.
+      rewrite IHb2; auto.
+    - rewrite IHb; auto.
+  Qed.
+
+  Lemma b_free_to_pure:
+    forall x tid b,
+    ~ Pure.NExp.NFree x tid ->
+    Pure.BExp.BFree x (to_pure tid b) ->
+    BFree x b.
+  Proof.
+    induction b; simpl; intros; auto.
+    all: intuition.
+    all: eauto using n_free_to_pure.
+  Qed.
 
   Lemma b_free_n_rel_l:
     forall x n1,

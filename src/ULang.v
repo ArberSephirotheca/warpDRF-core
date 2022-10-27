@@ -5,7 +5,8 @@ Require Import Var.
 Require Import SIMT.NExp.
 Require Import SIMT.BExp.
 Require Import SIMT.RExp.
-Require Import AExp.
+Require Import SIMT.AExp.
+Require Import AVal.
 Require Import Util.
 Require Import Tasks.
 Require Import PairInUtil.

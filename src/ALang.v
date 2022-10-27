@@ -1,4 +1,4 @@
-Require Import AExp.
+Require Import AVal.
 Require Import Tasks.
 Require Import ULang.
 Require Import Pure.NExp.
@@ -121,7 +121,7 @@ Section Defs.
   Definition DRF (P:p_inst) :=
     forall p,
     PPairIn p P ->
-    AExp.Safe (fst p) (snd p).
+    AVal.Safe (fst p) (snd p).
 
 End Defs.
 
