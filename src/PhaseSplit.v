@@ -1,23 +1,27 @@
-Require Import AExp.
+(* Require Import AExp. *)
 Require Import Tasks.
 Require Import ALang.
-Require Import RExp.
-Require Import NExp.
+
+Require Import Pure.RExp.
+
+Require Import SIMT.AExp.
+Require Import SIMT.NExp.
+
 Require Import Var.
 Require Import Tictac.
 Require ULang.
 Require Sequentialize.
 Require Import Coq.Lists.List.
+Require Import AVal.
 
 Import ListNotations.
 
 Section Defs.
   Context `{T:Tasks}.
-  Context `{A:Access}.
 
   Inductive phase :=
   | Phase: ULang.inst -> phase
-  | Decl: var -> range -> phase -> phase.
+  | Decl: var -> Pure.RExp.range -> phase -> phase.
 
   Fixpoint Var x p :=
     match p with
@@ -48,15 +52,15 @@ Section Defs.
     let (P, c) := P in
     a_split P ++ [Phase c].
 
-  Fixpoint ph_subst x (v:nexp) (P:phase) : phase :=
+  Fixpoint ph_subst x (v:Pure.NExp.nexp) (P:phase) : phase :=
     match P with
-    | Phase c => Phase (ULang.i_subst x v c)
+    | Phase c => Phase (ULang.i_subst x (from_pure v) c)
     | Decl y r P =>
       let P' := if VAR.eq_dec x y
         then P
         else ph_subst x v P
       in
-      Decl y (r_subst x v r) P'
+      Decl y (Pure.RExp.r_subst x v r) P'
     end.
 
   Lemma var_inv_subst:
@@ -88,11 +92,13 @@ Section Defs.
   Lemma occurs_inv_subst:
     forall x y v ph,
     Occurs x (ph_subst y v ph) ->
-    NFree x v \/ Occurs x ph.
+    Pure.NExp.NFree x v \/ Occurs x ph.
   Proof.
     induction ph; simpl in *; intros.
     - rename_hyp (ULang.Occurs _ _) as ho.
       apply ULang.occurs_inv_subst in ho.
+      intuition.
+      rewrite n_free_from_pure in *.
       intuition.
     - intuition.
       destruct (Set_VAR.MF.eq_dec y v0). {
@@ -104,7 +110,7 @@ Section Defs.
 
   Lemma not_occurs_subst:
     forall y ph x v,
-    ~ NFree x v ->
+    ~ Pure.NExp.NFree x v ->
     ~ Occurs x ph ->
     ~ Occurs x (ph_subst y v ph).
   Proof.
@@ -139,8 +145,8 @@ Section Defs.
     PPairIn p (Phase c)
   | p_pair_in_decl:
     forall x r P n,
-    RPick r n ->
-    PPairIn p (ph_subst x (NNum n) P) ->
+    Pure.RExp.RPick r n ->
+    PPairIn p (ph_subst x (Pure.NExp.NNum n) P) ->
     PPairIn p (Decl x r P).
 
   Definition DRF (l:list phase) :=
@@ -148,7 +154,7 @@ Section Defs.
     List.In P l ->
     forall p,
     PPairIn p P ->
-    access_safe (fst p) (snd p).
+    Safe (fst p) (snd p).
 
 
   Definition InPhases p (l:list phase) :=
@@ -215,7 +221,7 @@ Section Defs.
       eexists.
       rewrite in_app_iff.
       eauto.
-    - assert (Hd: ALang.Distinct (subst x (NNum n) j) ). {
+    - assert (Hd: ALang.Distinct (subst x (Pure.NExp.NNum n) j) ). {
         auto using ALang.distinct_subst.
       }
       apply IHIPairIn in Hd.
@@ -285,7 +291,7 @@ Section Defs.
   | can_run_for:
     forall P Q x r,
     CanRun P ->
-    (forall n, RPick r n -> CanRun (subst x (NNum n) Q)) ->
+    (forall n, RPick r n -> CanRun (subst x (Pure.NExp.NNum n) Q)) ->
     CanRun (NFor P x r Q).
 (*
   Definition ACanRun (p:p_inst) : Prop :=
@@ -328,8 +334,8 @@ Section Defs.
 
   Lemma can_run_subst:
     forall a e1 e2 n x,
-    NExp.NStep e1 n ->
-    NExp.NStep e2 n ->
+    Pure.NExp.NStep e1 n ->
+    Pure.NExp.NStep e2 n ->
     CanRun (ALang.subst x e1 a) ->
     CanRun (ALang.subst x e2 a).
   Proof.
@@ -359,11 +365,11 @@ Section Defs.
     clear IHCanRun.
     eapply r_pick_subst in r_m; eauto.
     clear H.
-    assert (hc: CanRun (subst y e2 (subst v (NNum m) a2))). {
+    assert (hc: CanRun (subst y e2 (subst v (Pure.NExp.NNum m) a2))). {
       eapply H0; eauto.
-      rewrite subst_subst_neq; eauto using n_step_to_not_free.
+      rewrite subst_subst_neq; eauto using Pure.NExp.n_step_to_not_free.
     }
-    rewrite subst_subst_neq; eauto using n_step_to_not_free.
+    rewrite subst_subst_neq; eauto using Pure.NExp.n_step_to_not_free.
   Qed.
 
   Lemma in_ph_subst:
@@ -371,8 +377,9 @@ Section Defs.
     In ph (a_split P) ->
     forall x n,
     ~ ALang.Var x P ->
-    In (ph_subst x (NNum n) ph) (a_split (subst x (NNum n) P)).
+    In (ph_subst x (Pure.NExp.NNum n) ph) (a_split (subst x (Pure.NExp.NNum n) P)).
   Proof.
+    Import Pure.NExp.
     induction P; intros.
     - simpl in *.
       intuition.
