@@ -38,16 +38,18 @@ Section Defs.
   (* ----------------------- SUBSTITUTION --------------------------- *)
 
   Lemma i_subst_trace_rw:
-    forall tid x i n,
+    forall tid x i v,
     ~ NFree x tid ->
-    trace tid (ULang.i_subst x (NExp.NNum n) i) =
-    TLang.i_subst x (NNum n) (trace tid i).
+    trace tid (ULang.i_subst x (NExp.from_pure v) i) =
+    TLang.i_subst x v (trace tid i).
   Proof.
     induction i; simpl; intros.
     - reflexivity.
     - rewrite IHi1; auto.
       rewrite BExp.b_subst_to_pure; auto.
       rewrite IHi2; auto.
+      rewrite NExp.to_pure_from_pure.
+      auto.
     - rewrite IHi1; auto.
       rewrite IHi2; auto.
     - rewrite NExp.n_subst_to_pure; auto.
@@ -55,12 +57,26 @@ Section Defs.
       destruct a.
       unfold a_subst.
       simpl.
+      rewrite NExp.to_pure_from_pure.
       rewrite n_subst_not_free with (n:=tid); auto.
     - rewrite RExp.r_subst_to_pure; auto.
+      rewrite NExp.to_pure_from_pure.
       destruct (Set_VAR.MF.eq_dec x v). {
         auto.
       }
       rewrite IHi; auto.
+  Qed.
+
+  Lemma i_subst_trace_num_rw:
+    forall tid x i n,
+    ~ NFree x tid ->
+    trace tid (ULang.i_subst x (NExp.NNum n) i) =
+    TLang.i_subst x (NNum n) (trace tid i).
+  Proof.
+    intros.
+    assert (Hx := i_subst_trace_rw tid x i (NNum n) H).
+    simpl in *.
+    auto.
   Qed.
 
   (* ---------------------------- IN PROJECTION -------------------- *)
@@ -184,7 +200,7 @@ Section Defs.
       apply RExp.r_pick_to_pure in H.
       apply p_in_for with (n:=n); auto.
       apply IHHi.
-      rewrite i_subst_trace_rw; auto.
+      rewrite i_subst_trace_num_rw; auto.
   Qed.
 
   Lemma p_in_to_i_in:
@@ -289,19 +305,30 @@ Section Defs.
     eapply p_in_to_u_in; eauto.
     apply i_in_to_p_in; eauto.
   Qed.
-(*
+
   Lemma i_in_inv_access_tid:
-    forall a t i,
-    TLang.IIn a (TLang.i_subst TID (NNum t) (trace i)) ->
-    t = access_tid a.
+    forall a tid i,
+    TLang.IIn a (trace (NNum tid) i) ->
+    tid = AVal.av_owner a.
   Proof.
-    intros a t i Hv Hi.
-    apply TLang.i_in_to_s_in in Hi; auto using not_var_trace.
-    apply s_in_to_p_in in Hi; auto.
-    apply p_in_inv_access_tid in Hi.
-    auto.
+    intros a t i Hi.
+    remember (trace _ _) as j.
+    generalize dependent i.
+    induction Hi.
+    all: intros i' heq.
+    all: destruct i'; invc heq.
+    all: eauto.
+    - destruct a0.
+      simpl in *.
+      simpl in *.
+      invc H.
+      rename_hyp (NStep (NNum t) _) as hn.
+      invc hn.
+      reflexivity.
+    - assert (IHHi := IHHi ((ULang.i_subst v (NExp.NNum n) i')) ).
+      rewrite i_subst_trace_num_rw in IHHi; auto.
   Qed.
-*)
+
   Lemma i_subst_trace_eq:
     forall v tid i,
     ~ NFree tid v ->
@@ -338,31 +365,6 @@ Section Defs.
 
     invc Hi.
 
-    (* Useful results *)
-    (*
-    assert (t1_nin_p: ~ TLang.Occurs T1 (trace (NVar T1) i)). {
-      intros N.
-      apply in_trace_to_in in N; auto.
-    }
-    assert (t2_nin_p: ~ TLang.Occurs T2 (trace i)). {
-      intros N.
-      apply in_trace_to_in in N; auto using t2_neq_tid.
-    }
-    *)
-
-    (* Remove temporary variables introduced in NStep *)
-    (*
-    assert (n1 = 1) by eauto using n_step_fun, n_step_num.
-    assert (n2 = TID_COUNT) by eauto using n_step_fun, n_step_num.
-    subst.
-    repeat match goal with (* remove unneeded assumptions *)
-      H: NStep (NNum _) _ |- _ => clear H
-    end.
-    match goal with
-      H: _ <= ?n < _ |- _ => rename n into t1
-    end.
-    *)
-
     (* Rename assumption (IIn a ...) *)
     match goal with
       H: TLang.IIn _ _ |- _ => rename H into Hi
@@ -373,18 +375,7 @@ Section Defs.
     remove_eq T1 T2.
     remove_eq T1 T1.
     invc Hi.
-    (*
-    assert (n1 = 0) by eauto using n_step_fun, n_step_num.
-    assert (n2 = t1) by eauto using n_step_fun, n_step_num.
-    subst.
-    repeat match goal with (* remove unneeded assumptions *)
-      H: NStep (NNum _) _ |- _ => clear H
-    end.
-    match goal with
-      H: 0 <= ?n < _ |- _ => rename n into t2
-    end.
-    *)
-
+ 
     rename_hyp (TLang.IIn _ _) as Hi.
     simpl in Hi.
     (* Is a in T1 or in T2? *)
@@ -397,38 +388,36 @@ Section Defs.
       simpl.
       auto using t1_neq_t2.
     }
-    (*
-    (* Remove subs T1 (subs TID T1 ...) *)
-    rewrite TLang.i_subst_subst_trans in Hi; auto.
-    rewrite TLang.i_subst_subst_neq in Hi; auto using t1_neq_t2.
-    (* Remove subs T2 (subs TID T2 ...) *)
-    rewrite TLang.i_subst_subst_trans in Hi; auto.
-    rewrite TLang.i_subst_not_occurs with (x:=T1) in Hi.
-    2: {
-      intros N.
-      apply TLang.i_occurs_subst_neq in N; auto using t1_neq_t2, t1_neq_tid.
+
+    assert (n < TID_COUNT). {
+      eapply r_pick_to_lt; eauto using n_step_num.
     }
-  *)
-    invc Hi.
-    all: rename_hyp (TLang.IIn _ _) as Hi.
-    - (* a is in T1 *)
-      rewrite i_subst_trace_eq in Hi; auto.
-      admit.
-(*       apply t_in_to_u_in in Hi. *)
-    - (* a is in T2 *)
-      
-(*     rewrite TLang.i_subst_subst_trans in Hi; auto. *)
-    rewrite TLang.i_subst_not_occurs with (x:=T1) in Hi.
-    2: {
-      intros N.
-      apply in_trace_to_in in N; auto.
-      simpl.
-      auto using t1_neq_t2.
+    assert (n0 < TID_COUNT). {
+      assert (n0 < n) by (eapply r_pick_to_lt; eauto using n_step_num).
+      auto with *.
     }
 
-      assert (R:  t2 = access_tid a) by eauto using i_in_inv_access_tid.
-      rewrite R in Hi.
-      auto using t_in_to_u_in with *.
+    invc Hi.
+    all: rename_hyp (TLang.IIn _ _) as Hi.
+
+    - (* a is in T1 *)
+      rewrite i_subst_trace_eq in Hi; auto.
+      assert (n = AVal.av_owner a) by eauto using i_in_inv_access_tid.
+      subst.
+      auto using t_in_to_u_in.
+
+    - (* a is in T2 *)
+      rewrite TLang.i_subst_not_occurs with (x:=T1) in Hi.
+      2: {
+        intros N.
+        apply in_trace_to_in in N; auto.
+        simpl.
+        auto using t1_neq_t2.
+      }
+      rewrite i_subst_trace_eq in Hi; auto.
+      assert (n0 = AVal.av_owner a) by eauto using i_in_inv_access_tid.
+      subst.
+      auto using t_in_to_u_in.
   Qed.
 
   (* ===================== Main results ========================= *)
@@ -437,48 +426,50 @@ Section Defs.
     forall i x y,
     ~ ULang.Occurs T1 i ->
     ~ ULang.Occurs T2 i ->
-    ~ ULang.Var TID i ->
-    ~ TLang.Occurs T1 (trace i) ->
-    ~ TLang.Occurs T2 (trace i) ->
-    access_tid x < TID_COUNT ->
+    AVal.av_owner x < TID_COUNT ->
     ULang.IIn x i ->
-    access_tid y < TID_COUNT ->
+    AVal.av_owner y < TID_COUNT ->
     ULang.IIn y i ->
-    access_tid x < access_tid y ->
+    AVal.av_owner x < AVal.av_owner y ->
     TLang.IPairIn (x, y)
       (TLang.Decl T1 (NNum 1, NNum TID_COUNT)
          (TLang.Decl T2 (NNum 0, NVar T1)
-            (TLang.Seq (TLang.i_subst TID (NVar T1) (trace i))
-               (TLang.i_subst TID (NVar T2) (trace i))))).
+            (TLang.Seq (trace (NVar T1) i)
+               (trace (NVar T2) i)))).
   Proof.
     intros.
-    apply TLang.i_pair_in_decl with (n:=access_tid y) (n1:=1) (n2:=TID_COUNT);
-      auto using n_step_num with *.
+    apply TLang.i_pair_in_decl with (n:=AVal.av_owner y) (r:=(NNum 1, NNum TID_COUNT)).
+    1: { eapply r_pick_def; eauto using n_step_num with *. }
     simpl.
     (* clean up goal *)
     remove_eq T1 T1.
     remove_eq T1 T2.
-    rewrite TLang.i_subst_subst_trans; auto.
-    assert (~ TLang.Occurs T1 (TLang.i_subst TID (NVar T2) (trace i))). {
-      intros N.
-      apply TLang.i_occurs_inv_subst in N; auto using t1_neq_t2, t1_neq_tid.
-    }
-    rewrite TLang.i_subst_not_occurs with (x:=T1); auto.
-    (* fix the second biding *)
-    apply TLang.i_pair_in_decl with (n:=access_tid x) (n1:=0) (n2:=access_tid y);
-      auto using n_step_num with *.
+    apply TLang.i_pair_in_decl with (n:=AVal.av_owner x) (r:=(NNum 0, NNum (AVal.av_owner y))).
+    1: { eapply r_pick_def; eauto using n_step_num with *. }
+
     simpl.
-    rewrite TLang.i_subst_subst_trans; auto.
     apply TLang.i_pair_in_seq_both.
     simpl.
     right.
     split. {
       rewrite TLang.i_subst_not_occurs. {
+        rewrite i_subst_trace_eq; auto.
         apply u_in_to_t_in; auto.
       }
       intros N.
       apply TLang.i_occurs_inv_subst_neq_num in N; auto.
+      apply in_trace_to_in in N; auto.
+      simpl.
+      auto using t1_neq_t2.
     }
+    rewrite TLang.i_subst_not_occurs with (x:=T1).
+    2: {
+      intros N.
+      apply in_trace_to_in in N; auto.
+      simpl.
+      auto using t1_neq_t2.
+    }
+    rewrite i_subst_trace_eq; auto.
     apply u_in_to_t_in; auto.
   Qed.
 
@@ -486,20 +477,19 @@ Section Defs.
     forall m_c m_h i,
     ~ ULang.Occurs T1 i ->
     ~ ULang.Occurs T2 i ->
-    ~ ULang.Var TID i ->
     Hist.MSafeStrong m_h ->
     ULang.RunAll TID_COUNT i m_c ->
     TLang.Run (sequentialize i) m_h ->
     Hist.Safe m_c.
   Proof.
-    intros m_c m_h i nin_t1 nin_t2 Hv Hs1 Hrc Hrh.
+    intros m_c m_h i nin_t1 nin_t2 Hs1 Hrc Hrh.
     unfold Hist.MSafeStrong in *.
     unfold Hist.Safe.
     intros x y Hix' Hiy'.
 
     (* Simplify the goal *)
-    destruct (PeanoNat.Nat.eq_dec (access_tid x) (access_tid y)). {
-      auto using access_safe_eq_tid.
+    destruct (PeanoNat.Nat.eq_dec (AVal.av_owner x) (AVal.av_owner y)). {
+      auto using AExp.a_safe_eq_tid.
     }
     apply Hs1; auto; clear Hs1.
     eapply TLang.run_i_pair_in_to_m_pair_in; eauto.
@@ -508,43 +498,33 @@ Section Defs.
     assert (Hrx := Hrc).
     eapply ULang.run_all_inv_in with (x:=x) in Hrx; eauto.
     destruct Hrx as (nx, (h_x, (?, (Hrx, (_, Hix))))).
-    assert (nx = access_tid x). {
+    assert (nx = AVal.av_owner x). {
       symmetry.
-      eapply ULang.run_access_tid; eauto.
+      eapply ULang.run_inv_in_eq; eauto.
     }
     subst.
-    eapply ULang.in_to_i_in in Hix; eauto.
+    eapply ULang.run_in_to_i_in in Hix; eauto.
     clear Hrx Hix'.
 
     (* Simplify the assumption of run for t2 *)
     assert (Hry := Hrc).
     eapply ULang.run_all_inv_in with (x:=y) in Hry; eauto.
     destruct Hry as (ny, (h_y, (?, (Hry, (_, Hiy))))).
-    assert (ny = access_tid y). {
+    assert (ny = AVal.av_owner y). {
       symmetry.
-      eapply ULang.run_access_tid; eauto.
+      eapply ULang.run_inv_in_eq; eauto.
     }
     subst.
-    eapply ULang.in_to_i_in in Hiy; eauto.
+    eapply ULang.run_in_to_i_in in Hiy; eauto.
     clear Hry Hiy'.
 
     (* We no longer need run all *)
     clear Hrc.
 
     (* Now we will find the right pair *)
-    unfold sequentialize, do_trace.
+    unfold sequentialize.
 
-    (* Useful results *)
-    assert (t1_nin_p: ~ TLang.Occurs T1 (trace i)). {
-      intros N.
-      apply in_trace_to_in in N; auto using t1_neq_tid.
-    }
-    assert (t2_nin_p: ~ TLang.Occurs T2 (trace i)). {
-      intros N.
-      apply in_trace_to_in in N; auto using t2_neq_tid.
-    }
-
-    assert (X: access_tid x < access_tid y \/ access_tid y < access_tid x). {
+    assert (X: AVal.av_owner x < AVal.av_owner y \/ AVal.av_owner y < AVal.av_owner x). {
       lia.
     }
     destruct X as [Hlt|Hlt]. {
@@ -559,7 +539,6 @@ Section Defs.
     forall p i,
     ~ ULang.Occurs T1 i ->
     ~ ULang.Occurs T2 i ->
-    ~ ULang.Var TID i ->
     (* --- *)
     TLang.IPairIn p (sequentialize i) ->
     ULang.CPairIn p i.
@@ -580,12 +559,11 @@ Section Defs.
     forall i,
     ~ ULang.Occurs T1 i ->
     ~ ULang.Occurs T2 i ->
-    ~ ULang.Var TID i ->
     (* --- *)
     forall x y,
     (* Note that in this direction, the tids being different is a
      pre-conditions. *)
-    access_tid x <> access_tid y -> 
+    AVal.av_owner x <> AVal.av_owner y -> 
     ULang.CPairIn (x,y) i ->
     TLang.IPairIn (x,y) (sequentialize i).
   Proof.
@@ -596,23 +574,14 @@ Section Defs.
     rename_hyp (ULang.CIn y i) as hi2.
 
     (* Now we will find the right pair *)
-    unfold sequentialize, do_trace.
+    unfold sequentialize.
 
-    (* Useful results *)
-    assert (t1_nin_p: ~ TLang.Occurs T1 (trace i)). {
-      intros N.
-      apply in_trace_to_in in N; auto using t1_neq_tid.
-    }
-    assert (t2_nin_p: ~ TLang.Occurs T2 (trace i)). {
-      intros N.
-      apply in_trace_to_in in N; auto using t2_neq_tid.
-    }
     invc hi1.
     rename_hyp (ULang.IIn x i) as hi1.
     invc hi2.
     rename_hyp (ULang.IIn y i) as hi2.
 
-    assert (X: access_tid x < access_tid y \/ access_tid y < access_tid x). {
+    assert (X: AVal.av_owner x < AVal.av_owner y \/ AVal.av_owner y < AVal.av_owner x). {
       lia.
     }
     destruct X as [Hlt|Hlt].
@@ -622,12 +591,11 @@ Section Defs.
       apply TLang.i_pair_in_sym.
       apply t_pair_in_lt; auto.
   Qed.
-
+(*
   Lemma trace_subst_rw:
     forall x v u,
     ~ ULang.Var x u ->
     NClosed v ->
-    x <> TID ->
     trace (ULang.i_subst x v u) =
     TLang.i_subst x v (trace u).
   Proof.
@@ -664,37 +632,37 @@ Section Defs.
     rewrite trace_subst_rw; auto.
     rewrite TLang.i_subst_subst_neq_3; auto.
   Qed.
-
+*)
   Lemma sequentialize_subst_rw:
     forall x v i,
     ~ ULang.Var x i ->
     NClosed v ->
     x <> T1 ->
     x <> T2 ->
-    x <> TID ->
-    TLang.i_subst x v (sequentialize i) = sequentialize (ULang.i_subst x v i).
+    TLang.i_subst x v (sequentialize i) = sequentialize (ULang.i_subst x (NExp.from_pure v) i).
   Proof.
     intros.
     unfold sequentialize.
     simpl.
-    destruct (Set_VAR.MF.eq_dec x T1) as [?|_]; try contradiction.
-    destruct (Set_VAR.MF.eq_dec x T2) as [?|_]; try contradiction.
-    rewrite do_trace_subst_rw; auto.
-    rewrite do_trace_subst_rw; auto.
+    remove_eq x T1.
+    remove_eq x T2.
+    rewrite i_subst_trace_rw.
+    2: { simpl. auto. }
+    rewrite i_subst_trace_rw.
+    2: { simpl. auto. }
+    f_equal.
   Qed.
-
 
   Corollary completeness:
     forall m_c m_h i,
     ~ ULang.Occurs T1 i ->
     ~ ULang.Occurs T2 i ->
-    ~ ULang.Var TID i ->
     Hist.Safe m_c ->
     ULang.RunAll TID_COUNT i m_c ->
     TLang.Run (sequentialize i) m_h ->
     Hist.MSafeStrong m_h.
   Proof.
-    intros m_c m_h i nin_t1 nin_t2 Hv Hs1 Hrc Hrh.
+    intros m_c m_h i nin_t1 nin_t2 Hs1 Hrc Hrh.
     unfold Hist.MSafeStrong in *.
     unfold Hist.Safe in *.
     intros x y Hneq Hp.
@@ -714,7 +682,6 @@ Section Defs.
     forall m_c m_h i,
     ~ ULang.Occurs T1 i ->
     ~ ULang.Occurs T2 i ->
-    ~ ULang.Var TID i ->
     ULang.RunAll TID_COUNT i m_c ->
     TLang.Run (sequentialize i) m_h ->
     Hist.Safe m_c <-> Hist.MSafeStrong m_h.

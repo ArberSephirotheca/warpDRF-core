@@ -1544,6 +1544,32 @@ Section Defs.
       all: rewrite n_step_to_pure.
       all: auto.
   Qed.
+
+  Lemma r_pick_to_lt:
+    forall e1 e2 n n2,
+    NStep e2 n2 ->
+    RPick (e1, e2) n ->
+    n < n2.
+  Proof.
+    intros.
+    invc H0.
+    assert (n0 = n2) by eauto using n_step_fun.
+    subst.
+    auto with *.
+  Qed.
+
+  Lemma r_pick_to_ge:
+    forall e1 e2 n n1,
+    NStep e1 n1 ->
+    RPick (e1, e2) n ->
+    n1 <= n.
+  Proof.
+    intros.
+    invc H0.
+    assert (n0 = n1) by eauto using n_step_fun.
+    subst.
+    auto with *.
+  Qed.
 End Defs.
 
 Module RExpNotations.
