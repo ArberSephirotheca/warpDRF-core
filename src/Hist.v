@@ -345,7 +345,7 @@ Section Defs.
     intros.
     unfold Safe.
     intros a b Hi Hj.
-    apply a_safe_eq_tid.
+    apply safe_owner.
     apply in_proj2_inv_tid in Hi.
     apply in_proj2_inv_tid in Hj.
     destruct Hi as [Hi|Hi]; destruct Hj as [Hj|Hj]; subst; rewrite Hj; reflexivity.
@@ -721,7 +721,7 @@ Section Defs.
     intros.
     unfold MSafeStrong, AllInclAll,Ensembles.Included,Ensembles.In, MPairIncl, MSafe, Safe2; intros.
     destruct (PeanoNat.Nat.eq_dec (av_owner x) (av_owner y)). {
-      auto using a_safe_eq_tid.
+      auto using safe_owner.
     }
     eauto using m_in_def.
   Qed.
@@ -741,7 +741,7 @@ Section Defs.
     unfold MSafeStrong, Safe; intros.
     assert (X: av_owner x = av_owner y \/ av_owner x <> av_owner y) by lia.
     destruct X. {
-      auto using a_safe_eq_tid.
+      auto using safe_owner.
     }
     unfold PairInclMPair in *; auto.
   Qed.

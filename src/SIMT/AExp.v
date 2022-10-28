@@ -158,13 +158,7 @@ Section Defs.
     destruct v1 as (n1, n2, n3);
     destruct v2 as (n4, n5, n6).
     simpl in *; subst.
-    unfold Safe.
-    unfold not.
-    intros N.
-    unfold Conflict in *.
-    destruct N as (N1,N2).
-    simpl in *.
-    intuition.
+    auto using AVal.safe_owner.
   Qed.
 
   Lemma a_step_to_pure:
