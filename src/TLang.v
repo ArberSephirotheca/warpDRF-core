@@ -82,6 +82,71 @@ Section Defs.
     Run (Decl x r i) [[]]
   .
 
+
+  (* Non-deterministic run *)
+  Inductive NRun: inst -> history -> Prop :=
+  | n_run_skip:
+    NRun Skip []
+  | n_run_seq:
+    forall i j h1 h2,
+    NRun i h1 ->
+    NRun j h2 ->
+    NRun (Seq i j) (h1 ++ h2)
+  | n_run_if:
+    forall e b i j hi hj,
+    BStep e b ->
+    NRun i hi ->
+    NRun j hj ->
+    NRun (If e i j) (if b then hi else hj)
+  | n_run_access:
+    forall e v,
+    AStep e v ->
+    NRun (MemAcc e) [v]
+  | n_run_fork_l:
+    forall i j h1 h2,
+    NRun i h1 ->
+    NRun j h2 ->
+    NRun (Fork i j) h1
+  | n_run_fork_r:
+    forall i j h1 h2,
+    NRun i h1 ->
+    NRun j h2 ->
+    NRun (Fork i j) h2
+  | n_run_decl_cons:
+    forall r n i x h,
+    RPick r n ->
+    NRun (i_subst x (NNum n) i) h ->
+    NRun (Decl x r i) h
+  | n_run_decl_nil:
+    forall r i x,
+    REmpty r ->
+    NRun (Decl x r i) []
+  .
+
+  Lemma n_run_if_true:
+    forall e i j hi hj,
+    BStep e true ->
+    NRun i hi ->
+    NRun j hj ->
+    NRun (If e i j) hi.
+  Proof.
+    intros.
+    eapply n_run_if with (i:=i) (j:=j) in H1; eauto.
+    assumption.
+  Qed.
+
+  Lemma n_run_if_false:
+    forall e i j hi hj,
+    BStep e false ->
+    NRun i hi ->
+    NRun j hj ->
+    NRun (If e i j) hj.
+  Proof.
+    intros.
+    eapply n_run_if with (i:=i) (j:=j) in H0; eauto.
+    assumption.
+  Qed.
+
   Lemma run_if_true:
     forall e i j hi hj,
     BStep e true ->
@@ -505,6 +570,29 @@ Section Defs.
       contradiction.
   Qed.
 
+  Lemma n_run_m_in_to_i_in:
+    forall i h,
+    NRun i h ->
+    forall a,
+    List.In a h ->
+    IIn a i.
+  Proof.
+    intros i h Hr.
+    induction Hr; intros a Hi.
+    - contradiction.
+    - rewrite in_app_iff in Hi.
+      destruct Hi as [Hi|Hi]; eauto using i_in_seq_l, i_in_seq_r.
+    - destruct b; eauto using i_in_if_true, i_in_if_false.
+    - constructor.
+      simpl in *.
+      intuition; subst.
+      assumption.
+    - auto using i_in_fork_l.
+    - auto using i_in_fork_r.
+    - apply i_in_decl with (n:=n); eauto.
+    - contradiction.
+  Qed.
+
   Lemma run_i_in_to_m_in:
     forall i h,
     Run i h ->
@@ -536,6 +624,126 @@ Section Defs.
       eauto using i_in_decl, m_in_app_r.
     - contradict H.
       eauto using r_pick_to_empty.
+  Qed.
+
+  Inductive CanRun : inst -> Prop :=
+  | can_run_skip:
+    CanRun Skip
+  | can_run_seq:
+    forall i j,
+    CanRun i ->
+    CanRun j ->
+    CanRun (Seq i j)
+  | can_run_if:
+    forall e b i j,
+    BStep e b ->
+    CanRun i ->
+    CanRun j ->
+    CanRun (If e i j)
+  | can_run_acc:
+    forall e v,
+    AStep e v ->
+    CanRun (MemAcc e)
+  | can_run_fork:
+    forall i j,
+    CanRun i ->
+    CanRun j ->
+    CanRun (Fork i j)
+  | can_run_decl:
+    forall x r i,
+    RDefined r ->
+    (forall n, RPick r n -> CanRun (i_subst x (NNum n) i)) ->
+    CanRun (Decl x r i).
+
+  Lemma can_run_to_n_run {i}:
+    CanRun i ->
+    exists h, NRun i h.
+  Proof.
+    intros.
+    induction H.
+    - exists [].
+      constructor.
+    - destruct IHCanRun1 as (h1, hr1).
+      destruct IHCanRun2 as (h2, hr2).
+      eexists.
+      constructor; eauto.
+    - destruct IHCanRun1 as (h1, hr1).
+      destruct IHCanRun2 as (h2, hr2).
+      eexists.
+      constructor; eauto.
+    - eexists.
+      constructor; eauto.
+    - destruct IHCanRun1 as (h1, hr1).
+      destruct IHCanRun2 as (h2, hr2).
+      eexists.
+      eapply n_run_fork_r; eauto.
+    - apply r_defined_inv in H.
+      destruct H. {
+        exists [].
+        constructor.
+        assumption.
+      }
+      destruct H as (n, Hf).
+      apply r_first_to_pick in Hf.
+      destruct H1 with (n:=n) as (h, Hr); auto.
+      eexists.
+      econstructor; eauto.
+  Qed.
+
+  Lemma n_run_i_in_to_m_in:
+    forall i,
+    CanRun i ->
+    forall a,
+    IIn a i ->
+    exists h, NRun i h /\ In a h.
+  Proof.
+    intros i H.
+    induction H.
+    all: intros a Hi.
+    all: invc Hi.
+    - destruct (IHCanRun1 a) as (h1, (hr, hi)); auto.
+      destruct (can_run_to_n_run H0) as (h2, hr2).
+      exists (h1++h2).
+      split. {
+        constructor; auto.
+      }
+      rewrite in_app_iff.
+      intuition.
+    - destruct (IHCanRun2 a) as (h2, (hr, hj)); auto.
+      destruct (can_run_to_n_run H) as (h1, hr2).
+      exists (h1++h2).
+      split. {
+        constructor; auto.
+      }
+      rewrite in_app_iff.
+      intuition.
+    - destruct (IHCanRun1 a) as (h1, (hr, hi)); auto.
+      destruct (can_run_to_n_run H1) as (h2, hr2).
+      exists h1.
+      split; auto.
+      eapply n_run_if_true; eauto.
+    - destruct (IHCanRun2 a) as (h2, (hr, hj)); auto.
+      destruct (can_run_to_n_run H0) as (h1, hri).
+      exists h2.
+      split; auto.
+      eapply n_run_if_false; eauto.
+    - exists [a].
+      split; auto using n_run_access, in_eq.
+    - destruct (IHCanRun1 a) as (h1, (hr, hi)); auto.
+      destruct (can_run_to_n_run H0) as (h2, hr2).
+      exists h1.
+      split; auto.
+      eapply n_run_fork_l; eauto.
+    - destruct (IHCanRun2 a) as (h2, (hr, hj)); auto.
+      destruct (can_run_to_n_run H) as (h1, hri).
+      exists h2.
+      split; auto.
+      eapply n_run_fork_r; eauto.
+    - assert (Hx: exists h, NRun (i_subst x (NNum n) i) h /\ In a h) by eauto.
+      destruct Hx as (h, (Hn, Hi)).
+      exists h.
+      split; auto.
+      apply n_run_decl_cons with (n:=n); auto.
   Qed.
 
   Lemma i_in_iff:
@@ -731,14 +939,46 @@ Section Defs.
       eauto using i_in_decl.
   Qed.
 
-  Lemma all_incl_eq:
-    forall A v,
-    @AllIncl A [v] v.
+  Lemma n_run_pair_in_to_i_pair_in:
+    forall i h,
+    NRun i h ->
+    forall v1 v2,
+    av_owner v1 <> av_owner v2 ->
+    PairIn (v1, v2) h ->
+    IPairIn (v1, v2) i.
   Proof.
-    intros.
-    apply all_incl_cons.
-    + apply incl_refl.
-    + apply all_incl_nil.
+    intros i h Hr.
+    induction Hr; intros v1 v2 hneq Hi.
+    - apply par_not_in_nil in Hi.
+      contradiction.
+    - apply pair_in_inv_app in Hi.
+      intuition.
+      + apply i_pair_in_seq_l.
+        auto.
+      + apply i_pair_in_seq_r.
+        auto.
+      + apply i_pair_in_seq_both.
+        simpl in *.
+        eauto using n_run_m_in_to_i_in.
+      + apply i_pair_in_seq_both.
+        simpl in *.
+        eauto using n_run_m_in_to_i_in.
+    - destruct b. {
+        apply i_pair_in_if_true; auto.
+      }
+      apply i_pair_in_if_false; auto.
+    - invc Hi.
+      simpl in *.
+      intuition.
+      subst.
+      contradiction.
+    - apply i_pair_in_fork_l.
+      auto.
+    - apply i_pair_in_fork_r.
+      auto.
+    - eapply i_pair_in_decl; eauto.
+    - apply par_not_in_nil in Hi.
+      contradiction.
   Qed.
 
 End Defs.

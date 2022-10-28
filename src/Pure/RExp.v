@@ -671,6 +671,22 @@ Section Defs.
     let (e1, e2) := r in
     (exists n1, NStep e1 n1) /\ (exists n2, NStep e2 n2).
 
+  Lemma r_defined_inv:
+    forall r,
+    RDefined r ->
+    REmpty r \/ RHasNext r.
+  Proof.
+    intros (e1, e2) ((n1, Hn1), (n2, Hn2)).
+    assert (Hx: n1 < n2 \/ n1 >= n2) by lia.
+    destruct Hx. {
+      right.
+      exists n1.
+      econstructor; eauto.
+    }
+    left.
+    econstructor; eauto.
+  Qed.
+
   (* ------------------------- HAS NEXT ------------------- *)
 
   Lemma r_has_next_to_last:

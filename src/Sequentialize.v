@@ -165,14 +165,7 @@ Section Defs.
     all: constructor.
     all: auto using n_step_to_pure.
   Qed.
-(*
-  Lemma r_step_to_pure:
-    forall tid e n,
-    RStep (r_to_pure (NNum tid) e) n ->
-    RExp.RStep tid e n.
-  Proof.
-  Qed.
-*)
+
   Lemma i_in_to_p_in:
     forall a i,
     TLang.IIn a (trace (NNum (AVal.av_owner a)) i) ->
