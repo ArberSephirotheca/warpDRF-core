@@ -1444,7 +1444,7 @@ Section Defs.
     intros i h H.
     induction H; intros p Hi; simpl in *.
     - destruct Hi as [Hi|Hi]. 2: {
-        apply par_not_in_nil in Hi.
+        apply pair_not_in_nil in Hi.
         contradiction.
       }
       eauto using i_pair_in_sync, c_pair_in_1.

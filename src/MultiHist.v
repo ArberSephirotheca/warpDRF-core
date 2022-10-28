@@ -1051,7 +1051,7 @@ Section Member.
     intros.
     intros N.
     inversion N; subst; clear N.
-    - apply par_not_in_nil in H0.
+    - apply pair_not_in_nil in H0.
       assumption.
     - inversion H0.
   Qed.

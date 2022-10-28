@@ -45,7 +45,7 @@ Section Defs.
     assumption.
   Qed.
 
-  Lemma par_not_in_nil:
+  Lemma pair_not_in_nil:
     forall A p,
     ~ @PairIn A p [].
   Proof.
@@ -74,7 +74,7 @@ Section Defs.
     unfold Included.
     intros.
     unfold Ensembles.In in *.
-    apply par_not_in_nil in H.
+    apply pair_not_in_nil in H.
     contradiction.
   Qed.
 
@@ -409,7 +409,7 @@ Section Defs.
   Proof.
     intros.
     inversion H; subst; clear H.
-    - apply par_not_in_nil in H1.
+    - apply pair_not_in_nil in H1.
       contradiction.
     - assumption.
   Qed.

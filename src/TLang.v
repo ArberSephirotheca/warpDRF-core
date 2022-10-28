@@ -949,7 +949,7 @@ Section Defs.
   Proof.
     intros i h Hr.
     induction Hr; intros v1 v2 hneq Hi.
-    - apply par_not_in_nil in Hi.
+    - apply pair_not_in_nil in Hi.
       contradiction.
     - apply pair_in_inv_app in Hi.
       intuition.
@@ -977,7 +977,7 @@ Section Defs.
     - apply i_pair_in_fork_r.
       auto.
     - eapply i_pair_in_decl; eauto.
-    - apply par_not_in_nil in Hi.
+    - apply pair_not_in_nil in Hi.
       contradiction.
   Qed.
 
