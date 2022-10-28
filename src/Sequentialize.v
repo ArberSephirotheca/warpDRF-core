@@ -189,8 +189,7 @@ Section Defs.
     - constructor 3; auto.
     - eauto using p_in_if_true, b_step_to_pure.
     - eauto using p_in_if_false, b_step_to_pure.
-    - (*destruct i'; inversion Heq; subst; clear Heq.*)
-      apply RExp.r_pick_to_pure in H.
+    - apply RExp.r_pick_to_pure in H.
       apply p_in_for with (n:=n); auto.
       apply IHHi.
       rewrite i_subst_trace_num_rw; auto.
@@ -225,17 +224,6 @@ Section Defs.
   Proof.
     split; auto using i_in_to_p_in, p_in_to_i_in.
   Qed.
-(*
-  Lemma p_in_inv_access_tid:
-    forall a n i,
-    PIn a i ->
-    AVal.av_owner a = n.
-  Proof.
-    intros.
-    induction H; intros; auto.
-    eapply access_step_inv_tid; eauto using n_step_num.
-  Qed.
-*)
 
   (* ----------------------------- IN TRANSLATION ------------------ *)
 
@@ -584,48 +572,7 @@ Section Defs.
       apply TLang.i_pair_in_sym.
       apply t_pair_in_lt; auto.
   Qed.
-(*
-  Lemma trace_subst_rw:
-    forall x v u,
-    ~ ULang.Var x u ->
-    NClosed v ->
-    trace (ULang.i_subst x v u) =
-    TLang.i_subst x v (trace u).
-  Proof.
-    induction u;
-      intros;
-      simpl;
-      rename_hyp (~ ULang.Var x _) as hv;
-      simpl in hv.
-    - reflexivity.
-    - rewrite IHu1; auto.
-      rewrite IHu2; auto.
-    - rewrite IHu1; auto.
-      rewrite IHu2; auto.
-    - destruct (Set_VAR.MF.eq_dec x TID) as [?|_]; try contradiction.
-      reflexivity.
-    - rename v0 into y.
-      destruct (Set_VAR.MF.eq_dec x y). {
-        intuition.
-      }
-      rewrite IHu; auto.
-  Qed.
 
-  Lemma do_trace_subst_rw:
-    forall x v y i,
-    x <> TID ->
-    ~ ULang.Var x i ->
-    NClosed v ->
-    x <> y ->
-    TLang.i_subst x v (do_trace y i) =
-    do_trace y (ULang.i_subst x v i).
-  Proof.
-    unfold do_trace.
-    intros.
-    rewrite trace_subst_rw; auto.
-    rewrite TLang.i_subst_subst_neq_3; auto.
-  Qed.
-*)
   Lemma sequentialize_subst_rw:
     forall x v i,
     ~ ULang.Var x i ->
