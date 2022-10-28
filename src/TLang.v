@@ -570,7 +570,7 @@ Section Defs.
       contradiction.
   Qed.
 
-  Lemma n_run_m_in_to_i_in:
+  Lemma n_run_in_to_i_in:
     forall i h,
     NRun i h ->
     forall a,
@@ -690,7 +690,7 @@ Section Defs.
       econstructor; eauto.
   Qed.
 
-  Lemma n_run_i_in_to_m_in:
+  Lemma n_run_i_in_to_in:
     forall i,
     CanRun i ->
     forall a,
@@ -959,10 +959,10 @@ Section Defs.
         auto.
       + apply i_pair_in_seq_both.
         simpl in *.
-        eauto using n_run_m_in_to_i_in.
+        eauto using n_run_in_to_i_in.
       + apply i_pair_in_seq_both.
         simpl in *.
-        eauto using n_run_m_in_to_i_in.
+        eauto using n_run_in_to_i_in.
     - destruct b. {
         apply i_pair_in_if_true; auto.
       }
@@ -981,4 +981,73 @@ Section Defs.
       contradiction.
   Qed.
 
+  Lemma n_run_i_pair_in_to_m_pair_in:
+    forall i,
+    CanRun i ->
+    forall p,
+    IPairIn p i ->
+    exists h, NRun i h /\ PairIn p h.
+  Proof.
+    intros i H.
+    induction H.
+    all: intros p hi.
+    all: invc hi.
+    all: try rename_hyp (IPairIn _ _) as hi.
+    - apply IHCanRun1 in hi.
+      destruct hi as (h1, (hr1, hi)); auto.
+      destruct (can_run_to_n_run H0) as (h2, hr2).
+      exists (h1 ++ h2).
+      split; auto using pair_in_app_l.
+      constructor; auto.
+    - apply IHCanRun2 in hi.
+      destruct hi as (h2, (hr1, hi)); auto.
+      destruct (can_run_to_n_run H) as (h1, hr2).
+      exists (h1 ++ h2).
+      split; auto using pair_in_app_r.
+      constructor; auto.
+    - destruct p as (v1, v2).
+      simpl in *.
+      intuition.
+      all: rename_hyp (IIn _ i) as hi.
+      all: rename_hyp (IIn _ j) as hj.
+      all: apply n_run_i_in_to_in in hi; auto.
+      all: apply n_run_i_in_to_in in hj; auto.
+      all: destruct hi as (h1, (hr1, hi)).
+      all: destruct hj as (h2, (hr2, hj)).
+      all: exists (h1 ++ h2).
+      all: split.
+      all: auto using n_run_seq.
+      all: constructor.
+      all: rewrite in_app_iff.
+      all: intuition.
+    - apply IHCanRun1 in hi.
+      destruct hi as (h, (Hr1, hp)).
+      exists h.
+      split; auto.
+      destruct (can_run_to_n_run H1) as (h2, hr2).
+      eapply n_run_if_true; eauto.
+    - apply IHCanRun2 in hi.
+      destruct hi as (h, (Hr1, hp)).
+      exists h.
+      split; auto.
+      destruct (can_run_to_n_run H0) as (h2, hr2).
+      eapply n_run_if_false; eauto.
+    - apply IHCanRun1 in hi.
+      destruct hi as (h, (Hr1, hp)).
+      exists h.
+      split; auto.
+      destruct (can_run_to_n_run H0) as (h2, hr2).
+      eapply n_run_fork_l; eauto.
+    - apply IHCanRun2 in hi.
+      destruct hi as (h, (Hr1, hp)).
+      exists h.
+      split; auto.
+      destruct (can_run_to_n_run H) as (h2, hr2).
+      eapply n_run_fork_r; eauto.
+    - apply H1 in hi; eauto.
+      destruct hi as (h, (Hr1, hp)).
+      exists h.
+      split; auto.
+      eapply n_run_decl_cons; eauto.
+  Qed.
 End Defs.

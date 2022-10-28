@@ -10,7 +10,7 @@ Require Import Pure.AExp.
 Require Import Pure.RExp.
 Require Import Tasks.
 Require Import Tictac.
-
+Require Import AVal.
 Require TLang.
 
 Import ListNotations.
@@ -591,6 +591,37 @@ Section Defs.
     rewrite i_subst_trace_rw.
     2: { simpl. auto. }
     f_equal.
+  Qed.
+
+  Corollary completeness2:
+    forall m_c i,
+    ~ ULang.Occurs T1 i ->
+    ~ ULang.Occurs T2 i ->
+    Hist.Safe m_c ->
+    ULang.RunAll TID_COUNT i m_c ->
+    forall h,
+    TLang.NRun (sequentialize i) h ->
+    Hist.Safe h.
+  Proof.
+    intros ? ? nin_t1 nin_t2 Hs1 Hr1 h Hr2.
+    unfold Hist.Safe in *.
+    intros x y hnx hny.
+    assert (hx: av_owner x = av_owner y \/ av_owner x <> av_owner y) by lia.
+    destruct hx. {
+      auto using safe_owner.
+    }
+    assert (Hp: TLang.IPairIn (x, y) (sequentialize i)). {
+      eapply TLang.n_run_pair_in_to_i_pair_in; eauto using PairInUtil.pair_in_def.
+    }
+    apply TLang.i_pair_in_to_i_in in Hp.
+    destruct Hp as (Hxi, Hyi).
+    apply i_in_sequentialize_to_t_in in Hxi; auto.
+    destruct Hxi as (Hxi, Hlt_x).
+    apply i_in_sequentialize_to_t_in in Hyi; auto.
+    destruct Hyi as (Hyi, Hlt_y).
+    apply Hs1; auto; clear Hs1.
+    - eapply ULang.run_all_i_in_to_in in Hxi; eauto.
+    - eapply ULang.run_all_i_in_to_in in Hyi; eauto.
   Qed.
 
   Corollary completeness:
