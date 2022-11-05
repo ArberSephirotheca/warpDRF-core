@@ -27,6 +27,7 @@ Section Defs.
   | NSeq: n_inst -> n_inst -> n_inst
   | NFor : n_inst -> var -> range -> n_inst -> n_inst.  
 
+
   Fixpoint subst x v i :=
     match i with
     | NSync c => NSync (ULang.i_subst x (from_pure v) c)
@@ -39,6 +40,23 @@ Section Defs.
       NFor (subst x v P) y (r_subst x v r) Q'
     end.
 
+  Inductive NCanRun : n_inst -> Prop :=
+  | n_can_run_sync:
+    forall u,
+    ULang.CCanRun u ->
+    NCanRun (NSync u)
+  | n_can_run_seq:
+    forall i j,
+    NCanRun i ->
+    NCanRun j ->
+    NCanRun (NSeq i j)
+  | n_can_run_for:
+    forall x r i j,
+    NCanRun i ->
+    RDefined r ->
+    (forall n, RPick r n -> NCanRun (subst x (NNum n) j)) ->
+    NCanRun (NFor i x r j).
+
   Fixpoint Var x P :=
     match P with
     | NSync c => ULang.Var x c
@@ -49,6 +67,13 @@ Section Defs.
     end.
 
   Definition p_inst := (n_inst * ULang.inst) % type.
+
+  Inductive CanRun : p_inst -> Prop :=
+    can_run_def:
+      forall a u,
+      NCanRun a ->
+      ULang.CCanRun u ->
+      CanRun (a, u).
 
   Fixpoint n_seq (c:ULang.inst) (n:n_inst) : n_inst :=
     match n with

@@ -47,42 +47,6 @@ Section Defs.
 
   Notation history := (list access_val).
 
-  Inductive Run: inst -> list history -> Prop :=
-  | run_skip:
-    Run Skip [[]]
-  | run_seq:
-    forall i j hs1 hs2,
-    Run i hs1 ->
-    Run j hs2 ->
-    Run (Seq i j) (prod hs1 hs2)
-  | run_if:
-    forall e b i j hsi hsj,
-    BStep e b ->
-    Run i hsi ->
-    Run j hsj ->
-    Run (If e i j) (if b then hsi else hsj)
-  | run_access:
-    forall e v,
-    AStep e v ->
-    Run (MemAcc e) [[v]]
-  | run_fork:
-    forall i j hs1 hs2,
-    Run i hs1 ->
-    Run j hs2 ->
-    Run (Fork i j) (hs1 ++ hs2)
-  | run_decl_cons:
-    forall r n r' i x hs1 hs2,
-    RStep r n r' ->
-    Run (i_subst x (NNum n) i) hs1 ->
-    Run (Decl x r' i) hs2 ->
-    Run (Decl x r i) (hs1 ++ hs2)
-  | run_decl_nil:
-    forall x i r,
-    REmpty r ->
-    Run (Decl x r i) [[]]
-  .
-
-
   (* Non-deterministic run *)
   Inductive NRun: inst -> history -> Prop :=
   | n_run_skip:
@@ -146,7 +110,7 @@ Section Defs.
     eapply n_run_if with (i:=i) (j:=j) in H0; eauto.
     assumption.
   Qed.
-
+(*
   Lemma run_if_true:
     forall e i j hi hj,
     BStep e true ->
@@ -204,7 +168,7 @@ Section Defs.
     apply run_inv_nil in H.
     assumption.
   Qed.
-
+*)
   Lemma i_subst_subst_eq:
     forall x i n1 n2,
     i_subst x (NNum n1) (i_subst x (NNum n2) i) = i_subst x (NNum n2) i.
@@ -536,7 +500,7 @@ Section Defs.
     invc H0.
     apply i_in_decl with (n:=n0); eauto using r_step_pick_rev.
   Qed.
-
+(*
   Lemma run_m_in_to_i_in:
     forall i h,
     Run i h ->
@@ -569,7 +533,7 @@ Section Defs.
     - apply m_in_nil_nil in Hi.
       contradiction.
   Qed.
-
+*)
   Lemma n_run_in_to_i_in:
     forall i h,
     NRun i h ->
@@ -591,39 +555,6 @@ Section Defs.
     - auto using i_in_fork_r.
     - apply i_in_decl with (n:=n); eauto.
     - contradiction.
-  Qed.
-
-  Lemma run_i_in_to_m_in:
-    forall i h,
-    Run i h ->
-    forall a,
-    IIn a i ->
-    MIn a h.
-  Proof.
-    intros i h Hr.
-    induction Hr; intros a Hi; invc Hi.
-    - apply m_in_prod_l; eauto using run_not_nil.
-    - apply m_in_prod_r; eauto using run_not_nil.
-    - assert (b = true) by eauto using b_step_fun; eauto.
-      subst.
-      eauto.
-    - assert (b = false) by eauto using b_step_fun; eauto.
-      subst.
-      eauto.
-    - assert (a = v) by eauto using a_step_fun.
-      subst.
-      auto using in_eq, m_in_eq.
-    - auto using m_in_app_l.
-    - auto using m_in_app_r.
-    - rename_hyp (RPick _ _) as hr.
-      apply r_step_pick_advance with (n:=n) (r':=r') in hr; auto.
-      destruct hr. {
-        subst.
-        eauto using m_in_app_l.
-      }
-      eauto using i_in_decl, m_in_app_r.
-    - contradict H.
-      eauto using r_pick_to_empty.
   Qed.
 
   Inductive CanRun : inst -> Prop :=
@@ -745,7 +676,7 @@ Section Defs.
       split; auto.
       apply n_run_decl_cons with (n:=n); auto.
   Qed.
-
+(*
   Lemma i_in_iff:
     forall i h,
     Run i h ->
@@ -755,7 +686,7 @@ Section Defs.
     intros.
     split; eauto using run_m_in_to_i_in, run_i_in_to_m_in.
   Qed.
-
+*)
   (* ------------------------ PAIR IN ------------------------------------- *)
 
   Definition IOneOf (p:access_val*access_val) i j :=
@@ -823,7 +754,7 @@ Section Defs.
     - eauto using i_pair_in_fork_r.
     - eapply i_pair_in_decl; eauto.
   Qed.
-
+(*
   Lemma run_i_pair_in_to_m_pair_in:
     forall i h,
     Run i h ->
@@ -911,7 +842,7 @@ Section Defs.
     - apply m_pair_in_nil_nil in Hi.
       contradiction.
   Qed.
-
+*)
   Lemma i_pair_in_to_i_in:
     forall v1 v2 i,
     IPairIn (v1, v2) i ->
@@ -981,7 +912,7 @@ Section Defs.
       contradiction.
   Qed.
 
-  Lemma n_run_i_pair_in_to_m_pair_in:
+  Lemma n_run_i_pair_in_to_pair_in:
     forall i,
     CanRun i ->
     forall p,

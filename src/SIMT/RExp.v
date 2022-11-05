@@ -726,6 +726,62 @@ Section Defs.
     let (e1, e2) := r in
     (exists n1, NStep e1 n1) /\ (exists n2, NStep e2 n2).
 
+  Lemma r_defined_def:
+    forall e1 n1 e2 n2,
+    NStep e1 n1 ->
+    NStep e2 n2 ->
+    RDefined (e1, e2).
+  Proof.
+    intros.
+    split; eauto.
+  Qed.
+
+  Lemma r_defined_inv:
+    forall r,
+    RDefined r ->
+    REmpty r \/ RHasNext r.
+  Proof.
+    intros (e1, e2) ((n1, Hn1), (n2, Hn2)).
+    assert (Hx: n1 < n2 \/ n1 >= n2) by lia.
+    destruct Hx. {
+      right.
+      exists n1.
+      econstructor; eauto.
+    }
+    left.
+    econstructor; eauto.
+  Qed.
+
+  Lemma r_empty_to_defined:
+    forall r,
+    REmpty r ->
+    RDefined r.
+  Proof.
+    intros.
+    invc H.
+    eauto using r_defined_def.
+  Qed.
+
+  Lemma r_step_to_defined_l:
+    forall r n r',
+    RStep r n r' ->
+    RDefined r.
+  Proof.
+    intros.
+    invc H.
+    eauto using r_defined_def.
+  Qed.
+
+  Lemma r_step_to_defined_r:
+    forall r n r',
+    RStep r n r' ->
+    RDefined r'.
+  Proof.
+    intros.
+    invc H.
+    eauto using r_defined_def.
+  Qed.
+
   (* ------------------------- HAS NEXT ------------------- *)
 
   Lemma r_has_next_to_last:
@@ -1453,18 +1509,6 @@ Section Defs.
     assert (n2 = S n) by eauto using n_step_fun.
     subst.
     lia.
-  Qed.
-
-  Lemma r_step_to_defined_r:
-    forall r n r',
-    RStep r n r' ->
-    RDefined r'.
-  Proof.
-    intros.
-    unfold RDefined.
-    destruct r' as (e1, e2).
-    invc H.
-    eauto.
   Qed.
 
   Lemma r_defined_subst:

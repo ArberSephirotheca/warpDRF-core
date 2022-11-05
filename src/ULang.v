@@ -331,6 +331,30 @@ Section C1.
     eapply run_if with (i:=i) (j:=j) in H1; eauto.
     assumption.
   Qed.
+
+  Inductive CanRun : inst -> Prop :=
+  | can_run_skip:
+    CanRun Skip
+  | can_run_seq:
+    forall i j,
+    CanRun i ->
+    CanRun j ->
+    CanRun (Seq i j)
+  | can_run_if:
+    forall e b i j,
+    BStep e b ->
+    CanRun i ->
+    CanRun j ->
+    CanRun (If e i j)
+  | can_run_acc:
+    forall e v,
+    AStep e v ->
+    CanRun (MemAcc e)
+  | can_run_for:
+    forall x r i,
+    RDefined tid r ->
+    (forall n, RPick tid r n -> CanRun (i_subst x (NNum n) i)) ->
+    CanRun (For x r i).
   End RUN.
 
   Definition REq i1 i2 :=
@@ -907,7 +931,52 @@ Section C1.
 
   Definition CRun := RunAll TID_COUNT.
 
+  Definition CCanRun u := (forall i, i < TID_COUNT -> CanRun i u).
+
   Transparent CRun.
+
+  Lemma run_to_can_run:
+    forall i c h,
+    Run i c h ->
+    CanRun i c.
+  Proof.
+    intros.
+    induction H.
+    - constructor.
+    - econstructor.
+      eauto.
+    - constructor; auto.
+    - econstructor; eauto.
+    - constructor.
+      + eauto using r_step_to_defined_l.
+      + intros.
+        rename_hyp (RPick _ _ _) as hr.
+        eapply r_step_inv_pick in hr; eauto.
+        destruct hr as [hr|hr]. {
+          subst.
+          assumption.
+        }
+        invc IHRun2.
+        eauto.
+     - apply can_run_for.
+       + auto using r_empty_to_defined.
+       + intros.
+        contradict H.
+        eauto using r_pick_to_empty.
+  Qed.
+
+  Lemma c_run_to_can_run:
+    forall c h,
+    CRun c h ->
+    CCanRun c.
+  Proof.
+    intros c h H.
+    unfold CCanRun.
+    intros.
+    apply run_all_inv_run with (m:=i) in H; auto.
+    destruct H as (H', (Hr, _)).
+    eauto using run_to_can_run.
+  Qed.
 
   Lemma run_all_impl:
     forall m,

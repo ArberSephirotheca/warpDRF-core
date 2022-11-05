@@ -453,69 +453,82 @@ Section Defs.
     rewrite i_subst_trace_eq; auto.
     apply u_in_to_t_in; auto.
   Qed.
-
+(*
   Corollary soundness:
     forall m_c m_h i,
     ~ ULang.Occurs T1 i ->
     ~ ULang.Occurs T2 i ->
-    Hist.MSafeStrong m_h ->
+    Hist.Safe m_h ->
     ULang.RunAll TID_COUNT i m_c ->
-    TLang.Run (sequentialize i) m_h ->
+    TLang.NRun (sequentialize i) m_h ->
     Hist.Safe m_c.
   Proof.
     intros m_c m_h i nin_t1 nin_t2 Hs1 Hrc Hrh.
-    unfold Hist.MSafeStrong in *.
     unfold Hist.Safe.
     intros x y Hix' Hiy'.
+
+    assert (av_owner x < TID_COUNT) by eauto using ULang.run_all_inv_in_eq.
+    assert (av_owner y < TID_COUNT) by eauto using ULang.run_all_inv_in_eq.
 
     (* Simplify the goal *)
     destruct (PeanoNat.Nat.eq_dec (AVal.av_owner x) (AVal.av_owner y)). {
       auto using AExp.a_safe_eq_tid.
     }
-    apply Hs1; auto; clear Hs1.
-    eapply TLang.run_i_pair_in_to_m_pair_in; eauto.
+    assert (hp: PairInUtil.PairIn (x, y) m_c) by eauto using PairInUtil.pair_in_def.
+
+(*     apply Hs1; auto; clear Hs1. *)
 
     (* Simplify the assumption of run for t1 *)
-    assert (Hrx := Hrc).
-    eapply ULang.run_all_inv_in with (x:=x) in Hrx; eauto.
-    destruct Hrx as (nx, (h_x, (?, (Hrx, (_, Hix))))).
-    assert (nx = AVal.av_owner x). {
-      symmetry.
-      eapply ULang.run_inv_in_eq; eauto.
+    assert (Hix: ULang.IIn x i). {
+      assert (Hrx := Hrc).
+      eapply ULang.run_all_inv_in with (x:=x) in Hrx; eauto.
+      destruct Hrx as (nx, (h_x, (?, (Hrx, (_, Hix))))).
+      assert (nx = AVal.av_owner x). {
+        symmetry.
+        eapply ULang.run_inv_in_eq; eauto.
+      }
+      subst.
+      eapply ULang.run_in_to_i_in in Hix; eauto.
     }
-    subst.
-    eapply ULang.run_in_to_i_in in Hix; eauto.
-    clear Hrx Hix'.
 
     (* Simplify the assumption of run for t2 *)
-    assert (Hry := Hrc).
-    eapply ULang.run_all_inv_in with (x:=y) in Hry; eauto.
-    destruct Hry as (ny, (h_y, (?, (Hry, (_, Hiy))))).
-    assert (ny = AVal.av_owner y). {
-      symmetry.
-      eapply ULang.run_inv_in_eq; eauto.
+    assert (Hiy : ULang.IIn y i). {
+      assert (Hry := Hrc).
+      eapply ULang.run_all_inv_in with (x:=y) in Hry; eauto.
+      destruct Hry as (ny, (h_y, (?, (Hry, (_, Hiy))))).
+      assert (ny = AVal.av_owner y). {
+        symmetry.
+        eapply ULang.run_inv_in_eq; eauto.
+      }
+      subst.
+      eapply ULang.run_in_to_i_in in Hiy; eauto.
     }
-    subst.
-    eapply ULang.run_in_to_i_in in Hiy; eauto.
-    clear Hry Hiy'.
 
     (* We no longer need run all *)
     clear Hrc.
 
     (* Now we will find the right pair *)
-    unfold sequentialize.
+    unfold sequentialize in *.
 
     assert (X: AVal.av_owner x < AVal.av_owner y \/ AVal.av_owner y < AVal.av_owner x). {
       lia.
     }
+    Search (av_owner _ < TID_COUNT).
     destruct X as [Hlt|Hlt]. {
+      assert (TLang.IPairIn (x, y)
+         (TLang.Decl T1 (NNum 1, NNum TID_COUNT)
+            (TLang.Decl T2 (NNum 0, NVar T1)
+               (TLang.Seq (trace (NVar T1) i) (trace (NVar T2) i)))))
+      by (
       (* We know that x < y, thus T1 = y and T2 = x *)
-      auto using t_pair_in_lt.
+      apply t_pair_in_lt; auto
+      ).
+      apply Hs1.
     }
     apply TLang.i_pair_in_sym.
     auto using t_pair_in_lt.
   Qed.
-
+*)
   Lemma i_pair_in_1:
     forall p i,
     ~ ULang.Occurs T1 i ->
@@ -623,7 +636,7 @@ Section Defs.
     - eapply ULang.run_all_i_in_to_in in Hxi; eauto.
     - eapply ULang.run_all_i_in_to_in in Hyi; eauto.
   Qed.
-
+(*
   Corollary completeness:
     forall m_c m_h i,
     ~ ULang.Occurs T1 i ->
@@ -662,4 +675,5 @@ Section Defs.
     }
     eapply soundness; eauto.
   Qed.
+  *)
 End Defs.

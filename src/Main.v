@@ -33,61 +33,6 @@ Section Defs.
 
   Notation history := (list access_val).
 
-  Inductive SRun : list TLang.inst -> list history -> Prop :=
-  | s_run_nil:
-    SRun [] []
-  | s_run_cons:
-    forall l ms h m,
-    SRun l ms ->
-    TLang.Run h m ->
-    SRun (h::l) (m ++ ms).
-
-  Lemma s_run_inv_in:
-    forall hs m,
-    SRun hs m ->
-    forall p,
-    PairInUtil.MPairIn p m ->
-    exists h m',
-    List.In h hs /\ TLang.Run h m' /\ PairInUtil.MPairIn p m'.
-  Proof.
-    intros hs m H.
-    induction H; intros. {
-      apply PairInUtil.m_pair_in_nil in H.
-      contradiction.
-    }
-    apply PairInUtil.m_pair_in_app_or in H1.
-    destruct H1 as [Hi|Hi]. {
-      eauto using in_eq.
-    }
-    edestruct IHSRun as (h1, (m1, (Ha, (Hb, Hc)))); eauto.
-    exists h1.
-    eauto using in_cons.
-  Qed.
-
-  Lemma s_run_inv:
-    forall l m,
-    SRun l m ->
-    forall x,
-    List.In x l ->
-    exists h,
-    TLang.Run x h /\incl h m.
-  Proof.
-    intros l m H.
-    induction H; intros. {
-      contradiction.
-    }
-    rename_hyp (In _ _) as hi.
-    destruct hi as [hi|hi]. {
-      subst.
-      exists m.
-      auto using InUtil.incl_app_refl_l.
-    }
-    assert (IHSRun := IHSRun x hi).
-    destruct IHSRun as (hx, (Hr, hj)).
-    exists hx.
-    split; auto using incl_appr.
-  Qed.
-
   Lemma ph_to_hist_phase:
     forall u,
     seq (PhaseSplit.Phase u) = Sequentialize.sequentialize u.
@@ -627,16 +572,21 @@ Section Defs.
     forall P h1 h2,
     ~ WLang.Occurs T1 P ->
     ~ WLang.Occurs T2 P ->
-    WLang.WRun P h1 ->
-    SRun (seq_l (PhaseSplit.split (Align.align P))) h2 ->
     WLang.Distinct P ->
+    (* ------------- *)
+    WLang.WRun P h1 ->
+    forall j,
+    List.In j (seq_l (PhaseSplit.split (Align.align P))) ->
+    TLang.NRun j h2 ->
     VHist.Safe h1 ->
-    Hist.MSafeStrong h2.
+    Hist.Safe h2.
   Proof.
     intros.
     (* We first simplify our goal. *)
-    unfold Hist.MSafeStrong, VHist.Safe in *.
+    unfold Hist.MSafeStrong, Hist.Safe, VHist.Safe in *.
     intros.
+    assert (hx: av_owner x = av_owner y \/ av_owner x <> av_owner y) by lia.
+    destruct hx. { auto using safe_owner. }
     rename_hyp (forall x y, _) as Hi.
     apply Hi; auto; clear Hi.
     apply WLang.i_pair_in_2 with (i:=P); auto.
@@ -658,10 +608,8 @@ Section Defs.
             In hs (seq_l (PhaseSplit.split (Align.align P))) /\
             TLang.IPairIn (x, y) hs
           ). {
-            rename_hyp (PairInUtil.MPairIn _ _) as Hi.
-            eapply s_run_inv_in in Hi; eauto.
-            destruct Hi as (hs, (m1, (Hi, (Hr, Hp)))).
-            eapply TLang.run_m_pair_in_to_i_pair_in in Hp; eauto.
+            assert (hi: PairInUtil.PairIn (x, y) h2) by eauto using PairInUtil.pair_in_def.
+            eapply TLang.n_run_pair_in_to_i_pair_in in hi; eauto.
           }
           destruct Hip as (e, (Hi, Hp)).
           apply in_map_iff in Hi.
@@ -698,21 +646,37 @@ Section Defs.
     apply Align.in_1; eauto using WLang.run_to_can_run.
   Qed.
 
+  Lemma in_seq_l:
+    forall ph l,
+    In ph l ->
+    In (seq ph) (seq_l l).
+  Proof.
+    induction l; intros. { contradiction. }
+    simpl in *.
+    intuition.
+    subst.
+    intuition.
+  Qed.
+
+  Definition Forall (P:TLang.inst -> Prop) (p:WLang.w_inst) : Prop :=
+    forall j,
+    List.In j (seq_l (PhaseSplit.split (Align.align p))) ->
+    P j.
+
   Theorem drf_2:
-    forall P h1 h2,
+    forall P h1,
     ~ WLang.Occurs T1 P ->
     ~ WLang.Occurs T2 P ->
-    WLang.WRun P h1 ->
-    SRun (seq_l (PhaseSplit.split (Align.align P))) h2 ->
     WLang.Distinct P ->
-    Hist.MSafeStrong h2 ->
+    (* ---- *)
+    WLang.WRun P h1 ->
+    Forall TLang.CanRun P ->
+    Forall (fun j => forall h2, TLang.NRun j h2 -> Hist.Safe h2) P ->
     VHist.Safe h1.
   Proof.
+    intros P h1 Hn1 Hn2 Hd Hr1 Hcr HI.
+    unfold Hist.Safe, VHist.Safe in *.
     intros.
-    unfold Hist.MSafeStrong, VHist.Safe in *.
-    intros.
-    rename_hyp (forall x y, _) as Hi.
-    apply Hi; auto; clear Hi.
     rename_hyp (VHist.MPairIn (x, y) h1) as hp.
     (* from mem to proto *)
     eapply WLang.i_pair_in_1 in hp; eauto.
@@ -730,15 +694,12 @@ Section Defs.
     apply in_2 in Hp; auto using t1_neq_t2.
     - (* symb trace to h2 *)
       unfold split in *.
-      rename_hyp (SRun _ _) as hs.
-      apply s_run_inv with (x:=seq ph) in hs; auto. 2: {
-        unfold seq_l.
-        rewrite in_map_iff.
-        eauto.
+      apply TLang.n_run_i_pair_in_to_pair_in in Hp; auto. {
+        destruct Hp as (h, (Hn, Hp)).
+        eauto using PairInUtil.pair_in_to_in_l, PairInUtil.pair_in_to_in_r, in_seq_l.
       }
-      destruct hs as (h, (Hsr, hi)).
-      eapply TLang.run_i_pair_in_to_m_pair_in with (h:=h) in Hp; eauto.
-      eauto using PairInUtil.m_pair_in_incl.
+      apply Hcr.
+      auto using in_seq_l.
     - intros N.
       rename_hyp (~ WLang.Occurs T1 P) as ht1.
       contradict ht1.
@@ -752,11 +713,11 @@ Section Defs.
 
   (* ~~~~~ Theorem 1 ~~~~~~~ *)
   Theorem drf:
-    forall P h1 h2,
+    forall P h1,
     (* P runs and yields h1: *)
     WLang.WRun P h1 -> (* p \in mathcal W and p \downarrow h1 *)
     (* seq(split(align(P))) runs and yields h2: *)
-    SRun (seq_l (PhaseSplit.split (Align.align P))) h2 -> (* seq(split(align(p))) \Downarrow h_2 *)
+    Forall TLang.CanRun P ->
     (* All loop variables in c must be distinct: *)
     WLang.Distinct P ->
     (* T1 (used in sequentialization) cannot appear anywhere in P: *)
@@ -764,11 +725,15 @@ Section Defs.
     (* T2 (used in sequentialization) cannot appear anywhere in P: *)
     ~ WLang.Occurs T2 P ->
     (* Main result: *)
-    Hist.MSafeStrong h2 <-> Hist.MSafeStrong (VHist.vhist_to_list h1). (* safe(h2) <-> safe(h1) *)
+    Forall (fun j => forall h2, TLang.NRun j h2 -> Hist.Safe h2) P
+    <-> Hist.MSafeStrong (VHist.vhist_to_list h1). (* safe(h2) <-> safe(h1) *)
   Proof.
     intros.
     rewrite <- VHist.v_safe_spec.
-    split; eauto using drf_1, drf_2.
+    split; eauto using drf_2.
+    unfold Forall.
+    intros.
+    eauto using drf_1.
   Qed.
 
 End Defs.
@@ -867,6 +832,6 @@ TLang.Decl (variable "x") (NBin NPlus (NNum 1) (NNum 0), NNum 10)
     simpl.
     auto.
   Qed.
-  
+
 End Defs.
 End Example.

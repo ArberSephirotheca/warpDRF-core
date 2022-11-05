@@ -350,7 +350,7 @@ Section Props.
 
   Corollary i_first_align:
     forall P,
-    CanRun P ->
+    WLang.CanRun P ->
     WLang.Distinct P ->
     forall a,
     IFirst a (fst (align P)) <->
@@ -369,7 +369,7 @@ Section Props.
   Lemma i_first_align_1:
     forall v r n P x P_x c_x,
     WLang.Distinct P ->
-    CanRun (w_subst x (NNum n) P) ->
+    WLang.CanRun (w_subst x (NNum n) P) ->
     align P = (P_x, c_x) ->
     NStep v n ->
     RPick r n ->
@@ -382,8 +382,8 @@ Section Props.
     rename_hyp (align _ = _) as Ht.
     apply align_to_subst with (x:=x) (v:=v) in Ht;
       eauto using n_step_to_closed.
-    assert (CanRun (w_subst x v P)). {
-      eapply can_run_subst; eauto using n_step_num.
+    assert (WLang.CanRun (w_subst x v P)). {
+      eapply WLang.can_run_subst; eauto using n_step_num.
     }
     apply i_first_align; auto.
     - auto using WLang.distinct_subst.
@@ -485,7 +485,7 @@ Section Props.
 
   Corollary i_last_align:
     forall P,
-    CanRun P ->
+    WLang.CanRun P ->
     WLang.Distinct P ->
     forall a,
     CIn a (snd (align P)) <->
@@ -504,7 +504,7 @@ Section Props.
   Lemma i_last_align_1:
     forall v r n P x P_x c_x,
     WLang.Distinct P ->
-    CanRun (w_subst x (NNum n) P) ->
+    WLang.CanRun (w_subst x (NNum n) P) ->
     align P = (P_x, c_x) ->
     NStep v n ->
     RPick r n ->
@@ -517,7 +517,7 @@ Section Props.
     rename_hyp (align _ = _) as Ht.
     apply align_to_subst with (x:=x) (v:=v) in Ht;
       eauto using n_step_to_closed.
-    assert (CanRun (w_subst x v P)). {
+    assert (WLang.CanRun (w_subst x v P)). {
       eapply can_run_subst; eauto using n_step_num.
     }
     apply i_last_align; auto.
@@ -591,7 +591,7 @@ Section Props.
 
   Lemma in_1:
     forall P,
-    CanRun P ->
+    WLang.CanRun P ->
     WLang.Distinct P ->
     forall p,
     PPairIn p (align P) ->
@@ -839,7 +839,7 @@ Section Props.
 
   Corollary drf_1:
     forall P,
-    CanRun P ->
+    WLang.CanRun P ->
     WLang.Distinct P ->
     WLang.DRF P ->
     DRF (align P).
@@ -912,7 +912,7 @@ Section Props.
     NStep e n ->
     ~ WVar x P ->
     align P = (P_x, c_x) ->
-    CanRun (w_subst x e P) ->
+    WLang.CanRun (w_subst x e P) ->
     WLang.IFirst a (w_subst x e P) ->
     NStep e' n ->
     IFirst a (subst x e' P_x).
@@ -936,7 +936,7 @@ Section Props.
     ~ WVar x P ->
     WLang.Distinct P ->
     align P = (P_x, c_x) ->
-    CanRun (w_subst x n P) ->
+    WLang.CanRun (w_subst x n P) ->
     ILast a (w_subst x e P) ->
     CIn a (i_subst x (from_pure e') c_x).
   Proof.
@@ -957,7 +957,7 @@ Section Props.
   Lemma in_2:
     forall p P,
     WLang.IPairIn p P ->
-    CanRun P ->
+    WLang.CanRun P ->
     WLang.Distinct P ->
     PPairIn p (align P).
   Proof.
@@ -1022,8 +1022,8 @@ Section Props.
       invc Hc.
       destruct r as (e1, e2).
       destruct (align P) as (P_x, c_x) eqn:r1.
-      assert (Hx1: CanRun (w_subst x e P)). {
-        assert (Hx1: CanRun (w_subst x n P)). {
+      assert (Hx1: WLang.CanRun (w_subst x e P)). {
+        assert (Hx1: WLang.CanRun (w_subst x n P)). {
           auto.
         }
         eapply can_run_subst; eauto using n_step_num.
@@ -1156,7 +1156,7 @@ Section Props.
       destruct p as (a1, a2).
       simpl in *.
       invc Hc.
-      assert (Hc: CanRun (w_subst x (NNum n) P)) by auto.
+      assert (Hc: WLang.CanRun (w_subst x (NNum n) P)) by auto.
       apply r_pick_inv_last in H.
       destruct H as [H|H]. {
         right.
@@ -1250,8 +1250,8 @@ Section Props.
       left.
       apply i_pair_in_for_1.
       invc Hc.
-      assert (CanRun (w_subst x e P)). {
-        assert (CanRun (w_subst x (NNum n) P)) by auto using r_first_to_pick.
+      assert (WLang.CanRun (w_subst x e P)). {
+        assert (WLang.CanRun (w_subst x (NNum n) P)) by auto using r_first_to_pick.
         eauto using can_run_subst, n_step_num.
       }
       intuition.
@@ -1279,8 +1279,8 @@ Section Props.
       apply i_pair_in_n_seq_r.
       simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
-      assert (CanRun (w_subst x e' P)). {
-        assert (CanRun (w_subst x (NNum (S n)) P)) by eauto using r_pick2_to_pick_r.
+      assert (WLang.CanRun (w_subst x e' P)). {
+        assert (WLang.CanRun (w_subst x (NNum (S n)) P)) by eauto using r_pick2_to_pick_r.
         eapply can_run_subst; eauto using n_step_num.
       }
       intuition.
@@ -1317,9 +1317,9 @@ Section Props.
       rewrite i_subst_subst_eq_1.
       simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
-      assert (CanRun (w_subst x (NNum n) P)) by eauto using r_pick2_to_pick.
-      assert (CanRun (w_subst x e' P)). {
-        assert (CanRun (w_subst x (NNum (S n)) P)) by eauto using r_pick2_to_pick_r.
+      assert (WLang.CanRun (w_subst x (NNum n) P)) by eauto using r_pick2_to_pick.
+      assert (WLang.CanRun (w_subst x e' P)). {
+        assert (WLang.CanRun (w_subst x (NNum (S n)) P)) by eauto using r_pick2_to_pick_r.
         eapply can_run_subst; eauto using n_step_num.
       }
       intuition.
@@ -1345,7 +1345,7 @@ Section Props.
 
   Corollary drf_2:
     forall P,
-    CanRun P ->
+    WLang.CanRun P ->
     WLang.Distinct P ->
     DRF (align P) ->
     WLang.DRF P.
@@ -1357,7 +1357,7 @@ Section Props.
 
   Corollary drf:
     forall P,
-    CanRun P ->
+    WLang.CanRun P ->
     WLang.Distinct P ->
     DRF (align P) <-> WLang.DRF P.
   Proof.
