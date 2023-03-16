@@ -274,21 +274,6 @@ Section Props.
       apply H1 in h; auto.
   Qed.
 
-  Inductive CanRun: n_inst -> Prop :=
-  | can_run_sync:
-    forall u,
-    CanRun (NSync u)
-  | can_run_seq:
-    forall p q,
-    CanRun p ->
-    CanRun q ->
-    CanRun (NSeq p q)
-  | can_run_for:
-    forall p x r q,
-    CanRun p ->
-    (forall n, RPick r n -> CanRun (ALang.subst x (NNum n) q)) ->
-    CanRun (NFor p x r q).
-
   Lemma i_drf_2:
     forall p,
     CanRun p ->

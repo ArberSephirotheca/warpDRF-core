@@ -110,65 +110,7 @@ Section Defs.
     eapply n_run_if with (i:=i) (j:=j) in H0; eauto.
     assumption.
   Qed.
-(*
-  Lemma run_if_true:
-    forall e i j hi hj,
-    BStep e true ->
-    Run i hi ->
-    Run j hj ->
-    Run (If e i j) hi.
-  Proof.
-    intros.
-    eapply run_if with (i:=i) (j:=j) in H1; eauto.
-    assumption.
-  Qed.
 
-  Lemma run_if_false:
-    forall e i j hi hj,
-    BStep e false ->
-    Run i hi ->
-    Run j hj ->
-    Run (If e i j) hj.
-  Proof.
-    intros.
-    eapply run_if with (i:=i) (j:=j) in H1; eauto.
-    assumption.
-  Qed.
-
-  Lemma run_inv_nil:
-    forall i,
-    ~ Run i [].
-  Proof.
-    intros i H.
-    remember ([]).
-    generalize dependent Heql.
-    induction H; intros.
-    - inversion Heql.
-    - apply prod_inv_nil in Heql.
-      destruct Heql; auto.
-    - destruct b; auto.
-    - inversion Heql.
-    - destruct hs1. { contradiction. }
-      destruct hs2. { contradiction. }
-      inversion Heql.
-    - destruct hs1. { contradiction. }
-      destruct hs2. { contradiction. }
-      inversion Heql.
-    - inversion Heql.
-  Qed.
-
-  Lemma run_not_nil:
-    forall i m,
-    Run i m ->
-    m <> [].
-  Proof.
-    intros.
-    intros N.
-    subst.
-    apply run_inv_nil in H.
-    assumption.
-  Qed.
-*)
   Lemma i_subst_subst_eq:
     forall x i n1 n2,
     i_subst x (NNum n1) (i_subst x (NNum n2) i) = i_subst x (NNum n2) i.
@@ -500,40 +442,7 @@ Section Defs.
     invc H0.
     apply i_in_decl with (n:=n0); eauto using r_step_pick_rev.
   Qed.
-(*
-  Lemma run_m_in_to_i_in:
-    forall i h,
-    Run i h ->
-    forall a,
-    MIn a h ->
-    IIn a i.
-  Proof.
-    intros i h Hr.
-    induction Hr; intros a Hi.
-    - apply m_in_nil_nil in Hi.
-      contradiction.
-    - apply m_in_prod_inv in Hi.
-      destruct Hi; auto using i_in_seq_l, i_in_seq_r.
-    - destruct b. {
-        eauto using i_in_if_true.
-      }
-      eauto using i_in_if_false.
-    - apply m_in_inv_cons_nil in Hi.
-      simpl in *.
-      intuition.
-      subst.
-      eapply i_in_access; eauto.
-    - apply m_in_inv_app in Hi.
-      destruct Hi; auto using i_in_fork_l, i_in_fork_r.
-    - apply m_in_inv_app in Hi.
-      destruct Hi as [Hi|Hi]. {
-        eapply i_in_decl; eauto using r_step_to_pick.
-      }
-      eauto using i_in_decl_r_step.
-    - apply m_in_nil_nil in Hi.
-      contradiction.
-  Qed.
-*)
+
   Lemma n_run_in_to_i_in:
     forall i h,
     NRun i h ->
@@ -676,17 +585,6 @@ Section Defs.
       split; auto.
       apply n_run_decl_cons with (n:=n); auto.
   Qed.
-(*
-  Lemma i_in_iff:
-    forall i h,
-    Run i h ->
-    forall a,
-    IIn a i <-> MIn a h.
-  Proof.
-    intros.
-    split; eauto using run_m_in_to_i_in, run_i_in_to_m_in.
-  Qed.
-*)
   (* ------------------------ PAIR IN ------------------------------------- *)
 
   Definition IOneOf (p:access_val*access_val) i j :=
@@ -754,95 +652,7 @@ Section Defs.
     - eauto using i_pair_in_fork_r.
     - eapply i_pair_in_decl; eauto.
   Qed.
-(*
-  Lemma run_i_pair_in_to_m_pair_in:
-    forall i h,
-    Run i h ->
-    forall p,
-    IPairIn p i ->
-    MPairIn p h.
-  Proof.
-    intros i h Hr.
-    induction Hr; intros p Hi;
-      inversion Hi; subst; clear Hi.
-    - eauto using m_pair_in_prod_l, run_not_nil.
-    - eauto using m_pair_in_prod_r, run_not_nil.
-    - destruct p as (v1, v2).
-      destruct H0 as [(Ha,Hb)|(Ha,Hb)];
-        eapply run_i_in_to_m_in in Ha; eauto;
-        eapply run_i_in_to_m_in in Hb;
-        eauto using m_pair_in_prod_2, m_pair_in_prod_1.
-    - assert (b = true) by eauto using b_step_fun; subst.
-      eauto.
-    - assert (b = false) by eauto using b_step_fun; subst; eauto.
-    - auto using m_pair_in_app_l.
-    - auto using m_pair_in_app_r.
-    - rename_hyp (RPick _ _) as hr.
-      apply r_step_pick_advance with (n:=n) (r':=r') in hr; auto.
-      destruct hr. {
-        subst.
-        apply m_pair_in_app_l.
-        eauto.
-      }
-      eapply m_pair_in_app_r.
-      eauto using i_pair_in_decl.
-    - contradict H.
-      eauto using r_pick_to_empty.
-  Qed.
 
-
-  Lemma run_m_pair_in_to_i_pair_in:
-    forall i h,
-    Run i h ->
-    forall v1 v2,
-    av_owner v1 <> av_owner v2 ->
-    MPairIn (v1, v2) h ->
-    IPairIn (v1, v2) i.
-  Proof.
-    intros i h Hr.
-    induction Hr; intros v1 v2 hneq Hi.
-    - apply m_pair_in_nil_nil in Hi.
-      contradiction.
-    - apply m_pair_in_inv_prod in Hi.
-      destruct Hi as [Hi|[Hi|[(Ha,Hb)|(Ha,Hb)]]];
-        auto using i_pair_in_seq_l, i_pair_in_seq_r;
-        apply i_pair_in_seq_both;
-        simpl in *;
-        eapply run_m_in_to_i_in in Ha; eauto;
-        eapply run_m_in_to_i_in in Hb; eauto.
-    - destruct b. {
-        apply i_pair_in_if_true; auto.
-      }
-      apply i_pair_in_if_false; auto.
-    - (* Impossible case since only one access exists *)
-      apply m_pair_in_inv in Hi.
-      destruct Hi. {
-        assert (v1 = v2). {
-          inversion_clear H0.
-          simpl in *.
-          intuition.
-          subst.
-          reflexivity.
-        }
-        subst.
-        contradiction.
-      }
-      apply m_pair_in_nil in H0.
-      contradiction.
-    - apply m_pair_in_app_or in Hi.
-      destruct Hi; auto using i_pair_in_fork_l, i_pair_in_fork_r.
-    - apply m_pair_in_app_or in Hi.
-      destruct Hi as [Hi|Hi]. {
-        eapply i_pair_in_decl; eauto using r_step_to_pick.
-      }
-      apply IHHr2 in Hi; auto.
-      invc Hi.
-      rename_hyp (RPick _ _) as hr.
-      eauto using r_step_pick_rev, i_pair_in_decl.
-    - apply m_pair_in_nil_nil in Hi.
-      contradiction.
-  Qed.
-*)
   Lemma i_pair_in_to_i_in:
     forall v1 v2 i,
     IPairIn (v1, v2) i ->
