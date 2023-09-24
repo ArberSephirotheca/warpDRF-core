@@ -5,6 +5,7 @@ Require Import Coq.micromega.Lia.
 Import ListNotations.
 
 Require Import Pure.NExp.
+Require Import Pure.BExp.
 Require Import Tictac.
 Require Import Util.
 
@@ -257,6 +258,11 @@ Section Defs.
     NStep e2 n2 ->
     n1 <= n < n2 ->
     RPick (e1, e2) n.
+
+  Definition r_in n r : bexp :=
+    BRel BAnd
+      (NRel NLe (fst r) n)
+      (NRel NLt n (snd r)).
 
   Lemma r_first_to_pick:
     forall r n,
@@ -1216,7 +1222,10 @@ Section Defs.
     REq e2 e1.
   Proof.
     unfold REq; intros.
-    intuition.
+    destruct H as [Ha Hb].
+    symmetry in Ha.
+    symmetry in Hb.
+    auto.
   Qed.
 
   Lemma r_eq_trans:

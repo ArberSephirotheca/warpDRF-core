@@ -5,6 +5,7 @@ Require Import Coq.Structures.OrderedTypeEx.
 Require Import Coq.FSets.FMapAVL.
 Require Import Coq.FSets.FSetAVL.
 Require Import Coq.Arith.Peano_dec.
+Require Import Coq.Arith.PeanoNat.
 
 Require Import Aniceto.Map.
 
@@ -43,7 +44,7 @@ Module LOC <: UsualOrderedType.
     unfold not; intros.
     inversion H0.
     subst.
-    apply Lt.lt_irrefl in H.
+    apply Nat.lt_irrefl in H.
     inversion H.
   Qed.
 
@@ -93,7 +94,7 @@ Qed.
 Section NotIn.
   Variable elt:Type.
 
-  Let lt_irrefl:
+  Lemma lt_irrefl:
     forall x : loc, ~ LOC.lt x x.
   Proof.
     unfold not; intros.
@@ -102,7 +103,7 @@ Section NotIn.
     apply LOC.eq_refl.
   Qed.
 
-  Let lt_next:
+  Lemma lt_next:
     forall x, LOC.lt x (loc_next x).
   Proof.
     intros.
@@ -112,7 +113,7 @@ Section NotIn.
     auto.
   Qed.
 
-  Let loc_impl_eq:
+  Lemma loc_impl_eq:
     forall k k' : loc, k = k' -> k = k'.
   Proof.
     auto.
@@ -125,7 +126,7 @@ Section NotIn.
     ~ Map_LOC.In (supremum m) m.
   Proof.
     intros.
-    eauto using Map_LOC_Extra.find_not_in, LOC.lt_trans.
+    eauto using Map_LOC_Extra.find_not_in, LOC.lt_trans, lt_irrefl, lt_next, loc_impl_eq.
   Qed.
 
 End NotIn.

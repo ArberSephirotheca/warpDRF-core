@@ -1348,7 +1348,10 @@ Section Defs.
     REq e2 e1.
   Proof.
     unfold REq; intros.
-    intuition.
+    destruct H as [Ha Hb].
+    symmetry in Ha.
+    symmetry in Hb.
+    auto.
   Qed.
 
   Lemma r_eq_trans:

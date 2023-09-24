@@ -405,7 +405,9 @@ Section Defs.
   Proof.
     unfold access_eq in *.
     intros.
-    intuition.
+    destruct H as [Ha Hb].
+    symmetry in Ha, Hb.
+    auto.
   Qed.
 
   Lemma eq_trans: 

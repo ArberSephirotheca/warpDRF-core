@@ -356,7 +356,33 @@ Section C1.
     (forall n, RPick tid r n -> CanRun (i_subst x (NNum n) i)) ->
     CanRun (For x r i).
   End RUN.
-
+(*
+  Inductive WF : list var -> inst -> Prop :=
+  | wf_skip:
+    forall l,
+    WF l Skip
+  | wf_seq:
+    forall i j l,
+    WF l i ->
+    WF l j ->
+    WF l (Seq i j)
+  | wf_if:
+    forall i j e l,
+    BTypes l e ->
+    WF l i ->
+    WF l j ->
+    WF l (If e i j)
+  | wf_acc:
+    forall l e,
+    ATypes l e ->
+    WF l (MemAcc e)
+  | wf_for:
+    forall l x r i,
+    RTypes l r ->
+    WF (x :: l) i ->
+    WF l (For x r i).
+  End RUN.
+*)
   Definition REq i1 i2 :=
    forall n h,
    Run n i1 h <-> Run n i2 h.

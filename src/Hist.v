@@ -1,5 +1,6 @@
 Require Import Coq.Lists.List.
 Require Import Coq.micromega.Lia.
+Require Import Coq.Arith.PeanoNat.
 
 Require Import AVal.
 Require Import InUtil.
@@ -232,7 +233,7 @@ Section Defs.
     unfold proj. intros.
     apply filter_In in H.
     destruct H as (Hl, Hr).
-    apply Coq.Arith.EqNat.beq_nat_true in Hr.
+    apply EqNat.beq_nat_true_stt in Hr.
     split; auto.
   Qed.
 
@@ -325,7 +326,7 @@ Section Defs.
     apply filter_In in H; auto.
     destruct H as (_, Hx).
     apply Bool.orb_prop in Hx.
-    destruct Hx as [Hx|Hx]; apply Coq.Arith.EqNat.beq_nat_true in Hx; intuition.
+    destruct Hx as [Hx|Hx]; apply EqNat.beq_nat_true_stt in Hx; intuition.
   Qed.
 
   Lemma in_proj2_inv_tid_eq:

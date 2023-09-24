@@ -5,7 +5,7 @@ Require Import Coq.Structures.OrderedTypeEx.
 Require Import Coq.FSets.FMapAVL.
 Require Import Coq.FSets.FSetAVL.
 Require Import Coq.Arith.Peano_dec.
-
+Require Import Coq.Arith.PeanoNat.
 Require Import Aniceto.Map.
 
 Require Coq.FSets.FMapFacts.
@@ -43,7 +43,7 @@ Module TID <: UsualOrderedType.
     unfold not; intros.
     inversion H0.
     subst.
-    apply Lt.lt_irrefl in H.
+    apply Nat.lt_irrefl in H.
     inversion H.
   Qed.
 
@@ -93,7 +93,7 @@ Qed.
 Section NotIn.
   Variable elt:Type.
 
-  Let lt_irrefl:
+  Lemma lt_irrefl:
     forall x : tid, ~ TID.lt x x.
   Proof.
     unfold not; intros.
@@ -102,7 +102,7 @@ Section NotIn.
     apply TID.eq_refl.
   Qed.
 
-  Let lt_next:
+  Lemma lt_next:
     forall x, TID.lt x (tid_next x).
   Proof.
     intros.
@@ -112,7 +112,7 @@ Section NotIn.
     auto.
   Qed.
 
-  Let tid_impl_eq:
+  Lemma tid_impl_eq:
     forall k k' : tid, k = k' -> k = k'.
   Proof.
     auto.
@@ -124,8 +124,9 @@ Section NotIn.
     forall (m: Map_TID.t elt),
     ~ Map_TID.In (supremum m) m.
   Proof.
-    intros.
-    eauto using Map_TID_Extra.find_not_in, TID.lt_trans.
+    intros m.
+    apply Map_TID_Extra.find_not_in.
+    all: eauto using lt_next, lt_irrefl, TID.lt_trans.
   Qed.
 
 End NotIn.
