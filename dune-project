@@ -7,8 +7,8 @@
 
 (package
  (name rocq-faial)
- (synopsis "Faial: formal semantics and barrier alignment for GPU kernels")
- (description "Coq/Rocq formalization of Faial: a hierarchy of languages for GPU kernels (ULang, WLang, ALang, TLang) along with barrier-alignment, phase-splitting and sequentialization theorems.")
+ (synopsis "Faial: Rocq formalizations of GPU kernel analyses")
+ (description "Rocq formalizations of memory access pattern (MAP) analyses for GPU kernels: the Drf theory covers barrier alignment, phase-splitting and sequentialization of a ULang/WLang/ALang/TLang hierarchy; the Approx theory covers the approximation analysis with control-flow and data-independence judgments, dependency analysis, and soundness wrt true data-races.")
  (maintainers "Tiago Cogumbreiro <cogumbreiro@users.sf.net>")
  (authors "Tiago Cogumbreiro <cogumbreiro@users.sf.net>")
  (license "Unlicense")
