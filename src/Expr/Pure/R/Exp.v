@@ -4,22 +4,17 @@ From Stdlib Require Import micromega.Lia.
 
 Import ListNotations.
 
-From Faial.Expr Require Pure.NExp.
-From Faial.Expr Require Pure.RExp.
-From Faial.Expr Require Import SIMT.NExp.
+From Faial.Expr Require Import Pure.N.Exp.
+From Faial.Expr Require Import Pure.B.Exp.
 From Faial.Core Require Import Tictac.
 From Faial.Core Require Import Util.
 
 Section Defs.
   Definition range := (nexp * nexp) % type.
 
-  Definition to_pure (tid:Pure.NExp.nexp) (r:range) : Pure.RExp.range :=
-    let (n1, n2) := r in
-    (NExp.to_pure tid n1, NExp.to_pure tid n2).
-
   Definition r_subst x v (r:range) :=
-    let (n1, n2) := r in
-    (n_subst x v n1, n_subst x v n2).
+  let (n1, n2) := r in
+  (n_subst x v n1, n_subst x v n2).
 
   Lemma r_subst_subst_neq_2:
     forall x y z n e,
@@ -92,45 +87,6 @@ Section Defs.
     | (e1, e2) => NFree x e1 \/ NFree x e2
     end.
 
-  Lemma r_subst_to_pure:
-    forall r tid x (v:nexp),
-    ~ Pure.NExp.NFree x tid ->
-    to_pure tid (r_subst x v r) =
-    Pure.RExp.r_subst x (SIMT.NExp.to_pure tid v) (to_pure tid r).
-  Proof.
-    intros [e1 e2] y x v hneq.
-    unfold r_subst.
-    simpl.
-    repeat rewrite n_subst_to_pure; auto.
-  Qed.
-
-  Lemma r_subst_to_pure_eq:
-    forall tid v r,
-    ~ Pure.NExp.NFree tid v ->
-    ~ RFree tid r ->
-    Pure.RExp.r_subst tid v (to_pure (Pure.NExp.NVar tid) r)
-    = to_pure v r.
-  Proof.
-    intros.
-    destruct r as (e1, e2).
-    simpl in *.
-    f_equal.
-    all: rewrite n_subst_to_pure_eq; auto.
-  Qed.
-
-  Lemma r_free_to_pure:
-    forall x tid e,
-    ~ Pure.NExp.NFree x tid ->
-    Pure.RExp.RFree x (to_pure tid e) ->
-    RFree x e.
-  Proof.
-    intros.
-    destruct e as [e1 e2].
-    simpl in *.
-    intuition.
-    all: eauto using n_free_to_pure.
-  Qed.
-
   Lemma r_subst_not_free:
     forall x v r,
     ~ RFree x r ->
@@ -197,11 +153,7 @@ Section Defs.
 
   Import Morphisms.
 
-  Variable tid: nat.
-
-  Notation NEq := (NEq tid).
-
-  Global Instance n_eq_proper_4: Proper (eq ==> NEq ==> eq ==> NEq * NEq ) r_subst.
+  Global Instance r_subst_proper: Proper (eq ==> NEq ==> eq ==> NEq * NEq ) r_subst.
   Proof.
     unfold Proper, respectful, RelCompFun, RelProd.
     split; intros; subst; unfold RelCompFun.
@@ -216,8 +168,6 @@ Section Defs.
   Qed.
 
   (* ------------------ ABSTRACTION OF RANGE ------------------------- *)
-
-  Notation NStep := (NStep tid).
 
   Inductive RStep : range -> nat -> range -> Prop :=
   | r_step_def:
@@ -308,6 +258,11 @@ Section Defs.
     NStep e2 n2 ->
     n1 <= n < n2 ->
     RPick (e1, e2) n.
+
+  Definition r_in n r : bexp :=
+    BRel BAnd
+      (NRel NLe (fst r) n)
+      (NRel NLt n (snd r)).
 
   Lemma r_first_to_pick:
     forall r n,
@@ -458,10 +413,6 @@ Section Defs.
     eapply r_pick_def; eauto.
     lia.
   Qed.
-
-  Notation NMinus := Pure.NExp.NMinus.
-  Notation NPlus := Pure.NExp.NPlus.
-  Notation eval_nbin := Pure.NExp.eval_nbin.
 
   Lemma r_last_to_eq:
     forall e1 e2 n,
@@ -726,16 +677,6 @@ Section Defs.
     let (e1, e2) := r in
     (exists n1, NStep e1 n1) /\ (exists n2, NStep e2 n2).
 
-  Lemma r_defined_def:
-    forall e1 n1 e2 n2,
-    NStep e1 n1 ->
-    NStep e2 n2 ->
-    RDefined (e1, e2).
-  Proof.
-    intros.
-    split; eauto.
-  Qed.
-
   Lemma r_defined_inv:
     forall r,
     RDefined r ->
@@ -750,36 +691,6 @@ Section Defs.
     }
     left.
     econstructor; eauto.
-  Qed.
-
-  Lemma r_empty_to_defined:
-    forall r,
-    REmpty r ->
-    RDefined r.
-  Proof.
-    intros.
-    invc H.
-    eauto using r_defined_def.
-  Qed.
-
-  Lemma r_step_to_defined_l:
-    forall r n r',
-    RStep r n r' ->
-    RDefined r.
-  Proof.
-    intros.
-    invc H.
-    eauto using r_defined_def.
-  Qed.
-
-  Lemma r_step_to_defined_r:
-    forall r n r',
-    RStep r n r' ->
-    RDefined r'.
-  Proof.
-    intros.
-    invc H.
-    eauto using r_defined_def.
   Qed.
 
   (* ------------------------- HAS NEXT ------------------- *)
@@ -917,7 +828,7 @@ Section Defs.
   Qed.
   (* ---------------------- NEq -------------------------------- *)
 
-  Global Instance n_eq_proper_5: Proper (NEq * NEq ==> eq ==> iff) RLast.
+  Global Instance r_last_proper_1: Proper (NEq * NEq ==> eq ==> iff) RLast.
   Proof.
     unfold Proper, respectful, RelCompFun, RelProd.
     intros (e1,e2) (e1', e2') (Ha, Hb) n' n ?.
@@ -1236,43 +1147,6 @@ Section Defs.
     auto using r_eq_subst.
   Qed.
 
-  Lemma r_eq_pick:
-    forall r1 r2 n,
-    REq r1 r2 ->
-    RPick r1 n <-> RPick r2 n.
-  Proof.
-    intros.
-    split; intros. {
-      inversion H0; subst; clear H0.
-      destruct r2 as (e1', e2').
-      destruct H.
-      simpl in *.
-      eapply r_pick_def; eauto.
-      - rewrite <- H.
-        assumption.
-      - rewrite <- H0.
-        assumption.
-    }
-    inversion H0; subst; clear H0.
-    destruct r1 as (e1', e2').
-    destruct H.
-    simpl in *.
-    eapply r_pick_def; eauto.
-    - rewrite H.
-      assumption.
-    - rewrite H0.
-      assumption.
-  Qed.
-
-  Global Instance r_pick_proper: Proper (REq ==> eq ==> iff) RPick.
-  Proof.
-    unfold Proper, respectful.
-    intros.
-    subst.
-    apply r_eq_pick.
-    assumption.
-  Qed.
-
   Lemma r_eq_step:
     forall r1 r1' r2 r2' n,
     REq r1 r1' ->
@@ -1514,6 +1388,18 @@ Section Defs.
     lia.
   Qed.
 
+  Lemma r_step_to_defined_r:
+    forall r n r',
+    RStep r n r' ->
+    RDefined r'.
+  Proof.
+    intros.
+    unfold RDefined.
+    destruct r' as (e1, e2).
+    invc H.
+    eauto.
+  Qed.
+
   Lemma r_defined_subst:
     forall r x v,
     NClosed v ->
@@ -1540,7 +1426,7 @@ Section Defs.
     destruct r' as (f, f').
     simpl in *.
     invc H.
-    apply r_step_def with (n2:=n2); eauto using NExp.n_step_subst.
+    apply r_step_def with (n2:=n2); eauto using N.Exp.n_step_subst.
   Qed.
 
   Lemma r_one_subst:
@@ -1554,42 +1440,7 @@ Section Defs.
     destruct r as (e, e').
     simpl in *.
     invc H.
-    eauto using r_one_def, NExp.n_step_subst.
-  Qed.
-
-  Lemma r_step_inv_pick:
-    forall r n r',
-    RStep r n r' ->
-    forall n',
-    RPick r n' ->
-    n = n' \/ RPick r' n'.
-  Proof.
-    intros.
-    invc H.
-    invc H0.
-    assert (n = n1) by eauto using n_step_fun; subst.
-    assert (n0 = n2) by eauto using n_step_fun; subst.
-    assert (Hx: n1 = n' \/ S n1 <= n' < n2) by lia.
-    destruct Hx; auto.
-    right.
-    eauto using r_pick_def.
-  Qed.
-
-  Lemma r_pick_to_pure:
-    forall r n,
-    Pure.RExp.RPick (to_pure (Pure.NExp.NNum tid) r) n <->
-    RPick r n.
-  Proof.
-    intros.
-    destruct r.
-    simpl.
-    split; intros.
-    all: invc H.
-    - rewrite n_step_to_pure in *.
-      eauto using r_pick_def.
-    - eapply RExp.r_pick_def; eauto.
-      all: rewrite n_step_to_pure.
-      all: auto.
+    eauto using r_one_def, N.Exp.n_step_subst.
   Qed.
 
   Lemma r_pick_to_lt:

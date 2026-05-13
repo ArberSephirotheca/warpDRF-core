@@ -1,9 +1,9 @@
-From Faial.Expr Require Import SIMT.NExp.
-From Faial.Expr Require Import SIMT.BExp.
+From Faial.Expr Require Import SIMT.N.Exp.
+From Faial.Expr Require Import SIMT.B.Exp.
 From Stdlib Require Import Lists.List.
 From Faial.Core Require Import Tictac.
 From Faial.Core Require Import AVal.
-From Faial.Expr Require Pure.AExp.
+From Faial.Expr Require Pure.A.Exp.
 
 Import ListNotations.
 Section Defs.
@@ -15,13 +15,13 @@ Section Defs.
     ae_mode: mode;
   }.
 
-  Definition to_pure (tid:Pure.NExp.nexp) (a:access_exp) : Pure.AExp.access_exp :=
+  Definition to_pure (tid:Pure.N.Exp.nexp) (a:access_exp) : Pure.A.Exp.access_exp :=
     match a with
     | {| ae_index := e; ae_mode := m |} =>
       {|
-        Pure.AExp.ae_index := NExp.to_pure tid e;
-        Pure.AExp.ae_owner := tid;
-        Pure.AExp.ae_mode := m
+        Pure.A.Exp.ae_index := N.Exp.to_pure tid e;
+        Pure.A.Exp.ae_owner := tid;
+        Pure.A.Exp.ae_mode := m
       |}
     end.
 
@@ -163,7 +163,7 @@ Section Defs.
 
   Lemma a_step_to_pure:
     forall e v,
-    AExp.AStep (to_pure (Pure.NExp.NNum tid) e) v <-> AStep e v.
+    A.Exp.AStep (to_pure (Pure.N.Exp.NNum tid) e) v <-> AStep e v.
   Proof.
     split; intros.
     all: destruct e as (e1, e2).
@@ -181,15 +181,15 @@ Section Defs.
 
   Lemma a_subst_to_pure_eq:
     forall tid v a,
-    ~ Pure.NExp.NFree tid v ->
+    ~ Pure.N.Exp.NFree tid v ->
     ~ NFree tid (ae_index a) ->
-    Pure.AExp.a_subst tid v (to_pure (Pure.NExp.NVar tid) a)
+    Pure.A.Exp.a_subst tid v (to_pure (Pure.N.Exp.NVar tid) a)
     = to_pure v a.
   Proof.
     intros.
     destruct a as (e1, e2).
     simpl in *.
-    unfold AExp.a_subst.
+    unfold A.Exp.a_subst.
     simpl.
     f_equal.
     - destruct (Var.VAR.eq_dec tid0 tid0). {
@@ -206,7 +206,7 @@ Section Defs.
     intros.
     unfold a_subst.
     simpl.
-    rewrite NExp.n_subst_subst_eq.
+    rewrite N.Exp.n_subst_subst_eq.
     reflexivity.
   Qed.
 
@@ -218,7 +218,7 @@ Section Defs.
     intros.
     unfold a_subst.
     simpl.
-    rewrite NExp.n_subst_subst_eq_2; auto.
+    rewrite N.Exp.n_subst_subst_eq_2; auto.
   Qed.
 
 
@@ -231,7 +231,7 @@ Section Defs.
     unfold a_subst.
     intros.
     simpl.
-    rewrite NExp.n_subst_subst_neq.
+    rewrite N.Exp.n_subst_subst_neq.
     { reflexivity. }
     { apply H. }
   Qed.
@@ -247,7 +247,7 @@ Section Defs.
     unfold a_subst.
     intros.
     simpl.
-    rewrite NExp.n_subst_subst_neq_2.
+    rewrite N.Exp.n_subst_subst_neq_2.
     { reflexivity. }
     { apply H0. }
     { apply H. }
@@ -264,7 +264,7 @@ Section Defs.
     unfold a_subst.
     intros.
     simpl.
-    rewrite NExp.n_subst_subst_neq_3.
+    rewrite N.Exp.n_subst_subst_neq_3.
     { reflexivity. }
     { apply H. }
     { apply H0. }
@@ -281,7 +281,7 @@ Section Defs.
     unfold a_subst.
     intros.
     simpl.
-    rewrite NExp.n_subst_subst_neq_5.
+    rewrite N.Exp.n_subst_subst_neq_5.
     { reflexivity. }
     { apply H. }
     { apply H0. }
@@ -294,7 +294,7 @@ Section Defs.
     unfold a_subst.
     intros.
     simpl.
-    rewrite NExp.n_subst_subst_eq_1.
+    rewrite N.Exp.n_subst_subst_eq_1.
     reflexivity.
   Qed.
 
@@ -306,7 +306,7 @@ Section Defs.
     unfold In, a_subst.
     intros.
     simpl in *.
-    rewrite NExp.n_subst_subst_trans.
+    rewrite N.Exp.n_subst_subst_trans.
     { reflexivity. }
     { apply H. }
   Qed.
@@ -318,7 +318,7 @@ Section Defs.
   Proof.
     unfold a_subst.
     intros.
-    rewrite NExp.n_subst_not_free.
+    rewrite N.Exp.n_subst_not_free.
     { destruct n. simpl. reflexivity. } 
     { apply H. }
   Qed.

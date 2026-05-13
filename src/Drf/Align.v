@@ -3,17 +3,17 @@ From Faial.Core Require Import Tasks.
 From Faial.Core Require Import Var.
 Require Import WLang.
 Require Import ULang.
-From Faial.Expr Require Import Pure.NExp.
-From Faial.Expr Require Import Pure.RExp.
+From Faial.Expr Require Import Pure.N.Exp.
+From Faial.Expr Require Import Pure.R.Exp.
 From Faial.Core Require Import Tictac.
 Require Import ALang.
 From Faial.Core Require Import Util.
 From Stdlib Require Import Lia.
-From Faial.Expr Require SIMT.NExp.
+From Faial.Expr Require SIMT.N.Exp.
 
 Section Props.
   Context `{T:Tasks}.
-  Notation from_pure := SIMT.NExp.from_pure.
+  Notation from_pure := SIMT.N.Exp.from_pure.
   (*
     ~~~~~ Function align (Figure 3) ~~~~~~~
    *)
@@ -163,12 +163,12 @@ Section Props.
         }
         apply eq_c_seq_def. {
           repeat rewrite i_subst_subst_eq_1.
-          rewrite <- NExp.n_subst_from_pure.
+          rewrite <- N.Exp.n_subst_from_pure.
           simpl.
           reflexivity.
         }
         repeat rewrite i_subst_subst_eq_1.
-        rewrite <- NExp.n_subst_from_pure.
+        rewrite <- N.Exp.n_subst_from_pure.
         simpl.
         reflexivity.
       }
@@ -193,10 +193,10 @@ Section Props.
           simpl in Ht'.
           invc Ht'.
           rewrite i_subst_subst_neq_3; auto.
-          - rewrite <- NExp.n_free_from_pure.
+          - rewrite <- N.Exp.n_free_from_pure.
             auto.
           - assert (hx :
-              NExp.NBin NMinus (NExp.NVar x) (NExp.NNum 1) =
+              N.Exp.NBin NMinus (N.Exp.NVar x) (N.Exp.NNum 1) =
               from_pure (NBin NMinus (NVar x) (NNum 1))
             ) by reflexivity.
             simpl.
@@ -204,10 +204,10 @@ Section Props.
         }
         apply eq_n_seq_def. {
           rewrite i_subst_subst_neq_3; auto.
-          - rewrite <- NExp.n_free_from_pure.
+          - rewrite <- N.Exp.n_free_from_pure.
             auto.
           - assert (hx :
-              NExp.NBin NMinus (NExp.NVar x) (NExp.NNum 1) =
+              N.Exp.NBin NMinus (N.Exp.NVar x) (N.Exp.NNum 1) =
               from_pure (NBin NMinus (NVar x) (NNum 1))
             ) by reflexivity.
             simpl.
@@ -225,15 +225,15 @@ Section Props.
       invc Ht'.
       apply eq_c_seq_def. {
         rewrite i_subst_subst_neq_5; auto.
-        + rewrite <- NExp.n_subst_from_pure.
+        + rewrite <- N.Exp.n_subst_from_pure.
           reflexivity.
-        + rewrite <- NExp.n_closed_from_pure.
+        + rewrite <- N.Exp.n_closed_from_pure.
           assumption.
       }
       rewrite i_subst_subst_neq_5; auto.
-      + rewrite <- NExp.n_subst_from_pure.
+      + rewrite <- N.Exp.n_subst_from_pure.
         reflexivity.
-      + rewrite <- NExp.n_closed_from_pure.
+      + rewrite <- N.Exp.n_closed_from_pure.
         assumption.
       + intuition.
   Qed.
@@ -422,7 +422,7 @@ Section Props.
         rewrite Ht1 in Hc.
         simpl in *.
         assert (hx:
-          NExp.NBin NMinus (from_pure e2) (NExp.NNum 1) =
+          N.Exp.NBin NMinus (from_pure e2) (N.Exp.NNum 1) =
           from_pure (NBin NMinus e2 (NNum 1))
         ) by reflexivity.
         rewrite hx.
@@ -430,7 +430,7 @@ Section Props.
           eauto using n_step_num, r_last_to_eq.
       + apply c_in_c_seq_r.
         assert (hx:
-          NExp.NBin NMinus (from_pure e2) (NExp.NNum 1) =
+          N.Exp.NBin NMinus (from_pure e2) (N.Exp.NNum 1) =
           from_pure (NBin NMinus e2 (NNum 1))
         ) by reflexivity.
         rewrite hx.
@@ -471,13 +471,13 @@ Section Props.
         apply IHGetLast; clear IHGetLast.
         * intuition.
           auto using WLang.distinct_subst.
-        * assert (hx: NExp.NNum n = from_pure (NNum n) ) by reflexivity.
+        * assert (hx: N.Exp.NNum n = from_pure (NNum n) ) by reflexivity.
           rewrite hx.
           apply c_in_subst with (v:=NBin NMinus e2 (NNum 1)) (n := n);
           eauto using n_step_num, r_last_to_eq.
       + apply c_in_def in Hi; auto.
         apply c_in_c_seq_r.
-        assert (hx: NExp.NNum n = from_pure (NNum n) ) by reflexivity.
+        assert (hx: N.Exp.NNum n = from_pure (NNum n) ) by reflexivity.
         rewrite hx.
         apply c_in_subst with (v:=NBin NMinus e2 (NNum 1)) (n := n);
           eauto using n_step_num, r_last_to_eq.
@@ -582,7 +582,7 @@ Section Props.
     rewrite hr.
     simpl.
     right.
-    assert (hx: NExp.NNum n = from_pure (NNum n) ) by reflexivity.
+    assert (hx: N.Exp.NNum n = from_pure (NNum n) ) by reflexivity.
     rewrite hx.
     eapply c_pair_in_subst; eauto using n_step_num.
   Qed.
@@ -685,7 +685,7 @@ Section Props.
           * rewrite i_subst_subst_eq_1 in Hp.
             simpl in Hp.
             remove_eq x x.
-            assert (hy: NExp.NNum (m - 1) =
+            assert (hy: N.Exp.NNum (m - 1) =
               from_pure (NNum (m - 1))
             ) by reflexivity.
             rewrite hy.
@@ -1065,7 +1065,7 @@ Section Props.
         right.
         apply c_pair_in_c_seq_l.
         assert (hx:
-          NExp.NBin NMinus (from_pure e2) (NExp.NNum 1) =
+          N.Exp.NBin NMinus (from_pure e2) (N.Exp.NNum 1) =
           from_pure (NBin NMinus e2 (NNum 1))
         ) by reflexivity.
         rewrite hx.
@@ -1094,7 +1094,7 @@ Section Props.
       simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       assert (hx:
-        NExp.NBin NMinus (NExp.NNum (S n)) (NExp.NNum 1) =
+        N.Exp.NBin NMinus (N.Exp.NNum (S n)) (N.Exp.NNum 1) =
         from_pure (NBin NMinus (NNum (S n)) (NNum 1))
       ) by reflexivity.
       rewrite hx.
@@ -1112,7 +1112,7 @@ Section Props.
         right.
         apply c_pair_in_c_seq_r.
         assert (hx:
-          NExp.NBin NMinus (NExp.from_pure e2) (NExp.NNum 1) =
+          N.Exp.NBin NMinus (N.Exp.from_pure e2) (N.Exp.NNum 1) =
           from_pure (NBin NMinus e2 (NNum 1))
         ) by reflexivity.
         rewrite hx.
@@ -1143,7 +1143,7 @@ Section Props.
       simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       assert (hx:
-        NExp.NBin NMinus (NExp.NNum (S n)) (NExp.NNum 1) =
+        N.Exp.NBin NMinus (N.Exp.NNum (S n)) (N.Exp.NNum 1) =
         from_pure (NBin NMinus (NNum (S n)) (NNum 1))
       ) by reflexivity.
       rewrite hx.
@@ -1167,28 +1167,28 @@ Section Props.
         .
         + apply ULang.c_in_c_seq_l.
           assert (hx:
-            NExp.NBin NMinus (NExp.from_pure e2) (NExp.NNum 1) =
+            N.Exp.NBin NMinus (N.Exp.from_pure e2) (N.Exp.NNum 1) =
             from_pure (NBin NMinus e2 (NNum 1))
           ) by reflexivity.
           rewrite hx.
           eauto using i_last_to_c_in_1.
         + apply ULang.c_in_c_seq_r.
           assert (hx:
-            NExp.NBin NMinus (NExp.from_pure e2) (NExp.NNum 1) =
+            N.Exp.NBin NMinus (N.Exp.from_pure e2) (N.Exp.NNum 1) =
             from_pure (NBin NMinus e2 (NNum 1))
           ) by reflexivity.
           rewrite hx.
           eapply ULang.c_in_subst; eauto.
         + apply ULang.c_in_c_seq_r.
           assert (hx:
-            NExp.NBin NMinus (NExp.from_pure e2) (NExp.NNum 1) =
+            N.Exp.NBin NMinus (N.Exp.from_pure e2) (N.Exp.NNum 1) =
             from_pure (NBin NMinus e2 (NNum 1))
           ) by reflexivity.
           rewrite hx.
           eapply ULang.c_in_subst; eauto.
         + apply ULang.c_in_c_seq_l.
           assert (hx:
-            NExp.NBin NMinus (NExp.from_pure e2) (NExp.NNum 1) =
+            N.Exp.NBin NMinus (N.Exp.from_pure e2) (N.Exp.NNum 1) =
             from_pure (NBin NMinus e2 (NNum 1))
           ) by reflexivity.
           rewrite hx.
@@ -1196,7 +1196,7 @@ Section Props.
       }
       left.
       apply i_pair_in_for_2 with (n:=S n). {
-        eauto using Pure.RExp.r_pick_advance.
+        eauto using Pure.R.Exp.r_pick_advance.
       }
       rewrite subst_n_seq.
       rewrite subst_n_seq.
@@ -1208,27 +1208,27 @@ Section Props.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       apply c_pair_in_def; intuition.
       + assert (hx:
-           NExp.NBin NMinus (NExp.NNum (S n)) (NExp.NNum 1) =
+           N.Exp.NBin NMinus (N.Exp.NNum (S n)) (N.Exp.NNum 1) =
           from_pure (NBin NMinus (NNum (S n)) (NNum 1))
         ) by reflexivity.
         rewrite hx.
         eauto using ULang.c_in_c_seq_l, i_last_to_c_in_1, n_step_succ_minus_one.
       + apply ULang.c_in_c_seq_r.
         assert (hx:
-           NExp.NBin NMinus (NExp.NNum (S n)) (NExp.NNum 1) =
+           N.Exp.NBin NMinus (N.Exp.NNum (S n)) (N.Exp.NNum 1) =
           from_pure (NBin NMinus (NNum (S n)) (NNum 1))
         ) by reflexivity.
         rewrite hx.
         eapply ULang.c_in_subst; eauto using n_step_succ_minus_one.
       + apply ULang.c_in_c_seq_r.
         assert (hx:
-           NExp.NBin NMinus (NExp.NNum (S n)) (NExp.NNum 1) =
+           N.Exp.NBin NMinus (N.Exp.NNum (S n)) (N.Exp.NNum 1) =
           from_pure (NBin NMinus (NNum (S n)) (NNum 1))
         ) by reflexivity.
         rewrite hx.
         eapply ULang.c_in_subst; eauto using n_step_succ_minus_one.
       + assert (hx:
-           NExp.NBin NMinus (NExp.NNum (S n)) (NExp.NNum 1) =
+           N.Exp.NBin NMinus (N.Exp.NNum (S n)) (N.Exp.NNum 1) =
           from_pure (NBin NMinus (NNum (S n)) (NNum 1))
         ) by reflexivity.
         rewrite hx.
@@ -1286,7 +1286,7 @@ Section Props.
       intuition.
       + apply i_pair_in_n_seq_1.
         * assert (hx:
-            NExp.NBin NMinus (NExp.NNum (S n)) (NExp.NNum 1) =
+            N.Exp.NBin NMinus (N.Exp.NNum (S n)) (N.Exp.NNum 1) =
             from_pure (NBin NMinus (NNum (S n)) (NNum 1))
           ) by reflexivity.
           rewrite hx.
@@ -1295,7 +1295,7 @@ Section Props.
       + apply i_pair_in_n_seq_2.
         * eapply i_first_to_c_in_1; eauto using n_step_num.
         * assert (hx:
-            NExp.NBin NMinus (NExp.NNum (S n)) (NExp.NNum 1) =
+            N.Exp.NBin NMinus (N.Exp.NNum (S n)) (N.Exp.NNum 1) =
             from_pure (NBin NMinus (NNum (S n)) (NNum 1))
           ) by reflexivity.
           rewrite hx.
@@ -1325,7 +1325,7 @@ Section Props.
       intuition.
       + apply i_pair_in_n_seq_1.
         * assert (hx:
-            NExp.NBin NMinus (NExp.NNum (S n)) (NExp.NNum 1) =
+            N.Exp.NBin NMinus (N.Exp.NNum (S n)) (N.Exp.NNum 1) =
             from_pure (NBin NMinus (NNum (S n)) (NNum 1))
           ) by reflexivity.
           rewrite hx.
@@ -1336,7 +1336,7 @@ Section Props.
         * apply i_first_n_seq_r.
           eapply i_first_to_c_in_1; eauto using n_step_num.
         * assert (hx:
-            NExp.NBin NMinus (NExp.NNum (S n)) (NExp.NNum 1) =
+            N.Exp.NBin NMinus (N.Exp.NNum (S n)) (N.Exp.NNum 1) =
             from_pure (NBin NMinus (NNum (S n)) (NNum 1))
           ) by reflexivity.
           rewrite hx.

@@ -5,7 +5,7 @@ From Faial.Core Require Import Var.
 From Stdlib Require Import micromega.Lia.
 From Stdlib Require Import Classes.RelationPairs.
 From Faial.Core Require Import Tictac.
-From Faial.Expr Require Pure.NExp.
+From Faial.Expr Require Pure.N.Exp.
 
 Section Defs.
 
@@ -13,12 +13,12 @@ Section Defs.
   | NTid : nexp
   | NNum : nat -> nexp
   | NVar : var -> nexp
-  | NBin : Pure.NExp.nbin ->  nexp -> nexp -> nexp.
+  | NBin : Pure.N.Exp.nbin ->  nexp -> nexp -> nexp.
 
-  Notation pexp := Pure.NExp.nexp.
-  Notation PNum := Pure.NExp.NNum.
-  Notation PVar := Pure.NExp.NVar.
-  Notation PBin := Pure.NExp.NBin.
+  Notation pexp := Pure.N.Exp.nexp.
+  Notation PNum := Pure.N.Exp.NNum.
+  Notation PVar := Pure.N.Exp.NVar.
+  Notation PBin := Pure.N.Exp.NBin.
 
   Fixpoint from_pure (n:pexp) : nexp :=
     match n with
@@ -40,12 +40,12 @@ End Defs.
 Section SO.
 
   Variable tid: nat.
-  Notation eval_nbin := Pure.NExp.eval_nbin.
-  Notation pexp := Pure.NExp.nexp.
-  Notation PNum := Pure.NExp.NNum.
-  Notation PVar := Pure.NExp.NVar.
-  Notation PBin := Pure.NExp.NBin.
-  Notation PStep := Pure.NExp.NStep.
+  Notation eval_nbin := Pure.N.Exp.eval_nbin.
+  Notation pexp := Pure.N.Exp.nexp.
+  Notation PNum := Pure.N.Exp.NNum.
+  Notation PVar := Pure.N.Exp.NVar.
+  Notation PBin := Pure.N.Exp.NBin.
+  Notation PStep := Pure.N.Exp.NStep.
 
   Inductive NStep: nexp -> nat -> Prop :=
   | n_step_tid:
@@ -104,7 +104,7 @@ Section SO.
 
   Lemma n_step_to_pure:
     forall e n,
-    PStep (to_pure (Pure.NExp.NNum tid) e) n <-> NStep e n.
+    PStep (to_pure (Pure.N.Exp.NNum tid) e) n <-> NStep e n.
   Proof.
     split; intros.
     - generalize dependent n.
@@ -121,7 +121,7 @@ Section SO.
   Lemma n_subst_from_pure:
     forall x v e,
     n_subst x (from_pure v) (from_pure e) =
-    from_pure (Pure.NExp.n_subst x v e).
+    from_pure (Pure.N.Exp.n_subst x v e).
   Proof.
     induction e; intros; simpl.
     - reflexivity.
@@ -136,11 +136,11 @@ Section SO.
 
   Lemma n_subst_to_pure:
     forall n tid x (v:nexp),
-    ~ Pure.NExp.NFree x tid ->
-    to_pure tid (n_subst x v n) = Pure.NExp.n_subst x (to_pure tid v) (to_pure tid n).
+    ~ Pure.N.Exp.NFree x tid ->
+    to_pure tid (n_subst x v n) = Pure.N.Exp.n_subst x (to_pure tid v) (to_pure tid n).
   Proof.
     induction n; intros; simpl.
-    - rewrite NExp.n_subst_not_free; auto.
+    - rewrite N.Exp.n_subst_not_free; auto.
     - reflexivity.
     - destruct (Set_VAR.MF.eq_dec x v). {
         subst.
@@ -282,7 +282,7 @@ Section SO.
       eauto using n_step_bin.
   Qed.
 
-  Notation NPlus := Pure.NExp.NPlus.
+  Notation NPlus := Pure.N.Exp.NPlus.
 
   Lemma add_inv_n_0:
     forall n1 n2, NStep (NBin NPlus (NNum n1) (NNum 0)) n2 ->
@@ -309,7 +309,7 @@ Section SO.
     assumption.
   Qed.
 
-  Notation NMinus := Pure.NExp.NMinus.
+  Notation NMinus := Pure.N.Exp.NMinus.
 
   Lemma n_step_minus:
     forall n1 n2 e1 e2,
@@ -459,7 +459,7 @@ Section SO.
 
   Lemma n_free_from_pure:
     forall x e,
-    Pure.NExp.NFree x e <-> NFree x (from_pure e).
+    Pure.N.Exp.NFree x e <-> NFree x (from_pure e).
   Proof.
     induction e; simpl.
     all: try reflexivity.
@@ -470,8 +470,8 @@ Section SO.
 
   Lemma n_free_to_pure:
     forall x tid e,
-    ~ Pure.NExp.NFree x tid ->
-    Pure.NExp.NFree x (to_pure tid e) ->
+    ~ Pure.N.Exp.NFree x tid ->
+    Pure.N.Exp.NFree x (to_pure tid e) ->
     NFree x e.
   Proof.
     intros.
@@ -500,9 +500,9 @@ Section SO.
 
   Lemma n_subst_to_pure_eq:
     forall tid v n,
-    ~ Pure.NExp.NFree tid v ->
+    ~ Pure.N.Exp.NFree tid v ->
     ~ NFree tid n ->
-    Pure.NExp.n_subst tid v (to_pure (Pure.NExp.NVar tid) n)
+    Pure.N.Exp.n_subst tid v (to_pure (Pure.N.Exp.NVar tid) n)
     = to_pure v n.
   Proof.
     intros.
@@ -842,10 +842,10 @@ Section SO.
 
   Lemma n_eq_from_pure:
     forall e e',
-    Pure.NExp.NEq e e' <->
+    Pure.N.Exp.NEq e e' <->
     NEq (from_pure e) (from_pure e').
   Proof.
-    unfold NExp.NEq, NEq.
+    unfold N.Exp.NEq, NEq.
     split; intros; split; intros.
     all: (
       rewrite <- n_step_from_pure in *
@@ -1073,9 +1073,9 @@ Section SO.
 
   Lemma n_closed_from_pure:
     forall e,
-    Pure.NExp.NClosed e <-> NClosed (from_pure e).
+    Pure.N.Exp.NClosed e <-> NClosed (from_pure e).
   Proof.
-    unfold Pure.NExp.NClosed, NClosed.
+    unfold Pure.N.Exp.NClosed, NClosed.
     split; intros.
     - rewrite <- n_free_from_pure in *.
       auto.
@@ -1328,7 +1328,7 @@ End SO.
 Section Props.
   Lemma n_step_pure:
     forall e n,
-    Pure.NExp.NStep e n ->
+    Pure.N.Exp.NStep e n ->
     forall tid,
     NStep tid (from_pure e) n.
   Proof.
@@ -1341,11 +1341,11 @@ End Props.
 
 Module NExpNotations.
   Declare Scope exp_scope.
-  Infix "-" := (NBin Pure.NExp.NMinus)  (at level 50, left associativity, only printing) : exp_scope. 
-  Infix "+" := (NBin Pure.NExp.NPlus)  (at level 50, left associativity, only printing) : exp_scope. 
-  Infix "*" := (NBin Pure.NExp.NMult)  (at level 40, left associativity, only printing) : exp_scope. 
-  Infix "/" := (NBin Pure.NExp.NDiv)  (at level 40, left associativity, only printing) : exp_scope. 
-  Infix "%" := (NBin Pure.NExp.NMod)  (at level 40, left associativity, only printing) : exp_scope. 
+  Infix "-" := (NBin Pure.N.Exp.NMinus)  (at level 50, left associativity, only printing) : exp_scope. 
+  Infix "+" := (NBin Pure.N.Exp.NPlus)  (at level 50, left associativity, only printing) : exp_scope. 
+  Infix "*" := (NBin Pure.N.Exp.NMult)  (at level 40, left associativity, only printing) : exp_scope. 
+  Infix "/" := (NBin Pure.N.Exp.NDiv)  (at level 40, left associativity, only printing) : exp_scope. 
+  Infix "%" := (NBin Pure.N.Exp.NMod)  (at level 40, left associativity, only printing) : exp_scope. 
   Coercion NNum : nat >-> nexp.
   Coercion NVar : var >-> nexp.
   Notation "e [ x := v ]" := (n_subst x v e) (at level 30, only printing) : exp_scope. 

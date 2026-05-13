@@ -1,5 +1,5 @@
-From Faial.Expr Require Import Pure.NExp.
-From Faial.Expr Require Import Pure.BExp.
+From Faial.Expr Require Import Pure.N.Exp.
+From Faial.Expr Require Import Pure.B.Exp.
 From Stdlib Require Import Lists.List.
 From Faial.Core Require Import Tictac.
 From Faial.Core Require Import AVal.
@@ -215,7 +215,7 @@ Section Defs.
     intros.
     unfold a_subst.
     simpl.
-    repeat rewrite NExp.n_subst_subst_eq.
+    repeat rewrite N.Exp.n_subst_subst_eq.
     reflexivity.
   Qed.
 (*
@@ -227,7 +227,7 @@ Section Defs.
     intros.
     unfold a_subst.
     simpl.
-    rewrite NExp.n_subst_subst_eq_2; auto.
+    rewrite N.Exp.n_subst_subst_eq_2; auto.
   Qed.
   *)
 
@@ -241,7 +241,7 @@ Section Defs.
     intros.
     simpl.
     f_equal.
-    all: rewrite NExp.n_subst_subst_neq; auto.
+    all: rewrite N.Exp.n_subst_subst_neq; auto.
   Qed.
 
   Lemma a_subst_subst_neq_2:
@@ -255,8 +255,8 @@ Section Defs.
     unfold a_subst.
     intros.
     simpl.
-    rewrite NExp.n_subst_subst_neq_2; auto.
-    rewrite NExp.n_subst_subst_neq_2; auto.
+    rewrite N.Exp.n_subst_subst_neq_2; auto.
+    rewrite N.Exp.n_subst_subst_neq_2; auto.
   Qed.
 
   Lemma a_subst_subst_neq_3 : 
@@ -271,7 +271,7 @@ Section Defs.
     intros.
     simpl.
     f_equal.
-    all: rewrite NExp.n_subst_subst_neq_3; auto.
+    all: rewrite N.Exp.n_subst_subst_neq_3; auto.
   Qed.
 
   Lemma a_subst_subst_neq_5 : 
@@ -285,7 +285,7 @@ Section Defs.
     intros.
     simpl.
     f_equal.
-    all: rewrite NExp.n_subst_subst_neq_5; auto.
+    all: rewrite N.Exp.n_subst_subst_neq_5; auto.
   Qed.
 (*
   Lemma a_subst_subst_eq_1 : 
@@ -296,7 +296,7 @@ Section Defs.
     intros.
     simpl.
     f_equal.
-    all: rewrite NExp.n_subst_subst_eq_1; auto.
+    all: rewrite N.Exp.n_subst_subst_eq_1; auto.
     reflexivity.
   Qed.
 *)
@@ -309,7 +309,7 @@ Section Defs.
     intros.
     simpl in *.
     f_equal.
-    all: rewrite NExp.n_subst_subst_trans; auto.
+    all: rewrite N.Exp.n_subst_subst_trans; auto.
   Qed.
 
   Lemma a_subst_not_free
@@ -321,7 +321,7 @@ Section Defs.
     intros x v (o, i, m) Ha.
     simpl in *.
     f_equal.
-    all: rewrite NExp.n_subst_not_free; auto.
+    all: rewrite N.Exp.n_subst_not_free; auto.
   Qed.
 
   (*

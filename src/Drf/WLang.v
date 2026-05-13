@@ -6,11 +6,11 @@ From Stdlib Require Import Classes.RelationPairs.
 
 From Faial.Core Require Import Var.
 From Faial.Core Require Import Tid.
-From Faial.Expr Require Import Pure.NExp.
-From Faial.Expr Require SIMT.NExp.
-From Faial.Expr Require Import Pure.RExp.
-From Faial.Expr Require Import Pure.BExp.
-From Faial.Expr Require Import SIMT.AExp.
+From Faial.Expr Require Import Pure.N.Exp.
+From Faial.Expr Require SIMT.N.Exp.
+From Faial.Expr Require Import Pure.R.Exp.
+From Faial.Expr Require Import Pure.B.Exp.
+From Faial.Expr Require Import SIMT.A.Exp.
 From Faial.Core Require Import AVal.
 From Faial.Core Require Import Tasks.
 From Faial.Core Require Import InUtil.
@@ -49,14 +49,14 @@ Section Defs.
 
   Fixpoint w_subst (x:var) (v:nexp) P :=
     match P with
-    | WSync c => WSync (ULang.i_subst x (SIMT.NExp.from_pure v) c)
+    | WSync c => WSync (ULang.i_subst x (SIMT.N.Exp.from_pure v) c)
     | WSeq P Q => WSeq (w_subst x v P) (w_subst x v Q)
     | WFor c1 y r P c2 =>
       let (P', c2') := if VAR.eq_dec x y
         then (P, c2)
-        else (w_subst x v P, ULang.i_subst x (SIMT.NExp.from_pure v) c2)
+        else (w_subst x v P, ULang.i_subst x (SIMT.N.Exp.from_pure v) c2)
       in
-      WFor (ULang.i_subst x (SIMT.NExp.from_pure v) c1) y (r_subst x v r) P' c2'
+      WFor (ULang.i_subst x (SIMT.N.Exp.from_pure v) c1) y (r_subst x v r) P' c2'
     end.
 
 
@@ -70,7 +70,7 @@ Section Defs.
     w_subst y v2 (w_subst x v1 P).
   Proof.
     induction P; intros; simpl.
-    - rewrite SIMT.NExp.n_free_from_pure in *.
+    - rewrite SIMT.N.Exp.n_free_from_pure in *.
       rewrite i_subst_subst_neq_3; auto.
     - rewrite IHP1; auto.
       rewrite IHP2; auto.
@@ -83,9 +83,9 @@ Section Defs.
         simpl.
         destruct (Set_VAR.MF.eq_dec x v) as [?|_]; try contradiction.
         destruct (Set_VAR.MF.eq_dec v v) as [_|?]; try contradiction.
-        rewrite SIMT.NExp.n_free_from_pure in *.
+        rewrite SIMT.N.Exp.n_free_from_pure in *.
         rewrite i_subst_subst_neq_3; auto.
-        rewrite <- SIMT.NExp.n_free_from_pure in *.
+        rewrite <- SIMT.N.Exp.n_free_from_pure in *.
         rewrite r_subst_subst_neq_3; auto.
       }
       destruct (Set_VAR.MF.eq_dec x v). {
@@ -93,18 +93,18 @@ Section Defs.
         subst.
         destruct (Set_VAR.MF.eq_dec v v) as [_|?]; try contradiction.
         destruct (Set_VAR.MF.eq_dec y v) as [?|_]; try contradiction.
-        rewrite SIMT.NExp.n_free_from_pure in *.
+        rewrite SIMT.N.Exp.n_free_from_pure in *.
         rewrite i_subst_subst_neq_3; auto.
-        rewrite <- SIMT.NExp.n_free_from_pure in *.
+        rewrite <- SIMT.N.Exp.n_free_from_pure in *.
         rewrite r_subst_subst_neq_3; auto.
       }
       simpl.
       destruct (Set_VAR.MF.eq_dec x v) as [?|_]; try contradiction.
       destruct (Set_VAR.MF.eq_dec y v) as [?|_]; try contradiction.
-      rewrite SIMT.NExp.n_free_from_pure in *.
+      rewrite SIMT.N.Exp.n_free_from_pure in *.
       rewrite i_subst_subst_neq_3; auto.
       rewrite i_subst_subst_neq_3 with (c:=i0); auto.
-      rewrite <- SIMT.NExp.n_free_from_pure in *.
+      rewrite <- SIMT.N.Exp.n_free_from_pure in *.
       rewrite r_subst_subst_neq_3; auto.
       rewrite IHP; auto.
   Qed.
@@ -126,7 +126,7 @@ Section Defs.
     RStep r n r' ->
     ULang.RunAll TID_COUNT c1 h1 ->
     WRun (w_subst x (NNum n) P) m1 ->
-    ULang.RunAll TID_COUNT (ULang.i_subst x (SIMT.NExp.NNum n) c2) h2 ->
+    ULang.RunAll TID_COUNT (ULang.i_subst x (SIMT.N.Exp.NNum n) c2) h2 ->
     WRun (WFor ULang.Skip x r' P c2) m2 ->
     {{ h1 }} @ m1 @ {{ h2 }} @ m2 = m3 ->
     WRun (WFor c1 x r P c2) m3
@@ -138,7 +138,7 @@ Section Defs.
     ROne r n ->
     ULang.RunAll TID_COUNT c1 h1 ->
     WRun (w_subst x (NNum n) P) m1 ->
-    ULang.RunAll TID_COUNT (ULang.i_subst x (SIMT.NExp.NNum n) c2) h2 ->
+    ULang.RunAll TID_COUNT (ULang.i_subst x (SIMT.N.Exp.NNum n) c2) h2 ->
     {{ h1 }} @ m1 @ {{ h2 }} = m ->
     WRun (WFor c1 x r P c2) m.
 
@@ -201,7 +201,7 @@ Section Defs.
   Proof.
     induction P; intros; simpl.
     - rewrite i_subst_subst_eq_1.
-      rewrite NExp.n_subst_from_pure.
+      rewrite N.Exp.n_subst_from_pure.
       reflexivity.
     - rewrite IHP1.
       rewrite IHP2.
@@ -212,14 +212,14 @@ Section Defs.
         remove_eq v v.
         rewrite i_subst_subst_eq_1.
         rewrite r_subst_subst_eq_1.
-        rewrite NExp.n_subst_from_pure.
+        rewrite N.Exp.n_subst_from_pure.
         reflexivity.
       }
       simpl.
       remove_eq x v.
       repeat rewrite i_subst_subst_eq_1.
       rewrite r_subst_subst_eq_1.
-      rewrite NExp.n_subst_from_pure.
+      rewrite N.Exp.n_subst_from_pure.
       rewrite IHP.
       reflexivity.
   Qed.
@@ -362,9 +362,9 @@ Section Defs.
   Proof.
     induction P; intros x v' y e Hn Hc Hv; simpl; simpl in Hv.
     - rewrite i_subst_subst_neq_5; auto.
-      + rewrite NExp.n_subst_from_pure.
+      + rewrite N.Exp.n_subst_from_pure.
         reflexivity.
-      + apply NExp.n_closed_from_pure.
+      + apply N.Exp.n_closed_from_pure.
         assumption.
     - rewrite IHP1; auto.
       rewrite IHP2; auto.
@@ -377,8 +377,8 @@ Section Defs.
         destruct (Set_VAR.MF.eq_dec x v) as [?|_]; try contradiction.
         destruct (Set_VAR.MF.eq_dec v v) as [_|?]; try contradiction.
         rewrite i_subst_subst_neq_5; auto.
-        2: { apply NExp.n_closed_from_pure. assumption. }
-        rewrite NExp.n_subst_from_pure.
+        2: { apply N.Exp.n_closed_from_pure. assumption. }
+        rewrite N.Exp.n_subst_from_pure.
         rewrite r_subst_subst_neq_5; auto.
       }
       destruct (Set_VAR.MF.eq_dec x v) as [?|_]. { intuition. }
@@ -386,18 +386,18 @@ Section Defs.
       destruct (Set_VAR.MF.eq_dec x v) as [?|_]. { intuition. }
       destruct (Set_VAR.MF.eq_dec y v) as [?|_]; try contradiction.
       rewrite i_subst_subst_neq_5; auto.
-      2: { apply NExp.n_closed_from_pure. assumption. }
-      rewrite NExp.n_subst_from_pure.
+      2: { apply N.Exp.n_closed_from_pure. assumption. }
+      rewrite N.Exp.n_subst_from_pure.
       rewrite r_subst_subst_neq_5; auto.
       rewrite IHP; auto. {
-        assert (rx: i_subst x (NExp.from_pure v') (i_subst y (NExp.from_pure e) i0) = 
-                    i_subst y (NExp.n_subst x (NExp.from_pure v') (NExp.from_pure e)) (i_subst x (NExp.from_pure v') i0)). {
+        assert (rx: i_subst x (N.Exp.from_pure v') (i_subst y (N.Exp.from_pure e) i0) = 
+                    i_subst y (N.Exp.n_subst x (N.Exp.from_pure v') (N.Exp.from_pure e)) (i_subst x (N.Exp.from_pure v') i0)). {
           rewrite i_subst_subst_neq_5; auto.
-          - apply NExp.n_closed_from_pure. assumption.
+          - apply N.Exp.n_closed_from_pure. assumption.
           - intuition.
         }
         rewrite rx.
-        rewrite NExp.n_subst_from_pure.
+        rewrite N.Exp.n_subst_from_pure.
         auto.
       }
       intuition.
@@ -482,7 +482,7 @@ Section Defs.
     WRun (WFor ULang.Skip x r P c) m ->
     exists m1 h2 n,
     WRun (w_subst x (NNum n) P) m1 /\
-    ULang.RunAll TID_COUNT (ULang.i_subst x (NExp.NNum n) c) h2 /\
+    ULang.RunAll TID_COUNT (ULang.i_subst x (N.Exp.NNum n) c) h2 /\
     (
     (
       exists m2 r',
@@ -517,7 +517,7 @@ Section Defs.
     exists m1,
     WRun (w_subst x (NNum n) P) m1 /\
     exists h2,
-    ULang.RunAll TID_COUNT (ULang.i_subst x (NExp.NNum n) c) h2 /\
+    ULang.RunAll TID_COUNT (ULang.i_subst x (N.Exp.NNum n) c) h2 /\
     exists m2,
     m = m1 @ {{ h2 }} @ m2.
   Proof.
@@ -565,7 +565,7 @@ Section Defs.
     Inductive X_WRun: w_inst -> vhist -> Prop :=
     | x_wrun_sync:
       forall c h,
-      ULang.RunAll TID_COUNT (ULang.i_subst x (NExp.from_pure v) c) h ->
+      ULang.RunAll TID_COUNT (ULang.i_subst x (N.Exp.from_pure v) c) h ->
       X_WRun (WSync c) {{ h | [] }}
 
     | x_wrun_seq: forall i j mh_i mh_j mh,
@@ -577,9 +577,9 @@ Section Defs.
     | x_wrun_for_cons:
       forall r r' n h1 h2 m1 m2 m3 c1 y c2 P,
       RStep (r_subst x v r) n (r_subst x v r') ->
-      ULang.RunAll TID_COUNT (i_subst x (NExp.from_pure v) c1) h1 ->
+      ULang.RunAll TID_COUNT (i_subst x (N.Exp.from_pure v) c1) h1 ->
       X_WRun (w_subst y (NNum n) P) m1 ->
-      ULang.RunAll TID_COUNT (ULang.i_subst x (NExp.from_pure v) (ULang.i_subst y (NExp.NNum n) c2)) h2 ->
+      ULang.RunAll TID_COUNT (ULang.i_subst x (N.Exp.from_pure v) (ULang.i_subst y (N.Exp.NNum n) c2)) h2 ->
       X_WRun (WFor ULang.Skip y r' P c2) m2 ->
       {{ h1 }} @ m1 @ {{ h2 }} @ m2 = m3 ->
       X_WRun (WFor c1 y r P c2) m3
@@ -589,9 +589,9 @@ Section Defs.
          a constraint of our programming model. *)
       forall c1 h1 h2 r m m1 n y P c2,
       ROne (r_subst x v r) n ->
-      ULang.RunAll TID_COUNT (ULang.i_subst x (NExp.from_pure v) c1) h1 ->
+      ULang.RunAll TID_COUNT (ULang.i_subst x (N.Exp.from_pure v) c1) h1 ->
       X_WRun (w_subst y (NNum n) P) m1 ->
-      ULang.RunAll TID_COUNT (ULang.i_subst x (NExp.from_pure v) (ULang.i_subst y (NExp.NNum n) c2)) h2 ->
+      ULang.RunAll TID_COUNT (ULang.i_subst x (N.Exp.from_pure v) (ULang.i_subst y (N.Exp.NNum n) c2)) h2 ->
       {{ h1 }} @ m1 @ {{ h2 }} = m ->
       X_WRun (WFor c1 y r P c2) m.
 
@@ -637,7 +637,7 @@ Section Defs.
           intuition.
         * rewrite w_subst_subst_neq; eauto using n_step_to_not_free.
       + rewrite i_subst_subst_neq_3; auto.
-        rewrite <- NExp.n_free_from_pure.
+        rewrite <- N.Exp.n_free_from_pure.
         auto.
       + apply IHWRun2.
         * intros N.
@@ -667,7 +667,7 @@ Section Defs.
           auto.
         * rewrite w_subst_subst_neq; auto.
       + rewrite ULang.i_subst_subst_neq_3; auto.
-        rewrite <- NExp.n_free_from_pure.
+        rewrite <- N.Exp.n_free_from_pure.
         auto.
   Qed.
 
@@ -698,7 +698,7 @@ Section Defs.
         }
         rewrite w_subst_subst_neq; auto.
       + rewrite ULang.i_subst_subst_neq_3; auto.
-        rewrite <- NExp.n_free_from_pure.
+        rewrite <- N.Exp.n_free_from_pure.
         auto.
       + assert (hw: WRun (w_subst x v (WFor Skip y r' P c2)) m2). {
           apply IHX_WRun2; auto.
@@ -722,7 +722,7 @@ Section Defs.
         }
         rewrite w_subst_subst_neq; auto.
       + rewrite ULang.i_subst_subst_neq_3; auto.
-        rewrite <- NExp.n_free_from_pure.
+        rewrite <- N.Exp.n_free_from_pure.
         auto.
   Qed.
 
@@ -983,7 +983,7 @@ Section Defs.
   | i_last_for_2:
     forall r n c1 P c2 x,
     RLast r n ->
-    (forall e, NStep e n -> CIn a (ULang.i_subst x (SIMT.NExp.from_pure e) c2)) ->
+    (forall e, NStep e n -> CIn a (ULang.i_subst x (SIMT.N.Exp.from_pure e) c2)) ->
     ILast a (WFor c1 x r P c2)
   .
 
@@ -1045,20 +1045,20 @@ Section Defs.
     + rewrite r1.
       auto.
     + intros e He.
-      assert (~ NExp.NFree z (NExp.from_pure e2)). {
-        rewrite <- NExp.n_free_from_pure.
+      assert (~ N.Exp.NFree z (N.Exp.from_pure e2)). {
+        rewrite <- N.Exp.n_free_from_pure.
         eauto using n_step_to_not_free.
       }
-      assert (~ NExp.NFree y (NExp.from_pure e)). {
-        rewrite <- NExp.n_free_from_pure.
+      assert (~ N.Exp.NFree y (N.Exp.from_pure e)). {
+        rewrite <- N.Exp.n_free_from_pure.
         eauto using n_step_to_not_free.
       }
-      assert (~ NExp.NFree z (NExp.from_pure e1)). {
-        rewrite <- NExp.n_free_from_pure.
+      assert (~ N.Exp.NFree z (N.Exp.from_pure e1)). {
+        rewrite <- N.Exp.n_free_from_pure.
         eauto using n_step_to_not_free.
       }
       rewrite ULang.i_subst_subst_neq_3; auto.
-      assert (Hi : CIn a (ULang.i_subst z (NExp.from_pure e) (ULang.i_subst y (NExp.from_pure e1) i0))) by eauto.
+      assert (Hi : CIn a (ULang.i_subst z (N.Exp.from_pure e) (ULang.i_subst y (N.Exp.from_pure e1) i0))) by eauto.
       rewrite ULang.i_subst_subst_neq_3 in Hi; auto.
       eapply c_in_subst with (n:=n0) (v:=e1); eauto.
   Qed.
@@ -1131,7 +1131,7 @@ Section Defs.
       simpl in *.
       destruct Hi as [Hi|(h', (Heq, Hi))]. {
         eapply i_last_for_2; eauto using r_one_to_last, n_step_num.
-        assert (CIn a (ULang.i_subst x (NExp.NNum n) c2)). {
+        assert (CIn a (ULang.i_subst x (N.Exp.NNum n) c2)). {
           eapply c_in_1; eauto.
         }
         intros e He.
@@ -1200,7 +1200,7 @@ Section Defs.
       auto using last_in_seq_r, last_in_seq_l_one.
     - assert (n0 = n) by eauto using r_one_last_fun.
       subst.
-      assert (hi: CIn a (i_subst x (NExp.from_pure (NNum n)) c2)). {
+      assert (hi: CIn a (i_subst x (N.Exp.from_pure (NNum n)) c2)). {
         eauto using n_step_num.
       }
       assert (List.In a h2). {
@@ -1257,13 +1257,13 @@ Section Defs.
     forall r e n c1 p P x c2,
     RPick r n ->
     NStep e n ->
-    CPairIn p (ULang.i_subst x (NExp.from_pure e) c2) ->
+    CPairIn p (ULang.i_subst x (N.Exp.from_pure e) c2) ->
     IPairIn p (WFor c1 x r P c2)
   | i_pair_in_for_3:
     forall r e n c1 x p P c2,
     RPick r n ->
     NStep e n ->
-    OneOf p (inr (w_subst x e P)) (inl (ULang.i_subst x (NExp.from_pure e) c2)) ->
+    OneOf p (inr (w_subst x e P)) (inl (ULang.i_subst x (N.Exp.from_pure e) c2)) ->
     IPairIn p (WFor c1 x r P c2)
   (* ---- FIRST ITERATION ONLY ---- *)
   | i_pair_in_for_first_1:
@@ -1282,7 +1282,7 @@ Section Defs.
     RPick2 r n ->
     NStep e n ->
     NStep e' (S n) ->
-    OneOf p (inl (ULang.i_subst x (NExp.from_pure e) c2)) (inr (w_subst x e' P)) ->
+    OneOf p (inl (ULang.i_subst x (N.Exp.from_pure e) c2)) (inr (w_subst x e' P)) ->
     IPairIn p (WFor c1 x r P c2)
 
   | i_pair_in_for_mid_2:
@@ -1308,12 +1308,12 @@ Section Defs.
   Lemma i_pair_in_for_run_0_2:
     forall r n c1 P c2 h2 x p,
     RFirst r n ->
-    ULang.RunAll TID_COUNT (ULang.i_subst x (NExp.NNum n) c2) h2 ->
+    ULang.RunAll TID_COUNT (ULang.i_subst x (N.Exp.NNum n) c2) h2 ->
     PairIn p h2 ->
     IPairIn p (WFor c1 x r P c2).
   Proof.
     intros.
-    assert (CPairIn p (ULang.i_subst x (NExp.NNum n) c2)). {
+    assert (CPairIn p (ULang.i_subst x (N.Exp.NNum n) c2)). {
       eapply c_pair_in_1; eauto.
     }
     eapply i_pair_in_for_2; eauto using n_step_num.
@@ -1588,9 +1588,9 @@ Section Defs.
     NStep e1 n ->
     NStep e2 n ->
     OneOf p (inr (w_subst x e1 P))
-            (inl (i_subst x (NExp.from_pure e1) c)) ->
+            (inl (i_subst x (N.Exp.from_pure e1) c)) ->
     OneOf p (inr (w_subst x e2 P))
-            (inl (i_subst x (NExp.from_pure e2) c)).
+            (inl (i_subst x (N.Exp.from_pure e2) c)).
   Proof.
     intros.
     destruct p as (a1, a2).
@@ -1605,9 +1605,9 @@ Section Defs.
     NStep e1 n ->
     NStep e2 n ->
     ~ WVar x P ->
-    OneOf p (inl (i_subst x (NExp.from_pure e1) c))
+    OneOf p (inl (i_subst x (N.Exp.from_pure e1) c))
             (inr (w_subst x e1 P)) ->
-    OneOf p (inl (i_subst x (NExp.from_pure e2) c))
+    OneOf p (inl (i_subst x (N.Exp.from_pure e2) c))
             (inr (w_subst x e2 P)).
   Proof.
     intros.
@@ -1625,7 +1625,7 @@ Section Defs.
   Inductive X_IPairIn : (access_val * access_val) -> w_inst -> Prop :=
   | x_i_pair_in_sync:
     forall p c,
-    CPairIn p (ULang.i_subst x (NExp.from_pure v) c) ->
+    CPairIn p (ULang.i_subst x (N.Exp.from_pure v) c) ->
     X_IPairIn p (WSync c)
   | x_i_pair_in_seq_l:
     forall p i j,
@@ -1650,7 +1650,7 @@ Section Defs.
     forall r e n c1 p P y c2,
     RPick (r_subst x v r) n ->
     NStep (n_subst x v e) n ->
-    CPairIn p (ULang.i_subst x (NExp.from_pure v) (ULang.i_subst y (NExp.from_pure e) c2)) ->
+    CPairIn p (ULang.i_subst x (N.Exp.from_pure v) (ULang.i_subst y (N.Exp.from_pure e) c2)) ->
     X_IPairIn p (WFor c1 y r P c2)
   | x_i_pair_in_for_3:
     forall r e n c1 y p P c2,
@@ -1658,19 +1658,19 @@ Section Defs.
     NStep (n_subst x v e) n ->
     OneOf p
       (inr (w_subst x v (w_subst y e P)))
-      (inl (ULang.i_subst x (NExp.from_pure v) (ULang.i_subst y (NExp.from_pure e) c2))) ->
+      (inl (ULang.i_subst x (N.Exp.from_pure v) (ULang.i_subst y (N.Exp.from_pure e) c2))) ->
     X_IPairIn p (WFor c1 y r P c2)
   (* ---- FIRST ITERATION ONLY ---- *)
   | x_i_pair_in_for_first_1:
     forall r c1 p P c2 y,
-    CPairIn p (ULang.i_subst x (NExp.from_pure v) c1) ->
+    CPairIn p (ULang.i_subst x (N.Exp.from_pure v) c1) ->
     X_IPairIn p (WFor c1 y r P c2)
   | x_i_pair_in_for_first_2:
     forall r e n c1 p P y c2,
     RFirst (r_subst x v r) n ->
     NStep (n_subst x v e) n ->
     OneOf p
-      (inl (ULang.i_subst x (NExp.from_pure v) c1))
+      (inl (ULang.i_subst x (N.Exp.from_pure v) c1))
       (inr (w_subst x v (w_subst y e P))) ->
     X_IPairIn p (WFor c1 y r P c2)
   (* -------- ALL BUT FIRST ---- *)
@@ -1680,7 +1680,7 @@ Section Defs.
     NStep (n_subst x v e) n ->
     NStep (n_subst x v e') (S n) ->
     OneOf p
-      (inl (ULang.i_subst x (NExp.from_pure v) (ULang.i_subst y (NExp.from_pure e) c2)))
+      (inl (ULang.i_subst x (N.Exp.from_pure v) (ULang.i_subst y (N.Exp.from_pure e) c2)))
       (inr (w_subst x v (w_subst y e' P))) ->
     X_IPairIn p (WFor c1 y r P c2)
 
@@ -1769,9 +1769,9 @@ Section Defs.
       }
       eapply x_i_pair_in_for_2 with (e:=e); eauto using n_step_to_subst.
       rewrite i_subst_subst_neq_3; eauto.
-      + rewrite <- NExp.n_free_from_pure.
+      + rewrite <- N.Exp.n_free_from_pure.
         eauto using n_step_to_not_free.
-      + rewrite <- NExp.n_free_from_pure.
+      + rewrite <- N.Exp.n_free_from_pure.
         eauto using n_step_to_not_free.
     - destruct P'; invc Heq.
       rename_hyp (_ = _) as Heq.
@@ -1783,9 +1783,9 @@ Section Defs.
       eapply x_i_pair_in_for_3 with (e:=e); eauto using n_step_to_subst.
       rewrite w_subst_subst_neq; eauto using n_step_to_not_free.
       rewrite i_subst_subst_neq_3; eauto.
-      + rewrite <- NExp.n_free_from_pure.
+      + rewrite <- N.Exp.n_free_from_pure.
         eauto using n_step_to_not_free.
-      + rewrite <- NExp.n_free_from_pure.
+      + rewrite <- N.Exp.n_free_from_pure.
         eauto using n_step_to_not_free.
     - destruct P'; invc Heq.
       rename_hyp (_ = _) as Heq.
@@ -1814,9 +1814,9 @@ Section Defs.
       apply x_i_pair_in_for_mid_1 with (e:=e) (n:=n) (e':=e'); auto using n_step_to_subst.
       rewrite w_subst_subst_neq; eauto using n_step_to_not_free.
       rewrite i_subst_subst_neq_3; eauto.
-      + rewrite <- NExp.n_free_from_pure.
+      + rewrite <- N.Exp.n_free_from_pure.
         eauto using n_step_to_not_free.
-      + rewrite <- NExp.n_free_from_pure.
+      + rewrite <- N.Exp.n_free_from_pure.
         eauto using n_step_to_not_free.
     - destruct P'; invc Heq.
       rename_hyp (_ = _) as Heq.
@@ -1865,27 +1865,27 @@ Section Defs.
       apply i_pair_in_for_1 with
         (r:=r_subst x v r)
         (n:=n)
-        (c2:=i_subst x (NExp.from_pure v) c2)
-        (c1:=i_subst x (NExp.from_pure v) c1) in hp; eauto.
+        (c2:=i_subst x (N.Exp.from_pure v) c2)
+        (c1:=i_subst x (N.Exp.from_pure v) c1) in hp; eauto.
     - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try (intuition; fail).
       apply i_pair_in_for_2 with (e:=n_subst x v e) (n:=n); auto.
       eapply c_pair_in_subst with (e1:=n_subst x v e); eauto.
       rename_hyp (CPairIn _ _) as hp.
       rewrite i_subst_subst_neq_5 in hp; auto.
-      + rewrite <- NExp.n_subst_from_pure.
+      + rewrite <- N.Exp.n_subst_from_pure.
         auto.
-      + rewrite <- NExp.n_closed_from_pure.
+      + rewrite <- N.Exp.n_closed_from_pure.
         assumption.
       + intuition.
     - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try (intuition; fail).
       apply i_pair_in_for_3 with (e:=n_subst x v e) (n:=n); auto.
       rename_hyp (OneOf _ _ _) as ho.
       rewrite i_subst_subst_neq_5 in ho; auto.
-      2: { rewrite <- NExp.n_closed_from_pure. assumption. }
+      2: { rewrite <- N.Exp.n_closed_from_pure. assumption. }
       2: { intuition. }
       rewrite w_subst_subst_neq_5 in ho; auto.
       2: { intuition. }
-      rewrite <- NExp.n_subst_from_pure.
+      rewrite <- N.Exp.n_subst_from_pure.
       auto.
     - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try (intuition; fail).
       auto using i_pair_in_for_first_1.
@@ -1899,11 +1899,11 @@ Section Defs.
         (n:=n) (e:=n_subst x v e) (e':=n_subst x v e'); auto.
       rename_hyp (OneOf _ _ _) as ho.
       rewrite i_subst_subst_neq_5 in ho; auto.
-      2: { rewrite <- NExp.n_closed_from_pure. assumption. }
+      2: { rewrite <- N.Exp.n_closed_from_pure. assumption. }
       2: { intuition. }
       rewrite w_subst_subst_neq_5 in ho; auto.
       2: { intuition. }
-      rewrite <- NExp.n_subst_from_pure.
+      rewrite <- N.Exp.n_subst_from_pure.
       assumption.
     - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try (intuition; fail).
       apply i_pair_in_for_mid_2 with
@@ -2010,7 +2010,7 @@ Section Defs.
     NFree x e.
   Proof.
     induction P; simpl; intros.
-    - rewrite NExp.n_free_from_pure.
+    - rewrite N.Exp.n_free_from_pure.
       eapply occurs_inv_subst_eq; eauto.
     - intuition.
     - rename_hyp (Occurs _ _) as Hw.
@@ -2019,10 +2019,10 @@ Section Defs.
         intuition.
       }
       intuition.
-      + rewrite NExp.n_free_from_pure.
+      + rewrite N.Exp.n_free_from_pure.
         eauto using occurs_inv_subst_eq.
       + eauto using r_free_inv_subst_eq.
-      + rewrite NExp.n_free_from_pure.
+      + rewrite N.Exp.n_free_from_pure.
         eauto using occurs_inv_subst_eq.
   Qed.
 
@@ -2119,7 +2119,7 @@ Section Defs.
     forall x v,
     NClosed v ->
     ~ WVar x P ->
-    GetFirst (w_subst x v P) (i_subst x (NExp.from_pure v) c).
+    GetFirst (w_subst x v P) (i_subst x (N.Exp.from_pure v) c).
   Proof.
     intros P c H.
     induction H; intros y v Hc Hv.
@@ -2254,7 +2254,7 @@ Section Defs.
     forall c1 x r P n c2 c,
     RLast r n ->
     GetLast (w_subst x (NNum n) P) c ->
-    GetLast (WFor c1 x r P c2) (ULang.c_seq c (i_subst x (NExp.NNum n) c2)).
+    GetLast (WFor c1 x r P c2) (ULang.c_seq c (i_subst x (N.Exp.NNum n) c2)).
 
   Lemma get_last_1:
     forall P c,
@@ -2339,11 +2339,11 @@ Section Defs.
 
   Lemma i_pair_in_2_for_1:
     forall x n c2 h2 r P e' e p h0 m0 h1 m1 m2,
-    RunAll TID_COUNT (i_subst x (NExp.NNum n) c2) h2 ->
+    RunAll TID_COUNT (i_subst x (N.Exp.NNum n) c2) h2 ->
     ~ WVar x P ->
     NStep e' (S n) ->
     NStep e n ->
-    OneOf p (inl (i_subst x (NExp.from_pure e) c2)) (inr (w_subst x e' P)) ->
+    OneOf p (inl (i_subst x (N.Exp.from_pure e) c2)) (inr (w_subst x e' P)) ->
     RFirst r (S n) ->
     RunAll TID_COUNT Skip h0 ->
     WRun (w_subst x (NNum (S n)) P) m0 ->
@@ -2363,7 +2363,7 @@ Section Defs.
     assert (WRun (w_subst x e' P) m0). {
       eapply w_run_subst; eauto using n_step_num.
     }
-    assert (RunAll TID_COUNT (i_subst x (NExp.from_pure e) c2) h2). {
+    assert (RunAll TID_COUNT (i_subst x (N.Exp.from_pure e) c2) h2). {
       apply c_run_subst with (e:=NNum n) (n:=n);
       eauto using n_step_num, n_eq_def.
     }
@@ -2437,9 +2437,9 @@ Section Defs.
     forall x n P e p h1 m1 m2 c2 h2,
     ~ WVar x P ->
     WRun (w_subst x (NNum n) P) m1 ->
-    RunAll TID_COUNT (i_subst x (NExp.NNum n) c2) h2 ->
+    RunAll TID_COUNT (i_subst x (N.Exp.NNum n) c2) h2 ->
     NStep e n ->
-    OneOf p (inr (w_subst x e P)) (inl (i_subst x (NExp.from_pure e) c2)) ->
+    OneOf p (inr (w_subst x e P)) (inl (i_subst x (N.Exp.from_pure e) c2)) ->
     MPairIn p (v_prefix h1 (v_seq m1 (v_prefix h2 m2))).
   Proof.
     intros.
@@ -2448,7 +2448,7 @@ Section Defs.
     assert (WRun (w_subst x e P) m1). {
       eapply w_run_subst; eauto using n_step_num.
     }
-    assert (RunAll TID_COUNT (i_subst x (NExp.from_pure e) c2) h2). {
+    assert (RunAll TID_COUNT (i_subst x (N.Exp.from_pure e) c2) h2). {
       eapply c_run_subst with (e:=NNum n); eauto using n_step_num, n_eq_def.
     }
     destruct ho as [(hl, hc)|(hl,hc)];
@@ -2520,7 +2520,7 @@ Section Defs.
           apply m_pair_in_seq_r.
           apply m_pair_in_prefix_l.
           eapply c_pair_in_to_pair_in; eauto.
-          assert (hx: NExp.NNum n = NExp.from_pure (NNum n)) by reflexivity.
+          assert (hx: N.Exp.NNum n = N.Exp.from_pure (NNum n)) by reflexivity.
           rewrite hx.
           eapply c_pair_in_subst; eauto using n_step_num.
         }
@@ -2630,7 +2630,7 @@ Section Defs.
         apply m_pair_in_seq_r.
         simpl.
         eapply c_pair_in_to_pair_in; eauto.
-        assert (hx: NExp.NNum n = NExp.from_pure (NNum n)) by reflexivity.
+        assert (hx: N.Exp.NNum n = N.Exp.from_pure (NNum n)) by reflexivity.
         rewrite hx.
         eapply c_pair_in_subst; eauto using n_step_num.
       + assert (n0 = n) by eauto using r_one_pick_fun.

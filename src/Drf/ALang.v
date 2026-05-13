@@ -1,15 +1,15 @@
 From Faial.Core Require Import AVal.
 From Faial.Core Require Import Tasks.
 Require Import ULang.
-From Faial.Expr Require Import Pure.NExp.
-From Faial.Expr Require Import Pure.RExp.
+From Faial.Expr Require Import Pure.N.Exp.
+From Faial.Expr Require Import Pure.R.Exp.
 From Faial.Core Require Import Var.
 Require Import WLang.
 From Faial.Core Require Import Tictac.
 From Faial.Core Require Import Util.
 From Stdlib Require Import Lists.List.
 From Stdlib Require Import micromega.Lia.
-From Faial.Expr Require Pure.NExp.
+From Faial.Expr Require Pure.N.Exp.
 
 Import ListNotations.
 Import NExpNotations.
@@ -21,7 +21,7 @@ Open Scope lang_scope.
 
 Section Defs.
   Context `{T:Tasks}.
-  Notation from_pure := NExp.from_pure.
+  Notation from_pure := N.Exp.from_pure.
   Inductive n_inst :=
   | NSync: ULang.inst -> n_inst
   | NSeq: n_inst -> n_inst -> n_inst
@@ -171,7 +171,7 @@ Section Props.
   Import WLangNotations.
   Import ALangNotations.
   Context `{T:Tasks}.
-  Notation from_pure := NExp.from_pure.
+  Notation from_pure := N.Exp.from_pure.
 
   Lemma n_seq_seq:
     forall i c c',
@@ -378,7 +378,7 @@ Section Props.
     NFree x v.
   Proof.
     induction P; simpl; intros.
-    - rewrite NExp.n_free_from_pure.
+    - rewrite N.Exp.n_free_from_pure.
       eauto using ULang.occurs_inv_subst_eq.
     - intuition.
     - intuition.
@@ -428,7 +428,7 @@ Section Props.
   Proof.
     induction P; intros; simpl.
     - rewrite i_subst_subst_neq_3; auto.
-      all: rewrite <- NExp.n_free_from_pure.
+      all: rewrite <- N.Exp.n_free_from_pure.
       all: auto.
     - rewrite IHP1; auto.
       rewrite IHP2; auto.
@@ -494,7 +494,7 @@ Section Props.
   Proof.
     induction P; intros; simpl.
     - rewrite i_subst_subst_eq_1.
-      rewrite NExp.n_subst_from_pure.
+      rewrite N.Exp.n_subst_from_pure.
       reflexivity.
     - rewrite IHP1.
       rewrite IHP2.
@@ -561,9 +561,9 @@ Section Props.
     induction P; intros.
     - simpl.
       rewrite ULang.i_subst_subst_neq_5; auto.
-      + rewrite NExp.n_subst_from_pure.
+      + rewrite N.Exp.n_subst_from_pure.
         reflexivity.
-      + rewrite <- NExp.n_closed_from_pure.
+      + rewrite <- N.Exp.n_closed_from_pure.
         assumption.
     - simpl in *.
       rewrite IHP1; auto.
@@ -660,7 +660,7 @@ Section Props.
     induction P; simpl; intros.
     - apply ULang.occurs_inv_subst in H.
       intuition.
-      rewrite NExp.n_free_from_pure.
+      rewrite N.Exp.n_free_from_pure.
       intuition.
     - intuition.
     - intuition.

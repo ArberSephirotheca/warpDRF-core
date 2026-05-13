@@ -2,10 +2,10 @@ From Stdlib Require Import Lists.List.
 
 From Stdlib Require Import micromega.Lia.
 From Faial.Core Require Import Var.
-From Faial.Expr Require Import SIMT.NExp.
-From Faial.Expr Require Import SIMT.BExp.
-From Faial.Expr Require Import SIMT.RExp.
-From Faial.Expr Require Import SIMT.AExp.
+From Faial.Expr Require Import SIMT.N.Exp.
+From Faial.Expr Require Import SIMT.B.Exp.
+From Faial.Expr Require Import SIMT.R.Exp.
+From Faial.Expr Require Import SIMT.A.Exp.
 From Faial.Core Require Import AVal.
 From Faial.Core Require Import Util.
 From Faial.Core Require Import Tasks.
@@ -13,7 +13,7 @@ From Faial.Core Require Import PairInUtil.
 From Faial.Core Require Import Tictac.
 
 From Faial.Core Require Hist.
-From Faial.Expr Require Pure.NExp.
+From Faial.Expr Require Pure.N.Exp.
 
 Import NExpNotations.
 Import RExpNotations.
@@ -527,8 +527,8 @@ Section C1.
 
   Lemma i_in_subst:
     forall x a i v v' n,
-    Pure.NExp.NStep v n ->
-    Pure.NExp.NStep v' n ->
+    Pure.N.Exp.NStep v n ->
+    Pure.N.Exp.NStep v' n ->
     IIn a (i_subst x (from_pure v) i) ->
     IIn a (i_subst x (from_pure v') i).
   Proof.
@@ -1022,8 +1022,8 @@ Section C1.
 
   Lemma c_run_subst:
     forall x e e' c h n,
-    Pure.NExp.NEq e e' ->
-    Pure.NExp.NStep e' n ->
+    Pure.N.Exp.NEq e e' ->
+    Pure.N.Exp.NStep e' n ->
     CRun (i_subst x (from_pure e) c) h ->
     CRun (i_subst x (from_pure e') c) h.
   Proof.
@@ -1031,10 +1031,10 @@ Section C1.
     apply run_all_impl with (c1:=i_subst x (from_pure e) c); auto.
     intros.
     apply run_subst with (e1:=from_pure e)(n:=n); eauto.
-    - rewrite <- NExp.n_step_from_pure.
+    - rewrite <- N.Exp.n_step_from_pure.
       rewrite H.
       assumption.
-    - rewrite <- NExp.n_step_from_pure.
+    - rewrite <- N.Exp.n_step_from_pure.
       assumption.
   Qed.
 
@@ -1099,9 +1099,9 @@ Section C1.
   Qed.
 
   Lemma c_in_subst:
-    forall (x : VAR.t) (a : access_val) (i : inst) (v v' : Pure.NExp.nexp) (n : nat),
-    Pure.NExp.NStep v n ->
-    Pure.NExp.NStep v' n ->
+    forall (x : VAR.t) (a : access_val) (i : inst) (v v' : Pure.N.Exp.nexp) (n : nat),
+    Pure.N.Exp.NStep v n ->
+    Pure.N.Exp.NStep v' n ->
     CIn a (i_subst x (from_pure v) i) ->
     CIn a (i_subst x (from_pure v') i).
   Proof.
@@ -1415,12 +1415,12 @@ Section C1.
 
   Lemma c_pair_in_subst:
     forall p x e1 c,
-    CPairIn p (i_subst x (NExp.from_pure e1) c) ->
+    CPairIn p (i_subst x (N.Exp.from_pure e1) c) ->
     forall n,
-    Pure.NExp.NStep e1 n ->
+    Pure.N.Exp.NStep e1 n ->
     forall e2,
-    Pure.NExp.NStep e2 n ->
-    CPairIn p (i_subst x (NExp.from_pure e2) c).
+    Pure.N.Exp.NStep e2 n ->
+    CPairIn p (i_subst x (N.Exp.from_pure e2) c).
   Proof.
     intros.
     invc H.
@@ -1491,8 +1491,8 @@ Section C1.
     - reflexivity.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.
-      assert (~ BExp.BFree x b) by intuition.
-      rewrite BExp.b_subst_not_free; auto.
+      assert (~ B.Exp.BFree x b) by intuition.
+      rewrite B.Exp.b_subst_not_free; auto.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.
     - rewrite a_subst_not_free; auto.
@@ -1511,8 +1511,8 @@ Section C1.
     - reflexivity.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.
-      assert (~ BExp.BFree x b) by intuition.
-      rewrite BExp.b_subst_not_free; auto.
+      assert (~ B.Exp.BFree x b) by intuition.
+      rewrite B.Exp.b_subst_not_free; auto.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.
     - rewrite a_subst_not_free; auto.

@@ -10,10 +10,10 @@ From Faial.Core Require Import Tictac.
 
 From Faial.Core Require Import Var.
 From Faial.Core Require Import Tid.
-From Faial.Expr Require Import Pure.NExp.
-From Faial.Expr Require Import Pure.BExp.
-From Faial.Expr Require Import Pure.RExp.
-From Faial.Expr Require Import Pure.AExp.
+From Faial.Expr Require Import Pure.N.Exp.
+From Faial.Expr Require Import Pure.B.Exp.
+From Faial.Expr Require Import Pure.R.Exp.
+From Faial.Expr Require Import Pure.A.Exp.
 From Faial.Core Require Import AVal.
 
 Require ULang.

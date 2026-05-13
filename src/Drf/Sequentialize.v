@@ -4,10 +4,10 @@ From Stdlib Require Import micromega.Lia.
 From Faial.Core Require Import Util.
 
 From Faial.Core Require Import Var.
-From Faial.Expr Require Import Pure.NExp.
-From Faial.Expr Require Import Pure.BExp.
-From Faial.Expr Require Import Pure.AExp.
-From Faial.Expr Require Import Pure.RExp.
+From Faial.Expr Require Import Pure.N.Exp.
+From Faial.Expr Require Import Pure.B.Exp.
+From Faial.Expr Require Import Pure.A.Exp.
+From Faial.Expr Require Import Pure.R.Exp.
 From Faial.Core Require Import Tasks.
 From Faial.Core Require Import Tictac.
 From Faial.Core Require Import AVal.
@@ -18,15 +18,15 @@ Import ListNotations.
 Section Defs.
   Context {T:Tasks}.
   Section TRACE.
-  Variable tid:Pure.NExp.nexp.
+  Variable tid:Pure.N.Exp.nexp.
 
   Fixpoint trace (c:ULang.inst) : TLang.inst :=
     match c with
     | ULang.Skip => TLang.Skip
     | ULang.Seq i j => TLang.Seq (trace i) (trace j)
-    | ULang.If b i j => TLang.If (BExp.to_pure tid b) (trace i) (trace j)
-    | ULang.MemAcc a => TLang.MemAcc (AExp.to_pure tid a)
-    | ULang.For x r i => TLang.Decl x (RExp.to_pure tid r) (trace i)
+    | ULang.If b i j => TLang.If (B.Exp.to_pure tid b) (trace i) (trace j)
+    | ULang.MemAcc a => TLang.MemAcc (A.Exp.to_pure tid a)
+    | ULang.For x r i => TLang.Decl x (R.Exp.to_pure tid r) (trace i)
     end.
   End TRACE.
 
@@ -40,27 +40,27 @@ Section Defs.
   Lemma i_subst_trace_rw:
     forall tid x i v,
     ~ NFree x tid ->
-    trace tid (ULang.i_subst x (NExp.from_pure v) i) =
+    trace tid (ULang.i_subst x (N.Exp.from_pure v) i) =
     TLang.i_subst x v (trace tid i).
   Proof.
     induction i; simpl; intros.
     - reflexivity.
     - rewrite IHi1; auto.
-      rewrite BExp.b_subst_to_pure; auto.
+      rewrite B.Exp.b_subst_to_pure; auto.
       rewrite IHi2; auto.
-      rewrite NExp.to_pure_from_pure.
+      rewrite N.Exp.to_pure_from_pure.
       auto.
     - rewrite IHi1; auto.
       rewrite IHi2; auto.
-    - rewrite NExp.n_subst_to_pure; auto.
+    - rewrite N.Exp.n_subst_to_pure; auto.
       simpl in *.
       destruct a.
       unfold a_subst.
       simpl.
-      rewrite NExp.to_pure_from_pure.
+      rewrite N.Exp.to_pure_from_pure.
       rewrite n_subst_not_free with (n:=tid); auto.
-    - rewrite RExp.r_subst_to_pure; auto.
-      rewrite NExp.to_pure_from_pure.
+    - rewrite R.Exp.r_subst_to_pure; auto.
+      rewrite N.Exp.to_pure_from_pure.
       destruct (Set_VAR.MF.eq_dec x v). {
         auto.
       }
@@ -70,7 +70,7 @@ Section Defs.
   Lemma i_subst_trace_num_rw:
     forall tid x i n,
     ~ NFree x tid ->
-    trace tid (ULang.i_subst x (NExp.NNum n) i) =
+    trace tid (ULang.i_subst x (N.Exp.NNum n) i) =
     TLang.i_subst x (NNum n) (trace tid i).
   Proof.
     intros.
@@ -89,13 +89,13 @@ Section Defs.
   Proof.
     induction i; simpl; intros; auto.
     all: intuition.
-    - eauto using BExp.b_free_to_pure.
+    - eauto using B.Exp.b_free_to_pure.
     - destruct a.
       unfold AFree in *.
       simpl in *.
       intuition.
-      eauto using NExp.n_free_to_pure. 
-    - eauto using RExp.r_free_to_pure.
+      eauto using N.Exp.n_free_to_pure. 
+    - eauto using R.Exp.r_free_to_pure.
   Qed.
 
   Lemma var_inv_trace:
@@ -115,7 +115,7 @@ Section Defs.
   Inductive PIn a: ULang.inst -> Prop :=
   | p_in_access:
     forall e,
-    SIMT.AExp.AStep (AVal.av_owner a) e a ->
+    SIMT.A.Exp.AStep (AVal.av_owner a) e a ->
     PIn a (ULang.MemAcc e)
   | p_in_seq_l:
     forall i j,
@@ -127,25 +127,25 @@ Section Defs.
     PIn a (ULang.Seq i j)
   | p_in_if_true:
     forall b i j,
-    SIMT.BExp.BStep (AVal.av_owner a) b true ->
+    SIMT.B.Exp.BStep (AVal.av_owner a) b true ->
     PIn a i ->
     PIn a (ULang.If b i j)
   | p_in_if_false:
     forall b i j,
-    SIMT.BExp.BStep (AVal.av_owner a) b false ->
+    SIMT.B.Exp.BStep (AVal.av_owner a) b false ->
     PIn a j ->
     PIn a (ULang.If b i j)
   | p_in_for:
     forall r n x i,
-    SIMT.RExp.RPick (AVal.av_owner a) r n ->
-    PIn a (ULang.i_subst x (SIMT.NExp.NNum n) i) ->
+    SIMT.R.Exp.RPick (AVal.av_owner a) r n ->
+    PIn a (ULang.i_subst x (SIMT.N.Exp.NNum n) i) ->
     PIn a (ULang.For x r i)
   .
 
   Lemma n_step_to_pure:
     forall tid e n,
-    NStep (NExp.to_pure (NNum tid) e) n ->
-    NExp.NStep tid e n.
+    NStep (N.Exp.to_pure (NNum tid) e) n ->
+    N.Exp.NStep tid e n.
   Proof.
     induction e; simpl; intros.
     all: invc H.
@@ -157,8 +157,8 @@ Section Defs.
 
   Lemma b_step_to_pure:
     forall tid e n,
-    BStep (BExp.to_pure (NNum tid) e) n ->
-    BExp.BStep tid e n.
+    BStep (B.Exp.to_pure (NNum tid) e) n ->
+    B.Exp.BStep tid e n.
   Proof.
     induction e; simpl; intros.
     all: invc H.
@@ -189,7 +189,7 @@ Section Defs.
     - constructor 3; auto.
     - eauto using p_in_if_true, b_step_to_pure.
     - eauto using p_in_if_false, b_step_to_pure.
-    - apply RExp.r_pick_to_pure in H.
+    - apply R.Exp.r_pick_to_pure in H.
       apply p_in_for with (n:=n); auto.
       apply IHHi.
       rewrite i_subst_trace_num_rw; auto.
@@ -203,17 +203,17 @@ Section Defs.
     intros a i Hi.
     induction Hi; simpl.
     - eapply TLang.i_in_access; eauto.
-      rewrite AExp.a_step_to_pure.
+      rewrite A.Exp.a_step_to_pure.
       assumption.
     - apply TLang.i_in_seq_l; auto.
     - apply TLang.i_in_seq_r; auto.
     - apply TLang.i_in_if_true; auto.
-      rewrite BExp.b_step_to_pure.
+      rewrite B.Exp.b_step_to_pure.
       assumption.
     - apply TLang.i_in_if_false; auto.
-      rewrite BExp.b_step_to_pure.
+      rewrite B.Exp.b_step_to_pure.
       assumption.
-    - rewrite <- RExp.r_pick_to_pure in H.
+    - rewrite <- R.Exp.r_pick_to_pure in H.
       apply TLang.i_in_decl with (n:=n); auto.
       rewrite <- i_subst_trace_rw; auto.
   Qed.
@@ -306,7 +306,7 @@ Section Defs.
       rename_hyp (NStep (NNum t) _) as hn.
       invc hn.
       reflexivity.
-    - assert (IHHi := IHHi ((ULang.i_subst v (NExp.NNum n) i')) ).
+    - assert (IHHi := IHHi ((ULang.i_subst v (N.Exp.NNum n) i')) ).
       rewrite i_subst_trace_num_rw in IHHi; auto.
   Qed.
 
@@ -321,16 +321,16 @@ Section Defs.
     all: auto.
     - rewrite IHi1; auto.
       rewrite IHi2; auto.
-      rewrite BExp.b_subst_to_pure_eq; auto.
+      rewrite B.Exp.b_subst_to_pure_eq; auto.
     - rewrite IHi1; auto.
       rewrite IHi2; auto.
-    - rewrite AExp.a_subst_to_pure_eq; auto.
+    - rewrite A.Exp.a_subst_to_pure_eq; auto.
     - rewrite IHi; auto.
       destruct (Set_VAR.MF.eq_dec tid v0). {
         subst.
         intuition.
       }
-      rewrite RExp.r_subst_to_pure_eq; auto.
+      rewrite R.Exp.r_subst_to_pure_eq; auto.
   Qed.
 
   Lemma i_in_sequentialize_to_t_in:
@@ -472,7 +472,7 @@ Section Defs.
 
     (* Simplify the goal *)
     destruct (PeanoNat.Nat.eq_dec (AVal.av_owner x) (AVal.av_owner y)). {
-      auto using AExp.a_safe_eq_tid.
+      auto using A.Exp.a_safe_eq_tid.
     }
     assert (hp: PairInUtil.PairIn (x, y) m_c) by eauto using PairInUtil.pair_in_def.
 
@@ -592,7 +592,7 @@ Section Defs.
     NClosed v ->
     x <> T1 ->
     x <> T2 ->
-    TLang.i_subst x v (sequentialize i) = sequentialize (ULang.i_subst x (NExp.from_pure v) i).
+    TLang.i_subst x v (sequentialize i) = sequentialize (ULang.i_subst x (N.Exp.from_pure v) i).
   Proof.
     intros.
     unfold sequentialize.

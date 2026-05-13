@@ -4,7 +4,7 @@ From Stdlib Require Import micromega.Lia.
 From Faial.Core Require Import Tictac.
 From Faial.Core Require Import Tasks.
 
-From Faial.Expr Require Pure.NExp.
+From Faial.Expr Require Pure.N.Exp.
 Require ULang.
 Require Align.
 Require Sequentialize.
@@ -46,7 +46,7 @@ Section Defs.
     forall x v ph,
     x <> T1 ->
     x <> T2 ->
-    Pure.NExp.NClosed v ->
+    Pure.N.Exp.NClosed v ->
     ~ PhaseSplit.Var x ph ->
     TLang.i_subst x v (seq ph) =
     seq (PhaseSplit.ph_subst x v ph). 
@@ -81,19 +81,19 @@ Section Defs.
       unfold Sequentialize.sequentialize.
       eapply TLang.i_pair_in_decl; eauto.
    - simpl in *.
-    rewrite ph_to_hist_subst in hp; auto using Pure.NExp.n_closed_num. 2: { intuition. }
-    assert (hq: PhaseSplit.PPairIn p (PhaseSplit.ph_subst v (Pure.NExp.NNum n) ph)). {
+    rewrite ph_to_hist_subst in hp; auto using Pure.N.Exp.n_closed_num. 2: { intuition. }
+    assert (hq: PhaseSplit.PPairIn p (PhaseSplit.ph_subst v (Pure.N.Exp.NNum n) ph)). {
       apply IHhp; auto using PhaseSplit.not_var_subst.
       - simpl in *.
-        rewrite ph_to_hist_subst; auto using Pure.NExp.n_closed_num.
+        rewrite ph_to_hist_subst; auto using Pure.N.Exp.n_closed_num.
         intuition.
-      - apply PhaseSplit.not_occurs_subst; eauto using NExp.n_step_to_not_free.
-      - apply PhaseSplit.not_occurs_subst; eauto using NExp.n_step_to_not_free.
+      - apply PhaseSplit.not_occurs_subst; eauto using N.Exp.n_step_to_not_free.
+      - apply PhaseSplit.not_occurs_subst; eauto using N.Exp.n_step_to_not_free.
       - destruct hd as (_, Hd).
         auto using PhaseSplit.distinct_subst.
     }
     simpl in *.
-    econstructor; eauto using RExp.r_pick_def.
+    econstructor; eauto using R.Exp.r_pick_def.
   Qed.
 
   Lemma in_2:
@@ -113,11 +113,11 @@ Section Defs.
     - subst.
       auto using Sequentialize.i_pair_in_2.
     - eapply TLang.i_pair_in_decl; eauto.
-      rewrite ph_to_hist_subst; auto using Pure.NExp.n_closed_num.
+      rewrite ph_to_hist_subst; auto using Pure.N.Exp.n_closed_num.
       2: { intuition. }
       eapply IHPPairIn; eauto using PhaseSplit.not_var_subst.
-      + apply PhaseSplit.not_occurs_subst; eauto using NExp.n_step_to_not_free.
-      + apply PhaseSplit.not_occurs_subst; eauto using NExp.n_step_to_not_free.
+      + apply PhaseSplit.not_occurs_subst; eauto using N.Exp.n_step_to_not_free.
+      + apply PhaseSplit.not_occurs_subst; eauto using N.Exp.n_step_to_not_free.
       + apply PhaseSplit.distinct_subst.
         intuition.
   Qed.
@@ -335,12 +335,12 @@ Section Defs.
         destruct hc as [hc|hc]; simpl in hc. {
           apply ULang.occurs_inv_subst in hc.
           simpl in hc.
-          rewrite <- NExp.n_free_from_pure in *.
+          rewrite <- N.Exp.n_free_from_pure in *.
           intuition.
         }
         apply ULang.occurs_inv_subst in hc.
         simpl in hc.
-        rewrite <- NExp.n_free_from_pure in *.
+        rewrite <- N.Exp.n_free_from_pure in *.
         intuition.
   Qed.
 
@@ -462,14 +462,14 @@ Section Defs.
       constructor; auto. {
         rewrite PhaseSplit.can_run_n_seq_iff.
         simpl in *.
-        erewrite Align.align_to_subst in IHWRun1; eauto using Pure.NExp.n_closed_num.
+        erewrite Align.align_to_subst in IHWRun1; eauto using Pure.N.Exp.n_closed_num.
         simpl in *.
-        rename_hyp (Pure.RExp.RStep _ _ _) as hr.
-        assert (PhaseSplit.CanRun (ALang.subst x (Pure.NExp.NNum n) a1)). {
+        rename_hyp (Pure.R.Exp.RStep _ _ _) as hr.
+        assert (PhaseSplit.CanRun (ALang.subst x (Pure.N.Exp.NNum n) a1)). {
           apply IHWRun1.
           auto using WLang.distinct_subst.
         }
-        eapply PhaseSplit.can_run_subst; eauto using Pure.NExp.n_step_num.
+        eapply PhaseSplit.can_run_subst; eauto using Pure.N.Exp.n_step_num.
         invc hr.
         assumption.
       }
@@ -480,13 +480,13 @@ Section Defs.
       simpl in *.
       assert (IH: PhaseSplit.CanRun
           (ALang.NFor (ALang.n_seq ULang.Skip (ALang.subst x e1' a1)) x
-             (Pure.NExp.NBin NExp.NPlus (Pure.NExp.NNum 1) e1', e2')
+             (Pure.N.Exp.NBin N.Exp.NPlus (Pure.N.Exp.NNum 1) e1', e2')
              (ALang.n_seq
                 (ULang.i_subst x
-                   (NExp.NBin NExp.NMinus (NExp.NVar x) (NExp.NNum 1)) u1)
+                   (N.Exp.NBin N.Exp.NMinus (N.Exp.NVar x) (N.Exp.NNum 1)) u1)
                 (ALang.n_seq
                    (ULang.i_subst x
-                      (NExp.NBin NExp.NMinus (NExp.NVar x) (NExp.NNum 1)) c2)
+                      (N.Exp.NBin N.Exp.NMinus (N.Exp.NVar x) (N.Exp.NNum 1)) c2)
                    a1)))). {
         apply IHWRun2.
         intuition.
@@ -495,65 +495,65 @@ Section Defs.
       invc IH.
       rename_hyp (PhaseSplit.CanRun (ALang.n_seq _ _)) as hr.
       rewrite PhaseSplit.can_run_n_seq_iff in hr.
-      assert (Pure.NExp.NStep e1' (S n)). {
+      assert (Pure.N.Exp.NStep e1' (S n)). {
         invc H.
         auto.
       }
-      assert (e1'_e2': m = S n \/ Pure.RExp.RPick (Pure.NExp.NBin Pure.NExp.NPlus (Pure.NExp.NNum 1) e1', e2') m). {
+      assert (e1'_e2': m = S n \/ Pure.R.Exp.RPick (Pure.N.Exp.NBin Pure.N.Exp.NPlus (Pure.N.Exp.NNum 1) e1', e2') m). {
         invc hr1.
         invc H.
-        assert (n3 = n2) by eauto using Pure.NExp.n_step_fun.
+        assert (n3 = n2) by eauto using Pure.N.Exp.n_step_fun.
         subst.
-        rename_hyp (Pure.NExp.NStep (Pure.NExp.NBin _ _ _) _) as hn1.
+        rename_hyp (Pure.N.Exp.NStep (Pure.N.Exp.NBin _ _ _) _) as hn1.
         invc hn1.
         simpl in *.
-        assert (n3 = n) by eauto using Pure.NExp.n_step_fun.
+        assert (n3 = n) by eauto using Pure.N.Exp.n_step_fun.
         subst.
-        assert (n0 = 1) by eauto using Pure.NExp.n_step_fun, Pure.NExp.n_step_num.
+        assert (n0 = 1) by eauto using Pure.N.Exp.n_step_fun, Pure.N.Exp.n_step_num.
         subst.
         assert (m = S n \/ m > S n) by lia.
         intuition.
         right.
-        eapply Pure.RExp.r_pick_def; eauto.
-        eapply Pure.NExp.n_step_add_eq; eauto.
+        eapply Pure.R.Exp.r_pick_def; eauto.
+        eapply Pure.N.Exp.n_step_add_eq; eauto.
       }
       destruct e1'_e2' as [?|e1'_e2']. {
         subst.
-        eauto using PhaseSplit.can_run_subst, Pure.NExp.n_step_num.
+        eauto using PhaseSplit.can_run_subst, Pure.N.Exp.n_step_num.
       }
       rename_hyp (PhaseSplit.CanRun _) as rm.
       clear rm.
-      rename_hyp (forall n, Pure.RExp.RPick _ _ -> _) as IH.
+      rename_hyp (forall n, Pure.R.Exp.RPick _ _ -> _) as IH.
       apply IH in e1'_e2'.
       repeat rewrite ALang.n_seq_subst in e1'_e2'.
       repeat rewrite PhaseSplit.can_run_n_seq_iff in e1'_e2'.
-      eauto using PhaseSplit.can_run_subst, NExp.n_step_num.
+      eauto using PhaseSplit.can_run_subst, N.Exp.n_step_num.
     - destruct r as (e1, e2).
       destruct Hd as (Hd1, (Hd2, (Hd3, (Hd4, Hd5)))).
       destruct (Align.align P) as (a1, u1) eqn:eq_1.
       simpl in *.
       constructor. {
         rewrite PhaseSplit.can_run_n_seq_iff.
-        erewrite Align.align_to_subst in IHWRun; eauto using NExp.n_closed_num.
+        erewrite Align.align_to_subst in IHWRun; eauto using N.Exp.n_closed_num.
         simpl in *.
         invc H.
-        eapply PhaseSplit.can_run_subst with (e1:=(Pure.NExp.NNum n)).
-        all: eauto using Pure.NExp.n_step_num, Pure.NExp.n_closed_num.
+        eapply PhaseSplit.can_run_subst with (e1:=(Pure.N.Exp.NNum n)).
+        all: eauto using Pure.N.Exp.n_step_num, Pure.N.Exp.n_closed_num.
         apply IHWRun.
         auto using WLang.distinct_subst.
       }
       intros o r_o.
       invc r_o.
       assert (o = n). {
-        rename_hyp (Pure.NExp.NStep (Pure.NExp.NBin  _ _ _) _) as s_n1.
+        rename_hyp (Pure.N.Exp.NStep (Pure.N.Exp.NBin  _ _ _) _) as s_n1.
         invc s_n1.
-        rename_hyp (Pure.NExp.NStep (Pure.NExp.NNum _) _) as hn.
+        rename_hyp (Pure.N.Exp.NStep (Pure.N.Exp.NNum _) _) as hn.
         inversion_clear hn.
         simpl in *.
         invc H.
-        assert (n2 = S n) by eauto using Pure.NExp.n_step_fun.
+        assert (n2 = S n) by eauto using Pure.N.Exp.n_step_fun.
         subst.
-        assert (n3 = n) by eauto using Pure.NExp.n_step_fun.
+        assert (n3 = n) by eauto using Pure.N.Exp.n_step_fun.
         subst.
         lia.
       }
@@ -561,7 +561,7 @@ Section Defs.
       simpl in *.
       repeat rewrite ALang.n_seq_subst.
       repeat rewrite PhaseSplit.can_run_n_seq_iff.
-      erewrite Align.align_to_subst in IHWRun; eauto using Pure.NExp.n_closed_num.
+      erewrite Align.align_to_subst in IHWRun; eauto using Pure.N.Exp.n_closed_num.
       simpl in *.
       apply IHWRun.
       auto using WLang.distinct_subst.
@@ -746,9 +746,9 @@ Module Example.
   Section Defs.
   Context `{T:Tasks}.
   Import Stdlib.Strings.String.
-  Import Pure.NExp.
-  Import Pure.RExp.
-  Import SIMT.AExp.
+  Import Pure.N.Exp.
+  Import Pure.R.Exp.
+  Import SIMT.A.Exp.
   Import Var.
   Import WLang.WLangNotations.
   Import ULang.CLangNotations.
@@ -790,8 +790,8 @@ Module Example.
       Skip
       x
       (NNum 0, NNum 10)
-      (WSync (MemAcc (ae_write (SIMT.NExp.NVar x))))
-      (MemAcc (ae_write (SIMT.NExp.NVar x))).
+      (WSync (MemAcc (ae_write (SIMT.N.Exp.NVar x))))
+      (MemAcc (ae_write (SIMT.N.Exp.NVar x))).
   Definition AProg1 := Align.align Prog1.
   (*
     ------- phase 0 ----
@@ -814,16 +814,16 @@ Module Example.
   Definition SProg1 := seq_l (PhaseSplit.split AProg1).
   Goal SProg1 = [
     (* seq(skip; wr[0]) *)
-Sequentialize.sequentialize (Seq Skip (MemAcc (ae_write (SIMT.NExp.NNum 0))));
+Sequentialize.sequentialize (Seq Skip (MemAcc (ae_write (SIMT.N.Exp.NNum 0))));
     (* var x in 1 + 0..10; seq(skip; wr[x - 1]; wr[x]) *)
 TLang.Decl (variable "x") (NBin NPlus (NNum 1) (NNum 0), NNum 10)
   (Sequentialize.sequentialize
      (Seq Skip
-        (Seq (MemAcc (ae_write (NExp.NBin NMinus (NExp.NVar (variable "x")) (NExp.NNum 1))))
-           (MemAcc (ae_write (NExp.NVar (variable "x")))))));
+        (Seq (MemAcc (ae_write (N.Exp.NBin NMinus (N.Exp.NVar (variable "x")) (N.Exp.NNum 1))))
+           (MemAcc (ae_write (N.Exp.NVar (variable "x")))))));
     (* seq(skip; wr[10 - 1]) *)
   Sequentialize.sequentialize
-   (Seq Skip (MemAcc (ae_write (NExp.NBin NMinus (NExp.NNum 10) (NExp.NNum 1)))))
+   (Seq Skip (MemAcc (ae_write (N.Exp.NBin NMinus (N.Exp.NNum 10) (N.Exp.NNum 1)))))
 
    ]
            .
