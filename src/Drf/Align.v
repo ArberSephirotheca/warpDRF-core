@@ -9,7 +9,7 @@ From Faial.Core Require Import Tictac.
 Require Import ALang.
 From Faial.Core Require Import Util.
 From Stdlib Require Import Lia.
-Require SIMT.NExp.
+From Faial.Expr Require SIMT.NExp.
 
 Section Props.
   Context `{T:Tasks}.

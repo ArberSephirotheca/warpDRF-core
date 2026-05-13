@@ -1,5 +1,5 @@
-Require Import SIMT.NExp.
-Require Import SIMT.BExp.
+From Faial.Expr Require Import SIMT.NExp.
+From Faial.Expr Require Import SIMT.BExp.
 From Stdlib Require Import Lists.List.
 From Faial.Core Require Import Tictac.
 From Faial.Core Require Import AVal.

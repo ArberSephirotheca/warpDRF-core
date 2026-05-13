@@ -6,7 +6,7 @@ Import ListNotations.
 
 From Faial.Expr Require Pure.NExp.
 From Faial.Expr Require Pure.RExp.
-Require Import SIMT.NExp.
+From Faial.Expr Require Import SIMT.NExp.
 From Faial.Core Require Import Tictac.
 From Faial.Core Require Import Util.
 

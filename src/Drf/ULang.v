@@ -2,10 +2,10 @@ From Stdlib Require Import Lists.List.
 
 From Stdlib Require Import micromega.Lia.
 From Faial.Core Require Import Var.
-Require Import SIMT.NExp.
-Require Import SIMT.BExp.
-Require Import SIMT.RExp.
-Require Import SIMT.AExp.
+From Faial.Expr Require Import SIMT.NExp.
+From Faial.Expr Require Import SIMT.BExp.
+From Faial.Expr Require Import SIMT.RExp.
+From Faial.Expr Require Import SIMT.AExp.
 From Faial.Core Require Import AVal.
 From Faial.Core Require Import Util.
 From Faial.Core Require Import Tasks.

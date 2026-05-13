@@ -3,8 +3,8 @@ Require Import ALang.
 
 From Faial.Expr Require Import Pure.RExp.
 
-Require Import SIMT.AExp.
-Require Import SIMT.NExp.
+From Faial.Expr Require Import SIMT.AExp.
+From Faial.Expr Require Import SIMT.NExp.
 
 From Faial.Core Require Import Var.
 From Faial.Core Require Import Tictac.
