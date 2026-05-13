@@ -388,7 +388,7 @@ Section Defs.
     simpl.
     rewrite <- IHll1.
     rewrite prepend_app_r.
-    repeat rewrite app_assoc_reverse.
+    repeat rewrite <- app_assoc.
     assert (R:
       MemEquiv
         (prod ll1 ll2 ++ prepend a ll3)
@@ -399,7 +399,7 @@ Section Defs.
     }
     repeat rewrite app_assoc.
     apply mem_equiv_app_l.
-    repeat rewrite app_assoc_reverse.
+    repeat rewrite <- app_assoc.
     rewrite R.
     reflexivity.
   Qed.
