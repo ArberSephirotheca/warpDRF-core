@@ -5,8 +5,8 @@ From Stdlib Require Import Lia.
 Import ListNotations.
 
 From Faial.Approx Require Import NExp.
-From Faial.Approx Require Import Tictac.
-From Faial.Approx Require Import Util.
+From Faial.Core Require Import Tictac.
+From Faial.Core Require Import Util.
 From Faial.Approx Require Import InUtil.
 
 Section Defs.

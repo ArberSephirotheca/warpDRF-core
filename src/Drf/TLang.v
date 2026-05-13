@@ -2,11 +2,11 @@ From Stdlib Require Import Lists.List.
 
 From Stdlib Require Import micromega.Lia.
 
-From Faial.Drf Require Import Util.
+From Faial.Core Require Import Util.
 From Faial.Drf Require Import InUtil.
 From Faial.Drf Require Import PairInUtil.
 Require Import MultiHist.
-From Faial.Drf Require Import Tictac.
+From Faial.Core Require Import Tictac.
 
 From Faial.Drf Require Import Var.
 From Faial.Drf Require Import Tid.

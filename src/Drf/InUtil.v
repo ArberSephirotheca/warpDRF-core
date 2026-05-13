@@ -6,7 +6,7 @@ From Stdlib Require Import Relations.Relation_Definitions.
 From Stdlib Require Import Relations.Relation_Operators.
 (*Require Import Coq.Relations.Operators_Properties.*)
 From Stdlib Require Import Lists.List.
-From Faial.Drf Require Import Util.
+From Faial.Core Require Import Util.
 Import ListNotations.
 
 Section Defs.

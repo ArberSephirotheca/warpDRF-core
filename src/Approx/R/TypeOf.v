@@ -2,7 +2,7 @@ Require Import Dependency.
 From Faial.Approx Require Import RExp.
 From Faial.Approx Require Import NExp.
 Require Import N.TypeOf.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 Require R.WellTyped.
 Require N.WellTyped.
 Require N.TypeOf.

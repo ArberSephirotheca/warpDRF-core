@@ -4,7 +4,7 @@ Require B.WellTyped.
 Require R.WellTyped.
 From Faial.Approx Require Import NExp.
 Require Import D.Lang.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 From Faial.Approx Require Import InUtil.
 Require D.Free.
 Require D.Bound.

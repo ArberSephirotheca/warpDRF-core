@@ -3,10 +3,10 @@ From Faial.Approx Require Import NExp.
 From Faial.Approx Require Import BExp.
 From Faial.Approx Require Import RExp.
 From Faial.Approx Require Import AExp.
-From Faial.Approx Require Import Util.
+From Faial.Core Require Import Util.
 From Faial.Approx Require Import Tasks.
 From Faial.Approx Require Import PairInUtil.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 From Faial.Approx Require Import Hist.
 
 Require Import NatUtil.

@@ -1,5 +1,5 @@
 From Stdlib Require Import Lists.List.
-From Faial.Drf Require Import Tictac.
+From Faial.Core Require Import Tictac.
 From Stdlib Require Import micromega.Lia.
 
 Import ListNotations.

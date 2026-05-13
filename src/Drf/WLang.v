@@ -17,7 +17,7 @@ From Faial.Drf Require Import InUtil.
 From Faial.Drf Require Import PairInUtil.
 Require Import VHist.
 Require Import ULang.
-From Faial.Drf Require Import Tictac.
+From Faial.Core Require Import Tictac.
 
 From Stdlib Require Import Lia.
 

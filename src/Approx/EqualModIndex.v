@@ -1,6 +1,6 @@
 From Stdlib Require Import Sorting.SetoidList.
 From Faial.Approx Require Import AExp.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 
 Section Def.
   Inductive t : access_val -> access_val -> Prop :=

@@ -7,7 +7,7 @@ Require Import SIMT.AExp.
 Require Import SIMT.NExp.
 
 From Faial.Drf Require Import Var.
-From Faial.Drf Require Import Tictac.
+From Faial.Core Require Import Tictac.
 Require ULang.
 Require Sequentialize.
 From Stdlib Require Import Lists.List.

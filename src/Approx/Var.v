@@ -9,7 +9,7 @@ From Stdlib Require Import Strings.String.
 
 Require Import Aniceto.Map.
 
-From Faial.Approx Require Import StringUtil.
+From Faial.Core Require Import StringUtil.
 
 From Stdlib Require FSets.FMapFacts.
 

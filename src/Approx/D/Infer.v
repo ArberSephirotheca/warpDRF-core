@@ -3,7 +3,7 @@ From Faial.Approx Require Import AExp.
 From Faial.Approx Require Import NExp.
 From Faial.Approx Require Import Var.
 From Faial.Approx Require Import Tasks.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 Require D.LRun.
 Require U.LRun.
 From Stdlib Require Import Lists.List.

@@ -2,7 +2,7 @@ From Stdlib Require Import Lists.List.
 From Faial.Approx Require Import Var.
 Import ListNotations.
 From Faial.Approx Require Import NExp.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 From Faial.Approx Require Import InUtil.
 
 Section Defs.

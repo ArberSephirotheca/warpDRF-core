@@ -1,9 +1,9 @@
 From Stdlib Require Import Lists.List.
 
 Require Import AVal.
-From Faial.Drf Require Import Util.
+From Faial.Core Require Import Util.
 Require Import SetTh.
-From Faial.Drf Require Import Util.
+From Faial.Core Require Import Util.
 From Faial.Drf Require Import InUtil.
 From Faial.Drf Require Import PairInUtil.
 

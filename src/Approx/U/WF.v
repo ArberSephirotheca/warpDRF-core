@@ -12,7 +12,7 @@ Require U.Bound.
 Require U.Subst.
 
 From Faial.Approx Require Import InUtil.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 
 
 Inductive t : list var -> U.Lang.t -> Prop :=

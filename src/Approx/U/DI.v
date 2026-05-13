@@ -1,6 +1,6 @@
 From Faial.Approx Require Import Var.
 From Faial.Approx Require Import InUtil.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 From Stdlib Require Import Lists.List.
 
 From Faial.Approx Require NExp.

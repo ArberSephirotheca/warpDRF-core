@@ -3,7 +3,7 @@ From Faial.Approx Require Import RExp.
 From Faial.Approx Require Import NExp.
 Require N.WellTyped.
 From Stdlib Require Import Lists.List.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 From Faial.Approx Require Import InUtil.
 Require R.MultiSubst.
 Require R.Equal.

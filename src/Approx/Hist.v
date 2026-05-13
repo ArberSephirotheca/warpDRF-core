@@ -5,7 +5,7 @@ From Faial.Approx Require Import NExp.
 From Faial.Approx Require Import BExp.
 From Faial.Approx Require Import InUtil.
 From Faial.Approx Require Import PairInUtil.
-From Faial.Approx Require Import Util.
+From Faial.Core Require Import Util.
 From Faial.Approx Require Import AExp.
 Import ListNotations.
 

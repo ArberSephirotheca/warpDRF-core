@@ -2,7 +2,7 @@ Require Import D.WF.
 Require Import D.Lang.
 From Stdlib Require Import Lists.List.
 Import ListNotations.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 From Faial.Approx Require Import NExp.
 From Faial.Approx Require Import Var.
 Require R.Iter.

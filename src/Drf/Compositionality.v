@@ -4,9 +4,9 @@ From Faial.Drf Require Import Var.
 Require Import WLang.
 Require Import ULang.
 Require Import NExp.
-From Faial.Drf Require Import Tictac.
+From Faial.Core Require Import Tictac.
 Require Import ALang.
-From Faial.Drf Require Import Util.
+From Faial.Core Require Import Util.
 Require Import RExp.
 From Stdlib Require Import Lia.
 

@@ -1,7 +1,7 @@
 From Faial.Approx Require Import NExp.
 From Faial.Approx Require Import RExp.
 Require R.Closed.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 
 Section Defs.
   Variable tid: nat.

@@ -1,6 +1,6 @@
 From Faial.Approx Require Import NExp.
 From Faial.Approx Require Import RExp.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 Require R.First.
 Require R.HasNext.
 Require R.Last.

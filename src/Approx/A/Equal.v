@@ -1,7 +1,7 @@
 From Faial.Approx Require Import AExp.
 Require Import N.Equal.
 From Faial.Approx Require Import NExp.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 From Stdlib Require Import Classes.Morphisms.
 From Stdlib Require Import Classes.RelationPairs.
 

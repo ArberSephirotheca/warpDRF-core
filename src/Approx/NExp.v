@@ -4,7 +4,7 @@ Import ListNotations.
 From Faial.Approx Require Import Var.
 From Stdlib Require Import Lia.
 From Stdlib Require Import Classes.RelationPairs.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 From Faial.Approx Require Import InUtil.
 
 Section Defs.

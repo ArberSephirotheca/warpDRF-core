@@ -5,7 +5,7 @@ Require Import Aniceto.Graphs.Graph.
 From Stdlib Require Import Relations.Relation_Definitions.
 From Stdlib Require Import Relations.Relation_Operators.
 From Stdlib Require Import Lists.List.
-From Faial.Approx Require Import Util.
+From Faial.Core Require Import Util.
 From Stdlib Require Sorting.SetoidList.
 Import ListNotations.
 

@@ -5,9 +5,9 @@ From Stdlib Require Import Relations.Relation_Definitions.
 From Stdlib Require Import Relations.Relation_Operators.
 
 From Stdlib Require Import Lists.List.
-From Faial.Approx Require Import Util.
+From Faial.Core Require Import Util.
 From Faial.Approx Require Import InUtil.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 Import ListNotations.
 
 Section Defs.

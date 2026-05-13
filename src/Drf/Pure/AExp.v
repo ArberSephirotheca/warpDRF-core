@@ -1,7 +1,7 @@
 Require Import Pure.NExp.
 Require Import Pure.BExp.
 From Stdlib Require Import Lists.List.
-From Faial.Drf Require Import Tictac.
+From Faial.Core Require Import Tictac.
 Require Import AVal.
 
 Import ListNotations.

@@ -1,4 +1,4 @@
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 From Faial.Approx Require Import Var.
 Module Dependency.
   Inductive t: Type :=

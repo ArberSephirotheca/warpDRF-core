@@ -4,7 +4,7 @@ From Faial.Approx Require Import NExp.
 From Faial.Approx Require Import BExp.
 From Faial.Approx Require Import RExp.
 From Faial.Approx Require Import AExp.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 Require R.Free.
 Require U.Subst.
 

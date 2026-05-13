@@ -6,7 +6,7 @@ From Faial.Approx Require NExp.
 From Faial.Approx Require BExp.
 From Faial.Approx Require AExp.
 From Faial.Approx Require RExp.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 Require Import NatUtil.
 Import ListNotations.
 From Faial.Approx Require Import InUtil.

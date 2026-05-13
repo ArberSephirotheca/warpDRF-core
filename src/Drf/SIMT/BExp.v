@@ -3,7 +3,7 @@ From Faial.Drf Require Import Var.
 Import ListNotations.
 Require Import SIMT.NExp.
 Require Import Pure.BExp.
-From Faial.Drf Require Import Tictac.
+From Faial.Core Require Import Tictac.
 
 Section Defs.
 

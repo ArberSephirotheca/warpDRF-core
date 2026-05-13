@@ -2,7 +2,7 @@ Require N.WellTyped.
 From Faial.Approx Require Import BExp.
 From Faial.Approx Require Import Var.
 From Faial.Approx Require Import NExp.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 From Stdlib Require Import Lists.List.
 From Faial.Approx Require Import InUtil.
 Require B.MultiSubst.

@@ -6,8 +6,8 @@ Import ListNotations.
 
 Require Import Pure.NExp.
 Require Import Pure.BExp.
-From Faial.Drf Require Import Tictac.
-From Faial.Drf Require Import Util.
+From Faial.Core Require Import Tictac.
+From Faial.Core Require Import Util.
 
 Section Defs.
   Definition range := (nexp * nexp) % type.

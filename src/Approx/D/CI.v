@@ -8,7 +8,7 @@ From Faial.Approx Require Import AExp.
 From Stdlib Require Import List.
 Require U.Lang.
 Import ListNotations.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 From Stdlib Require Import Sorting.SetoidList.
 From Faial.Approx Require Import InUtil.
 Require D.WF.

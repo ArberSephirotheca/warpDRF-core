@@ -1,7 +1,7 @@
 From Stdlib Require Import Lists.List.
 From Stdlib Require Import micromega.Lia.
 
-From Faial.Drf Require Import Tictac.
+From Faial.Core Require Import Tictac.
 From Faial.Drf Require Import Tasks.
 
 Require Pure.NExp.

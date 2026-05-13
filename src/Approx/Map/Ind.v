@@ -1,7 +1,7 @@
 From Faial.Approx Require Import Var.
 Require Import Dependency.
 From Stdlib Require Import Lists.List.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 
 Section Ind.
   Import Dependency.

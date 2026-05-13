@@ -2,7 +2,7 @@ Require U.Free.
 From Faial.Approx Require Import Var.
 Require Import U.Lang.
 From Faial.Approx Require Import NExp.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 Require U.Subst.
 
 Fixpoint t (x:var) (u:Lang.t) : Prop :=

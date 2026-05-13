@@ -3,7 +3,7 @@ From Faial.Approx Require Import BExp.
 From Faial.Approx Require Import NExp.
 Require Import N.TypeOf.
 Require Import B.WellTyped.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 Require Map.Dom.
 Require Map.Ind.
 

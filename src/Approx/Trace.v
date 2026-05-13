@@ -1,5 +1,5 @@
 From Faial.Approx Require Import Var.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 Section Defs.
   Inductive t :=
   | skip

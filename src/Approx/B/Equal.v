@@ -1,6 +1,6 @@
 From Faial.Approx Require Import BExp.
 From Stdlib Require Import Classes.Morphisms.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 Require Import N.Equal.
 
 Section Equal.

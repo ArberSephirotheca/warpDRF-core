@@ -4,7 +4,7 @@ Import ListNotations.
 From Faial.Drf Require Import Var.
 From Stdlib Require Import micromega.Lia.
 From Stdlib Require Import Classes.RelationPairs.
-From Faial.Drf Require Import Tictac.
+From Faial.Core Require Import Tictac.
 
 Section Defs.
 

@@ -8,7 +8,7 @@ From Faial.Approx Require RExp.
 Require Import NatUtil.
 Require Trace.
 Import ListNotations.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 Require Import R.Equal.
 Require R.Empty.
 Require R.Step.

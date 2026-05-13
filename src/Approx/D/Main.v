@@ -12,7 +12,7 @@ Require U.Main.
 From Faial.Approx Require Import AExp.
 From Stdlib Require Import Lists.List.
 Import ListNotations.
-From Faial.Approx Require Import Tictac.
+From Faial.Core Require Import Tictac.
 Require D.Feasible.
 Require D.Spurious.
 Require D.Report.
