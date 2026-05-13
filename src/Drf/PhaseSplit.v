@@ -1,7 +1,7 @@
 From Faial.Core Require Import Tasks.
 Require Import ALang.
 
-Require Import Pure.RExp.
+From Faial.Expr Require Import Pure.RExp.
 
 Require Import SIMT.AExp.
 Require Import SIMT.NExp.

@@ -1,5 +1,5 @@
-Require Import Pure.NExp.
-Require Import Pure.BExp.
+From Faial.Expr Require Import Pure.NExp.
+From Faial.Expr Require Import Pure.BExp.
 From Stdlib Require Import Lists.List.
 From Faial.Core Require Import Tictac.
 From Faial.Core Require Import AVal.

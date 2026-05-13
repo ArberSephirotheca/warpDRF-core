@@ -3,8 +3,8 @@ From Faial.Core Require Import Tasks.
 From Faial.Core Require Import Var.
 Require Import WLang.
 Require Import ULang.
-Require Import Pure.NExp.
-Require Import Pure.RExp.
+From Faial.Expr Require Import Pure.NExp.
+From Faial.Expr Require Import Pure.RExp.
 From Faial.Core Require Import Tictac.
 Require Import ALang.
 From Faial.Core Require Import Util.

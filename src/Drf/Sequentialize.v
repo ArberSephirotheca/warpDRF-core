@@ -4,10 +4,10 @@ From Stdlib Require Import micromega.Lia.
 From Faial.Core Require Import Util.
 
 From Faial.Core Require Import Var.
-Require Import Pure.NExp.
-Require Import Pure.BExp.
-Require Import Pure.AExp.
-Require Import Pure.RExp.
+From Faial.Expr Require Import Pure.NExp.
+From Faial.Expr Require Import Pure.BExp.
+From Faial.Expr Require Import Pure.AExp.
+From Faial.Expr Require Import Pure.RExp.
 From Faial.Core Require Import Tasks.
 From Faial.Core Require Import Tictac.
 From Faial.Core Require Import AVal.

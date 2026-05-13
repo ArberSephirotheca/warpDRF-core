@@ -4,8 +4,8 @@ From Stdlib Require Import micromega.Lia.
 
 Import ListNotations.
 
-Require Pure.NExp.
-Require Pure.RExp.
+From Faial.Expr Require Pure.NExp.
+From Faial.Expr Require Pure.RExp.
 Require Import SIMT.NExp.
 From Faial.Core Require Import Tictac.
 From Faial.Core Require Import Util.

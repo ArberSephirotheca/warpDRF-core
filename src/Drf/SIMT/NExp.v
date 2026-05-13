@@ -5,7 +5,7 @@ From Faial.Core Require Import Var.
 From Stdlib Require Import micromega.Lia.
 From Stdlib Require Import Classes.RelationPairs.
 From Faial.Core Require Import Tictac.
-Require Pure.NExp.
+From Faial.Expr Require Pure.NExp.
 
 Section Defs.
 

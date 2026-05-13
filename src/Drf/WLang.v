@@ -6,10 +6,10 @@ From Stdlib Require Import Classes.RelationPairs.
 
 From Faial.Core Require Import Var.
 From Faial.Core Require Import Tid.
-Require Import Pure.NExp.
+From Faial.Expr Require Import Pure.NExp.
 Require SIMT.NExp.
-Require Import Pure.RExp.
-Require Import Pure.BExp.
+From Faial.Expr Require Import Pure.RExp.
+From Faial.Expr Require Import Pure.BExp.
 Require Import SIMT.AExp.
 From Faial.Core Require Import AVal.
 From Faial.Core Require Import Tasks.

@@ -4,7 +4,7 @@ From Stdlib Require Import micromega.Lia.
 From Faial.Core Require Import Tictac.
 From Faial.Core Require Import Tasks.
 
-Require Pure.NExp.
+From Faial.Expr Require Pure.NExp.
 Require ULang.
 Require Align.
 Require Sequentialize.

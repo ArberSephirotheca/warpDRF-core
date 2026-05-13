@@ -2,7 +2,7 @@ From Stdlib Require Import Lists.List.
 From Faial.Core Require Import Var.
 Import ListNotations.
 Require Import SIMT.NExp.
-Require Import Pure.BExp.
+From Faial.Expr Require Import Pure.BExp.
 From Faial.Core Require Import Tictac.
 
 Section Defs.

@@ -1,15 +1,15 @@
 From Faial.Core Require Import AVal.
 From Faial.Core Require Import Tasks.
 Require Import ULang.
-Require Import Pure.NExp.
-Require Import Pure.RExp.
+From Faial.Expr Require Import Pure.NExp.
+From Faial.Expr Require Import Pure.RExp.
 From Faial.Core Require Import Var.
 Require Import WLang.
 From Faial.Core Require Import Tictac.
 From Faial.Core Require Import Util.
 From Stdlib Require Import Lists.List.
 From Stdlib Require Import micromega.Lia.
-Require Pure.NExp.
+From Faial.Expr Require Pure.NExp.
 
 Import ListNotations.
 Import NExpNotations.
