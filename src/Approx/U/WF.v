@@ -3,7 +3,7 @@ From Faial.Approx Require Import NExp.
 From Faial.Approx Require Import RExp.
 From Faial.Approx Require Import BExp.
 From Faial.Approx Require Import AExp.
-From Faial.Approx Require Import Var.
+From Faial.Core Require Import Var.
 Require N.WellTyped.
 Require B.WellTyped.
 Require R.WellTyped.
@@ -11,7 +11,7 @@ Require U.Free.
 Require U.Bound.
 Require U.Subst.
 
-From Faial.Approx Require Import InUtil.
+From Faial.Core Require Import InUtil.
 From Faial.Core Require Import Tictac.
 
 

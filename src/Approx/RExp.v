@@ -7,7 +7,7 @@ Import ListNotations.
 From Faial.Approx Require Import NExp.
 From Faial.Core Require Import Tictac.
 From Faial.Core Require Import Util.
-From Faial.Approx Require Import InUtil.
+From Faial.Core Require Import InUtil.
 
 Section Defs.
   Definition range := (nexp * nexp) % type.

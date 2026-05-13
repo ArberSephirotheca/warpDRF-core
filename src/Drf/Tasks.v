@@ -1,4 +1,4 @@
-From Faial.Drf Require Import Var.
+From Faial.Core Require Import Var.
 From Stdlib Require Import micromega.Lia.
 Class Tasks := {
   TID_COUNT: nat;

@@ -6,7 +6,7 @@ Require Import Pure.RExp.
 Require Import SIMT.AExp.
 Require Import SIMT.NExp.
 
-From Faial.Drf Require Import Var.
+From Faial.Core Require Import Var.
 From Faial.Core Require Import Tictac.
 Require ULang.
 Require Sequentialize.

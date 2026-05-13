@@ -1,5 +1,5 @@
 Require Import D.Lang.
-From Faial.Approx Require Import Var.
+From Faial.Core Require Import Var.
 
 Fixpoint t (x:var) (s:Lang.t) : Prop :=
   match s with

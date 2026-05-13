@@ -1,5 +1,5 @@
 From Faial.Approx Require Import NExp.
-From Faial.Approx Require Import Var.
+From Faial.Core Require Import Var.
 From Faial.Core Require Import Tictac.
 
 Fixpoint f (m:Map_VAR.t nat) (e:nexp) : nexp :=

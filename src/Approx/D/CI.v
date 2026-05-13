@@ -1,5 +1,5 @@
 From Faial.Approx Require Import Tasks.
-From Faial.Approx Require Import Var.
+From Faial.Core Require Import Var.
 Require Import D.Lang.
 From Faial.Approx Require Import NExp.
 From Faial.Approx Require Import BExp.
@@ -10,7 +10,7 @@ Require U.Lang.
 Import ListNotations.
 From Faial.Core Require Import Tictac.
 From Stdlib Require Import Sorting.SetoidList.
-From Faial.Approx Require Import InUtil.
+From Faial.Core Require Import InUtil.
 Require D.WF.
 Require D.Bound.
 Require D.Free.

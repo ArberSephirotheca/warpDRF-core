@@ -1,7 +1,7 @@
 From Faial.Approx Require Import NExp.
 From Stdlib Require Import Classes.Morphisms.
 From Faial.Core Require Import Tictac.
-From Faial.Approx Require Import Var.
+From Faial.Core Require Import Var.
 
 Section Equal.
   Variable tid: nat.

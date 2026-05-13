@@ -1,4 +1,4 @@
-From Faial.Approx Require Import Var.
+From Faial.Core Require Import Var.
 From Stdlib Require Import Lia.
 From Faial.Approx Require Import NExp.
 From Faial.Approx Require Import BExp.

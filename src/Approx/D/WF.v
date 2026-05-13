@@ -1,11 +1,11 @@
-From Faial.Approx Require Import Var.
+From Faial.Core Require Import Var.
 Require N.WellTyped.
 Require B.WellTyped.
 Require R.WellTyped.
 From Faial.Approx Require Import NExp.
 Require Import D.Lang.
 From Faial.Core Require Import Tictac.
-From Faial.Approx Require Import InUtil.
+From Faial.Core Require Import InUtil.
 Require D.Free.
 Require D.Bound.
 Require D.LRun.

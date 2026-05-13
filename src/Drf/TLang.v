@@ -3,12 +3,12 @@ From Stdlib Require Import Lists.List.
 From Stdlib Require Import micromega.Lia.
 
 From Faial.Core Require Import Util.
-From Faial.Drf Require Import InUtil.
+From Faial.Core Require Import InUtil.
 From Faial.Drf Require Import PairInUtil.
 Require Import MultiHist.
 From Faial.Core Require Import Tictac.
 
-From Faial.Drf Require Import Var.
+From Faial.Core Require Import Var.
 From Faial.Drf Require Import Tid.
 Require Import Pure.NExp.
 Require Import Pure.BExp.

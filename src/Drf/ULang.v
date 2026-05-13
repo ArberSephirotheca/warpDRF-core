@@ -1,7 +1,7 @@
 From Stdlib Require Import Lists.List.
 
 From Stdlib Require Import micromega.Lia.
-From Faial.Drf Require Import Var.
+From Faial.Core Require Import Var.
 Require Import SIMT.NExp.
 Require Import SIMT.BExp.
 Require Import SIMT.RExp.

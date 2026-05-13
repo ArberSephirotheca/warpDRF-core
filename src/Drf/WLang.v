@@ -4,7 +4,7 @@ From Stdlib Require Import Relations.Operators_Properties.
 From Stdlib Require Import Classes.RelationPairs.
 
 
-From Faial.Drf Require Import Var.
+From Faial.Core Require Import Var.
 From Faial.Drf Require Import Tid.
 Require Import Pure.NExp.
 Require SIMT.NExp.
@@ -13,7 +13,7 @@ Require Import Pure.BExp.
 Require Import SIMT.AExp.
 Require Import AVal.
 From Faial.Drf Require Import Tasks.
-From Faial.Drf Require Import InUtil.
+From Faial.Core Require Import InUtil.
 From Faial.Drf Require Import PairInUtil.
 Require Import VHist.
 Require Import ULang.

@@ -1,7 +1,7 @@
 From Faial.Approx Require Import NExp.
 From Faial.Approx Require Import RExp.
 Require N.MultiSubst.
-From Faial.Approx Require Import Var.
+From Faial.Core Require Import Var.
 Require R.Closed.
 
 Definition f (m:Map_VAR.t nat) (r:range) : range :=

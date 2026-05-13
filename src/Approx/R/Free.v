@@ -2,7 +2,7 @@ From Faial.Approx Require Import RExp.
 From Faial.Approx Require Import NExp.
 From Faial.Core Require Import Tictac.
 From Stdlib Require Import Lia.
-From Faial.Approx Require Import Var.
+From Faial.Core Require Import Var.
 
 Section Defs.
 

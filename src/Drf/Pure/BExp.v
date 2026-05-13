@@ -1,5 +1,5 @@
 From Stdlib Require Import Lists.List.
-From Faial.Drf Require Import Var.
+From Faial.Core Require Import Var.
 Import ListNotations.
 Require Import Pure.NExp.
 From Faial.Core Require Import Tictac.

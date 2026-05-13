@@ -1,7 +1,7 @@
 Require D.CI.
 Require D.DI.
 Require D.WF.
-From Faial.Approx Require Import Var.
+From Faial.Core Require Import Var.
 From Stdlib Require Import Lists.List.
 From Stdlib Require Import Sorting.SetoidList.
 Require EqualModIndex.

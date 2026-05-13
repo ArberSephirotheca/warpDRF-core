@@ -1,6 +1,6 @@
 Require Import AExp.
 From Faial.Drf Require Import Tasks.
-From Faial.Drf Require Import Var.
+From Faial.Core Require Import Var.
 Require Import WLang.
 Require Import ULang.
 Require Import NExp.

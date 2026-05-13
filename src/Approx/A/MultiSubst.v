@@ -1,6 +1,6 @@
 From Faial.Approx Require Import AExp.
 From Faial.Approx Require Import NExp.
-From Faial.Approx Require Import Var.
+From Faial.Core Require Import Var.
 Require N.MultiSubst.
 
 Definition f (m:Map_VAR.t nat) (a:access_exp) : access_exp :=

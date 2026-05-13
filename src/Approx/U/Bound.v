@@ -1,5 +1,5 @@
 Require U.Free.
-From Faial.Approx Require Import Var.
+From Faial.Core Require Import Var.
 Require Import U.Lang.
 From Faial.Approx Require Import NExp.
 From Faial.Core Require Import Tictac.

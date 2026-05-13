@@ -1,4 +1,4 @@
-From Faial.Approx Require Import Var.
+From Faial.Core Require Import Var.
 Require Import Dependency.
 
 Section Dom.

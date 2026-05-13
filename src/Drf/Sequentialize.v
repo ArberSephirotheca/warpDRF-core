@@ -3,7 +3,7 @@ From Stdlib Require Import micromega.Lia.
 
 From Faial.Core Require Import Util.
 
-From Faial.Drf Require Import Var.
+From Faial.Core Require Import Var.
 Require Import Pure.NExp.
 Require Import Pure.BExp.
 Require Import Pure.AExp.

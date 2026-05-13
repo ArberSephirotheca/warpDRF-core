@@ -1,11 +1,11 @@
 From Stdlib Require Import Lists.List.
 Import ListNotations.
 
-From Faial.Approx Require Import Var.
+From Faial.Core Require Import Var.
 From Stdlib Require Import Lia.
 From Stdlib Require Import Classes.RelationPairs.
 From Faial.Core Require Import Tictac.
-From Faial.Approx Require Import InUtil.
+From Faial.Core Require Import InUtil.
 
 Section Defs.
 

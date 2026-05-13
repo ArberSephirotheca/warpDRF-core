@@ -3,7 +3,7 @@ From Faial.Approx Require Import NExp.
 From Faial.Approx Require Import BExp.
 From Faial.Approx Require Import RExp.
 From Faial.Approx Require Import AExp.
-From Faial.Approx Require Import Var.
+From Faial.Core Require Import Var.
 
 Fixpoint f x v d :=
   match d with
