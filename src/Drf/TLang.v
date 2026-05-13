@@ -14,7 +14,7 @@ Require Import Pure.NExp.
 Require Import Pure.BExp.
 Require Import Pure.RExp.
 Require Import Pure.AExp.
-Require Import AVal.
+From Faial.Core Require Import AVal.
 
 Require ULang.
 

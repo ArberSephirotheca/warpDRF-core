@@ -2,7 +2,7 @@ Require Import SIMT.NExp.
 Require Import SIMT.BExp.
 From Stdlib Require Import Lists.List.
 From Faial.Core Require Import Tictac.
-Require Import AVal.
+From Faial.Core Require Import AVal.
 Require Pure.AExp.
 
 Import ListNotations.
@@ -32,7 +32,7 @@ Section Defs.
 
   Definition ae_read (index:nexp) := {|
     ae_index := index;
-    ae_mode := m_write;
+    ae_mode := m_read;
   |}.
 
   Definition a_subst x v e :=

@@ -1,6 +1,6 @@
 From Stdlib Require Import Lists.List.
 
-Require Import AVal.
+From Faial.Core Require Import AVal.
 From Faial.Core Require Import Util.
 Require Import SetTh.
 From Faial.Core Require Import Util.

@@ -13,9 +13,9 @@ Section Defs.
 
   Notation history := (list access_val).
   (*Global Transparent history.*)
-  Definition Safe2 (h1 h2:history) := forall x y, List.In x h1 -> List.In y h2 -> AExp.Safe x y.
+  Definition Safe2 (h1 h2:history) := forall x y, List.In x h1 -> List.In y h2 -> AVal.Safe x y.
 
-  Definition Safe (h:history) := forall x y, List.In x h -> List.In y h -> AExp.Safe x y.
+  Definition Safe (h:history) := forall x y, List.In x h -> List.In y h -> AVal.Safe x y.
 
   Definition MSafe (m:list history) := forall h1 h2, List.In h1 m -> List.In h2 m -> Safe2 h1 h2.
 
@@ -24,7 +24,7 @@ Section Defs.
     forall x y,
     av_owner x <> av_owner y ->
     MPairIn (x,y) m ->
-    AExp.Safe x y.
+    AVal.Safe x y.
 
   Definition MSafe2 (m1 m2:list history) := forall h1 h2, List.In h1 m1 -> List.In h2 m2 -> Safe2 h1 h2.
 
@@ -41,7 +41,7 @@ Section Defs.
     forall x y,
     List.In x h ->
     List.In y h ->
-    AExp.Safe x y.
+    AVal.Safe x y.
   Proof.
     auto.
   Qed.
@@ -617,7 +617,7 @@ Section Defs.
     forall x y h,
     PairIn (x, y) h ->
     Safe2 h h ->
-    AExp.Safe x y.
+    AVal.Safe x y.
   Proof.
     unfold Safe2; intros.
     inversion H; subst; clear H.
@@ -629,7 +629,7 @@ Section Defs.
     MSafe hs ->
     List.In h hs ->
     PairIn (x, y) h ->
-    AExp.Safe x y.
+    AVal.Safe x y.
   Proof.
     intros.
     unfold MSafe in *.
@@ -641,7 +641,7 @@ Section Defs.
     forall hs x y,
     MSafe hs ->
     MPairIn (x, y) hs ->
-    AExp.Safe x y.
+    AVal.Safe x y.
   Proof.
     unfold MPairIn.
     intros.
@@ -687,7 +687,7 @@ Section Defs.
     MSafe hs ->
     MIn x hs ->
     MIn y hs ->
-    AExp.Safe x y.
+    AVal.Safe x y.
   Proof.
     unfold MSafe, Safe2; intros.
     inversion H0; subst; clear H0.

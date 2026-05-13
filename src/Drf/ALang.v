@@ -1,4 +1,4 @@
-Require Import AVal.
+From Faial.Core Require Import AVal.
 From Faial.Core Require Import Tasks.
 Require Import ULang.
 Require Import Pure.NExp.

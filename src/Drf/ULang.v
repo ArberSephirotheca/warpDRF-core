@@ -6,7 +6,7 @@ Require Import SIMT.NExp.
 Require Import SIMT.BExp.
 Require Import SIMT.RExp.
 Require Import SIMT.AExp.
-Require Import AVal.
+From Faial.Core Require Import AVal.
 From Faial.Core Require Import Util.
 From Faial.Core Require Import Tasks.
 From Faial.Core Require Import PairInUtil.

@@ -11,7 +11,7 @@ From Faial.Core Require Import Tictac.
 Require ULang.
 Require Sequentialize.
 From Stdlib Require Import Lists.List.
-Require Import AVal.
+From Faial.Core Require Import AVal.
 
 Import ListNotations.
 

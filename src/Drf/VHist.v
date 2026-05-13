@@ -1,6 +1,6 @@
 From Stdlib Require Import Lists.List.
 
-Require Import AVal.
+From Faial.Core Require Import AVal.
 From Faial.Core Require Import PairInUtil.
 From Faial.Core Require Import Tictac.
 From Faial.Drf Require Hist.

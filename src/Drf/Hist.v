@@ -2,7 +2,7 @@ From Stdlib Require Import Lists.List.
 From Stdlib Require Import micromega.Lia.
 From Stdlib Require Import Arith.PeanoNat.
 
-Require Import AVal.
+From Faial.Core Require Import AVal.
 From Faial.Core Require Import InUtil.
 From Faial.Core Require Import PairInUtil.
 From Faial.Core Require Import Util.

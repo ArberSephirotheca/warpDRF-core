@@ -13,7 +13,7 @@ Require WLang.
 From Faial.Drf Require Hist.
 Require VHist.
 Require ALang.
-Require Import AVal.
+From Faial.Core Require Import AVal.
 
 Import ListNotations.
 

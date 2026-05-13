@@ -10,7 +10,7 @@ Require Import Pure.AExp.
 Require Import Pure.RExp.
 From Faial.Core Require Import Tasks.
 From Faial.Core Require Import Tictac.
-Require Import AVal.
+From Faial.Core Require Import AVal.
 Require TLang.
 
 Import ListNotations.

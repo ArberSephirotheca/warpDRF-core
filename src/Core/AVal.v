@@ -28,7 +28,7 @@ Section Defs.
   Definition av_read (owner:nat) (index:nat) : access_val := {|
     av_owner := owner;
     av_index := index;
-    av_mode := m_write;
+    av_mode := m_read;
   |}.
 
   Inductive Conflict (a1 a2:access_val) : Prop :=
@@ -119,6 +119,14 @@ Section Defs.
   Proof.
     intros.
     inversion H; auto using safe_mode, safe_owner, safe_index.
+  Qed.
+
+  Lemma a_safe_eq_tid:
+    forall v1 v2,
+    av_owner v1 = av_owner v2 ->
+    Safe v1 v2.
+  Proof.
+    auto using safe_owner.
   Qed.
 
 End Defs.
