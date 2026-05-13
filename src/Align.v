@@ -8,7 +8,7 @@ Require Import Pure.RExp.
 Require Import Tictac.
 Require Import ALang.
 Require Import Util.
-Require Import Lia.
+From Stdlib Require Import Lia.
 Require SIMT.NExp.
 
 Section Props.

@@ -1,4 +1,4 @@
-Require Import Coq.Lists.List.
+From Stdlib Require Import Lists.List.
 Require Import Var.
 Import ListNotations.
 Require Import Pure.NExp.

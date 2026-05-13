@@ -6,6 +6,8 @@
 *.synctex.gz
 /Makefile.conf
 /Makefile
+/_build
+_RocqProject
 *.aux
 *.glob
 *.vo

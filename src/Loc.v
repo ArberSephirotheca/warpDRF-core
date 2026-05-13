@@ -1,15 +1,15 @@
-Require Coq.Arith.Compare_dec.
+From Stdlib Require Arith.Compare_dec.
 
-Require Import Coq.Structures.OrderedType.
-Require Import Coq.Structures.OrderedTypeEx.
-Require Import Coq.FSets.FMapAVL.
-Require Import Coq.FSets.FSetAVL.
-Require Import Coq.Arith.Peano_dec.
-Require Import Coq.Arith.PeanoNat.
+From Stdlib Require Import Structures.OrderedType.
+From Stdlib Require Import Structures.OrderedTypeEx.
+From Stdlib Require Import FSets.FMapAVL.
+From Stdlib Require Import FSets.FSetAVL.
+From Stdlib Require Import Arith.Peano_dec.
+From Stdlib Require Import Arith.PeanoNat.
 
 Require Import Aniceto.Map.
 
-Require Coq.FSets.FMapFacts.
+From Stdlib Require FSets.FMapFacts.
 
 Inductive loc := location : nat -> loc.
 
@@ -48,7 +48,7 @@ Module LOC <: UsualOrderedType.
     inversion H.
   Qed.
 
-  Import Coq.Arith.Compare_dec.
+  Import Stdlib.Arith.Compare_dec.
   Lemma compare:
     forall x y, Compare lt Logic.eq x y.
   Proof.

@@ -1,0 +1,8 @@
+(include_subdirs qualified)
+(rocq.theory
+ (name Faial)
+ (theories Aniceto Stdlib)
+ (modules :standard \ Compositionality)
+ (generate_project_file)
+ (package rocq-faial)
+ (flags -color on))

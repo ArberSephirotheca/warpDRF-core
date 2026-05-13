@@ -8,7 +8,7 @@ Require Import Tictac.
 Require Import ALang.
 Require Import Util.
 Require Import RExp.
-Require Import Lia.
+From Stdlib Require Import Lia.
 
 Section Props.
   Context `{T:Tasks}.

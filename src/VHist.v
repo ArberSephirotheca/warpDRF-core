@@ -1,4 +1,4 @@
-Require Import Coq.Lists.List.
+From Stdlib Require Import Lists.List.
 
 Require Import AVal.
 Require Import PairInUtil.

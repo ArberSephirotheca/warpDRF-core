@@ -1,5 +1,5 @@
-Require Import Coq.Setoids.Setoid.
-Require Coq.Classes.Morphisms.
+From Stdlib Require Import Setoids.Setoid.
+From Stdlib Require Classes.Morphisms.
 
 Set Implicit Arguments.
 Section Defs.

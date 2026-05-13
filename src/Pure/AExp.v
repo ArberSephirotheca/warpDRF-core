@@ -1,6 +1,6 @@
 Require Import Pure.NExp.
 Require Import Pure.BExp.
-Require Import Coq.Lists.List.
+From Stdlib Require Import Lists.List.
 Require Import Tictac.
 Require Import AVal.
 

@@ -1,8 +1,8 @@
-Require Import Coq.Strings.String.
-Require Import Coq.Strings.Ascii.
-Require Import Coq.Structures.OrderedTypeEx.
-Require Import Coq.Structures.OrderedType.
-Require Import Coq.Lists.List.
+From Stdlib Require Import Strings.String.
+From Stdlib Require Import Strings.Ascii.
+From Stdlib Require Import Structures.OrderedTypeEx.
+From Stdlib Require Import Structures.OrderedType.
+From Stdlib Require Import Lists.List.
 Set Implicit Arguments.
 
 Section ListEq.

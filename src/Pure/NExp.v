@@ -1,9 +1,9 @@
-Require Import Coq.Lists.List.
+From Stdlib Require Import Lists.List.
 Import ListNotations.
 
 Require Import Var.
-Require Import Coq.micromega.Lia.
-Require Import Coq.Classes.RelationPairs.
+From Stdlib Require Import micromega.Lia.
+From Stdlib Require Import Classes.RelationPairs.
 Require Import Tictac.
 
 Section Defs.

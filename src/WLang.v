@@ -1,7 +1,7 @@
-Require Import Coq.Lists.List.
-Require Import Coq.Relations.Relation_Operators.
-Require Import Coq.Relations.Operators_Properties.
-Require Import Coq.Classes.RelationPairs.
+From Stdlib Require Import Lists.List.
+From Stdlib Require Import Relations.Relation_Operators.
+From Stdlib Require Import Relations.Operators_Properties.
+From Stdlib Require Import Classes.RelationPairs.
 
 
 Require Import Var.
@@ -19,7 +19,7 @@ Require Import VHist.
 Require Import ULang.
 Require Import Tictac.
 
-Require Import Lia.
+From Stdlib Require Import Lia.
 
 Import ListNotations.
 Require ULang.

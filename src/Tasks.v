@@ -1,5 +1,5 @@
 Require Import Var.
-Require Import Coq.micromega.Lia.
+From Stdlib Require Import micromega.Lia.
 Class Tasks := {
   TID_COUNT: nat;
   T1: var;

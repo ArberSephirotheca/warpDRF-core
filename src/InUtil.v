@@ -1,11 +1,11 @@
 
-Require Import Coq.Sets.Ensembles.
-Require Coq.Sets.Constructive_sets.
+From Stdlib Require Import Sets.Ensembles.
+From Stdlib Require Sets.Constructive_sets.
 Require Import Aniceto.Graphs.Graph.
-Require Import Coq.Relations.Relation_Definitions.
-Require Import Coq.Relations.Relation_Operators.
+From Stdlib Require Import Relations.Relation_Definitions.
+From Stdlib Require Import Relations.Relation_Operators.
 (*Require Import Coq.Relations.Operators_Properties.*)
-Require Import Coq.Lists.List.
+From Stdlib Require Import Lists.List.
 Require Import Util.
 Import ListNotations.
 

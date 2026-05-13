@@ -10,7 +10,7 @@ Require Import Var.
 Require Import Tictac.
 Require ULang.
 Require Sequentialize.
-Require Import Coq.Lists.List.
+From Stdlib Require Import Lists.List.
 Require Import AVal.
 
 Import ListNotations.

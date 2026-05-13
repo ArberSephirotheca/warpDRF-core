@@ -1,19 +1,19 @@
-Require Coq.Arith.Compare_dec.
+From Stdlib Require Arith.Compare_dec.
 
-Require Import Coq.Structures.OrderedType.
-Require Import Coq.Structures.OrderedTypeEx.
-Require Import Coq.FSets.FMapAVL.
-Require Import Coq.FSets.FSetAVL.
-Require Import Coq.Arith.Peano_dec.
-Require Import Coq.Strings.String.
+From Stdlib Require Import Structures.OrderedType.
+From Stdlib Require Import Structures.OrderedTypeEx.
+From Stdlib Require Import FSets.FMapAVL.
+From Stdlib Require Import FSets.FSetAVL.
+From Stdlib Require Import Arith.Peano_dec.
+From Stdlib Require Import Strings.String.
 
 Require Import Aniceto.Map.
 
 Require Import StringUtil.
 
-Require Coq.FSets.FMapFacts.
+From Stdlib Require FSets.FMapFacts.
 
-Require String.
+From Stdlib Require String.
 
 Inductive var := variable : string -> var.
 

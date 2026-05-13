@@ -1,5 +1,5 @@
-Require Import Coq.Lists.List.
-Require Import Coq.micromega.Lia.
+From Stdlib Require Import Lists.List.
+From Stdlib Require Import micromega.Lia.
 
 Require Import Tictac.
 Require Import Tasks.
@@ -741,11 +741,11 @@ End Defs.
 (*
     ~~~~~ Example ~~~~~~~
 *)
-Require Coq.Strings.String.
+From Stdlib Require Strings.String.
 Module Example.
   Section Defs.
   Context `{T:Tasks}.
-  Import Coq.Strings.String.
+  Import Stdlib.Strings.String.
   Import Pure.NExp.
   Import Pure.RExp.
   Import SIMT.AExp.

@@ -1,6 +1,6 @@
 Require Import SIMT.NExp.
 Require Import SIMT.BExp.
-Require Import Coq.Lists.List.
+From Stdlib Require Import Lists.List.
 Require Import Tictac.
 Require Import AVal.
 Require Pure.AExp.
