@@ -4,7 +4,7 @@ From Stdlib Require Import Arith.PeanoNat.
 
 Require Import AVal.
 From Faial.Core Require Import InUtil.
-From Faial.Drf Require Import PairInUtil.
+From Faial.Core Require Import PairInUtil.
 From Faial.Core Require Import Util.
 
 Import ListNotations.

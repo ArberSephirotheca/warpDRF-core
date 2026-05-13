@@ -5,7 +5,7 @@ From Faial.Core Require Import Util.
 Require Import SetTh.
 From Faial.Core Require Import Util.
 From Faial.Core Require Import InUtil.
-From Faial.Drf Require Import PairInUtil.
+From Faial.Core Require Import PairInUtil.
 
 Import ListNotations.
 

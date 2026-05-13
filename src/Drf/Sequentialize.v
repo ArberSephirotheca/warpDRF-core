@@ -8,7 +8,7 @@ Require Import Pure.NExp.
 Require Import Pure.BExp.
 Require Import Pure.AExp.
 Require Import Pure.RExp.
-From Faial.Drf Require Import Tasks.
+From Faial.Core Require Import Tasks.
 From Faial.Core Require Import Tictac.
 Require Import AVal.
 Require TLang.

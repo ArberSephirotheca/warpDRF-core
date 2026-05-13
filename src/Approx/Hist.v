@@ -4,7 +4,7 @@ From Stdlib Require Import Lia.
 From Faial.Approx Require Import NExp.
 From Faial.Approx Require Import BExp.
 From Faial.Core Require Import InUtil.
-From Faial.Approx Require Import PairInUtil.
+From Faial.Core Require Import PairInUtil.
 From Faial.Core Require Import Util.
 From Faial.Approx Require Import AExp.
 Import ListNotations.

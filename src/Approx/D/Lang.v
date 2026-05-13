@@ -4,8 +4,8 @@ From Faial.Approx Require Import BExp.
 From Faial.Approx Require Import RExp.
 From Faial.Approx Require Import AExp.
 From Faial.Core Require Import Util.
-From Faial.Approx Require Import Tasks.
-From Faial.Approx Require Import PairInUtil.
+From Faial.Core Require Import Tasks.
+From Faial.Core Require Import PairInUtil.
 From Faial.Core Require Import Tictac.
 From Faial.Approx Require Import Hist.
 

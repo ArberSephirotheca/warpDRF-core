@@ -1,5 +1,5 @@
 From Faial.Core Require Import Var.
-From Stdlib Require Import micromega.Lia.
+From Stdlib Require Import Lia.
 Class Tasks := {
   TID_COUNT: nat;
   T1: var;

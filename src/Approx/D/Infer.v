@@ -2,7 +2,7 @@ Require Import D.Lang.
 From Faial.Approx Require Import AExp.
 From Faial.Approx Require Import NExp.
 From Faial.Core Require Import Var.
-From Faial.Approx Require Import Tasks.
+From Faial.Core Require Import Tasks.
 From Faial.Core Require Import Tictac.
 Require D.LRun.
 Require U.LRun.

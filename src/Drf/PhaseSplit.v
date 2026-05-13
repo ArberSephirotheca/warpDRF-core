@@ -1,4 +1,4 @@
-From Faial.Drf Require Import Tasks.
+From Faial.Core Require Import Tasks.
 Require Import ALang.
 
 Require Import Pure.RExp.

@@ -8,8 +8,8 @@ Require Import SIMT.RExp.
 Require Import SIMT.AExp.
 Require Import AVal.
 From Faial.Core Require Import Util.
-From Faial.Drf Require Import Tasks.
-From Faial.Drf Require Import PairInUtil.
+From Faial.Core Require Import Tasks.
+From Faial.Core Require Import PairInUtil.
 From Faial.Core Require Import Tictac.
 
 From Faial.Drf Require Hist.

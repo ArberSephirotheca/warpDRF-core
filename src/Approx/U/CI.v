@@ -1,4 +1,4 @@
-From Faial.Approx Require Import Tasks.
+From Faial.Core Require Import Tasks.
 From Faial.Core Require Import Var.
 From Faial.Approx Require Import NExp.
 From Faial.Approx Require Import BExp.
