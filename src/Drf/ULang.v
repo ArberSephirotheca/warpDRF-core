@@ -12,7 +12,7 @@ From Faial.Core Require Import Tasks.
 From Faial.Core Require Import PairInUtil.
 From Faial.Core Require Import Tictac.
 
-From Faial.Drf Require Hist.
+From Faial.Core Require Hist.
 Require Pure.NExp.
 
 Import NExpNotations.

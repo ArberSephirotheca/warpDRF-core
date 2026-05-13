@@ -3,7 +3,7 @@ From Stdlib Require Import Lists.List.
 From Faial.Core Require Import AVal.
 From Faial.Core Require Import PairInUtil.
 From Faial.Core Require Import Tictac.
-From Faial.Drf Require Hist.
+From Faial.Core Require Hist.
 Import ListNotations.
 
 (*

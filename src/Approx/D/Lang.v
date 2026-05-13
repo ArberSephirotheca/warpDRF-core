@@ -7,10 +7,10 @@ From Faial.Core Require Import Util.
 From Faial.Core Require Import Tasks.
 From Faial.Core Require Import PairInUtil.
 From Faial.Core Require Import Tictac.
-From Faial.Approx Require Import Hist.
+From Faial.Core Require Import Hist.
 
 Require Import NatUtil.
-From Faial.Approx Require Import Hist.
+From Faial.Core Require Import Hist.
 Require TClos.
 From Stdlib Require Import Arith.PeanoNat.
 From Stdlib Require Import Sorting.SetoidList.

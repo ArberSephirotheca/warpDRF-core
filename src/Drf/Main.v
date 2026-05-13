@@ -10,7 +10,7 @@ Require Align.
 Require Sequentialize.
 Require PhaseSplit.
 Require WLang.
-From Faial.Drf Require Hist.
+From Faial.Core Require Hist.
 Require VHist.
 Require ALang.
 From Faial.Core Require Import AVal.
