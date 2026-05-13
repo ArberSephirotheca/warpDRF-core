@@ -1,7 +1,7 @@
-From Faial.Approx Require Import NExp.
-From Faial.Approx Require Import BExp.
+From Faial.Expr Require Import SIMT.N.Exp.
+From Faial.Expr Require Import SIMT.B.Exp.
 From Faial.Core Require Import Var.
-Require N.MultiSubst.
+From Faial.Expr Require SIMT.N.MultiSubst.
 
 Fixpoint f (m:Map_VAR.t nat) (e:bexp) : bexp :=
   match e with

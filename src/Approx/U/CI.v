@@ -1,9 +1,9 @@
 From Faial.Core Require Import Tasks.
 From Faial.Core Require Import Var.
-From Faial.Approx Require Import NExp.
-From Faial.Approx Require Import BExp.
-From Faial.Approx Require Import RExp.
-From Faial.Approx Require Import AExp.
+From Faial.Expr Require Import SIMT.N.Exp.
+From Faial.Expr Require Import SIMT.B.Exp.
+From Faial.Expr Require Import SIMT.R.Exp.
+From Faial.Expr Require Import SIMT.A.Exp.
 From Stdlib Require Import List.
 Require Import U.Lang.
 Import ListNotations.
@@ -17,12 +17,12 @@ Require U.Free.
 Require U.LRun.
 Require U.Subst.
 
-Require N.WellTyped.
-Require B.WellTyped.
-Require R.WellTyped.
+From Faial.Expr Require SIMT.N.WellTyped.
+From Faial.Expr Require SIMT.B.WellTyped.
+From Faial.Expr Require SIMT.R.WellTyped.
 Require EqualModIndex.
 
-Require Import B.Equal.
+From Faial.Expr Require Import SIMT.B.Equal.
 
   Inductive t : list var -> U.Lang.t -> Prop :=
   | acc:

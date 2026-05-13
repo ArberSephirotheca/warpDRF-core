@@ -1,11 +1,11 @@
 Require Import Dependency.
-From Faial.Approx Require Import RExp.
-From Faial.Approx Require Import NExp.
-Require Import N.TypeOf.
+From Faial.Expr Require Import SIMT.R.Exp.
+From Faial.Expr Require Import SIMT.N.Exp.
+From Faial.Expr Require Import SIMT.N.TypeOf.
 From Faial.Core Require Import Tictac.
-Require R.WellTyped.
-Require N.WellTyped.
-Require N.TypeOf.
+From Faial.Expr Require SIMT.R.WellTyped.
+From Faial.Expr Require SIMT.N.WellTyped.
+From Faial.Expr Require SIMT.N.TypeOf.
 Require Map.Dom.
 Require Map.Ind.
 

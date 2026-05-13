@@ -1,10 +1,10 @@
 From Faial.Core Require Import Var.
 Require Import U.Lang.
-Require N.MultiSubst.
-Require B.MultiSubst.
-Require A.MultiSubst.
-Require R.MultiSubst.
-From Faial.Approx Require Import NExp.
+From Faial.Expr Require SIMT.N.MultiSubst.
+From Faial.Expr Require SIMT.B.MultiSubst.
+From Faial.Expr Require SIMT.A.MultiSubst.
+From Faial.Expr Require SIMT.R.MultiSubst.
+From Faial.Expr Require Import SIMT.N.Exp.
 Require U.Subst.
 
 Fixpoint f (m:Map_VAR.t nat) (u:Lang.t) : Lang.t :=

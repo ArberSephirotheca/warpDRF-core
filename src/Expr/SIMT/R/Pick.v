@@ -1,10 +1,10 @@
-From Faial.Approx Require Import RExp.
-From Faial.Approx Require Import NExp.
+From Faial.Expr Require Import SIMT.R.Exp.
+From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Core Require Import Tictac.
 From Stdlib Require Import Lia.
-Require R.Last.
-Require R.First.
-Require R.Pick2.
+From Faial.Expr Require SIMT.R.Last.
+From Faial.Expr Require SIMT.R.First.
+From Faial.Expr Require SIMT.R.Pick2.
 
 Section Defs.
   Variable tid: nat.

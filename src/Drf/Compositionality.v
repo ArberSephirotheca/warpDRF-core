@@ -1,13 +1,13 @@
-Require Import A.Exp.
+From Faial.Expr Require Import SIMT.A.Exp.
 From Faial.Core Require Import Tasks.
 From Faial.Core Require Import Var.
 Require Import WLang.
 Require Import ULang.
-Require Import N.Exp.
+From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Core Require Import Tictac.
 Require Import ALang.
 From Faial.Core Require Import Util.
-Require Import R.Exp.
+From Faial.Expr Require Import SIMT.R.Exp.
 From Stdlib Require Import Lia.
 
 Section Props.

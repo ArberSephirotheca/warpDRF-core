@@ -1,18 +1,18 @@
 From Faial.Core Require Import Var.
-From Faial.Approx Require Import RExp.
-From Faial.Approx Require Import NExp.
-Require N.WellTyped.
+From Faial.Expr Require Import SIMT.R.Exp.
+From Faial.Expr Require Import SIMT.N.Exp.
+From Faial.Expr Require SIMT.N.WellTyped.
 From Stdlib Require Import Lists.List.
 From Faial.Core Require Import Tictac.
 From Faial.Core Require Import InUtil.
-Require R.MultiSubst.
-Require R.Equal.
+From Faial.Expr Require SIMT.R.MultiSubst.
+From Faial.Expr Require SIMT.R.Equal.
 Import ListNotations.
 From Stdlib Require Import Lia.
-Require R.Closed.
-Require R.Free.
-Require R.Empty.
-Require R.Step.
+From Faial.Expr Require SIMT.R.Closed.
+From Faial.Expr Require SIMT.R.Free.
+From Faial.Expr Require SIMT.R.Empty.
+From Faial.Expr Require SIMT.R.Step.
 Section Defs.
   Inductive t (env:list var) : range -> Prop :=
   | def:

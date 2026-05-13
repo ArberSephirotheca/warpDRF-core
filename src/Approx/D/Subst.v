@@ -1,8 +1,8 @@
 Require Import D.Lang.
-From Faial.Approx Require Import NExp.
-From Faial.Approx Require Import BExp.
-From Faial.Approx Require Import RExp.
-From Faial.Approx Require Import AExp.
+From Faial.Expr Require Import SIMT.N.Exp.
+From Faial.Expr Require Import SIMT.B.Exp.
+From Faial.Expr Require Import SIMT.R.Exp.
+From Faial.Expr Require Import SIMT.A.Exp.
 From Faial.Core Require Import Var.
 
 Fixpoint f x v d :=

@@ -1,11 +1,11 @@
 From Faial.Core Require Import Var.
 Require Import U.Lang.
-From Faial.Approx Require Import NExp.
-From Faial.Approx Require Import BExp.
-From Faial.Approx Require Import RExp.
-From Faial.Approx Require Import AExp.
+From Faial.Expr Require Import SIMT.N.Exp.
+From Faial.Expr Require Import SIMT.B.Exp.
+From Faial.Expr Require Import SIMT.R.Exp.
+From Faial.Expr Require Import SIMT.A.Exp.
 From Faial.Core Require Import Tictac.
-Require R.Free.
+From Faial.Expr Require SIMT.R.Free.
 Require U.Subst.
 
 Section Free.
@@ -22,7 +22,7 @@ Section Free.
   Lemma inv_subst:
     forall u x y e,
     t x (Subst.f y e u) ->
-    NExp.NFree x e \/ t x u.
+    N.Exp.NFree x e \/ t x u.
   Proof.
     induction u.
     all: simpl.
@@ -75,8 +75,8 @@ Section Free.
     - reflexivity.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.
-      assert (~ BExp.BFree x b) by intuition.
-      rewrite BExp.b_subst_not_free; auto.
+      assert (~ B.Exp.BFree x b) by intuition.
+      rewrite B.Exp.b_subst_not_free; auto.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.
     - rewrite a_subst_not_free; auto.
@@ -98,10 +98,10 @@ Section Free.
     all: intuition.
     all: eauto.
     - rename_hyp (BFree _ _) as hb.
-      apply BExp.not_free_after_subst in hb.
+      apply B.Exp.not_free_after_subst in hb.
       all: intuition.
     - rename_hyp (NFree _ _) as hb.
-      apply NExp.not_free_after_subst in hb.
+      apply N.Exp.not_free_after_subst in hb.
       all: intuition.
     - rename_hyp (R.Free.t _ _) as hb.
       apply R.Free.not_free_after_subst in hb.

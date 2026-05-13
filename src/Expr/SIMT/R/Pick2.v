@@ -1,5 +1,5 @@
-From Faial.Approx Require Import RExp.
-From Faial.Approx Require Import NExp.
+From Faial.Expr Require Import SIMT.R.Exp.
+From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Core Require Import Tictac.
 From Stdlib Require Import Lia.
 

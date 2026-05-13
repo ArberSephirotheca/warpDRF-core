@@ -1,11 +1,11 @@
 From Stdlib Require Import Lists.List.
-From Faial.Approx Require Import NExp.
-From Faial.Approx Require Import AExp.
-Require N.WellTyped.
+From Faial.Expr Require Import SIMT.N.Exp.
+From Faial.Expr Require Import SIMT.A.Exp.
+From Faial.Expr Require SIMT.N.WellTyped.
 From Faial.Core Require Import Tictac.
 From Faial.Core Require Import Var.
-Require A.MultiSubst.
-Require Import A.Equal.
+From Faial.Expr Require SIMT.A.MultiSubst.
+From Faial.Expr Require Import SIMT.A.Equal.
 
 Section Defs.
 

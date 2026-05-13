@@ -2,7 +2,7 @@ From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Expr Require Import SIMT.B.Exp.
 From Stdlib Require Import Lists.List.
 From Faial.Core Require Import Tictac.
-From Faial.Core Require Import AVal.
+From Faial.Core Require Export AVal.
 From Faial.Expr Require Pure.A.Exp.
 
 Import ListNotations.
@@ -444,6 +444,47 @@ Section Defs.
   Proof.
     intros.
     apply a_in_subst_neq in H1; auto.
+  Qed.
+
+  Lemma a_step_inv_read:
+    forall e n,
+    NStep tid e n ->
+    forall v,
+    AStep (ae_read e) v ->
+    v = av_read tid n.
+  Proof.
+    intros.
+    invc H0.
+    assert (n = n_idx) by eauto using n_step_fun.
+    subst.
+    unfold av_read.
+    reflexivity.
+  Qed.
+
+  Lemma a_step_inv_write:
+    forall e n,
+    NStep tid e n ->
+    forall v,
+    AStep (ae_write e) v ->
+    v = av_write tid n.
+  Proof.
+    intros.
+    invc H0.
+    assert (n = n_idx) by eauto using n_step_fun.
+    subst.
+    unfold av_write.
+    reflexivity.
+  Qed.
+
+  Lemma to_closed:
+    forall e v,
+    AStep e v ->
+    NClosed (ae_index e).
+  Proof.
+    intros.
+    invc H.
+    simpl.
+    eauto using n_step_to_closed.
   Qed.
 
 End Defs.

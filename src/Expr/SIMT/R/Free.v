@@ -1,5 +1,5 @@
-From Faial.Approx Require Import RExp.
-From Faial.Approx Require Import NExp.
+From Faial.Expr Require Import SIMT.R.Exp.
+From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Core Require Import Tictac.
 From Stdlib Require Import Lia.
 From Faial.Core Require Import Var.
@@ -93,7 +93,7 @@ Section Defs.
     destruct e as (e1, e2).
     simpl in N.
     destruct N as [N|N].
-    all: apply NExp.not_free_after_subst in N.
+    all: apply N.Exp.not_free_after_subst in N.
     all: auto.
   Qed.
 End Defs.

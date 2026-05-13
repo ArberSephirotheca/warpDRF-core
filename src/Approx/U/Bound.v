@@ -1,7 +1,7 @@
 Require U.Free.
 From Faial.Core Require Import Var.
 Require Import U.Lang.
-From Faial.Approx Require Import NExp.
+From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Core Require Import Tictac.
 Require U.Subst.
 

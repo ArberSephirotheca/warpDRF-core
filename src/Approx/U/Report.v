@@ -1,5 +1,5 @@
 Require Trace.
-From Faial.Approx Require Import AExp.
+From Faial.Expr Require Import SIMT.A.Exp.
 Require U.Lang.
 Require U.LRun.
   Inductive t : U.Lang.t -> access_val * Trace.t -> Prop :=

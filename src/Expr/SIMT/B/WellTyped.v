@@ -1,12 +1,12 @@
-Require N.WellTyped.
-From Faial.Approx Require Import BExp.
+From Faial.Expr Require SIMT.N.WellTyped.
+From Faial.Expr Require Import SIMT.B.Exp.
 From Faial.Core Require Import Var.
-From Faial.Approx Require Import NExp.
+From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Core Require Import Tictac.
 From Stdlib Require Import Lists.List.
 From Faial.Core Require Import InUtil.
-Require B.MultiSubst.
-Require Import B.Equal.
+From Faial.Expr Require SIMT.B.MultiSubst.
+From Faial.Expr Require Import SIMT.B.Equal.
 Import ListNotations.
 
   Inductive t (env: list var) : bexp -> Prop :=
@@ -110,7 +110,7 @@ Import ListNotations.
   Proof.
     intros.
     apply strengthen with (x:=x).
-    - apply BExp.not_free_after_subst.
+    - apply B.Exp.not_free_after_subst.
       apply n_free_num.
     - apply subst.
       assumption.

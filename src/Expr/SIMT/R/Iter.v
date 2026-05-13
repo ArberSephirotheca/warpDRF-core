@@ -1,12 +1,12 @@
-From Faial.Approx Require Import NExp.
-From Faial.Approx Require Import RExp.
+From Faial.Expr Require Import SIMT.N.Exp.
+From Faial.Expr Require Import SIMT.R.Exp.
 From Faial.Core Require Import Tictac.
-Require R.Start.
-Require R.HasNext.
-Require R.Last.
-Require R.Pick.
-Require R.Empty.
-Require R.Step.
+From Faial.Expr Require SIMT.R.Start.
+From Faial.Expr Require SIMT.R.HasNext.
+From Faial.Expr Require SIMT.R.Last.
+From Faial.Expr Require SIMT.R.Pick.
+From Faial.Expr Require SIMT.R.Empty.
+From Faial.Expr Require SIMT.R.Step.
 From Stdlib Require Import Lists.List.
 Import ListNotations.
 From Stdlib Require Import Lia.

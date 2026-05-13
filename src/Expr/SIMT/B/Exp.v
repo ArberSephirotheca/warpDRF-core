@@ -951,4 +951,49 @@ Section SO.
     - auto using b_closed_to_step.
   Qed.
 
+  Lemma not_free_after_subst:
+    forall e x v,
+    ~ NFree x v ->
+    ~ BFree x (b_subst x v e).
+  Proof.
+    induction e.
+    all: intros x_orig v_orig hn.
+    all: simpl in *.
+    all: intuition.
+    - rename_hyp (NFree _ (n_subst _ _ _)) as hb.
+      apply N.Exp.not_free_after_subst in hb; auto.
+    - rename_hyp (NFree _ (n_subst _ _ _)) as hb.
+      apply N.Exp.not_free_after_subst in hb; auto.
+    - rename_hyp (BFree _ (b_subst _ _ _)) as hb.
+      apply IHe1 in hb; auto.
+    - rename_hyp (BFree _ (b_subst _ _ _)) as hb.
+      apply IHe2 in hb; auto.
+    - rename_hyp (BFree _ (b_subst _ _ _)) as hb.
+      apply IHe in hb; auto.
+  Qed.
+
+  Lemma b_step_subst_num:
+    forall b e,
+    BStep e b ->
+    forall x n,
+    BStep (b_subst x (NNum n) e) b.
+  Proof.
+    intros.
+    rewrite b_subst_not_free.
+    { assumption. }
+    apply b_step_to_closed in H.
+    apply H.
+  Qed.
+
 End SO.
+
+(* Top-level aliases so importers can use bare relational-op names *)
+Notation nrel      := Pure.B.Exp.nrel.
+Notation brel      := Pure.B.Exp.brel.
+Notation NEquals   := Pure.B.Exp.NEquals.
+Notation NLe       := Pure.B.Exp.NLe.
+Notation NLt       := Pure.B.Exp.NLt.
+Notation BOr       := Pure.B.Exp.BOr.
+Notation BAnd      := Pure.B.Exp.BAnd.
+Notation eval_nrel := Pure.B.Exp.eval_nrel.
+Notation eval_brel := Pure.B.Exp.eval_brel.

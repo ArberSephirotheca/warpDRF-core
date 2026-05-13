@@ -1,5 +1,6 @@
 From Stdlib Require Import Sorting.SetoidList.
-From Faial.Approx Require Import AExp.
+From Faial.Expr Require Import SIMT.A.Exp.
+From Faial.Core Require Import AVal.
 From Faial.Core Require Import Tictac.
 
 Section Def.

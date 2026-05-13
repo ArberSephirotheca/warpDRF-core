@@ -1,6 +1,6 @@
 Require Import D.Lang.
-From Faial.Approx Require Import AExp.
-From Faial.Approx Require Import NExp.
+From Faial.Expr Require Import SIMT.A.Exp.
+From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Core Require Import Var.
 From Faial.Core Require Import Tasks.
 From Faial.Core Require Import Tictac.

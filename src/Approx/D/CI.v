@@ -1,10 +1,10 @@
 From Faial.Core Require Import Tasks.
 From Faial.Core Require Import Var.
 Require Import D.Lang.
-From Faial.Approx Require Import NExp.
-From Faial.Approx Require Import BExp.
-From Faial.Approx Require Import RExp.
-From Faial.Approx Require Import AExp.
+From Faial.Expr Require Import SIMT.N.Exp.
+From Faial.Expr Require Import SIMT.B.Exp.
+From Faial.Expr Require Import SIMT.R.Exp.
+From Faial.Expr Require Import SIMT.A.Exp.
 From Stdlib Require Import List.
 Require U.Lang.
 Import ListNotations.
@@ -14,9 +14,9 @@ From Faial.Core Require Import InUtil.
 Require D.WF.
 Require D.Bound.
 Require D.Free.
-Require N.WellTyped.
-Require B.WellTyped.
-Require R.WellTyped.
+From Faial.Expr Require SIMT.N.WellTyped.
+From Faial.Expr Require SIMT.B.WellTyped.
+From Faial.Expr Require SIMT.R.WellTyped.
 Require EqualModIndex.
 Require D.Infer.
 Require U.CI.

@@ -1,10 +1,10 @@
 From Faial.Core Require Import Var.
-From Faial.Approx Require Import NExp.
+From Faial.Expr Require Import SIMT.N.Exp.
 From Stdlib Require Import Lists.List.
 From Faial.Core Require Import Tictac.
 From Faial.Core Require Import InUtil.
-Require N.MultiSubst.
-Require N.Equal.
+From Faial.Expr Require SIMT.N.MultiSubst.
+From Faial.Expr Require SIMT.N.Equal.
 
 Import ListNotations.
 
@@ -31,9 +31,9 @@ Import ListNotations.
     exists n, NStep tid e n.
   Proof.
     induction e; intros.
-    - eauto using n_step_num.
     - exists tid0.
       constructor.
+    - eauto using n_step_num.
     - invc H.
       contradiction.
     - invc H.

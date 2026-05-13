@@ -1323,6 +1323,49 @@ Section SO.
     invc H.
     assumption.
   Qed.
+  Lemma not_free_after_subst:
+    forall e x v,
+    ~ NFree x v ->
+    ~ NFree x (n_subst x v e).
+  Proof.
+    induction e; intros x_orig v_orig hn.
+    all: intuition.
+    all: simpl in *.
+    - destruct (Set_VAR.MF.eq_dec x_orig v). {
+        subst.
+        contradiction.
+      }
+      simpl in *.
+      subst.
+      contradiction.
+    - rename_hyp (_ \/ _) as N.
+      destruct N as [N|N].
+      + eapply IHe1; eauto.
+      + eapply IHe2; eauto.
+  Qed.
+
+  Inductive IStep: list nexp -> list nat -> Prop :=
+  | i_step_nil:
+    IStep [] []
+  | i_step_cons:
+    forall i l e n,
+    IStep i l ->
+    NStep e n ->
+    IStep (e::i) (n::l).
+
+  Lemma n_step_subst_num:
+    forall n e,
+    NStep e n ->
+    forall x m,
+    NStep (n_subst x (NNum m) e) n.
+  Proof.
+    intros.
+    rewrite n_subst_not_free.
+    { assumption. }
+    apply n_step_to_closed in H.
+    apply H.
+  Qed.
+
 End SO.
 
 Section Props.
@@ -1338,6 +1381,14 @@ Section Props.
     - constructor; auto.
   Qed.
 End Props.
+
+(* Top-level aliases so importers can use bare nbin constructors *)
+Notation NPlus     := Pure.N.Exp.NPlus.
+Notation NMinus    := Pure.N.Exp.NMinus.
+Notation NMult     := Pure.N.Exp.NMult.
+Notation NDiv      := Pure.N.Exp.NDiv.
+Notation NMod      := Pure.N.Exp.NMod.
+Notation eval_nbin := Pure.N.Exp.eval_nbin.
 
 Module NExpNotations.
   Declare Scope exp_scope.

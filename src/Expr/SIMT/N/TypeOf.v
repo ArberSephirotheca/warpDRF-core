@@ -1,7 +1,7 @@
 Require Import Dependency.
-From Faial.Approx Require Import NExp.
+From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Core Require Import Var.
-Require N.WellTyped.
+From Faial.Expr Require SIMT.N.WellTyped.
 Require Map.Dom.
 Require Map.Ind.
 

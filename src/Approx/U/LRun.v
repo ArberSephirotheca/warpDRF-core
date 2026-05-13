@@ -2,22 +2,22 @@ Require U.Lang.
 From Faial.Core Require Import Var.
 From Stdlib Require Import Lists.List.
 From Stdlib Require Import Sorting.SetoidList.
-From Faial.Approx Require NExp.
-From Faial.Approx Require BExp.
-From Faial.Approx Require AExp.
-From Faial.Approx Require RExp.
+From Faial.Expr Require SIMT.N.Exp.
+From Faial.Expr Require SIMT.B.Exp.
+From Faial.Expr Require SIMT.A.Exp.
+From Faial.Expr Require SIMT.R.Exp.
 From Faial.Core Require Import Tictac.
 Require Import NatUtil.
 Import ListNotations.
 From Faial.Core Require Import InUtil.
 
 Require Trace.
-Require N.WellTyped.
-Require B.WellTyped.
+From Faial.Expr Require SIMT.N.WellTyped.
+From Faial.Expr Require SIMT.B.WellTyped.
 
-Require R.WellTyped.
-Require R.Step.
-Require R.Empty.
+From Faial.Expr Require SIMT.R.WellTyped.
+From Faial.Expr Require SIMT.R.Step.
+From Faial.Expr Require SIMT.R.Empty.
 
 Require U.Subst.
 Require U.MultiSubst.
@@ -26,14 +26,14 @@ Require U.Bound.
 Require U.WF.
 
 Require EqualModIndex.
-Require Import R.Equal.
+From Faial.Expr Require Import SIMT.R.Equal.
 
 Section Run.
   Section Defs.
-  Import NExp.
-  Import AExp.
-  Import BExp.
-  Import RExp.
+  Import N.Exp.
+  Import A.Exp.
+  Import B.Exp.
+  Import R.Exp.
   Import U.Lang.
   Import Trace.
   Variable tid : nat.

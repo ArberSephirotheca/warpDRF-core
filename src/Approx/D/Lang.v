@@ -1,8 +1,8 @@
 From Faial.Core Require Import Var.
-From Faial.Approx Require Import NExp.
-From Faial.Approx Require Import BExp.
-From Faial.Approx Require Import RExp.
-From Faial.Approx Require Import AExp.
+From Faial.Expr Require Import SIMT.N.Exp.
+From Faial.Expr Require Import SIMT.B.Exp.
+From Faial.Expr Require Import SIMT.R.Exp.
+From Faial.Expr Require Import SIMT.A.Exp.
 From Faial.Core Require Import Util.
 From Faial.Core Require Import Tasks.
 From Faial.Core Require Import PairInUtil.
@@ -16,8 +16,8 @@ From Stdlib Require Import Arith.PeanoNat.
 From Stdlib Require Import Sorting.SetoidList.
 Require Mem.
 From Stdlib Require Import List.
-Require R.Empty.
-Require R.Step.
+From Faial.Expr Require SIMT.R.Empty.
+From Faial.Expr Require SIMT.R.Step.
 
 Import ListNotations.
 

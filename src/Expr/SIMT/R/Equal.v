@@ -1,13 +1,13 @@
-From Faial.Approx Require Import RExp.
-From Faial.Approx Require Import NExp.
+From Faial.Expr Require Import SIMT.R.Exp.
+From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Core Require Import Tictac.
-Require Import N.Equal.
+From Faial.Expr Require Import SIMT.N.Equal.
 From Stdlib Require Import Classes.Morphisms.
 From Stdlib Require Import Classes.RelationPairs.
-Require R.Empty.
-Require R.Last.
-Require R.First.
-Require R.Step.
+From Faial.Expr Require SIMT.R.Empty.
+From Faial.Expr Require SIMT.R.Last.
+From Faial.Expr Require SIMT.R.First.
+From Faial.Expr Require SIMT.R.Step.
 
 Section Equal.
   Variable tid: nat.
@@ -358,7 +358,7 @@ Section Equal.
     destruct r' as (f, f').
     simpl in *.
     invc H.
-    apply r_step_def with (n2:=n2); eauto using NExp.n_step_subst.
+    apply r_step_def with (n2:=n2); eauto using N.Exp.n_step_subst.
   Qed.
 
 
@@ -373,7 +373,7 @@ Section Equal.
     destruct r as (e, e').
     simpl in *.
     invc H.
-    eauto using r_one_def, NExp.n_step_subst.
+    eauto using r_one_def, N.Exp.n_step_subst.
   Qed.
 *)
 End Equal.

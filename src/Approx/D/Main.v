@@ -9,7 +9,7 @@ Require D.LRun.
 Require D.Lang.
 Require D.Infer.
 Require U.Main.
-From Faial.Approx Require Import AExp.
+From Faial.Expr Require Import SIMT.A.Exp.
 From Stdlib Require Import Lists.List.
 Import ListNotations.
 From Faial.Core Require Import Tictac.

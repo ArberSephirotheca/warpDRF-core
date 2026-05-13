@@ -1,8 +1,8 @@
 From Faial.Core Require Import Var.
-Require N.WellTyped.
-Require B.WellTyped.
-Require R.WellTyped.
-From Faial.Approx Require Import NExp.
+From Faial.Expr Require SIMT.N.WellTyped.
+From Faial.Expr Require SIMT.B.WellTyped.
+From Faial.Expr Require SIMT.R.WellTyped.
+From Faial.Expr Require Import SIMT.N.Exp.
 Require Import D.Lang.
 From Faial.Core Require Import Tictac.
 From Faial.Core Require Import InUtil.

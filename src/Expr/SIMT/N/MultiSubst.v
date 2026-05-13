@@ -1,4 +1,4 @@
-From Faial.Approx Require Import NExp.
+From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Core Require Import Var.
 From Faial.Core Require Import Tictac.
 

@@ -1,9 +1,8 @@
-From Faial.Approx Require Import RExp.
-From Faial.Approx Require Import NExp.
+From Faial.Expr Require Import SIMT.R.Exp.
+From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Core Require Import Tictac.
 From Stdlib Require Import Lia.
-Require R.Closed.
-Require R.HasNext.
+From Faial.Expr Require SIMT.R.Closed.
 
 Section Defs.
   Variable tid: nat.
@@ -12,8 +11,7 @@ Section Defs.
     forall e1 e2 n1 n2,
     NStep tid e1 n1 ->
     NStep tid e2 n2 ->
-    t (e1, e2) n2.
-
+    t (e1, e2) n1.
 
   Lemma from_closed:
     forall r,

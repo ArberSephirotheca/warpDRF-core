@@ -3,8 +3,8 @@ From Faial.Core Require Import InUtil.
 From Faial.Core Require Import Tictac.
 From Stdlib Require Import Lists.List.
 
-From Faial.Approx Require NExp.
-Require A.WellTyped.
+From Faial.Expr Require SIMT.N.Exp.
+From Faial.Expr Require SIMT.A.WellTyped.
 
 Require U.Lang.
 Require U.LRun.
@@ -15,11 +15,11 @@ Import ListNotations.
 
 Section WellTyped.
   Import U.Lang.
-  Import NExp.
+  Import N.Exp.
   Inductive t : list var -> Lang.t -> Prop :=
   | acc:
     forall env a,
-    N.WellTyped.t env (AExp.ae_index a) ->
+    N.WellTyped.t env (A.Exp.ae_index a) ->
     t env (MemAcc a)
   | decl:
     forall env x u,
@@ -465,7 +465,7 @@ Section WellTyped.
     all: invc hr.
     all: f_equal.
     all: eauto.
-    - eauto using AExp.a_step_fun.
+    - eauto using A.Exp.a_step_fun.
     - invc wf.
       eauto.
     - invc wf.

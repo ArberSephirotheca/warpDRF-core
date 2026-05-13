@@ -3,9 +3,9 @@ Require Import D.Lang.
 From Stdlib Require Import Lists.List.
 Import ListNotations.
 From Faial.Core Require Import Tictac.
-From Faial.Approx Require Import NExp.
+From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Core Require Import Var.
-Require R.Iter.
+From Faial.Expr Require SIMT.R.Iter.
 Require D.Subst.
 
 Inductive t : D.Lang.t -> Prop :=

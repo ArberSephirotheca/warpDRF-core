@@ -1,7 +1,7 @@
-From Faial.Approx Require Import AExp.
-From Faial.Approx Require Import NExp.
+From Faial.Expr Require Import SIMT.A.Exp.
+From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Core Require Import Var.
-Require N.MultiSubst.
+From Faial.Expr Require SIMT.N.MultiSubst.
 
 Definition f (m:Map_VAR.t nat) (a:access_exp) : access_exp :=
   match a with

@@ -1,4 +1,4 @@
-From Faial.Approx Require Import NExp.
+From Faial.Expr Require Import SIMT.N.Exp.
 From Stdlib Require Import Classes.Morphisms.
 From Faial.Core Require Import Tictac.
 From Faial.Core Require Import Var.

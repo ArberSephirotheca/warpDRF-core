@@ -1,8 +1,8 @@
-From Faial.Approx Require Import NExp.
-From Faial.Approx Require Import RExp.
-Require N.MultiSubst.
+From Faial.Expr Require Import SIMT.N.Exp.
+From Faial.Expr Require Import SIMT.R.Exp.
+From Faial.Expr Require SIMT.N.MultiSubst.
 From Faial.Core Require Import Var.
-Require R.Closed.
+From Faial.Expr Require SIMT.R.Closed.
 
 Definition f (m:Map_VAR.t nat) (r:range) : range :=
   let (e1, e2) := r in
