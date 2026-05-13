@@ -1,4 +1,4 @@
-Require Import NatUtil.
+From Faial.Core Require Import NatUtil.
 
   Definition t := Map_NAT.t nat.
   Definition empty : t := Map_NAT.empty nat.
