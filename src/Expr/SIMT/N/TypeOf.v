@@ -1,9 +1,9 @@
-Require Import Dependency.
+From Faial.Core Require Import Dependency.
 From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Core Require Import Var.
 From Faial.Expr Require SIMT.N.WellTyped.
-Require Map.Dom.
-Require Map.Ind.
+From Faial.Core Require Map.Dom.
+From Faial.Core Require Map.Ind.
 
 Section NTypeOf.
   Import Dependency.

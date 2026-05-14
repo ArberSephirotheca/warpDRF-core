@@ -11,7 +11,7 @@ Require Sequentialize.
 Require PhaseSplit.
 Require WLang.
 From Faial.Core Require Hist.
-Require VHist.
+From Faial.Core Require VHist.
 Require ALang.
 From Faial.Core Require Import AVal.
 

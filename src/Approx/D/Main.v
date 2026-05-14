@@ -4,7 +4,7 @@ Require D.WF.
 From Faial.Core Require Import Var.
 From Stdlib Require Import Lists.List.
 From Stdlib Require Import Sorting.SetoidList.
-Require EqualModIndex.
+From Faial.Expr Require SIMT.A.EqualModIndex.
 Require D.LRun.
 Require D.Lang.
 Require D.Infer.

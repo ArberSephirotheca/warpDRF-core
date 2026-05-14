@@ -1,4 +1,4 @@
-Require Import Dependency.
+From Faial.Core Require Import Dependency.
 From Faial.Expr Require Import SIMT.R.Exp.
 From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Expr Require Import SIMT.N.TypeOf.
@@ -6,8 +6,8 @@ From Faial.Core Require Import Tictac.
 From Faial.Expr Require SIMT.R.WellTyped.
 From Faial.Expr Require SIMT.N.WellTyped.
 From Faial.Expr Require SIMT.N.TypeOf.
-Require Map.Dom.
-Require Map.Ind.
+From Faial.Core Require Map.Dom.
+From Faial.Core Require Map.Ind.
 
 Section RTypeOf.
   Import Dependency.

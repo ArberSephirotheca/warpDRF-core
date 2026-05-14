@@ -1,5 +1,5 @@
 From Faial.Core Require Import Var.
-Require Import Dependency.
+From Faial.Core Require Import Dependency.
 From Stdlib Require Import Lists.List.
 From Faial.Core Require Import Tictac.
 

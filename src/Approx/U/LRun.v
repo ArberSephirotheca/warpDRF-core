@@ -25,7 +25,7 @@ Require U.Free.
 Require U.Bound.
 Require U.WF.
 
-Require EqualModIndex.
+From Faial.Expr Require SIMT.A.EqualModIndex.
 From Faial.Expr Require Import SIMT.R.Equal.
 
 Section Run.

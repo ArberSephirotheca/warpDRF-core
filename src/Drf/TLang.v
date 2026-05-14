@@ -5,7 +5,7 @@ From Stdlib Require Import micromega.Lia.
 From Faial.Core Require Import Util.
 From Faial.Core Require Import InUtil.
 From Faial.Core Require Import PairInUtil.
-Require Import MultiHist.
+From Faial.Core Require Import MultiHist.
 From Faial.Core Require Import Tictac.
 
 From Faial.Core Require Import Var.

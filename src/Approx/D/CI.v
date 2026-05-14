@@ -17,7 +17,7 @@ Require D.Free.
 From Faial.Expr Require SIMT.N.WellTyped.
 From Faial.Expr Require SIMT.B.WellTyped.
 From Faial.Expr Require SIMT.R.WellTyped.
-Require EqualModIndex.
+From Faial.Expr Require SIMT.A.EqualModIndex.
 Require D.Infer.
 Require U.CI.
 

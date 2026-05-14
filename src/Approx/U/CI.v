@@ -20,7 +20,7 @@ Require U.Subst.
 From Faial.Expr Require SIMT.N.WellTyped.
 From Faial.Expr Require SIMT.B.WellTyped.
 From Faial.Expr Require SIMT.R.WellTyped.
-Require EqualModIndex.
+From Faial.Expr Require SIMT.A.EqualModIndex.
 
 From Faial.Expr Require Import SIMT.B.Equal.
 

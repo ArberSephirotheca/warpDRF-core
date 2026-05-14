@@ -1,5 +1,5 @@
 From Faial.Core Require Import Var.
-Require Import Dependency.
+From Faial.Core Require Import Dependency.
 
 Section Dom.
   Definition t (keys: list var) (m: Map_VAR.t Dependency.t) : Prop :=
