@@ -1,5 +1,5 @@
-Require Import D.Lang.
-Require D.Subst.
+From Faial.Approx.D Require Import Lang.
+From Faial.Approx.D Require Subst.
 From Faial.Expr Require SIMT.N.MultiSubst.
 From Faial.Expr Require SIMT.B.MultiSubst.
 From Faial.Expr Require SIMT.A.MultiSubst.

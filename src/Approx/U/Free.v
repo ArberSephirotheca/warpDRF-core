@@ -1,12 +1,12 @@
 From Faial.Core Require Import Var.
-Require Import U.Lang.
+From Faial.Approx.U Require Import Lang.
 From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Expr Require Import SIMT.B.Exp.
 From Faial.Expr Require Import SIMT.R.Exp.
 From Faial.Expr Require Import SIMT.A.Exp.
 From Faial.Core Require Import Tictac.
 From Faial.Expr Require SIMT.R.Free.
-Require U.Subst.
+From Faial.Approx.U Require Subst.
 
 Section Free.
   Fixpoint t (x:var) c :=

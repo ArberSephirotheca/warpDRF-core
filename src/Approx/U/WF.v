@@ -1,4 +1,4 @@
-Require Import U.Lang.
+From Faial.Approx.U Require Import Lang.
 From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Expr Require Import SIMT.R.Exp.
 From Faial.Expr Require Import SIMT.B.Exp.
@@ -7,9 +7,9 @@ From Faial.Core Require Import Var.
 From Faial.Expr Require SIMT.N.WellTyped.
 From Faial.Expr Require SIMT.B.WellTyped.
 From Faial.Expr Require SIMT.R.WellTyped.
-Require U.Free.
-Require U.Bound.
-Require U.Subst.
+From Faial.Approx.U Require Free.
+From Faial.Approx.U Require Bound.
+From Faial.Approx.U Require Subst.
 
 From Faial.Core Require Import InUtil.
 From Faial.Core Require Import Tictac.

@@ -1,23 +1,23 @@
-Require D.CI.
-Require D.DI.
-Require D.WF.
+From Faial.Approx.D Require CI.
+From Faial.Approx.D Require DI.
+From Faial.Approx.D Require WF.
 From Faial.Core Require Import Var.
 From Stdlib Require Import Lists.List.
 From Stdlib Require Import Sorting.SetoidList.
 From Faial.Expr Require SIMT.A.EqualModIndex.
-Require D.LRun.
-Require D.Lang.
-Require D.Infer.
-Require U.Main.
+From Faial.Approx.D Require LRun.
+From Faial.Approx.D Require Lang.
+From Faial.Approx.D Require Infer.
+From Faial.Approx.U Require Main.
 From Faial.Expr Require Import SIMT.A.Exp.
 From Stdlib Require Import Lists.List.
 Import ListNotations.
 From Faial.Core Require Import Tictac.
-Require D.Feasible.
-Require D.Spurious.
-Require D.Report.
-Require U.Report.
-Require D.CanRun.
+From Faial.Approx.D Require Feasible.
+From Faial.Approx.D Require Spurious.
+From Faial.Approx.D Require Report.
+From Faial.Approx.U Require Report.
+From Faial.Approx.D Require CanRun.
 Require Mem.
 
 Import EqualModIndex.

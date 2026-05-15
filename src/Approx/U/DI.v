@@ -6,10 +6,10 @@ From Stdlib Require Import Lists.List.
 From Faial.Expr Require SIMT.N.Exp.
 From Faial.Expr Require SIMT.A.WellTyped.
 
-Require U.Lang.
-Require U.LRun.
-Require U.Subst.
-Require U.MultiSubst.
+From Faial.Approx.U Require Lang.
+From Faial.Approx.U Require LRun.
+From Faial.Approx.U Require Subst.
+From Faial.Approx.U Require MultiSubst.
 
 Import ListNotations.
 

@@ -1,4 +1,4 @@
-Require D.Lang.
+From Faial.Approx.D Require Lang.
 From Faial.Core Require Import Var.
 From Stdlib Require Import Lists.List.
 From Faial.Expr Require SIMT.N.Exp.
@@ -13,7 +13,7 @@ From Faial.Expr Require Import SIMT.R.Equal.
 From Faial.Expr Require SIMT.R.Empty.
 From Faial.Expr Require SIMT.R.Step.
 From Faial.Expr Require SIMT.R.Closed.
-Require D.Subst.
+From Faial.Approx.D Require Subst.
 
 Section Run.
   Section Defs.

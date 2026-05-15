@@ -1,4 +1,4 @@
-Require D.Lang.
+From Faial.Approx.D Require Lang.
 
 From Stdlib Require Import Lists.List.
 From Faial.Core Require Import Tictac.
@@ -8,19 +8,19 @@ From Faial.Expr Require Import SIMT.A.Exp.
 From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Expr Require Import SIMT.B.Exp.
 From Faial.Expr Require Import SIMT.R.Exp.
-Require Import D.Lang.
+From Faial.Approx.D Require Import Lang.
 From Faial.Expr Require SIMT.N.WellTyped.
 From Faial.Expr Require SIMT.B.WellTyped.
 From Faial.Expr Require SIMT.R.WellTyped.
 From Faial.Expr Require SIMT.A.WellTyped.
-Require D.Free.
-Require D.Bound.
-Require D.WF.
-Require U.DI.
-Require U.LRun.
-Require D.LRun.
+From Faial.Approx.D Require Free.
+From Faial.Approx.D Require Bound.
+From Faial.Approx.D Require WF.
+From Faial.Approx.U Require DI.
+From Faial.Approx.U Require LRun.
+From Faial.Approx.D Require LRun.
 Import ListNotations.
-Require D.Infer.
+From Faial.Approx.D Require Infer.
 
 Section WellTyped.
   Inductive t : list var -> D.Lang.t -> Prop :=

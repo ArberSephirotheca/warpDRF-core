@@ -5,7 +5,7 @@ From Faial.Core Require Import Tictac.
 From Faial.Core Require Import Tasks.
 
 From Faial.Expr Require Pure.N.Exp.
-Require ULang.
+From Faial.Drf.U Require Import Lang Subst Free Run IIn CIn CSeq Distinct Notations.
 Require Align.
 Require Sequentialize.
 Require PhaseSplit.
@@ -273,25 +273,25 @@ Section Defs.
       + rename_hyp (ALang.Var _ (ALang.n_seq _ _)) as hc.
         apply Align.var_inv_seq in hc.
         intuition. {
-          rename_hyp (ULang.Var _ (ULang.i_subst _ _ _)) as hc.
-          apply ULang.var_inv_subst in hc.
+          rename_hyp (Free.Var _ (Subst.i_subst _ _ _)) as hc.
+          apply Free.var_inv_subst in hc.
           auto.
         }
         rename_hyp (ALang.Var _ (ALang.n_seq _ _)) as hc.
         apply Align.var_inv_seq in hc.
         intuition.
-        rename_hyp (ULang.Var _ (ULang.i_subst _ _ _)) as hc.
-        apply ULang.var_inv_subst in hc.
+        rename_hyp (Free.Var _ (Subst.i_subst _ _ _)) as hc.
+        apply Free.var_inv_subst in hc.
         auto.
-      + rename_hyp (ULang.Var _ (ULang.c_seq _ _)) as hc.
-        apply ULang.var_inv_c_seq in hc.
+      + rename_hyp (Free.Var _ (CSeq.c_seq _ _)) as hc.
+        apply CSeq.var_inv_c_seq in hc.
         intuition. {
-          rename_hyp (ULang.Var _ (ULang.i_subst _ _ _)) as hc.
-          apply ULang.var_inv_subst in hc.
+          rename_hyp (Free.Var _ (Subst.i_subst _ _ _)) as hc.
+          apply Free.var_inv_subst in hc.
           auto.
         }
-        rename_hyp (ULang.Var _ (ULang.i_subst _ _ _)) as hc.
-        apply ULang.var_inv_subst in hc.
+        rename_hyp (Free.Var _ (Subst.i_subst _ _ _)) as hc.
+        apply Free.var_inv_subst in hc.
         auto.
   Qed.
 
@@ -321,24 +321,24 @@ Section Defs.
       + rename_hyp (ALang.Occurs _ (ALang.n_seq _ _)) as hc.
         apply Align.occurs_inv_seq in hc.
         destruct hc as [hc|hc]. {
-          apply ULang.occurs_inv_subst in hc.
+          apply Free.occurs_inv_subst in hc.
           destruct hc as [hc|hc]; simpl in hc; intuition.
         }
         apply Align.occurs_inv_seq in hc.
         destruct hc as [hc|hc]; intuition.
         simpl in hc.
-        apply ULang.occurs_inv_subst in hc.
+        apply Free.occurs_inv_subst in hc.
         simpl in hc.
         intuition.
-      + rename_hyp (ULang.Occurs _ (ULang.c_seq _ _)) as hc.
-        apply ULang.occurs_inv_c_seq in hc.
+      + rename_hyp (Free.Occurs _ (CSeq.c_seq _ _)) as hc.
+        apply CSeq.occurs_inv_c_seq in hc.
         destruct hc as [hc|hc]; simpl in hc. {
-          apply ULang.occurs_inv_subst in hc.
+          apply Free.occurs_inv_subst in hc.
           simpl in hc.
           rewrite <- N.Exp.n_free_from_pure in *.
           intuition.
         }
-        apply ULang.occurs_inv_subst in hc.
+        apply Free.occurs_inv_subst in hc.
         simpl in hc.
         rewrite <- N.Exp.n_free_from_pure in *.
         intuition.
@@ -367,7 +367,7 @@ Section Defs.
       + intros N.
         apply ALang.var_inv_n_seq in N.
         destruct N as [N|N]. {
-          apply ULang.var_inv_subst in N.
+          apply Free.var_inv_subst in N.
           contradict hb.
           apply align_var.
           rewrite r1.
@@ -376,7 +376,7 @@ Section Defs.
         }
         apply ALang.var_inv_n_seq in N.
         destruct N as [N|N]. {
-          apply ULang.var_inv_subst in N.
+          apply Free.var_inv_subst in N.
           auto.
         }
         contradict hb.
@@ -388,16 +388,16 @@ Section Defs.
           apply Align.distinct_seq. {
             intuition.
           }
-          apply ULang.distinct_subst.
+          apply Distinct.distinct_subst.
           auto.
         }
-        apply ULang.distinct_subst.
+        apply Distinct.distinct_subst.
        intuition.
-    + apply ULang.distinct_c_seq. {
-        apply ULang.distinct_subst.
+    + apply Distinct.distinct_c_seq. {
+        apply Distinct.distinct_subst.
         intuition.
       }
-      apply ULang.distinct_subst.
+      apply Distinct.distinct_subst.
       auto.
   Qed.
 
@@ -479,13 +479,13 @@ Section Defs.
       repeat rewrite PhaseSplit.can_run_n_seq_iff.
       simpl in *.
       assert (IH: PhaseSplit.CanRun
-          (ALang.NFor (ALang.n_seq ULang.Skip (ALang.subst x e1' a1)) x
+          (ALang.NFor (ALang.n_seq Lang.Skip (ALang.subst x e1' a1)) x
              (Pure.N.Exp.NBin N.Exp.NPlus (Pure.N.Exp.NNum 1) e1', e2')
              (ALang.n_seq
-                (ULang.i_subst x
+                (Subst.i_subst x
                    (N.Exp.NBin N.Exp.NMinus (N.Exp.NVar x) (N.Exp.NNum 1)) u1)
                 (ALang.n_seq
-                   (ULang.i_subst x
+                   (Subst.i_subst x
                       (N.Exp.NBin N.Exp.NMinus (N.Exp.NVar x) (N.Exp.NNum 1)) c2)
                    a1)))). {
         apply IHWRun2.
@@ -751,8 +751,7 @@ Module Example.
   Import SIMT.A.Exp.
   Import Var.
   Import WLang.WLangNotations.
-  Import ULang.CLangNotations.
-  Import ULang.
+  Import CLangNotations.
   Import WLang.
   Local Open Scope string_scope.
   Local Open Scope lang_scope.

@@ -1,9 +1,9 @@
-Require U.Free.
+From Faial.Approx.U Require Free.
 From Faial.Core Require Import Var.
-Require Import U.Lang.
+From Faial.Approx.U Require Import Lang.
 From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Core Require Import Tictac.
-Require U.Subst.
+From Faial.Approx.U Require Subst.
 
 Fixpoint t (x:var) (u:Lang.t) : Prop :=
   match u with

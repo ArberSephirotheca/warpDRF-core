@@ -8,7 +8,7 @@ From Faial.Expr Require Import SIMT.N.Exp.
 
 From Faial.Core Require Import Var.
 From Faial.Core Require Import Tictac.
-Require ULang.
+From Faial.Drf.U Require Import Lang Subst Free Run IIn CIn CSeq Distinct Notations.
 Require Sequentialize.
 From Stdlib Require Import Lists.List.
 From Faial.Core Require Import AVal.
@@ -19,18 +19,18 @@ Section Defs.
   Context `{T:Tasks}.
 
   Inductive phase :=
-  | Phase: ULang.inst -> phase
+  | Phase: Lang.inst -> phase
   | Decl: var -> Pure.R.Exp.range -> phase -> phase.
 
   Fixpoint Var x p :=
     match p with
-    | Phase u => ULang.Var x u
+    | Phase u => Free.Var x u
     | Decl y _ p => x = y \/ Var x p
     end.
 
   Fixpoint Occurs x p :=
     match p with
-    | Phase u => ULang.Occurs x u
+    | Phase u => Free.Occurs x u
     | Decl y _ p => x = y \/ Occurs x p
     end.
 
@@ -53,7 +53,7 @@ Section Defs.
 
   Fixpoint ph_subst x (v:Pure.N.Exp.nexp) (P:phase) : phase :=
     match P with
-    | Phase c => Phase (ULang.i_subst x (from_pure v) c)
+    | Phase c => Phase (Subst.i_subst x (from_pure v) c)
     | Decl y r P =>
       let P' := if VAR.eq_dec x y
         then P
@@ -68,7 +68,7 @@ Section Defs.
     Var x ph.
   Proof.
     induction ph; simpl in *; intros.
-    - eauto using ULang.var_inv_subst.
+    - eauto using Free.var_inv_subst.
     - intuition.
       destruct (Set_VAR.MF.eq_dec y v0). {
         subst.
@@ -94,8 +94,8 @@ Section Defs.
     Pure.N.Exp.NFree x v \/ Occurs x ph.
   Proof.
     induction ph; simpl in *; intros.
-    - rename_hyp (ULang.Occurs _ _) as ho.
-      apply ULang.occurs_inv_subst in ho.
+    - rename_hyp (Free.Occurs _ _) as ho.
+      apply Free.occurs_inv_subst in ho.
       intuition.
       rewrite n_free_from_pure in *.
       intuition.
@@ -140,7 +140,7 @@ Section Defs.
   Inductive PPairIn (p:access_val * access_val) : phase -> Prop :=
   | p_pair_in_phase:
     forall c,
-    ULang.CPairIn p c ->
+    CIn.CPairIn p c ->
     PPairIn p (Phase c)
   | p_pair_in_decl:
     forall x r P n,

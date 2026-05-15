@@ -16,7 +16,7 @@ From Faial.Expr Require Import Pure.R.Exp.
 From Faial.Expr Require Import Pure.A.Exp.
 From Faial.Core Require Import AVal.
 
-Require ULang.
+From Faial.Drf.U Require Import Lang Subst Free Run IIn CIn CSeq Distinct Notations.
 
 Import ListNotations.
 

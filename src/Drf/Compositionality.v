@@ -2,7 +2,7 @@ From Faial.Expr Require Import SIMT.A.Exp.
 From Faial.Core Require Import Tasks.
 From Faial.Core Require Import Var.
 Require Import WLang.
-Require Import ULang.
+From Faial.Drf.U Require Import Lang Subst Free Run IIn CIn CSeq Distinct Notations.
 From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Core Require Import Tictac.
 Require Import ALang.
@@ -16,7 +16,7 @@ Section Props.
 
   Inductive ctxt :=
   | Hole: ctxt
-  | Sync: ULang.inst -> ctxt
+  | Sync: Lang.inst -> ctxt
   | SeqL: ctxt -> n_inst -> ctxt
   | SeqR: n_inst -> ctxt -> ctxt
   | ForL: ctxt -> var -> range -> n_inst -> ctxt
@@ -25,7 +25,7 @@ Section Props.
   Fixpoint subst x v i :=
     match i with
     | Hole => Hole
-    | Sync u => Sync (ULang.i_subst x v u)
+    | Sync u => Sync (Subst.i_subst x v u)
     | SeqL c q => SeqL (subst x v c) (ALang.subst x v q)
     | SeqR q c => SeqR (ALang.subst x v q) (subst x v c)
     | ForL c y r q =>
@@ -57,9 +57,9 @@ Section Props.
     IPairIn p P ->
     access_safe (fst p) (snd p).
 
-  Definition UDRF (P:ULang.inst) :=
+  Definition UDRF (P:Lang.inst) :=
     forall p,
-    ULang.CPairIn p P ->
+    CIn.CPairIn p P ->
     access_safe (fst p) (snd p).
 
   Inductive IDRF : n_inst -> Prop :=
@@ -97,7 +97,7 @@ Section Props.
   Fixpoint Var x c :=
     match c with
     | Hole => False
-    | Sync u => ULang.Var x u
+    | Sync u => Free.Var x u
     | SeqL c p => Var x c \/ ALang.Var x p 
     | SeqR p c => ALang.Var x p \/ Var x c
     | ForL c y r n => Var x c \/ x = y \/ ALang.Var x n
@@ -106,7 +106,7 @@ Section Props.
 
   Fixpoint Free x (p:n_inst) :=
     match p with
-    | NSync u => ULang.Free x u
+    | NSync u => Free.Free x u
     | NSeq p q => Free x p \/ Free x q
     | NFor p y r q => Free x p \/ RFree x r \/ (x <> y /\ Free x q)
     end.
@@ -193,7 +193,7 @@ Section Props.
   Proof.
     induction c; simpl; intros.
     - assumption.
-    - apply ULang.var_inv_subst in H.
+    - apply Free.var_inv_subst in H.
       assumption.
     - destruct H as [H|H]. {
         eauto.
@@ -357,7 +357,7 @@ Section Props.
   Fixpoint Distinct c :=
     match c with
     | Hole => True
-    | Sync u => ULang.Distinct u
+    | Sync u => Distinct.Distinct u
     | SeqL c q => Distinct c /\ ALang.Distinct q
     | SeqR p c => ALang.Distinct p /\ Distinct c
     | ForL c x r q => Distinct c /\ ~ ALang.Var x q /\ ALang.Distinct q
@@ -372,7 +372,7 @@ Section Props.
   Proof.
     induction c; intros; simpl in *.
     - auto.
-    - auto using ULang.distinct_subst.
+    - auto using Distinct.distinct_subst.
     - intuition.
       auto using ALang.distinct_subst.
     - intuition.

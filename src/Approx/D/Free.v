@@ -2,9 +2,9 @@ From Faial.Core Require Import Var.
 From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Expr Require Import SIMT.B.Exp.
 From Faial.Expr Require Import SIMT.R.Exp.
-Require Import D.Lang.
+From Faial.Approx.D Require Import Lang.
 From Faial.Expr Require SIMT.R.Free.
-Require D.Subst.
+From Faial.Approx.D Require Subst.
 
 Fixpoint t (x:var) (s:t) : Prop :=
   match s with

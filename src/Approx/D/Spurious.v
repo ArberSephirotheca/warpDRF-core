@@ -1,10 +1,10 @@
 Require Trace.
 From Faial.Expr Require Import SIMT.A.Exp.
-Require D.Lang.
-Require D.LRun.
-Require D.Report.
-Require U.Report.
-Require D.Infer.
+From Faial.Approx.D Require Lang.
+From Faial.Approx.D Require LRun.
+From Faial.Approx.D Require Report.
+From Faial.Approx.U Require Report.
+From Faial.Approx.D Require Infer.
 
 Inductive t : D.Lang.t -> access_val * Trace.t -> Prop :=
   def:

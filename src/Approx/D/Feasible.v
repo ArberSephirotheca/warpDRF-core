@@ -1,6 +1,6 @@
 Require Trace.
 From Faial.Expr Require Import SIMT.A.Exp.
-Require D.LRun.
+From Faial.Approx.D Require LRun.
 From Stdlib Require Import Logic.Classical.
 
 Inductive t : D.Lang.t -> access_val * Trace.t -> Prop :=

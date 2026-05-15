@@ -5,17 +5,17 @@ From Faial.Expr Require Import SIMT.B.Exp.
 From Faial.Expr Require Import SIMT.R.Exp.
 From Faial.Expr Require Import SIMT.A.Exp.
 From Stdlib Require Import List.
-Require Import U.Lang.
+From Faial.Approx.U Require Import Lang.
 Import ListNotations.
 From Faial.Core Require Import Tictac.
 From Stdlib Require Import Sorting.SetoidList.
 From Faial.Core Require Import InUtil.
 
-Require U.WF.
-Require U.Bound.
-Require U.Free.
-Require U.LRun.
-Require U.Subst.
+From Faial.Approx.U Require WF.
+From Faial.Approx.U Require Bound.
+From Faial.Approx.U Require Free.
+From Faial.Approx.U Require LRun.
+From Faial.Approx.U Require Subst.
 
 From Faial.Expr Require SIMT.N.WellTyped.
 From Faial.Expr Require SIMT.B.WellTyped.

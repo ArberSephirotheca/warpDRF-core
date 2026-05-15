@@ -1,0 +1,163 @@
+From Faial.Core Require Import Var.
+From Faial.Expr Require Import SIMT.N.Exp.
+From Faial.Expr Require Import SIMT.B.Exp.
+From Faial.Expr Require Import SIMT.R.Exp.
+From Faial.Expr Require Import SIMT.A.Exp.
+From Faial.Drf.U Require Import Lang.
+
+Section Defs.
+  Fixpoint i_subst x v i :=
+  match i with
+  | Skip => Skip
+  | If b i j => If (b_subst x v b) (i_subst x v i) (i_subst x v j)
+  | Seq i j => Seq (i_subst x v i) (i_subst x v j)
+  | MemAcc a => MemAcc (a_subst x v a)
+  | For y r i =>
+    let i' := if VAR.eq_dec x y then i else i_subst x v i in
+    For y (r_subst x v r) i'
+  end.
+
+  Infix ";;" := Seq (at level 50).
+
+  Lemma i_subst_seq:
+    forall x n i1 i2,
+    i_subst x n (i1 ;; i2) = i_subst x n i1 ;; i_subst x n i2.
+  Proof.
+    simpl; reflexivity.
+  Qed.
+
+  Lemma i_subst_inv_seq:
+    forall x v k i j,
+    i_subst x v k = Seq i j ->
+    exists i' j',
+    k = Seq i' j' /\
+    i = i_subst x v i' /\
+    j = i_subst x v j'.
+  Proof.
+    destruct k; simpl; intros i j H; inversion H; subst; clear H.
+    eauto.
+  Qed.
+
+  Lemma i_subst_subst_eq:
+    forall x i n1 n2,
+    i_subst x (NNum n1) (i_subst x (NNum n2) i) = i_subst x (NNum n2) i.
+  Proof.
+    induction i; simpl; intros.
+    - reflexivity.
+    - rewrite IHi1; auto.
+      rewrite IHi2; auto.
+      rewrite b_subst_subst_eq.
+      reflexivity.
+    - rewrite IHi1; auto.
+      rewrite IHi2; auto.
+    - rewrite a_subst_subst_eq; auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        rewrite r_subst_subst_eq.
+        reflexivity.
+      }
+      rewrite IHi.
+      rewrite r_subst_subst_eq.
+      reflexivity.
+  Qed.
+
+  Lemma i_subst_subst_eq_2
+     : forall (x : var) i (v e : nexp),
+       ~ NFree x v -> i_subst x e (i_subst x v i) = i_subst x v i.
+  Proof.
+    induction i; intros; simpl.
+    - reflexivity.
+    - rewrite b_subst_subst_eq_2; auto.
+      rewrite IHi1; auto.
+      rewrite IHi2; auto.
+    - rewrite IHi1; auto; rewrite IHi2; auto.
+    - rewrite a_subst_subst_eq_2; auto.
+    - rewrite r_subst_subst_eq_2; auto.
+      destruct (Set_VAR.MF.eq_dec x v). { reflexivity. }
+      rewrite IHi; auto.
+  Qed.
+
+  Lemma i_subst_subst_neq:
+    forall x y i n1 n2,
+    x <> y ->
+    i_subst x (NNum n1) (i_subst y (NNum n2) i) =
+    i_subst y (NNum n2) (i_subst x (NNum n1) i).
+  Proof.
+    induction i; intros; simpl.
+    - reflexivity.
+    - rewrite IHi1; auto.
+      rewrite IHi2; auto.
+      rewrite b_subst_subst_neq; auto.
+    - rewrite IHi1; auto.
+      rewrite IHi2; auto.
+    - rewrite a_subst_subst_neq; auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        destruct (Set_VAR.MF.eq_dec y v). {
+          subst.
+          contradiction.
+        }
+        rewrite r_subst_subst_neq; auto.
+      }
+      destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        rewrite r_subst_subst_neq; auto.
+      }
+      rewrite IHi; auto.
+      rewrite r_subst_subst_neq; auto.
+  Qed.
+
+  Lemma i_subst_subst_neq_3:
+    forall c x y v1 v2,
+    x <> y ->
+    ~ NFree y v1 ->
+    ~ NFree x v2 ->
+    i_subst x v1 (i_subst y v2 c)
+    =
+    i_subst y v2 (i_subst x v1 c).
+  Proof.
+    induction c; intros; simpl.
+    - reflexivity.
+    - rewrite IHc1; auto.
+      rewrite IHc2; auto.
+      rewrite b_subst_subst_neq_3; auto.
+    - rewrite IHc1; auto.
+      rewrite IHc2; auto.
+    - rewrite a_subst_subst_neq_3; auto.
+    - rewrite r_subst_subst_neq_3; auto.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        destruct (Set_VAR.MF.eq_dec y v). {
+          subst.
+          reflexivity.
+        }
+        reflexivity.
+      }
+      destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        reflexivity.
+      }
+      rewrite IHc; auto.
+  Qed.
+
+  Lemma i_subst_subst_eq_1:
+    forall e1 e2 x c,
+    i_subst x e1 (i_subst x e2 c) = i_subst x (n_subst x e1 e2) c.
+  Proof.
+    induction c; intros; simpl.
+    - reflexivity.
+    - erewrite b_subst_subst_eq_1; eauto.
+      rewrite IHc1; auto.
+      rewrite IHc2; auto.
+    - rewrite IHc1; auto.
+      rewrite IHc2; auto.
+    - rewrite a_subst_subst_eq_1.
+      reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        rewrite r_subst_subst_eq_1.
+        reflexivity.
+      }
+      rewrite r_subst_subst_eq_1.
+      rewrite IHc; auto.
+  Qed.
+End Defs.

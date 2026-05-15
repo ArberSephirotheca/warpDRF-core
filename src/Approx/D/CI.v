@@ -1,25 +1,25 @@
 From Faial.Core Require Import Tasks.
 From Faial.Core Require Import Var.
-Require Import D.Lang.
+From Faial.Approx.D Require Import Lang.
 From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Expr Require Import SIMT.B.Exp.
 From Faial.Expr Require Import SIMT.R.Exp.
 From Faial.Expr Require Import SIMT.A.Exp.
 From Stdlib Require Import List.
-Require U.Lang.
+From Faial.Approx.U Require Lang.
 Import ListNotations.
 From Faial.Core Require Import Tictac.
 From Stdlib Require Import Sorting.SetoidList.
 From Faial.Core Require Import InUtil.
-Require D.WF.
-Require D.Bound.
-Require D.Free.
+From Faial.Approx.D Require WF.
+From Faial.Approx.D Require Bound.
+From Faial.Approx.D Require Free.
 From Faial.Expr Require SIMT.N.WellTyped.
 From Faial.Expr Require SIMT.B.WellTyped.
 From Faial.Expr Require SIMT.R.WellTyped.
 From Faial.Expr Require SIMT.A.EqualModIndex.
-Require D.Infer.
-Require U.CI.
+From Faial.Approx.D Require Infer.
+From Faial.Approx.U Require CI.
 
   Inductive t : list var -> D.Lang.t -> Prop :=
   | read:

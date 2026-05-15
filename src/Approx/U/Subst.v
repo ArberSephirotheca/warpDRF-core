@@ -1,5 +1,5 @@
 From Faial.Core Require Import Var.
-Require Import U.Lang.
+From Faial.Approx.U Require Import Lang.
 From Faial.Expr Require Import SIMT.B.Exp.
 From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Expr Require Import SIMT.R.Exp.

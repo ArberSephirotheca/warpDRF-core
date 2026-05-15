@@ -1,12 +1,12 @@
-Require Import D.WF.
-Require Import D.Lang.
+From Faial.Approx.D Require Import WF.
+From Faial.Approx.D Require Import Lang.
 From Stdlib Require Import Lists.List.
 Import ListNotations.
 From Faial.Core Require Import Tictac.
 From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Core Require Import Var.
 From Faial.Expr Require SIMT.R.Iter.
-Require D.Subst.
+From Faial.Approx.D Require Subst.
 
 Inductive t : D.Lang.t -> Prop :=
 | read:

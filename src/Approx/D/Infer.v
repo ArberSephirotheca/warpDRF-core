@@ -1,18 +1,18 @@
-Require Import D.Lang.
+From Faial.Approx.D Require Import Lang.
 From Faial.Expr Require Import SIMT.A.Exp.
 From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Core Require Import Var.
 From Faial.Core Require Import Tasks.
 From Faial.Core Require Import Tictac.
-Require D.LRun.
-Require U.LRun.
+From Faial.Approx.D Require LRun.
+From Faial.Approx.U Require LRun.
 From Stdlib Require Import Lists.List.
 Import ListNotations.
-Require D.WF.
-Require U.WF.
-Require U.Lang.
-Require U.Subst.
-Require D.Subst.
+From Faial.Approx.D Require WF.
+From Faial.Approx.U Require WF.
+From Faial.Approx.U Require Lang.
+From Faial.Approx.U Require Subst.
+From Faial.Approx.D Require Subst.
 
 Section Infer.
   Fixpoint f (d:D.Lang.t) : U.Lang.t :=

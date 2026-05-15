@@ -1,6 +1,6 @@
 From Faial.Core Require Import AVal.
 From Faial.Core Require Import Tasks.
-Require Import ULang.
+From Faial.Drf.U Require Import Lang Subst Free Run IIn CIn CSeq Distinct Notations.
 From Faial.Expr Require Import Pure.N.Exp.
 From Faial.Expr Require Import Pure.R.Exp.
 From Faial.Core Require Import Var.
@@ -23,14 +23,14 @@ Section Defs.
   Context `{T:Tasks}.
   Notation from_pure := N.Exp.from_pure.
   Inductive n_inst :=
-  | NSync: ULang.inst -> n_inst
+  | NSync: Lang.inst -> n_inst
   | NSeq: n_inst -> n_inst -> n_inst
   | NFor : n_inst -> var -> range -> n_inst -> n_inst.  
 
 
   Fixpoint subst x v i :=
     match i with
-    | NSync c => NSync (ULang.i_subst x (from_pure v) c)
+    | NSync c => NSync (Subst.i_subst x (from_pure v) c)
     | NSeq i1 i2 => NSeq (subst x v i1) (subst x v i2)
     | NFor P y r Q =>
       let Q' := if VAR.eq_dec x y
@@ -43,7 +43,7 @@ Section Defs.
   Inductive NCanRun : n_inst -> Prop :=
   | n_can_run_sync:
     forall u,
-    ULang.CCanRun u ->
+    CIn.CCanRun u ->
     NCanRun (NSync u)
   | n_can_run_seq:
     forall i j,
@@ -59,23 +59,23 @@ Section Defs.
 
   Fixpoint Var x P :=
     match P with
-    | NSync c => ULang.Var x c
+    | NSync c => Free.Var x c
     | NSeq P Q => Var x P \/ Var x Q
     | NFor P y _ Q =>
       x = y \/
       Var x P \/ Var x Q
     end.
 
-  Definition p_inst := (n_inst * ULang.inst) % type.
+  Definition p_inst := (n_inst * Lang.inst) % type.
 
   Inductive CanRun : p_inst -> Prop :=
     can_run_def:
       forall a u,
       NCanRun a ->
-      ULang.CCanRun u ->
+      CIn.CCanRun u ->
       CanRun (a, u).
 
-  Fixpoint n_seq (c:ULang.inst) (n:n_inst) : n_inst :=
+  Fixpoint n_seq (c:Lang.inst) (n:n_inst) : n_inst :=
     match n with
     | NSync c' => NSync (c_seq c c')
     | NSeq i j => NSeq (n_seq c i) j
@@ -152,7 +152,7 @@ End Defs.
 
 
 Module ALangNotations.
-  Import ULang.CLangNotations.
+  Import CLangNotations.
   Infix ";" := NSeq (at level 50, only printing)
     : lang_scope.
   Notation "c [ x := v ]" := (subst x v c) (at level 30, only printing)
@@ -175,7 +175,7 @@ Section Props.
 
   Lemma n_seq_seq:
     forall i c c',
-    n_seq (ULang.Seq c c') i = n_seq c (n_seq c' i).
+    n_seq (Lang.Seq c c') i = n_seq c (n_seq c' i).
   Proof.
     induction i; intros.
     - simpl.
@@ -276,7 +276,7 @@ Section Props.
     induction H; intros P' c' Heq; simpl in Heq; destruct P'; simpl in Heq; invc Heq.
     - apply c_pair_in_inv_c_seq in H.
       destruct a as (a1, a2).
-      unfold ULang.OneOf in *.
+      unfold CSeq.OneOf in *.
       simpl.
       intuition.
       + auto using c_pair_in_def.
@@ -315,7 +315,7 @@ Section Props.
   Lemma subst_n_seq:
     forall P x v c,
     subst x v (n_seq c P) =
-      n_seq (ULang.i_subst x (from_pure v) c) (subst x v P).
+      n_seq (Subst.i_subst x (from_pure v) c) (subst x v P).
   Proof.
     induction P; simpl; intros.
     - rewrite i_subst_c_seq.
@@ -346,15 +346,15 @@ Section Props.
 
   Definition p_subst x v (P:p_inst) :=
     match P with
-    (Q, c) => (subst x v Q, ULang.i_subst x (from_pure v) c)
+    (Q, c) => (subst x v Q, Subst.i_subst x (from_pure v) c)
     end.
 
   Lemma n_seq_subst:
     forall x v c P,
-    subst x v (n_seq c P) = n_seq (ULang.i_subst x (from_pure v) c) (subst x v P).
+    subst x v (n_seq c P) = n_seq (Subst.i_subst x (from_pure v) c) (subst x v P).
   Proof.
     induction P; intros; simpl; auto.
-    - rewrite ULang.c_seq_subst.
+    - rewrite CSeq.c_seq_subst.
       reflexivity.
     - rewrite IHP1.
       reflexivity.
@@ -364,7 +364,7 @@ Section Props.
 
   Fixpoint Occurs (x : var) (P : n_inst) : Prop :=
     match P with
-    | NSync c => ULang.Occurs x c
+    | NSync c => Free.Occurs x c
     | NSeq P Q => Occurs x P \/ Occurs x Q
     | NFor P y r Q =>
       x = y \/
@@ -379,7 +379,7 @@ Section Props.
   Proof.
     induction P; simpl; intros.
     - rewrite N.Exp.n_free_from_pure.
-      eauto using ULang.occurs_inv_subst_eq.
+      eauto using Free.occurs_inv_subst_eq.
     - intuition.
     - intuition.
       + eauto using r_free_inv_subst_eq.
@@ -560,7 +560,7 @@ Section Props.
   Proof.
     induction P; intros.
     - simpl.
-      rewrite ULang.i_subst_subst_neq_5; auto.
+      rewrite Free.i_subst_subst_neq_5; auto.
       + rewrite N.Exp.n_subst_from_pure.
         reflexivity.
       + rewrite <- N.Exp.n_closed_from_pure.
@@ -606,23 +606,23 @@ Section Props.
 
   Definition PDistinct (P:p_inst) :=
     let (P, c) := P in
-    Distinct P /\ ULang.Distinct c.
+    Distinct P /\ Distinct.Distinct c.
 
   Definition PVar x (P:p_inst) :=
     let (P, c) := P in
-    Var x P \/ ULang.Var x c.
+    Var x P \/ Free.Var x c.
 
   Definition POccurs x (P:p_inst) :=
     let (P, c) := P in
-    Occurs x P \/ ULang.Occurs x c.
+    Occurs x P \/ Free.Occurs x c.
 
   Lemma var_inv_n_seq:
     forall x P c,
     Var x (n_seq c P) ->
-    ULang.Var x c \/ Var x P.
+    Free.Var x c \/ Var x P.
   Proof.
     induction P; simpl; intros.
-    - apply ULang.var_inv_c_seq in H.
+    - apply CSeq.var_inv_c_seq in H.
       intuition.
     - intuition.
       apply IHP1 in H0.
@@ -638,7 +638,7 @@ Section Props.
     Var x P.
   Proof.
     induction P; simpl; intros.
-    - eauto using ULang.var_inv_subst.
+    - eauto using Free.var_inv_subst.
     - intuition.
     - intuition.
       destruct (Set_VAR.MF.eq_dec x v0). {
@@ -658,7 +658,7 @@ Section Props.
     Occurs x P \/ NFree x v.
   Proof.
     induction P; simpl; intros.
-    - apply ULang.occurs_inv_subst in H.
+    - apply Free.occurs_inv_subst in H.
       intuition.
       rewrite N.Exp.n_free_from_pure.
       intuition.
@@ -706,7 +706,7 @@ Section Props.
     Var y (subst x e P).
   Proof.
     induction P; simpl; intros.
-    - auto using ULang.var_subst.
+    - auto using Free.var_subst.
     - rename_hyp (_ \/ _) as Hp.
       destruct Hp as [Hp|Hp]; eauto.
     - rename_hyp (_ \/ _) as Hp.

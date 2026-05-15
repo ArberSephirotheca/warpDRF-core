@@ -1,7 +1,7 @@
 Require Trace.
 From Faial.Expr Require Import SIMT.A.Exp.
-Require D.Lang.
-Require D.LRun.
+From Faial.Approx.D Require Lang.
+From Faial.Approx.D Require LRun.
   Inductive t : D.Lang.t -> access_val * Trace.t -> Prop :=
     def:
       forall base tid M1 M2 h a l s,
