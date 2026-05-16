@@ -2,7 +2,8 @@ From Faial.Expr Require Import SIMT.A.Exp.
 From Faial.Core Require Import Tasks.
 From Faial.Core Require Import Var.
 Require Import WLang.
-From Faial.Drf.U Require Import Lang Subst Free Run IIn CIn CSeq Distinct Notations.
+From Faial.Drf.U Require Import Lang Subst Run IIn CIn CSeq Distinct Notations.
+From Faial.Drf.U Require Free Occurs Var InRange.
 From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Core Require Import Tictac.
 Require Import ALang.
@@ -97,7 +98,7 @@ Section Props.
   Fixpoint Var x c :=
     match c with
     | Hole => False
-    | Sync u => Free.Var x u
+    | Sync u => Var.t x u
     | SeqL c p => Var x c \/ ALang.Var x p 
     | SeqR p c => ALang.Var x p \/ Var x c
     | ForL c y r n => Var x c \/ x = y \/ ALang.Var x n
@@ -106,7 +107,7 @@ Section Props.
 
   Fixpoint Free x (p:n_inst) :=
     match p with
-    | NSync u => Free.Free x u
+    | NSync u => Free.t x u
     | NSeq p q => Free x p \/ Free x q
     | NFor p y r q => Free x p \/ RFree x r \/ (x <> y /\ Free x q)
     end.
@@ -119,7 +120,7 @@ Section Props.
     ALang.subst x v p = p.
   Proof.
     induction p; intros; simpl in *.
-    - rewrite i_subst_not_free; auto.
+    - rewrite Free.subst_not_free; auto.
     - rewrite IHp1; auto.
       rewrite IHp2; auto.
     - destruct (Set_VAR.MF.eq_dec x v). {
@@ -140,7 +141,7 @@ Section Props.
     ALang.subst x v p = p.
   Proof.
     induction p; intros; simpl in *.
-    - rewrite i_subst_not_occurs; auto.
+    - rewrite Occurs.subst_not_occurs; auto.
     - rewrite IHp1; auto.
       rewrite IHp2; auto.
     - destruct (Set_VAR.MF.eq_dec x v). {
@@ -193,7 +194,7 @@ Section Props.
   Proof.
     induction c; simpl; intros.
     - assumption.
-    - apply Free.var_inv_subst in H.
+    - apply Var.inv_subst in H.
       assumption.
     - destruct H as [H|H]. {
         eauto.
@@ -238,7 +239,7 @@ Section Props.
         assert (IDRF (plug (subst x (NNum n) c) p0)).
         { apply H1; auto.
           intros N.
-          apply var_inv_subst in N.
+          apply Var.inv_subst in N.
           auto.
         }
         rewrite closed_plug_subst; auto.
@@ -387,7 +388,7 @@ Section Props.
         subst;
         auto using ALang.distinct_subst.
       rename_hyp (Var _ _) as hx.
-      apply var_inv_subst in hx.
+      apply Var.inv_subst in hx.
       auto.
   Qed.
 

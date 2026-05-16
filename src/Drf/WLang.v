@@ -16,13 +16,15 @@ From Faial.Core Require Import Tasks.
 From Faial.Core Require Import InUtil.
 From Faial.Core Require Import PairInUtil.
 From Faial.Core Require Import VHist.
-From Faial.Drf.U Require Import Lang Subst Free Run IIn CIn CSeq Distinct Notations.
+From Faial.Drf.U Require Import Lang Subst Run IIn CIn CSeq Distinct Notations.
+From Faial.Drf.U Require Free Occurs Var InRange.
 From Faial.Core Require Import Tictac.
 
 From Stdlib Require Import Lia.
 
 Import ListNotations.
-From Faial.Drf.U Require Import Lang Subst Free Run IIn CIn CSeq Distinct Notations.
+From Faial.Drf.U Require Import Lang Subst Run IIn CIn CSeq Distinct Notations.
+From Faial.Drf.U Require Free Occurs Var InRange.
 
 Section Defs.
 
@@ -344,12 +346,12 @@ Section Defs.
 
   Fixpoint WVar x i :=
     match i with
-    | WSync c => Free.Var x c
+    | WSync c => Var.t x c
     | WSeq i j => WVar x i \/ WVar x j
     | WFor c1 y _ P c2 =>
       x = y \/
-      Free.Var x c1 \/
-      WVar x P \/ Free.Var x c2
+      Var.t x c1 \/
+      WVar x P \/ Var.t x c2
     end.
 
   Lemma w_subst_subst_neq_5:
@@ -361,7 +363,7 @@ Section Defs.
     w_subst y (n_subst x v e) (w_subst x v P).
   Proof.
     induction P as [i | P1 IHP1 P2 IHP2 | i v r P0 IHP i0]; intros x v' y e Hn Hc Hv; simpl; simpl in Hv.
-    - rewrite i_subst_subst_neq_5; auto.
+    - rewrite Var.subst_neq_5; auto.
       + rewrite N.Exp.n_subst_from_pure.
         reflexivity.
       + apply N.Exp.n_closed_from_pure.
@@ -376,7 +378,7 @@ Section Defs.
         simpl.
         destruct (Set_VAR.MF.eq_dec x v) as [?|_]; try contradiction.
         destruct (Set_VAR.MF.eq_dec v v) as [_|?]; try contradiction.
-        rewrite i_subst_subst_neq_5; auto.
+        rewrite Var.subst_neq_5; auto.
         2: { apply N.Exp.n_closed_from_pure. assumption. }
         rewrite N.Exp.n_subst_from_pure.
         rewrite r_subst_subst_neq_5; auto.
@@ -385,14 +387,14 @@ Section Defs.
       simpl.
       destruct (Set_VAR.MF.eq_dec x v) as [?|_]. { intuition. }
       destruct (Set_VAR.MF.eq_dec y v) as [?|_]; try contradiction.
-      rewrite i_subst_subst_neq_5; auto.
+      rewrite Var.subst_neq_5; auto.
       2: { apply N.Exp.n_closed_from_pure. assumption. }
       rewrite N.Exp.n_subst_from_pure.
       rewrite r_subst_subst_neq_5; auto.
       rewrite IHP; auto. {
         assert (rx: f x (N.Exp.from_pure v') (f y (N.Exp.from_pure e) i0) = 
                     f y (N.Exp.n_subst x (N.Exp.from_pure v') (N.Exp.from_pure e)) (f x (N.Exp.from_pure v') i0)). {
-          rewrite i_subst_subst_neq_5; auto.
+          rewrite Var.subst_neq_5; auto.
           - apply N.Exp.n_closed_from_pure. assumption.
           - intuition.
         }
@@ -411,7 +413,7 @@ Section Defs.
     | WFor c1 x _ P c2 =>
       Distinct.Distinct c1
       /\ ~ WVar x P
-      /\ ~ Var x c2
+      /\ ~ Var.t x c2
       /\ Distinct P
       /\ Distinct.Distinct c2
     end.
@@ -422,15 +424,15 @@ Section Defs.
     WVar y i.
   Proof.
     induction i; simpl; intros; auto.
-    - eauto using Free.var_inv_subst.
+    - eauto using Var.inv_subst.
     - intuition.
     - destruct (Set_VAR.MF.eq_dec x v0); simpl in *. {
         intuition.
-        eauto using Free.var_inv_subst.
+        eauto using Var.inv_subst.
       }
       intuition.
-      + eauto using Free.var_inv_subst.
-      + eauto using Free.var_inv_subst.
+      + eauto using Var.inv_subst.
+      + eauto using Var.inv_subst.
   Qed.
 
   Lemma wrun_one:
@@ -1871,7 +1873,7 @@ Section Defs.
       apply i_pair_in_for_2 with (e:=n_subst x v e) (n:=n); auto.
       eapply c_pair_in_subst with (e1:=n_subst x v e); eauto.
       rename_hyp (CPairIn _ _) as hp.
-      rewrite i_subst_subst_neq_5 in hp; auto.
+      rewrite Var.subst_neq_5 in hp; auto.
       + rewrite <- N.Exp.n_subst_from_pure.
         auto.
       + rewrite <- N.Exp.n_closed_from_pure.
@@ -1880,7 +1882,7 @@ Section Defs.
     - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try (intuition; fail).
       apply i_pair_in_for_3 with (e:=n_subst x v e) (n:=n); auto.
       rename_hyp (OneOf _ _ _) as ho.
-      rewrite i_subst_subst_neq_5 in ho; auto.
+      rewrite Var.subst_neq_5 in ho; auto.
       2: { rewrite <- N.Exp.n_closed_from_pure. assumption. }
       2: { intuition. }
       rewrite w_subst_subst_neq_5 in ho; auto.
@@ -1898,7 +1900,7 @@ Section Defs.
       apply i_pair_in_for_mid_1 with
         (n:=n) (e:=n_subst x v e) (e':=n_subst x v e'); auto.
       rename_hyp (OneOf _ _ _) as ho.
-      rewrite i_subst_subst_neq_5 in ho; auto.
+      rewrite Var.subst_neq_5 in ho; auto.
       2: { rewrite <- N.Exp.n_closed_from_pure. assumption. }
       2: { intuition. }
       rewrite w_subst_subst_neq_5 in ho; auto.
@@ -1997,10 +1999,10 @@ Section Defs.
 
   Fixpoint Occurs x P :=
     match P with
-    | WSync c => Free.Occurs x c
+    | WSync c => Occurs.t x c
     | WSeq P Q => Occurs x P \/ Occurs x Q
-    | WFor c1 y r P c2 => Free.Occurs x c1 \/
-      RFree x r \/ x = y \/ Occurs x P \/ Free.Occurs x c2
+    | WFor c1 y r P c2 => Occurs.t x c1 \/
+      RFree x r \/ x = y \/ Occurs x P \/ Occurs.t x c2
     end.
 
   Lemma occurs_inv_subst_eq:
@@ -2011,7 +2013,7 @@ Section Defs.
   Proof.
     induction P; simpl; intros.
     - rewrite N.Exp.n_free_from_pure.
-      eapply occurs_inv_subst_eq; eauto.
+      eapply Occurs.inv_subst_eq; eauto.
     - intuition.
     - rename_hyp (Occurs _ _) as Hw.
       destruct (Set_VAR.MF.eq_dec x v); simpl in *. {
@@ -2020,10 +2022,10 @@ Section Defs.
       }
       intuition.
       + rewrite N.Exp.n_free_from_pure.
-        eauto using occurs_inv_subst_eq.
+        eauto using Occurs.inv_subst_eq.
       + eauto using r_free_inv_subst_eq.
       + rewrite N.Exp.n_free_from_pure.
-        eauto using occurs_inv_subst_eq.
+        eauto using Occurs.inv_subst_eq.
   Qed.
 
   Lemma w_subst_not_occurs:
@@ -2033,21 +2035,21 @@ Section Defs.
     w_subst x v P = P.
   Proof.
     induction P; simpl; intros.
-    - rewrite i_subst_not_occurs; auto.
+    - rewrite Occurs.subst_not_occurs; auto.
     - assert (~ Occurs x P1) by intuition.
       assert (~ Occurs x P2) by intuition.
       rewrite IHP1; auto.
       rewrite IHP2; auto.
     - destruct (Set_VAR.MF.eq_dec x v). {
         subst.
-        assert (~ Free.Occurs v t) by intuition.
-        rewrite i_subst_not_occurs; auto.
+        assert (~ Occurs.t v t) by intuition.
+        rewrite Occurs.subst_not_occurs; auto.
         rewrite r_subst_not_free; auto.
       }
-      rewrite i_subst_not_occurs; auto.
+      rewrite Occurs.subst_not_occurs; auto.
       rewrite r_subst_not_free; auto.
-      assert (~  (Occurs x P \/ Free.Occurs x t0) ) by intuition.
-      rewrite i_subst_not_occurs; auto.
+      assert (~  (Occurs x P \/ Occurs.t x t0) ) by intuition.
+      rewrite Occurs.subst_not_occurs; auto.
       rewrite IHP; auto.
   Qed.
 
@@ -2075,7 +2077,7 @@ Section Defs.
     CClosed c1
     /\ RClosed r
     /\ (forall y, x <> y ->  ~ Occurs y P)
-    /\ (forall y, x <> y -> ~ Free.Occurs y c2).
+    /\ (forall y, x <> y -> ~ Occurs.t y c2).
   Proof.
     intros.
     unfold WClosed in H.
@@ -2236,8 +2238,8 @@ Section Defs.
     - rename_hyp (WVar v _) as Hv.
       apply wvar_inv_subst in Hv.
       contradiction.
-    - rename_hyp (Var v _) as Hv.
-      apply var_inv_subst in Hv.
+    - rename_hyp (Var.t v _) as Hv.
+      apply Var.inv_subst in Hv.
       contradiction.
     - auto using Distinct.distinct_subst.
   Qed.

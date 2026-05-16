@@ -85,7 +85,7 @@ Section Defs.
     forall x tid i,
     ~ NFree x tid ->
     TLang.Occurs x (trace tid i) ->
-    Free.Occurs x i.
+    Occurs.t x i.
   Proof.
     induction i; simpl; intros; auto.
     all: intuition.
@@ -101,7 +101,7 @@ Section Defs.
   Lemma var_inv_trace:
     forall x i tid,
     TLang.Var x (trace tid i) ->
-    Free.Var x i.
+    Var.t x i.
   Proof.
     induction i.
     all: simpl.
@@ -257,7 +257,7 @@ Section Defs.
 
   Lemma not_var_trace:
     forall x i,
-    ~ Free.Var x i ->
+    ~ Var.t x i ->
     forall tid,
     ~ TLang.Var x (trace tid i).
   Proof.
@@ -313,7 +313,7 @@ Section Defs.
   Lemma i_subst_trace_eq:
     forall v tid i,
     ~ NFree tid v ->
-    ~ Free.Occurs tid i ->
+    ~ Occurs.t tid i ->
     TLang.i_subst tid v (trace (NVar tid) i) =
     trace v i.
   Proof.
@@ -335,8 +335,8 @@ Section Defs.
 
   Lemma i_in_sequentialize_to_t_in:
     forall i,
-    ~ Free.Occurs T1 i ->
-    ~ Free.Occurs T2 i ->
+    ~ Occurs.t T1 i ->
+    ~ Occurs.t T2 i ->
     forall a,
     TLang.IIn a (sequentialize i) ->
     IIn.IIn a i /\ AVal.av_owner a < TID_COUNT.
@@ -405,8 +405,8 @@ Section Defs.
 
   Lemma t_pair_in_lt:
     forall i x y,
-    ~ Free.Occurs T1 i ->
-    ~ Free.Occurs T2 i ->
+    ~ Occurs.t T1 i ->
+    ~ Occurs.t T2 i ->
     AVal.av_owner x < TID_COUNT ->
     IIn.IIn x i ->
     AVal.av_owner y < TID_COUNT ->
@@ -456,8 +456,8 @@ Section Defs.
 (*
   Corollary soundness:
     forall m_c m_h i,
-    ~ Free.Occurs T1 i ->
-    ~ Free.Occurs T2 i ->
+    ~ Occurs.t T1 i ->
+    ~ Occurs.t T2 i ->
     Hist.Safe m_h ->
     Run.RunAll TID_COUNT i m_c ->
     TLang.NRun (sequentialize i) m_h ->
@@ -531,8 +531,8 @@ Section Defs.
 *)
   Lemma i_pair_in_1:
     forall p i,
-    ~ Free.Occurs T1 i ->
-    ~ Free.Occurs T2 i ->
+    ~ Occurs.t T1 i ->
+    ~ Occurs.t T2 i ->
     (* --- *)
     TLang.IPairIn p (sequentialize i) ->
     CIn.CPairIn p i.
@@ -551,8 +551,8 @@ Section Defs.
 
   Lemma i_pair_in_2:
     forall i,
-    ~ Free.Occurs T1 i ->
-    ~ Free.Occurs T2 i ->
+    ~ Occurs.t T1 i ->
+    ~ Occurs.t T2 i ->
     (* --- *)
     forall x y,
     (* Note that in this direction, the tids being different is a
@@ -588,7 +588,7 @@ Section Defs.
 
   Lemma sequentialize_subst_rw:
     forall x v i,
-    ~ Free.Var x i ->
+    ~ Var.t x i ->
     NClosed v ->
     x <> T1 ->
     x <> T2 ->
@@ -608,8 +608,8 @@ Section Defs.
 
   Corollary completeness2:
     forall m_c i,
-    ~ Free.Occurs T1 i ->
-    ~ Free.Occurs T2 i ->
+    ~ Occurs.t T1 i ->
+    ~ Occurs.t T2 i ->
     Hist.Safe m_c ->
     Run.RunAll TID_COUNT i m_c ->
     forall h,
@@ -639,8 +639,8 @@ Section Defs.
 (*
   Corollary completeness:
     forall m_c m_h i,
-    ~ Free.Occurs T1 i ->
-    ~ Free.Occurs T2 i ->
+    ~ Occurs.t T1 i ->
+    ~ Occurs.t T2 i ->
     Hist.Safe m_c ->
     Run.RunAll TID_COUNT i m_c ->
     TLang.Run (sequentialize i) m_h ->
@@ -664,8 +664,8 @@ Section Defs.
 
   Corollary correctness:
     forall m_c m_h i,
-    ~ Free.Occurs T1 i ->
-    ~ Free.Occurs T2 i ->
+    ~ Occurs.t T1 i ->
+    ~ Occurs.t T2 i ->
     Run.RunAll TID_COUNT i m_c ->
     TLang.Run (sequentialize i) m_h ->
     Hist.Safe m_c <-> Hist.MSafeStrong m_h.

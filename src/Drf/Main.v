@@ -5,7 +5,9 @@ From Faial.Core Require Import Tictac.
 From Faial.Core Require Import Tasks.
 
 From Faial.Expr Require Pure.N.Exp.
-From Faial.Drf.U Require Import Lang Subst Free Run IIn CIn CSeq Distinct Notations.
+From Faial.Core Require Import Var.
+From Faial.Drf.U Require Import Lang Subst Run IIn CIn CSeq Distinct Notations.
+From Faial.Drf.U Require Free Occurs Var InRange.
 Require Align.
 Require Sequentialize.
 Require PhaseSplit.
@@ -273,25 +275,25 @@ Section Defs.
       + rename_hyp (ALang.Var _ (ALang.n_seq _ _)) as hc.
         apply Align.var_inv_seq in hc.
         intuition. {
-          rename_hyp (Free.Var _ (Subst.f _ _ _)) as hc.
-          apply Free.var_inv_subst in hc.
+          rename_hyp (Var.t _ (Subst.f _ _ _)) as hc.
+          apply Var.inv_subst in hc.
           auto.
         }
         rename_hyp (ALang.Var _ (ALang.n_seq _ _)) as hc.
         apply Align.var_inv_seq in hc.
         intuition.
-        rename_hyp (Free.Var _ (Subst.f _ _ _)) as hc.
-        apply Free.var_inv_subst in hc.
+        rename_hyp (Var.t _ (Subst.f _ _ _)) as hc.
+        apply Var.inv_subst in hc.
         auto.
-      + rename_hyp (Free.Var _ (CSeq.c_seq _ _)) as hc.
+      + rename_hyp (Var.t _ (CSeq.c_seq _ _)) as hc.
         apply CSeq.var_inv_c_seq in hc.
         intuition. {
-          rename_hyp (Free.Var _ (Subst.f _ _ _)) as hc.
-          apply Free.var_inv_subst in hc.
+          rename_hyp (Var.t _ (Subst.f _ _ _)) as hc.
+          apply Var.inv_subst in hc.
           auto.
         }
-        rename_hyp (Free.Var _ (Subst.f _ _ _)) as hc.
-        apply Free.var_inv_subst in hc.
+        rename_hyp (Var.t _ (Subst.f _ _ _)) as hc.
+        apply Var.inv_subst in hc.
         auto.
   Qed.
 
@@ -321,24 +323,24 @@ Section Defs.
       + rename_hyp (ALang.Occurs _ (ALang.n_seq _ _)) as hc.
         apply Align.occurs_inv_seq in hc.
         destruct hc as [hc|hc]. {
-          apply Free.occurs_inv_subst in hc.
+          apply Occurs.inv_subst in hc.
           destruct hc as [hc|hc]; simpl in hc; intuition.
         }
         apply Align.occurs_inv_seq in hc.
         destruct hc as [hc|hc]; intuition.
         simpl in hc.
-        apply Free.occurs_inv_subst in hc.
+        apply Occurs.inv_subst in hc.
         simpl in hc.
         intuition.
-      + rename_hyp (Free.Occurs _ (CSeq.c_seq _ _)) as hc.
+      + rename_hyp (Occurs.t _ (CSeq.c_seq _ _)) as hc.
         apply CSeq.occurs_inv_c_seq in hc.
         destruct hc as [hc|hc]; simpl in hc. {
-          apply Free.occurs_inv_subst in hc.
+          apply Occurs.inv_subst in hc.
           simpl in hc.
           rewrite <- N.Exp.n_free_from_pure in *.
           intuition.
         }
-        apply Free.occurs_inv_subst in hc.
+        apply Occurs.inv_subst in hc.
         simpl in hc.
         rewrite <- N.Exp.n_free_from_pure in *.
         intuition.
@@ -367,7 +369,7 @@ Section Defs.
       + intros N.
         apply ALang.var_inv_n_seq in N.
         destruct N as [N|N]. {
-          apply Free.var_inv_subst in N.
+          apply Var.inv_subst in N.
           contradict hb.
           apply align_var.
           rewrite r1.
@@ -376,7 +378,7 @@ Section Defs.
         }
         apply ALang.var_inv_n_seq in N.
         destruct N as [N|N]. {
-          apply Free.var_inv_subst in N.
+          apply Var.inv_subst in N.
           auto.
         }
         contradict hb.

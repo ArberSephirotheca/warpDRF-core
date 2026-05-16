@@ -2,7 +2,8 @@ From Faial.Core Require Import AVal.
 From Faial.Core Require Import Tasks.
 From Faial.Core Require Import Var.
 Require Import WLang.
-From Faial.Drf.U Require Import Lang Subst Free Run IIn CIn CSeq Distinct Notations.
+From Faial.Drf.U Require Import Lang Subst Run IIn CIn CSeq Distinct Notations.
+From Faial.Drf.U Require Free Occurs Var InRange.
 From Faial.Expr Require Import Pure.N.Exp.
 From Faial.Expr Require Import Pure.R.Exp.
 From Faial.Core Require Import Tictac.
@@ -65,23 +66,23 @@ Section Props.
       + rename_hyp (Var _ (n_seq _ _)) as Hv.
         apply var_inv_n_seq in Hv.
         intuition.
-        rename_hyp (Free.Var _ _) as Hc.
-        apply Free.var_inv_subst in Hc.
+        rename_hyp (Var.t _ _) as Hc.
+        apply Var.inv_subst in Hc.
         intuition.
         rename_hyp (Var _ (n_seq _ _)) as Hc.
         apply var_inv_n_seq in Hc.
         intuition.
-        rename_hyp (Free.Var _ _) as Hc.
-        apply Free.var_inv_subst in Hc.
+        rename_hyp (Var.t _ _) as Hc.
+        apply Var.inv_subst in Hc.
         intuition.
-      + rename_hyp (Free.Var _ (CSeq.c_seq _ _ )) as Hc.
+      + rename_hyp (Var.t _ (CSeq.c_seq _ _ )) as Hc.
         apply CSeq.var_inv_c_seq in Hc.
         intuition.
-        * rename_hyp (Free.Var _ (f _ _ _)) as Hc.
-          apply Free.var_inv_subst in Hc.
+        * rename_hyp (Var.t _ (f _ _ _)) as Hc.
+          apply Var.inv_subst in Hc.
           intuition.
-        * rename_hyp (Free.Var _ (f _ _ _)) as Hc.
-          apply Free.var_inv_subst in Hc.
+        * rename_hyp (Var.t _ (f _ _ _)) as Hc.
+          apply Var.inv_subst in Hc.
           intuition.
   Qed.
 
@@ -102,7 +103,7 @@ Section Props.
 
   Lemma var_inv_align_r:
     forall x P P_x c_x,
-    Free.Var x c_x ->
+    Var.t x c_x ->
     align P = (P_x, c_x) ->
     WVar x P.
   Proof.
@@ -144,7 +145,7 @@ Section Props.
         intros N.
         eapply var_inv_align_l with (x:=y) in N; eauto.
       }
-      assert (~ Free.Var y c_x). {
+      assert (~ Var.t y c_x). {
         intros N.
         eapply var_inv_align_r with (x:=y) in N; eauto.
       }
@@ -224,13 +225,13 @@ Section Props.
       simpl in Ht'.
       invc Ht'.
       apply eq_c_seq_def. {
-        rewrite i_subst_subst_neq_5; auto.
+        rewrite Var.subst_neq_5; auto.
         + rewrite <- N.Exp.n_subst_from_pure.
           reflexivity.
         + rewrite <- N.Exp.n_closed_from_pure.
           assumption.
       }
-      rewrite i_subst_subst_neq_5; auto.
+      rewrite Var.subst_neq_5; auto.
       + rewrite <- N.Exp.n_subst_from_pure.
         reflexivity.
       + rewrite <- N.Exp.n_closed_from_pure.
@@ -1368,7 +1369,7 @@ Section Props.
   Lemma var_inv_seq:
     forall x c P,
     Var x (n_seq c P) ->
-    Free.Var x c \/ Var x P.
+    Var.t x c \/ Var x P.
   Proof.
     induction P; simpl in *; intros.
     - auto using CSeq.var_inv_c_seq.
@@ -1379,7 +1380,7 @@ Section Props.
   Lemma occurs_inv_seq:
     forall x c P,
     Occurs x (n_seq c P) ->
-    Free.Occurs x c \/ Occurs x P.
+    Occurs.t x c \/ Occurs x P.
   Proof.
     induction P; simpl in *; intros.
     - auto using occurs_inv_c_seq.
@@ -1425,13 +1426,13 @@ Section Props.
           apply var_inv_align.
           rewrite hr.
           simpl.
-          apply Free.var_inv_subst in N.
+          apply Var.inv_subst in N.
           auto.
         }
         apply var_inv_seq in N.
         destruct N as [N|N]. {
           contradict hc.
-          eauto using Free.var_inv_subst.
+          eauto using Var.inv_subst.
         }
         contradict hb.
         apply var_inv_align.

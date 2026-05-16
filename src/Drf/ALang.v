@@ -59,7 +59,7 @@ Section Defs.
 
   Fixpoint Var x P :=
     match P with
-    | NSync c => Free.Var x c
+    | NSync c => Var.t x c
     | NSeq P Q => Var x P \/ Var x Q
     | NFor P y _ Q =>
       x = y \/
@@ -364,7 +364,7 @@ Section Props.
 
   Fixpoint Occurs (x : var) (P : n_inst) : Prop :=
     match P with
-    | NSync c => Free.Occurs x c
+    | NSync c => Occurs.t x c
     | NSeq P Q => Occurs x P \/ Occurs x Q
     | NFor P y r Q =>
       x = y \/
@@ -379,7 +379,7 @@ Section Props.
   Proof.
     induction P; simpl; intros.
     - rewrite N.Exp.n_free_from_pure.
-      eauto using Free.occurs_inv_subst_eq.
+      eauto using Occurs.inv_subst_eq.
     - intuition.
     - intuition.
       + eauto using r_free_inv_subst_eq.
@@ -560,7 +560,7 @@ Section Props.
   Proof.
     induction P; intros.
     - simpl.
-      rewrite Free.i_subst_subst_neq_5; auto.
+      rewrite Var.subst_neq_5; auto.
       + rewrite N.Exp.n_subst_from_pure.
         reflexivity.
       + rewrite <- N.Exp.n_closed_from_pure.
@@ -610,16 +610,16 @@ Section Props.
 
   Definition PVar x (P:p_inst) :=
     let (P, c) := P in
-    Var x P \/ Free.Var x c.
+    Var x P \/ Var.t x c.
 
   Definition POccurs x (P:p_inst) :=
     let (P, c) := P in
-    Occurs x P \/ Free.Occurs x c.
+    Occurs x P \/ Occurs.t x c.
 
   Lemma var_inv_n_seq:
     forall x P c,
     Var x (n_seq c P) ->
-    Free.Var x c \/ Var x P.
+    Var.t x c \/ Var x P.
   Proof.
     induction P; simpl; intros.
     - apply CSeq.var_inv_c_seq in H.
@@ -638,7 +638,7 @@ Section Props.
     Var x P.
   Proof.
     induction P; simpl; intros.
-    - eauto using Free.var_inv_subst.
+    - eauto using Var.inv_subst.
     - intuition.
     - intuition.
       destruct (Set_VAR.MF.eq_dec x v0). {
@@ -658,7 +658,7 @@ Section Props.
     Occurs x P \/ NFree x v.
   Proof.
     induction P; simpl; intros.
-    - apply Free.occurs_inv_subst in H.
+    - apply Occurs.inv_subst in H.
       intuition.
       rewrite N.Exp.n_free_from_pure.
       intuition.
@@ -706,7 +706,7 @@ Section Props.
     Var y (subst x e P).
   Proof.
     induction P; simpl; intros.
-    - auto using Free.var_subst.
+    - auto using Var.subst.
     - rename_hyp (_ \/ _) as Hp.
       destruct Hp as [Hp|Hp]; eauto.
     - rename_hyp (_ \/ _) as Hp.

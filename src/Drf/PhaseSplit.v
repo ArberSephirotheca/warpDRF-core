@@ -24,13 +24,13 @@ Section Defs.
 
   Fixpoint Var x p :=
     match p with
-    | Phase u => Free.Var x u
+    | Phase u => Var.t x u
     | Decl y _ p => x = y \/ Var x p
     end.
 
   Fixpoint Occurs x p :=
     match p with
-    | Phase u => Free.Occurs x u
+    | Phase u => Occurs.t x u
     | Decl y _ p => x = y \/ Occurs x p
     end.
 
@@ -68,7 +68,7 @@ Section Defs.
     Var x ph.
   Proof.
     induction ph; simpl in *; intros.
-    - eauto using Free.var_inv_subst.
+    - eauto using Var.inv_subst.
     - intuition.
       destruct (Set_VAR.MF.eq_dec y v0). {
         subst.
@@ -94,8 +94,8 @@ Section Defs.
     Pure.N.Exp.NFree x v \/ Occurs x ph.
   Proof.
     induction ph; simpl in *; intros.
-    - rename_hyp (Free.Occurs _ _) as ho.
-      apply Free.occurs_inv_subst in ho.
+    - rename_hyp (Occurs.t _ _) as ho.
+      apply Occurs.inv_subst in ho.
       intuition.
       rewrite n_free_from_pure in *.
       intuition.

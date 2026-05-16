@@ -9,7 +9,8 @@ From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Expr Require Pure.N.Exp.
 From Faial.Drf.U Require Import Lang.
 From Faial.Drf.U Require Import Subst.
-From Faial.Drf.U Require Import Free.
+From Faial.Drf.U Require Var.
+From Faial.Drf.U Require Occurs.
 From Faial.Drf.U Require Import Run.
 From Faial.Drf.U Require Import IIn.
 From Faial.Drf.U Require Import CIn.
@@ -294,8 +295,8 @@ Section Defs.
 
   Lemma var_inv_c_seq:
     forall x c1 c2,
-    Var x (c_seq c1 c2) ->
-    Var x c1 \/ Var x c2.
+    Var.t x (c_seq c1 c2) ->
+    Var.t x c1 \/ Var.t x c2.
   Proof.
     induction c1; simpl; intros; try (intuition; fail).
     apply IHc1_1 in H.
@@ -306,8 +307,8 @@ Section Defs.
 
   Lemma occurs_inv_c_seq:
     forall x c1 c2,
-    Occurs x (c_seq c1 c2) ->
-    Occurs x c1 \/ Occurs x c2.
+    Occurs.t x (c_seq c1 c2) ->
+    Occurs.t x c1 \/ Occurs.t x c2.
   Proof.
     induction c1; simpl; intros; try (intuition; fail).
     apply IHc1_1 in H.

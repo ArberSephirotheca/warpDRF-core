@@ -2,7 +2,8 @@ From Faial.Core Require Import Var.
 From Faial.Expr Require Import SIMT.N.Exp.
 From Faial.Drf.U Require Import Lang.
 From Faial.Drf.U Require Import Subst.
-From Faial.Drf.U Require Import Free.
+From Faial.Drf.U Require Var.
+From Faial.Drf.U Require Occurs.
 From Faial.Drf.U Require Import CSeq.
 
 Section Defs.
@@ -10,7 +11,7 @@ Section Defs.
     match c with
     | Skip | MemAcc _ => True
     | If _ c1 c2 | Seq c1 c2 => Distinct c1 /\ Distinct c2
-    | For x _ c => ~ Var x c /\ Distinct c
+    | For x _ c => ~ Var.t x c /\ Distinct c
     end.
 
   Lemma distinct_subst:
@@ -27,7 +28,7 @@ Section Defs.
         intuition.
       }
       intuition.
-      apply var_inv_subst in H2.
+      apply Var.inv_subst in H2.
       intuition.
   Qed.
 
@@ -43,5 +44,5 @@ Section Defs.
   Qed.
 
   Definition CClosed P :=
-    forall x, ~ Occurs x P.
+    forall x, ~ Occurs.t x P.
 End Defs.
