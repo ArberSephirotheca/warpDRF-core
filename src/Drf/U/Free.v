@@ -42,7 +42,7 @@ Section Defs.
 
   Lemma var_inv_subst:
     forall y x e i,
-    Var y (i_subst x e i) ->
+    Var y (f x e i) ->
     Var y i.
   Proof.
     induction i; simpl; intros; auto; intuition.
@@ -54,7 +54,7 @@ Section Defs.
     x <> y ->
     Var y i ->
     forall e,
-    Var y (i_subst x e i).
+    Var y (f x e i).
   Proof.
     induction i; simpl; auto; intros.
     - rename_hyp (_ \/ _) as Hp.
@@ -75,7 +75,7 @@ Section Defs.
 
   Lemma in_range_subst_inv_1:
     forall y x n i,
-    InRange y (i_subst x (NNum n) i) ->
+    InRange y (f x (NNum n) i) ->
     InRange y i.
   Proof.
     induction i; simpl; intros; auto; try (destruct H; auto).
@@ -85,7 +85,7 @@ Section Defs.
 
   Lemma occurs_inv_subst:
     forall y x v i,
-    Occurs y (i_subst x v i) ->
+    Occurs y (f x v i) ->
     Occurs y i \/ NFree y v.
   Proof.
     induction i; simpl; intros; auto; intuition.
@@ -101,7 +101,7 @@ Section Defs.
 
   Lemma occurs_inv_subst_num:
     forall y x n i,
-    Occurs y (i_subst x (NNum n) i) ->
+    Occurs y (f x (NNum n) i) ->
     Occurs y i.
   Proof.
     intros.
@@ -113,7 +113,7 @@ Section Defs.
   Lemma occurs_inv_subst_eq:
     forall x e c,
     ~ Var x c ->
-    Occurs x (i_subst x e c) ->
+    Occurs x (f x e c) ->
     NFree x e.
   Proof.
     intros.
@@ -132,7 +132,7 @@ Section Defs.
     forall x c,
     ~ Occurs x c ->
     forall v,
-    i_subst x v c = c.
+    f x v c = c.
   Proof.
     induction c; simpl; intros.
     - reflexivity.
@@ -152,7 +152,7 @@ Section Defs.
     forall x c,
     ~ Free x c ->
     forall v,
-    i_subst x v c = c.
+    f x v c = c.
   Proof.
     induction c; simpl; intros.
     - reflexivity.
@@ -173,8 +173,8 @@ Section Defs.
     NClosed e1 ->
     y <> x ->
     ~ Var y c ->
-    i_subst y e1 (i_subst x e2 c) =
-    i_subst x (n_subst y e1 e2) (i_subst y e1 c).
+    f y e1 (f x e2 c) =
+    f x (n_subst y e1 e2) (f y e1 c).
   Proof.
     induction c; intros; simpl in *.
     - reflexivity.

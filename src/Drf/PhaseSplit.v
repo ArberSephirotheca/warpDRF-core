@@ -19,7 +19,7 @@ Section Defs.
   Context `{T:Tasks}.
 
   Inductive phase :=
-  | Phase: Lang.inst -> phase
+  | Phase: Lang.t -> phase
   | Decl: var -> Pure.R.Exp.range -> phase -> phase.
 
   Fixpoint Var x p :=
@@ -53,7 +53,7 @@ Section Defs.
 
   Fixpoint ph_subst x (v:Pure.N.Exp.nexp) (P:phase) : phase :=
     match P with
-    | Phase c => Phase (Subst.i_subst x (from_pure v) c)
+    | Phase c => Phase (Subst.f x (from_pure v) c)
     | Decl y r P =>
       let P' := if VAR.eq_dec x y
         then P

@@ -273,24 +273,24 @@ Section Defs.
       + rename_hyp (ALang.Var _ (ALang.n_seq _ _)) as hc.
         apply Align.var_inv_seq in hc.
         intuition. {
-          rename_hyp (Free.Var _ (Subst.i_subst _ _ _)) as hc.
+          rename_hyp (Free.Var _ (Subst.f _ _ _)) as hc.
           apply Free.var_inv_subst in hc.
           auto.
         }
         rename_hyp (ALang.Var _ (ALang.n_seq _ _)) as hc.
         apply Align.var_inv_seq in hc.
         intuition.
-        rename_hyp (Free.Var _ (Subst.i_subst _ _ _)) as hc.
+        rename_hyp (Free.Var _ (Subst.f _ _ _)) as hc.
         apply Free.var_inv_subst in hc.
         auto.
       + rename_hyp (Free.Var _ (CSeq.c_seq _ _)) as hc.
         apply CSeq.var_inv_c_seq in hc.
         intuition. {
-          rename_hyp (Free.Var _ (Subst.i_subst _ _ _)) as hc.
+          rename_hyp (Free.Var _ (Subst.f _ _ _)) as hc.
           apply Free.var_inv_subst in hc.
           auto.
         }
-        rename_hyp (Free.Var _ (Subst.i_subst _ _ _)) as hc.
+        rename_hyp (Free.Var _ (Subst.f _ _ _)) as hc.
         apply Free.var_inv_subst in hc.
         auto.
   Qed.
@@ -482,10 +482,10 @@ Section Defs.
           (ALang.NFor (ALang.n_seq Lang.Skip (ALang.subst x e1' a1)) x
              (Pure.N.Exp.NBin N.Exp.NPlus (Pure.N.Exp.NNum 1) e1', e2')
              (ALang.n_seq
-                (Subst.i_subst x
+                (Subst.f x
                    (N.Exp.NBin N.Exp.NMinus (N.Exp.NVar x) (N.Exp.NNum 1)) u1)
                 (ALang.n_seq
-                   (Subst.i_subst x
+                   (Subst.f x
                       (N.Exp.NBin N.Exp.NMinus (N.Exp.NVar x) (N.Exp.NNum 1)) c2)
                    a1)))). {
         apply IHWRun2.

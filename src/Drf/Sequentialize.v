@@ -20,7 +20,7 @@ Section Defs.
   Section TRACE.
   Variable tid:Pure.N.Exp.nexp.
 
-  Fixpoint trace (c:Lang.inst) : TLang.inst :=
+  Fixpoint trace (c:Lang.t) : TLang.inst :=
     match c with
     | Lang.Skip => TLang.Skip
     | Lang.Seq i j => TLang.Seq (trace i) (trace j)
@@ -40,7 +40,7 @@ Section Defs.
   Lemma i_subst_trace_rw:
     forall tid x i v,
     ~ NFree x tid ->
-    trace tid (Subst.i_subst x (N.Exp.from_pure v) i) =
+    trace tid (Subst.f x (N.Exp.from_pure v) i) =
     TLang.i_subst x v (trace tid i).
   Proof.
     induction i; simpl; intros.
@@ -70,7 +70,7 @@ Section Defs.
   Lemma i_subst_trace_num_rw:
     forall tid x i n,
     ~ NFree x tid ->
-    trace tid (Subst.i_subst x (N.Exp.NNum n) i) =
+    trace tid (Subst.f x (N.Exp.NNum n) i) =
     TLang.i_subst x (NNum n) (trace tid i).
   Proof.
     intros.
@@ -112,7 +112,7 @@ Section Defs.
 
   (* ------------------------- IN PROJECTION ----------------------- *)
 
-  Inductive PIn a: Lang.inst -> Prop :=
+  Inductive PIn a: Lang.t -> Prop :=
   | p_in_access:
     forall e,
     SIMT.A.Exp.AStep (AVal.av_owner a) e a ->
@@ -138,7 +138,7 @@ Section Defs.
   | p_in_for:
     forall r n x i,
     SIMT.R.Exp.RPick (AVal.av_owner a) r n ->
-    PIn a (Subst.i_subst x (SIMT.N.Exp.NNum n) i) ->
+    PIn a (Subst.f x (SIMT.N.Exp.NNum n) i) ->
     PIn a (Lang.For x r i)
   .
 
@@ -306,7 +306,7 @@ Section Defs.
       rename_hyp (NStep (NNum t) _) as hn.
       invc hn.
       reflexivity.
-    - assert (IHHi := IHHi ((Subst.i_subst v (N.Exp.NNum n) i')) ).
+    - assert (IHHi := IHHi ((Subst.f v (N.Exp.NNum n) i')) ).
       rewrite i_subst_trace_num_rw in IHHi; auto.
   Qed.
 
@@ -592,7 +592,7 @@ Section Defs.
     NClosed v ->
     x <> T1 ->
     x <> T2 ->
-    TLang.i_subst x v (sequentialize i) = sequentialize (Subst.i_subst x (N.Exp.from_pure v) i).
+    TLang.i_subst x v (sequentialize i) = sequentialize (Subst.f x (N.Exp.from_pure v) i).
   Proof.
     intros.
     unfold sequentialize.

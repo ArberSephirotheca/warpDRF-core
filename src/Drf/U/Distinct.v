@@ -6,7 +6,7 @@ From Faial.Drf.U Require Import Free.
 From Faial.Drf.U Require Import CSeq.
 
 Section Defs.
-  Fixpoint Distinct (c:inst) :=
+  Fixpoint Distinct (c:t) :=
     match c with
     | Skip | MemAcc _ => True
     | If _ c1 c2 | Seq c1 c2 => Distinct c1 /\ Distinct c2
@@ -17,7 +17,7 @@ Section Defs.
     forall c,
     Distinct c ->
     forall x v,
-    Distinct (i_subst x v c).
+    Distinct (f x v c).
   Proof.
     induction c; simpl; auto; intros.
     - intuition.

@@ -39,11 +39,11 @@ Section Defs.
     forall x e e' c h n,
     Pure.N.Exp.NEq e e' ->
     Pure.N.Exp.NStep e' n ->
-    CRun (i_subst x (from_pure e) c) h ->
-    CRun (i_subst x (from_pure e') c) h.
+    CRun (f x (from_pure e) c) h ->
+    CRun (f x (from_pure e') c) h.
   Proof.
     intros.
-    apply run_all_impl with (c1:=i_subst x (from_pure e) c); auto.
+    apply run_all_impl with (c1:=f x (from_pure e) c); auto.
     intros.
     apply run_subst with (e1:=from_pure e)(n:=n); eauto.
     - rewrite <- N.Exp.n_step_from_pure.
@@ -53,7 +53,7 @@ Section Defs.
       assumption.
   Qed.
 
-  Inductive CIn : access_val -> inst -> Prop :=
+  Inductive CIn : access_val -> t -> Prop :=
   | c_in_def:
     forall a c,
     av_owner a < TID_COUNT ->
@@ -114,11 +114,11 @@ Section Defs.
   Qed.
 
   Lemma c_in_subst:
-    forall (x : VAR.t) (a : access_val) (i : inst) (v v' : Pure.N.Exp.nexp) (n : nat),
+    forall (x : VAR.t) (a : access_val) (i : t) (v v' : Pure.N.Exp.nexp) (n : nat),
     Pure.N.Exp.NStep v n ->
     Pure.N.Exp.NStep v' n ->
-    CIn a (i_subst x (from_pure v) i) ->
-    CIn a (i_subst x (from_pure v') i).
+    CIn a (f x (from_pure v) i) ->
+    CIn a (f x (from_pure v') i).
   Proof.
     intros.
     invc H1.
@@ -128,7 +128,7 @@ Section Defs.
 
   (* -------------------------------- C PAIR IN ---------------------- *)
 
-  Inductive CPairIn : (access_val * access_val) -> inst -> Prop :=
+  Inductive CPairIn : (access_val * access_val) -> t -> Prop :=
   | c_pair_in_def:
     forall a1 a2 c,
     CIn a1 c ->

@@ -17,7 +17,7 @@ From Faial.Drf.U Require Import CIn.
 Section Defs.
   Context `{T:Tasks}.
 
-  Fixpoint c_seq (c1:inst) (c2:inst) :=
+  Fixpoint c_seq (c1:t) (c2:t) :=
     match c1 with
     | Skip
     | If _ _ _
@@ -37,7 +37,7 @@ Section Defs.
     | Seq _ _ => true
     end.
 
-  Inductive CSeq : inst -> inst -> inst -> Prop :=
+  Inductive CSeq : t -> t -> t -> Prop :=
   | c_seq_1:
     forall c1 c2,
     is_seq c1 = false ->
@@ -245,12 +245,12 @@ Section Defs.
 
   Lemma c_pair_in_subst:
     forall p x e1 c,
-    CPairIn p (i_subst x (N.Exp.from_pure e1) c) ->
+    CPairIn p (f x (N.Exp.from_pure e1) c) ->
     forall n,
     Pure.N.Exp.NStep e1 n ->
     forall e2,
     Pure.N.Exp.NStep e2 n ->
-    CPairIn p (i_subst x (N.Exp.from_pure e2) c).
+    CPairIn p (f x (N.Exp.from_pure e2) c).
   Proof.
     intros.
     invc H.
@@ -263,7 +263,7 @@ Section Defs.
 
   Lemma c_seq_subst:
     forall x v c1 c2,
-    i_subst x v (c_seq c1 c2) = c_seq (i_subst x v c1) (i_subst x v c2).
+    f x v (c_seq c1 c2) = c_seq (f x v c1) (f x v c2).
   Proof.
     induction c1; intros; simpl; auto.
     rewrite IHc1_1.
@@ -283,8 +283,8 @@ Section Defs.
 
   Lemma i_subst_c_seq:
     forall x v c1 c2,
-    i_subst x v (c_seq c1 c2)
-    = c_seq (i_subst x v c1) (i_subst x v c2).
+    f x v (c_seq c1 c2)
+    = c_seq (f x v c1) (f x v c2).
   Proof.
     induction c1; simpl; intros; auto.
     rewrite IHc1_1.

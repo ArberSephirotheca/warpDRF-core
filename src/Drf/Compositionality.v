@@ -16,7 +16,7 @@ Section Props.
 
   Inductive ctxt :=
   | Hole: ctxt
-  | Sync: Lang.inst -> ctxt
+  | Sync: Lang.t -> ctxt
   | SeqL: ctxt -> n_inst -> ctxt
   | SeqR: n_inst -> ctxt -> ctxt
   | ForL: ctxt -> var -> range -> n_inst -> ctxt
@@ -25,7 +25,7 @@ Section Props.
   Fixpoint subst x v i :=
     match i with
     | Hole => Hole
-    | Sync u => Sync (Subst.i_subst x v u)
+    | Sync u => Sync (Subst.f x v u)
     | SeqL c q => SeqL (subst x v c) (ALang.subst x v q)
     | SeqR q c => SeqR (ALang.subst x v q) (subst x v c)
     | ForL c y r q =>
@@ -57,7 +57,7 @@ Section Props.
     IPairIn p P ->
     access_safe (fst p) (snd p).
 
-  Definition UDRF (P:Lang.inst) :=
+  Definition UDRF (P:Lang.t) :=
     forall p,
     CIn.CPairIn p P ->
     access_safe (fst p) (snd p).

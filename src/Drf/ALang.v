@@ -23,14 +23,14 @@ Section Defs.
   Context `{T:Tasks}.
   Notation from_pure := N.Exp.from_pure.
   Inductive n_inst :=
-  | NSync: Lang.inst -> n_inst
+  | NSync: Lang.t -> n_inst
   | NSeq: n_inst -> n_inst -> n_inst
   | NFor : n_inst -> var -> range -> n_inst -> n_inst.  
 
 
   Fixpoint subst x v i :=
     match i with
-    | NSync c => NSync (Subst.i_subst x (from_pure v) c)
+    | NSync c => NSync (Subst.f x (from_pure v) c)
     | NSeq i1 i2 => NSeq (subst x v i1) (subst x v i2)
     | NFor P y r Q =>
       let Q' := if VAR.eq_dec x y
@@ -66,7 +66,7 @@ Section Defs.
       Var x P \/ Var x Q
     end.
 
-  Definition p_inst := (n_inst * Lang.inst) % type.
+  Definition p_inst := (n_inst * Lang.t) % type.
 
   Inductive CanRun : p_inst -> Prop :=
     can_run_def:
@@ -75,7 +75,7 @@ Section Defs.
       CIn.CCanRun u ->
       CanRun (a, u).
 
-  Fixpoint n_seq (c:Lang.inst) (n:n_inst) : n_inst :=
+  Fixpoint n_seq (c:Lang.t) (n:n_inst) : n_inst :=
     match n with
     | NSync c' => NSync (c_seq c c')
     | NSeq i j => NSeq (n_seq c i) j
@@ -315,7 +315,7 @@ Section Props.
   Lemma subst_n_seq:
     forall P x v c,
     subst x v (n_seq c P) =
-      n_seq (Subst.i_subst x (from_pure v) c) (subst x v P).
+      n_seq (Subst.f x (from_pure v) c) (subst x v P).
   Proof.
     induction P; simpl; intros.
     - rewrite i_subst_c_seq.
@@ -346,12 +346,12 @@ Section Props.
 
   Definition p_subst x v (P:p_inst) :=
     match P with
-    (Q, c) => (subst x v Q, Subst.i_subst x (from_pure v) c)
+    (Q, c) => (subst x v Q, Subst.f x (from_pure v) c)
     end.
 
   Lemma n_seq_subst:
     forall x v c P,
-    subst x v (n_seq c P) = n_seq (Subst.i_subst x (from_pure v) c) (subst x v P).
+    subst x v (n_seq c P) = n_seq (Subst.f x (from_pure v) c) (subst x v P).
   Proof.
     induction P; intros; simpl; auto.
     - rewrite CSeq.c_seq_subst.

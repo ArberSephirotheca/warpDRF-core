@@ -5,11 +5,11 @@ From Faial.Expr Require Import SIMT.R.Exp.
 From Faial.Expr Require Import SIMT.A.Exp.
 
 Section Defs.
-  Inductive inst :=
-  | Skip: inst
-  | If: bexp -> inst -> inst -> inst
-  | Seq: inst -> inst -> inst
-  | MemAcc: access_exp -> inst
-  | For : var -> range -> inst -> inst
+  Inductive t :=
+  | Skip: t
+  | If: bexp -> t -> t -> t
+  | Seq: t -> t -> t
+  | MemAcc: access_exp -> t
+  | For : var -> range -> t -> t
   .
 End Defs.

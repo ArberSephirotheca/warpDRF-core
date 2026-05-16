@@ -25,7 +25,7 @@ Section Defs.
   Notation BStep := (BStep tid).
   Notation AStep := (AStep tid).
 
-  Inductive Run : inst -> history -> Prop :=
+  Inductive Run : t -> history -> Prop :=
   | run_skip:
     Run Skip []
   | run_access:
@@ -46,7 +46,7 @@ Section Defs.
   | run_for_cons:
     forall r r' n i x h1 h2,
     RStep tid r n r' ->
-    Run (i_subst x (NNum n) i) h1 ->
+    Run (f x (NNum n) i) h1 ->
     Run (For x r' i) h2 ->
     Run (For x r i) (h1 ++ h2)
   | run_for_nil:
@@ -79,7 +79,7 @@ Section Defs.
     assumption.
   Qed.
 
-  Inductive CanRun : inst -> Prop :=
+  Inductive CanRun : t -> Prop :=
   | can_run_skip:
     CanRun Skip
   | can_run_seq:
@@ -100,7 +100,7 @@ Section Defs.
   | can_run_for:
     forall x r i,
     RDefined tid r ->
-    (forall n, RPick tid r n -> CanRun (i_subst x (NNum n) i)) ->
+    (forall n, RPick tid r n -> CanRun (f x (NNum n) i)) ->
     CanRun (For x r i).
   End RUN.
 
@@ -108,7 +108,7 @@ Section Defs.
    forall n h,
    Run n i1 h <-> Run n i2 h.
 
-  Inductive RunAll : nat -> inst -> history -> Prop :=
+  Inductive RunAll : nat -> t -> history -> Prop :=
   | run_all_zero:
     forall i,
     RunAll 0 i []
@@ -207,7 +207,7 @@ Section Defs.
   Notation NStep := (NStep tid).
   Notation BStep := (BStep tid).
 
-  Inductive XRun : inst -> history -> Prop :=
+  Inductive XRun : t -> history -> Prop :=
   | x_run_skip:
     XRun Skip []
   | x_run_access:
@@ -228,14 +228,14 @@ Section Defs.
   | x_run_for_cons_eq:
     forall r r' n i h1 h2,
     RStep tid (r_subst x e r) n r' ->
-    Run tid (i_subst x (NNum n) i) h1 ->
+    Run tid (f x (NNum n) i) h1 ->
     Run tid (For x r' i) h2 ->
     XRun (For x r i) (h1 ++ h2)
   | x_run_for_cons_neq:
     forall r r' n y i h1 h2,
     x <> y ->
     RStep tid (r_subst x e r) n r' ->
-    XRun (i_subst y (NNum n) i) h1 ->
+    XRun (f y (NNum n) i) h1 ->
     XRun (For y r' i) h2 ->
     XRun (For y r i) (h1 ++ h2)
   | x_run_for_nil:
@@ -247,13 +247,13 @@ Section Defs.
 
   Lemma run_to_x_run:
     forall n x e i h,
-    Run n (i_subst x e i) h ->
+    Run n (f x e i) h ->
     forall m,
     NStep n e m ->
     XRun n x e i h.
   Proof.
     intros.
-    remember (i_subst x e i) as j.
+    remember (f x e i) as j.
     generalize dependent x.
     generalize dependent e.
     generalize dependent i.
@@ -303,7 +303,7 @@ Section Defs.
     XRun n x e i h ->
     forall m,
     NStep n e m ->
-    Run n (i_subst x e i) h.
+    Run n (f x e i) h.
   Proof.
     intros n x e i h H.
     induction H; intros; simpl.
@@ -325,7 +325,7 @@ Section Defs.
       }
       rewrite Hy in *.
       eapply run_for_cons; eauto.
-      assert (Hx: Run n (i_subst x e (i_subst y (NNum n0) i)) h1). {
+      assert (Hx: Run n (f x e (f y (NNum n0) i)) h1). {
         eauto.
       }
       rewrite i_subst_subst_neq_3 in Hx; auto.
@@ -340,10 +340,10 @@ Section Defs.
   Lemma run_subst t:
     forall c x e1 h n,
     NStep t e1 n ->
-    Run t (i_subst x e1 c) h ->
+    Run t (f x e1 c) h ->
     forall e2,
     NStep t e2 n ->
-    Run t (i_subst x e2 c) h.
+    Run t (f x e2 c) h.
   Proof.
     intros c x e1 h n He1 Hr.
     eapply run_to_x_run in Hr; eauto.

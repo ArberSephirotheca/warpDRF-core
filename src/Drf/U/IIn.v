@@ -18,7 +18,7 @@ Import ListNotations.
 Section Defs.
   Context `{T:Tasks}.
 
-  Inductive IIn (a:access_val) : inst -> Prop :=
+  Inductive IIn (a:access_val) : t -> Prop :=
   | i_in_access:
     forall e,
     AStep (av_owner a) e a ->
@@ -44,7 +44,7 @@ Section Defs.
   | i_in_for:
     forall i r x n,
     RPick (av_owner a) r n ->
-    IIn a (i_subst x (NNum n) i) ->
+    IIn a (f x (NNum n) i) ->
     IIn a (For x r i)
   .
 
@@ -52,7 +52,7 @@ Section Defs.
   Variable x:var.
   Variable v:nexp.
 
-  Inductive S_IIn (a:access_val) : inst -> Prop :=
+  Inductive S_IIn (a:access_val) : t -> Prop :=
   | s_i_in_access:
     forall e,
     AStep (av_owner a) (a_subst x v e) a ->
@@ -78,13 +78,13 @@ Section Defs.
   | s_i_in_for_eq:
     forall i r n,
     RPick (av_owner a) (r_subst x v r) n ->
-    IIn a (i_subst x (NNum n) i) ->
+    IIn a (f x (NNum n) i) ->
     S_IIn a (For x r i)
   | s_i_in_for_neq:
     forall i r y n,
     x <> y ->
     RPick (av_owner a) (r_subst x v r) n ->
-    S_IIn a (i_subst y (NNum n) i) ->
+    S_IIn a (f y (NNum n) i) ->
     S_IIn a (For y r i)
   .
   End S_IIn.
@@ -93,7 +93,7 @@ Section Defs.
     forall x v a i,
     S_IIn x v a i ->
     forall n, NStep (av_owner a) v n ->
-    IIn a (i_subst x v i).
+    IIn a (f x v i).
   Proof.
     intros x v a i H.
     induction H; simpl; intros.
@@ -113,12 +113,12 @@ Section Defs.
 
   Lemma i_in_to_s_i_in:
     forall x v a i,
-    IIn a (i_subst x v i) ->
+    IIn a (f x v i) ->
     forall n, NStep (av_owner a) v n ->
     S_IIn x v a i.
   Proof.
     intros x v a i Hi.
-    remember (i_subst _ _ _) as j.
+    remember (f _ _ _) as j.
     generalize dependent x.
     generalize dependent v.
     generalize dependent i.
@@ -139,7 +139,7 @@ Section Defs.
         subst.
         eapply s_i_in_for_eq; eauto.
       }
-      assert (r1: i_subst x (NNum n) (i_subst y v i_src) = i_subst y v (i_subst x (NNum n) i_src)). {
+      assert (r1: f x (NNum n) (f y v i_src) = f y v (f x (NNum n) i_src)). {
         rewrite i_subst_subst_neq_3; eauto using n_step_to_not_free.
       }
       eapply IHHi in r1; eauto.
@@ -150,8 +150,8 @@ Section Defs.
     forall x a i v v' n,
     Pure.N.Exp.NStep v n ->
     Pure.N.Exp.NStep v' n ->
-    IIn a (i_subst x (from_pure v) i) ->
-    IIn a (i_subst x (from_pure v') i).
+    IIn a (f x (from_pure v) i) ->
+    IIn a (f x (from_pure v') i).
   Proof.
     intros.
     apply n_step_pure with (tid:=av_owner a) in H.

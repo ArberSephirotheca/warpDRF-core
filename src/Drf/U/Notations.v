@@ -7,7 +7,7 @@ Module CLangNotations.
   Declare Scope lang_scope.
   Notation  "'FOR' x '∈' r '{' c '}' " := (For x r c) : lang_scope.
   Infix ";" := Seq (at level 50, only printing) : lang_scope.
-  Notation "c [ x := v ]" := (i_subst x v c) (at level 30, only printing) : lang_scope.
+  Notation "c [ x := v ]" := (f x v c) (at level 30, only printing) : lang_scope.
   Infix ";;" := c_seq (at level 50, only printing) : lang_scope.
   Infix "∈" := CIn (at level 30, only printing) : lang_scope.
   Infix "∈" := CPairIn (at level 30, only printing) : lang_scope.

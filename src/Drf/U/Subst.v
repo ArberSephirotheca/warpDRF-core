@@ -6,14 +6,14 @@ From Faial.Expr Require Import SIMT.A.Exp.
 From Faial.Drf.U Require Import Lang.
 
 Section Defs.
-  Fixpoint i_subst x v i :=
+  Fixpoint f x v i :=
   match i with
   | Skip => Skip
-  | If b i j => If (b_subst x v b) (i_subst x v i) (i_subst x v j)
-  | Seq i j => Seq (i_subst x v i) (i_subst x v j)
+  | If b i j => If (b_subst x v b) (f x v i) (f x v j)
+  | Seq i j => Seq (f x v i) (f x v j)
   | MemAcc a => MemAcc (a_subst x v a)
   | For y r i =>
-    let i' := if VAR.eq_dec x y then i else i_subst x v i in
+    let i' := if VAR.eq_dec x y then i else f x v i in
     For y (r_subst x v r) i'
   end.
 
@@ -21,18 +21,18 @@ Section Defs.
 
   Lemma i_subst_seq:
     forall x n i1 i2,
-    i_subst x n (i1 ;; i2) = i_subst x n i1 ;; i_subst x n i2.
+    f x n (i1 ;; i2) = f x n i1 ;; f x n i2.
   Proof.
     simpl; reflexivity.
   Qed.
 
   Lemma i_subst_inv_seq:
     forall x v k i j,
-    i_subst x v k = Seq i j ->
+    f x v k = Seq i j ->
     exists i' j',
     k = Seq i' j' /\
-    i = i_subst x v i' /\
-    j = i_subst x v j'.
+    i = f x v i' /\
+    j = f x v j'.
   Proof.
     destruct k; simpl; intros i j H; inversion H; subst; clear H.
     eauto.
@@ -40,7 +40,7 @@ Section Defs.
 
   Lemma i_subst_subst_eq:
     forall x i n1 n2,
-    i_subst x (NNum n1) (i_subst x (NNum n2) i) = i_subst x (NNum n2) i.
+    f x (NNum n1) (f x (NNum n2) i) = f x (NNum n2) i.
   Proof.
     induction i; simpl; intros.
     - reflexivity.
@@ -63,7 +63,7 @@ Section Defs.
 
   Lemma i_subst_subst_eq_2
      : forall (x : var) i (v e : nexp),
-       ~ NFree x v -> i_subst x e (i_subst x v i) = i_subst x v i.
+       ~ NFree x v -> f x e (f x v i) = f x v i.
   Proof.
     induction i; intros; simpl.
     - reflexivity.
@@ -80,8 +80,8 @@ Section Defs.
   Lemma i_subst_subst_neq:
     forall x y i n1 n2,
     x <> y ->
-    i_subst x (NNum n1) (i_subst y (NNum n2) i) =
-    i_subst y (NNum n2) (i_subst x (NNum n1) i).
+    f x (NNum n1) (f y (NNum n2) i) =
+    f y (NNum n2) (f x (NNum n1) i).
   Proof.
     induction i; intros; simpl.
     - reflexivity.
@@ -111,9 +111,9 @@ Section Defs.
     x <> y ->
     ~ NFree y v1 ->
     ~ NFree x v2 ->
-    i_subst x v1 (i_subst y v2 c)
+    f x v1 (f y v2 c)
     =
-    i_subst y v2 (i_subst x v1 c).
+    f y v2 (f x v1 c).
   Proof.
     induction c; intros; simpl.
     - reflexivity.
@@ -141,7 +141,7 @@ Section Defs.
 
   Lemma i_subst_subst_eq_1:
     forall e1 e2 x c,
-    i_subst x e1 (i_subst x e2 c) = i_subst x (n_subst x e1 e2) c.
+    f x e1 (f x e2 c) = f x (n_subst x e1 e2) c.
   Proof.
     induction c; intros; simpl.
     - reflexivity.

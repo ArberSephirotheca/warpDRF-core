@@ -27,13 +27,13 @@ Section Props.
     | WFor c1 x (e1, e2) P c2 =>
       let (P_x, c_x) := align P in
       let P_e1 := subst x e1 P_x in
-      let c_e1 := i_subst x (from_pure e1) c_x in
+      let c_e1 := f x (from_pure e1) c_x in
       let dec_x := from_pure (NBin NMinus (NVar x) (NNum 1)) in
       let dec_e2 := from_pure (NBin NMinus e2 (NNum 1)) in
-      let c_dec_x := i_subst x dec_x c_x in
-      let c2_dec_x := i_subst x dec_x c2 in
-      let c_dec_e2 := i_subst x dec_e2 c_x in
-      let c2_dec_e2 := i_subst x dec_e2 c2 in
+      let c_dec_x := f x dec_x c_x in
+      let c2_dec_x := f x dec_x c2 in
+      let c_dec_e2 := f x dec_e2 c_x in
+      let c2_dec_e2 := f x dec_e2 c2 in
       (NFor (n_seq c1 P_e1) x (NBin NPlus (NNum 1) e1, e2)
                         (n_seq c_dec_x (n_seq c2_dec_x P_x)),
                      CSeq.c_seq c_dec_e2 c2_dec_e2)
@@ -77,10 +77,10 @@ Section Props.
       + rename_hyp (Free.Var _ (CSeq.c_seq _ _ )) as Hc.
         apply CSeq.var_inv_c_seq in Hc.
         intuition.
-        * rename_hyp (Free.Var _ (i_subst _ _ _)) as Hc.
+        * rename_hyp (Free.Var _ (f _ _ _)) as Hc.
           apply Free.var_inv_subst in Hc.
           intuition.
-        * rename_hyp (Free.Var _ (i_subst _ _ _)) as Hc.
+        * rename_hyp (Free.Var _ (f _ _ _)) as Hc.
           apply Free.var_inv_subst in Hc.
           intuition.
   Qed.
@@ -244,7 +244,7 @@ Section Props.
     forall x v,
     NClosed v ->
     ~ WVar x P ->
-    align (w_subst x v P) = (subst x v P_x, i_subst x (from_pure v) c_x).
+    align (w_subst x v P) = (subst x v P_x, f x (from_pure v) c_x).
   Proof.
     intros.
     rewrite <- align_subst; auto.
@@ -510,7 +510,7 @@ Section Props.
     RPick r n ->
     ~ WVar x P ->
     forall a,
-    CIn a (i_subst x (from_pure v) c_x) ->
+    CIn a (f x (from_pure v) c_x) ->
     WLang.ILast a (w_subst x v P).
   Proof.
     intros.
@@ -571,7 +571,7 @@ Section Props.
     forall e n,
     RPick r n ->
     NStep e n ->
-    CPairIn p (i_subst x (from_pure e) c_x) ->
+    CPairIn p (f x (from_pure e) c_x) ->
     WLang.IPairIn p (WFor c1 x r P c2).
   Proof.
     intros.
@@ -883,7 +883,7 @@ Section Props.
     IPairIn (a1, a2) (n_seq c P).
   Proof.
     induction P; simpl; intros a1 c a2 Hi Hf; invc Hf.
-    - assert (CPairIn (a1, a2) (CSeq.c_seq c i)). {
+    - assert (CPairIn (a1, a2) (CSeq.c_seq c t)). {
         auto using c_pair_in_def, c_in_c_seq_l, c_in_c_seq_r.
       }
       auto using i_pair_in_sync.
@@ -898,7 +898,7 @@ Section Props.
     IPairIn (a1, a2) (n_seq c P).
   Proof.
     induction P; simpl; intros a1 c a2 Hf Hi; invc Hf.
-    - assert (CPairIn (a1, a2) (CSeq.c_seq c i)). {
+    - assert (CPairIn (a1, a2) (CSeq.c_seq c t)). {
         auto using c_pair_in_def, c_in_c_seq_l, c_in_c_seq_r.
       }
       auto using i_pair_in_sync.
@@ -938,7 +938,7 @@ Section Props.
     align P = (P_x, c_x) ->
     WLang.CanRun (w_subst x n P) ->
     ILast a (w_subst x e P) ->
-    CIn a (i_subst x (from_pure e') c_x).
+    CIn a (f x (from_pure e') c_x).
   Proof.
     intros.
     rename_hyp (ILast _ _) as hl.
