@@ -296,7 +296,7 @@ Section Defs.
       rename n0 into n'.
       apply x_run_for_cons_neq with (r:=r) (r':=r') (n:=n'); auto.
       + apply IHRun1; auto.
-        rewrite i_subst_subst_neq_3; auto.
+        rewrite subst_subst_neq_3; auto.
         eauto using n_step_to_not_free.
       + apply IHRun2; auto.
         simpl.
@@ -353,7 +353,7 @@ Section Defs.
       assert (Hx: Run n (f x e (f y (NNum n0) i)) h1). {
         eauto.
       }
-      rewrite i_subst_subst_neq_3 in Hx; auto.
+      rewrite subst_subst_neq_3 in Hx; auto.
       eauto using n_step_to_not_free.
     - destruct (Set_VAR.MF.eq_dec x y). {
         subst.

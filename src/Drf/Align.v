@@ -159,16 +159,16 @@ Section Props.
         apply eq_pair_def; auto. {
           apply eq_n_for_def; auto.
           apply eq_n_seq_def; auto.
-          rewrite subst_subst_eq_1.
+          rewrite ALang.subst_subst_eq_1.
           reflexivity.
         }
         apply eq_c_seq_def. {
-          repeat rewrite i_subst_subst_eq_1.
+          repeat rewrite Subst.subst_subst_eq_1.
           rewrite <- N.Exp.n_subst_from_pure.
           simpl.
           reflexivity.
         }
-        repeat rewrite i_subst_subst_eq_1.
+        repeat rewrite Subst.subst_subst_eq_1.
         rewrite <- N.Exp.n_subst_from_pure.
         simpl.
         reflexivity.
@@ -193,7 +193,7 @@ Section Props.
           2: { intuition. }
           simpl in Ht'.
           invc Ht'.
-          rewrite i_subst_subst_neq_3; auto.
+          rewrite Subst.subst_subst_neq_3; auto.
           - rewrite <- N.Exp.n_free_from_pure.
             auto.
           - assert (hx :
@@ -204,7 +204,7 @@ Section Props.
             intuition.
         }
         apply eq_n_seq_def. {
-          rewrite i_subst_subst_neq_3; auto.
+          rewrite Subst.subst_subst_neq_3; auto.
           - rewrite <- N.Exp.n_free_from_pure.
             auto.
           - assert (hx :
@@ -683,7 +683,7 @@ Section Props.
           * intros.
             apply IH; auto using WLang.distinct_subst.
           * auto using r_pick_impl_2.
-          * rewrite i_subst_subst_eq_1 in Hp.
+          * rewrite Subst.subst_subst_eq_1 in Hp.
             simpl in Hp.
             remove_eq x x.
             assert (hy: N.Exp.NNum (m - 1) =
@@ -695,7 +695,7 @@ Section Props.
         + apply i_pair_in_inv_n_seq in Hp.
           destruct Hp as [Hp|[Hp|Hp]].
           * (* p \in c2 [m - 1] *)
-            rewrite i_subst_subst_eq_1 in Hp.
+            rewrite Subst.subst_subst_eq_1 in Hp.
             simpl in Hp.
             remove_eq x x.
             eapply WLang.i_pair_in_for_2 with (n:=m - 1); eauto using n_step_num. {
@@ -723,7 +723,7 @@ Section Props.
               auto using n_step_num, n_step_succ_minus_one
             .
             destruct Hp as [(Hp1, Hp2)|(Hp1, Hp2)];
-              rewrite i_subst_subst_eq_1 in Hp1;
+              rewrite Subst.subst_subst_eq_1 in Hp1;
               simpl in Hp1;
               remove_eq x x.
             {
@@ -748,14 +748,14 @@ Section Props.
           destruct Hi as (n1, (?, Hi)).
           subst.
           destruct Hp as [(Hp1, Hp2)|(Hp1, Hp2)];
-            rewrite i_subst_subst_eq_1 in Hp1;
+            rewrite Subst.subst_subst_eq_1 in Hp1;
             simpl in Hp1;
             remove_eq x x
           . {
             apply i_first_inv_n_seq in Hp2.
             destruct Hp2 as [Hp2|Hp2]. {
               (* a1 \in cx[m - 1] /\ a2 \in c2[m - 1] *)
-              rewrite i_subst_subst_eq_1 in Hp2; simpl in Hp2; remove_eq x x.
+              rewrite Subst.subst_subst_eq_1 in Hp2; simpl in Hp2; remove_eq x x.
               apply WLang.i_pair_in_for_3
                 with (n:=n1) (e:=(NBin NMinus (S n1) 1));
                 auto using r_pick_impl_1, r_pick2_to_pick, n_step_succ_minus_one.
@@ -781,7 +781,7 @@ Section Props.
           }
           apply i_first_inv_n_seq in Hp2.
           destruct Hp2 as [Hp2|Hp2]. {
-            rewrite i_subst_subst_eq_1 in Hp2; simpl in Hp2; remove_eq x x.
+            rewrite Subst.subst_subst_eq_1 in Hp2; simpl in Hp2; remove_eq x x.
             apply WLang.i_pair_in_for_3
               with (n:=n1) (e:=(NBin NMinus (S n1) 1));
               auto using r_pick_impl_1, r_pick2_to_pick, n_step_succ_minus_one.
@@ -1091,7 +1091,7 @@ Section Props.
       }
       rewrite n_seq_subst.
       apply i_pair_in_n_seq_l.
-      rewrite i_subst_subst_eq_1.
+      rewrite Subst.subst_subst_eq_1.
       simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       assert (hx:
@@ -1140,7 +1140,7 @@ Section Props.
       apply i_pair_in_n_seq_r.
       rewrite n_seq_subst.
       apply i_pair_in_n_seq_l.
-      rewrite i_subst_subst_eq_1.
+      rewrite Subst.subst_subst_eq_1.
       simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       assert (hx:
@@ -1203,8 +1203,8 @@ Section Props.
       rewrite subst_n_seq.
       rewrite <- n_seq_c_seq.
       apply i_pair_in_n_seq_l.
-      rewrite i_subst_subst_eq_1.
-      rewrite i_subst_subst_eq_1.
+      rewrite Subst.subst_subst_eq_1.
+      rewrite Subst.subst_subst_eq_1.
       simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       apply c_pair_in_def; intuition.
@@ -1275,8 +1275,8 @@ Section Props.
       }
       rewrite subst_n_seq.
       rewrite subst_n_seq.
-      rewrite i_subst_subst_eq_1.
-      rewrite i_subst_subst_eq_1.
+      rewrite Subst.subst_subst_eq_1.
+      rewrite Subst.subst_subst_eq_1.
       apply i_pair_in_n_seq_r.
       simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
@@ -1314,8 +1314,8 @@ Section Props.
       }
       rewrite subst_n_seq.
       rewrite subst_n_seq.
-      rewrite i_subst_subst_eq_1.
-      rewrite i_subst_subst_eq_1.
+      rewrite Subst.subst_subst_eq_1.
+      rewrite Subst.subst_subst_eq_1.
       simpl.
       destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
       assert (WLang.CanRun (w_subst x (NNum n) P)) by eauto using r_pick2_to_pick.

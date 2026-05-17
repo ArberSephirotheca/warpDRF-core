@@ -121,7 +121,7 @@ Section Defs.
      econstructor; eauto.
      assert (~ NFree x (NNum n)) by auto using n_free_num.
      assert (~ NFree y v) by eauto using n_step_to_not_free.
-     rewrite i_subst_subst_neq_3; eauto.
+     rewrite subst_subst_neq_3; eauto.
    - destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
      econstructor; eauto.
    - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
@@ -157,7 +157,7 @@ Section Defs.
         eapply s_i_in_for_eq; eauto.
       }
       assert (r1: f x (NNum n) (f y v i_src) = f y v (f x (NNum n) i_src)). {
-        rewrite i_subst_subst_neq_3; eauto using n_step_to_not_free.
+        rewrite subst_subst_neq_3; eauto using n_step_to_not_free.
       }
       eapply IHHi in r1; eauto.
       eapply s_i_in_for_neq; eauto.

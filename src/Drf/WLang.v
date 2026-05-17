@@ -73,7 +73,7 @@ Section Defs.
   Proof.
     induction P as [i | P1 IHP1 P2 IHP2 | i v r P0 IHP i0]; intros; simpl.
     - rewrite SIMT.N.Exp.n_free_from_pure in *.
-      rewrite i_subst_subst_neq_3; auto.
+      rewrite subst_subst_neq_3; auto.
     - rewrite IHP1; auto.
       rewrite IHP2; auto.
     - destruct (Set_VAR.MF.eq_dec y v). {
@@ -86,7 +86,7 @@ Section Defs.
         destruct (Set_VAR.MF.eq_dec x v) as [?|_]; try contradiction.
         destruct (Set_VAR.MF.eq_dec v v) as [_|?]; try contradiction.
         rewrite SIMT.N.Exp.n_free_from_pure in *.
-        rewrite i_subst_subst_neq_3; auto.
+        rewrite subst_subst_neq_3; auto.
         rewrite <- SIMT.N.Exp.n_free_from_pure in *.
         rewrite r_subst_subst_neq_3; auto.
       }
@@ -96,7 +96,7 @@ Section Defs.
         destruct (Set_VAR.MF.eq_dec v v) as [_|?]; try contradiction.
         destruct (Set_VAR.MF.eq_dec y v) as [?|_]; try contradiction.
         rewrite SIMT.N.Exp.n_free_from_pure in *.
-        rewrite i_subst_subst_neq_3; auto.
+        rewrite subst_subst_neq_3; auto.
         rewrite <- SIMT.N.Exp.n_free_from_pure in *.
         rewrite r_subst_subst_neq_3; auto.
       }
@@ -104,8 +104,8 @@ Section Defs.
       destruct (Set_VAR.MF.eq_dec x v) as [?|_]; try contradiction.
       destruct (Set_VAR.MF.eq_dec y v) as [?|_]; try contradiction.
       rewrite SIMT.N.Exp.n_free_from_pure in *.
-      rewrite i_subst_subst_neq_3; auto.
-      rewrite i_subst_subst_neq_3 with (c:=i0); auto.
+      rewrite subst_subst_neq_3; auto.
+      rewrite subst_subst_neq_3 with (c:=i0); auto.
       rewrite <- SIMT.N.Exp.n_free_from_pure in *.
       rewrite r_subst_subst_neq_3; auto.
       rewrite IHP; auto.
@@ -202,7 +202,7 @@ Section Defs.
     w_subst x e1 (w_subst x e2 P) = w_subst x (n_subst x e1 e2) P.
   Proof.
     induction P; intros; simpl.
-    - rewrite i_subst_subst_eq_1.
+    - rewrite subst_subst_eq_1.
       rewrite N.Exp.n_subst_from_pure.
       reflexivity.
     - rewrite IHP1.
@@ -212,14 +212,14 @@ Section Defs.
         subst.
         simpl.
         remove_eq v v.
-        rewrite i_subst_subst_eq_1.
+        rewrite subst_subst_eq_1.
         rewrite r_subst_subst_eq_1.
         rewrite N.Exp.n_subst_from_pure.
         reflexivity.
       }
       simpl.
       remove_eq x v.
-      repeat rewrite i_subst_subst_eq_1.
+      repeat rewrite subst_subst_eq_1.
       rewrite r_subst_subst_eq_1.
       rewrite N.Exp.n_subst_from_pure.
       rewrite IHP.
@@ -638,7 +638,7 @@ Section Defs.
           apply wvar_inv_subst in N.
           intuition.
         * rewrite w_subst_subst_neq; eauto using n_step_to_not_free.
-      + rewrite i_subst_subst_neq_3; auto.
+      + rewrite subst_subst_neq_3; auto.
         rewrite <- N.Exp.n_free_from_pure.
         auto.
       + apply IHWRun2.
@@ -668,7 +668,7 @@ Section Defs.
           apply wvar_inv_subst in N.
           auto.
         * rewrite w_subst_subst_neq; auto.
-      + rewrite Subst.i_subst_subst_neq_3; auto.
+      + rewrite Subst.subst_subst_neq_3; auto.
         rewrite <- N.Exp.n_free_from_pure.
         auto.
   Qed.
@@ -699,7 +699,7 @@ Section Defs.
           auto.
         }
         rewrite w_subst_subst_neq; auto.
-      + rewrite Subst.i_subst_subst_neq_3; auto.
+      + rewrite Subst.subst_subst_neq_3; auto.
         rewrite <- N.Exp.n_free_from_pure.
         auto.
       + assert (hw: WRun (w_subst x v (WFor Skip y r' P c2)) m2). {
@@ -723,7 +723,7 @@ Section Defs.
           intuition.
         }
         rewrite w_subst_subst_neq; auto.
-      + rewrite Subst.i_subst_subst_neq_3; auto.
+      + rewrite Subst.subst_subst_neq_3; auto.
         rewrite <- N.Exp.n_free_from_pure.
         auto.
   Qed.
@@ -1059,9 +1059,9 @@ Section Defs.
         rewrite <- N.Exp.n_free_from_pure.
         eauto using n_step_to_not_free.
       }
-      rewrite Subst.i_subst_subst_neq_3; auto.
+      rewrite Subst.subst_subst_neq_3; auto.
       assert (Hi : CIn a (Subst.f z (N.Exp.from_pure e) (Subst.f y (N.Exp.from_pure e1) t0))) by eauto.
-      rewrite Subst.i_subst_subst_neq_3 in Hi; auto.
+      rewrite Subst.subst_subst_neq_3 in Hi; auto.
       eapply c_in_subst with (n:=n0) (v:=e1); eauto.
   Qed.
 
@@ -1770,7 +1770,7 @@ Section Defs.
         intuition.
       }
       eapply x_i_pair_in_for_2 with (e:=e); eauto using n_step_to_subst.
-      rewrite i_subst_subst_neq_3; eauto.
+      rewrite subst_subst_neq_3; eauto.
       + rewrite <- N.Exp.n_free_from_pure.
         eauto using n_step_to_not_free.
       + rewrite <- N.Exp.n_free_from_pure.
@@ -1784,7 +1784,7 @@ Section Defs.
       }
       eapply x_i_pair_in_for_3 with (e:=e); eauto using n_step_to_subst.
       rewrite w_subst_subst_neq; eauto using n_step_to_not_free.
-      rewrite i_subst_subst_neq_3; eauto.
+      rewrite subst_subst_neq_3; eauto.
       + rewrite <- N.Exp.n_free_from_pure.
         eauto using n_step_to_not_free.
       + rewrite <- N.Exp.n_free_from_pure.
@@ -1815,7 +1815,7 @@ Section Defs.
       }
       apply x_i_pair_in_for_mid_1 with (e:=e) (n:=n) (e':=e'); auto using n_step_to_subst.
       rewrite w_subst_subst_neq; eauto using n_step_to_not_free.
-      rewrite i_subst_subst_neq_3; eauto.
+      rewrite subst_subst_neq_3; eauto.
       + rewrite <- N.Exp.n_free_from_pure.
         eauto using n_step_to_not_free.
       + rewrite <- N.Exp.n_free_from_pure.

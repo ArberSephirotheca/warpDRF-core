@@ -427,7 +427,7 @@ Section Props.
     subst y v2 (subst x v1 P).
   Proof.
     induction P; intros; simpl.
-    - rewrite i_subst_subst_neq_3; auto.
+    - rewrite subst_subst_neq_3; auto.
       all: rewrite <- N.Exp.n_free_from_pure.
       all: auto.
     - rewrite IHP1; auto.
@@ -493,7 +493,7 @@ Section Props.
     subst x e1 (subst x e2 P) = subst x (n_subst x e1 e2) P.
   Proof.
     induction P; intros; simpl.
-    - rewrite i_subst_subst_eq_1.
+    - rewrite subst_subst_eq_1.
       rewrite N.Exp.n_subst_from_pure.
       reflexivity.
     - rewrite IHP1.

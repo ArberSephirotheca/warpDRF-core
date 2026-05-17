@@ -366,9 +366,9 @@ Section Defs.
     clear H.
     assert (hc: CanRun (subst y e2 (subst v (Pure.N.Exp.NNum m) a2))). {
       eapply H0; eauto.
-      rewrite subst_subst_neq; eauto using Pure.N.Exp.n_step_to_not_free.
+      rewrite ALang.subst_subst_neq; eauto using Pure.N.Exp.n_step_to_not_free.
     }
-    rewrite subst_subst_neq; eauto using Pure.N.Exp.n_step_to_not_free.
+    rewrite ALang.subst_subst_neq; eauto using Pure.N.Exp.n_step_to_not_free.
   Qed.
 
   Lemma in_ph_subst:
