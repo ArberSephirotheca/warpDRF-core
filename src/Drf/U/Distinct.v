@@ -11,7 +11,7 @@ Section Defs.
     match c with
     | Skip | MemAcc _ => True
     | If _ c1 c2 | Seq c1 c2 => Distinct c1 /\ Distinct c2
-    | For x _ c => ~ Var.t x c /\ Distinct c
+    | For x _ c | Decl x c => ~ Var.t x c /\ Distinct c
     end.
 
   Lemma distinct_subst:
@@ -23,6 +23,13 @@ Section Defs.
     induction c; simpl; auto; intros.
     - intuition.
     - intuition.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        intuition.
+      }
+      intuition.
+      apply Var.inv_subst in H2.
+      intuition.
     - destruct (Set_VAR.MF.eq_dec x v). {
         subst.
         intuition.

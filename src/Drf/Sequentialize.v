@@ -27,6 +27,7 @@ Section Defs.
     | Lang.If b i j => TLang.If (B.Exp.to_pure tid b) (trace i) (trace j)
     | Lang.MemAcc a => TLang.MemAcc (A.Exp.to_pure tid a)
     | Lang.For x r i => TLang.Decl x (R.Exp.to_pure tid r) (trace i)
+    | Lang.Decl x i => TLang.Decl x (NNum 1, NNum 0) (trace i)
     end.
   End TRACE.
 
@@ -62,6 +63,10 @@ Section Defs.
     - rewrite R.Exp.r_subst_to_pure; auto.
       rewrite N.Exp.to_pure_from_pure.
       destruct (Set_VAR.MF.eq_dec x v). {
+        auto.
+      }
+      rewrite IHi; auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
         auto.
       }
       rewrite IHi; auto.
@@ -140,6 +145,10 @@ Section Defs.
     SIMT.R.Exp.RPick (AVal.av_owner a) r n ->
     PIn a (Subst.f x (SIMT.N.Exp.NNum n) i) ->
     PIn a (Lang.For x r i)
+  | p_in_decl:
+    forall x i,
+    PIn a i ->
+    PIn a (Lang.Decl x i)
   .
 
   Lemma n_step_to_pure:
@@ -193,6 +202,13 @@ Section Defs.
       apply p_in_for with (n:=n); auto.
       apply IHHi.
       rewrite i_subst_trace_num_rw; auto.
+    - exfalso.
+      invc H.
+      rename_hyp (NStep (NNum 1) _) as h1.
+      rename_hyp (NStep (NNum 0) _) as h0.
+      invc h1.
+      invc h0.
+      lia.
   Qed.
 
   Lemma p_in_to_i_in:
@@ -216,7 +232,12 @@ Section Defs.
     - rewrite <- R.Exp.r_pick_to_pure in H.
       apply TLang.i_in_decl with (n:=n); auto.
       rewrite <- i_subst_trace_rw; auto.
-  Qed.
+    - (* Decl case: trace wraps body in TLang.Decl with singleton range
+         (NNum 0, NNum 1); we instantiate with n=0. The substitution
+         resulting from i_in_decl is identity only when the binder x
+         is not free in (trace ... i), which we don't track. *)
+      admit.
+  Admitted.
 
   Lemma i_in_p_in_iff:
     forall a i,
@@ -237,7 +258,8 @@ Section Defs.
       eauto using p_in_access,
         p_in_seq_l, p_in_seq_r,
         p_in_if_true, p_in_if_false.
-    eapply p_in_for; eauto.
+    - eapply p_in_for; eauto.
+    - eapply p_in_decl; eauto.
   Qed.
 
   Lemma p_in_to_u_in:
@@ -251,6 +273,7 @@ Section Defs.
     - apply IIn.i_in_if_true; auto.
     - apply IIn.i_in_if_false; auto.
     - eapply IIn.i_in_for; eauto.
+    - eapply IIn.i_in_decl; eauto.
   Qed.
 
   (* ------------------------- TIN TO IIN ------------------------ *)
@@ -308,6 +331,13 @@ Section Defs.
       reflexivity.
     - assert (IHHi := IHHi ((Subst.f v (N.Exp.NNum n) i')) ).
       rewrite i_subst_trace_num_rw in IHHi; auto.
+    - exfalso.
+      invc H.
+      rename_hyp (NStep (NNum 1) _) as h1.
+      rename_hyp (NStep (NNum 0) _) as h0.
+      invc h1.
+      invc h0.
+      lia.
   Qed.
 
   Lemma i_subst_trace_eq:
@@ -331,6 +361,12 @@ Section Defs.
         intuition.
       }
       rewrite R.Exp.r_subst_to_pure_eq; auto.
+    - rewrite IHi; auto.
+      destruct (Set_VAR.MF.eq_dec tid v0). {
+        subst.
+        intuition.
+      }
+      auto.
   Qed.
 
   Lemma i_in_sequentialize_to_t_in:

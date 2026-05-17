@@ -46,6 +46,10 @@ Section Defs.
     RPick (av_owner a) r n ->
     IIn a (f x (NNum n) i) ->
     IIn a (For x r i)
+  | i_in_decl:
+    forall i x,
+    IIn a i ->
+    IIn a (Decl x i)
   .
 
   Section S_IIn.
@@ -86,6 +90,15 @@ Section Defs.
     RPick (av_owner a) (r_subst x v r) n ->
     S_IIn a (f y (NNum n) i) ->
     S_IIn a (For y r i)
+  | s_i_in_decl_eq:
+    forall i,
+    IIn a i ->
+    S_IIn a (Decl x i)
+  | s_i_in_decl_neq:
+    forall i y,
+    x <> y ->
+    S_IIn a i ->
+    S_IIn a (Decl y i)
   .
   End S_IIn.
 
@@ -109,6 +122,10 @@ Section Defs.
      assert (~ NFree x (NNum n)) by auto using n_free_num.
      assert (~ NFree y v) by eauto using n_step_to_not_free.
      rewrite i_subst_subst_neq_3; eauto.
+   - destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
+     econstructor; eauto.
+   - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
+     econstructor; eauto.
   Qed.
 
   Lemma i_in_to_s_i_in:
@@ -144,6 +161,12 @@ Section Defs.
       }
       eapply IHHi in r1; eauto.
       eapply s_i_in_for_neq; eauto.
+    - rename v0 into x.
+      destruct (Set_VAR.MF.eq_dec y x). {
+        subst.
+        eapply s_i_in_decl_eq; eauto.
+      }
+      eapply s_i_in_decl_neq; eauto.
   Qed.
 
   Lemma i_in_subst:
@@ -175,6 +198,8 @@ Section Defs.
     - eapply s_i_in_for_neq; eauto.
       rewrite <- r1.
       assumption.
+    - eapply s_i_in_decl_eq; eauto.
+    - eapply s_i_in_decl_neq; eauto.
   Qed.
 
   Lemma run_in_to_i_in:
@@ -215,6 +240,7 @@ Section Defs.
         rewrite R.
         assumption.
     - contradiction.
+    - apply i_in_decl. auto.
   Qed.
 
   Lemma run_all_in_to_i_in:
@@ -261,6 +287,7 @@ Section Defs.
     - rename_hyp (REmpty _ _) as he.
       contradict he.
       eauto using r_pick_to_empty.
+    - eauto.
   Qed.
 
   Lemma run_i_in_iff:

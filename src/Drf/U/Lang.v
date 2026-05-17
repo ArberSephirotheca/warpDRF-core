@@ -11,5 +11,6 @@ Section Defs.
   | Seq: t -> t -> t
   | MemAcc: access_exp -> t
   | For : var -> range -> t -> t
+  | Decl : var -> t -> t
   .
 End Defs.

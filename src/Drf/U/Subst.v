@@ -15,6 +15,9 @@ Section Defs.
   | For y r i =>
     let i' := if VAR.eq_dec x y then i else f x v i in
     For y (r_subst x v r) i'
+  | Decl y i =>
+    let i' := if VAR.eq_dec x y then i else f x v i in
+    Decl y i'
   end.
 
   Infix ";;" := Seq (at level 50).
@@ -59,6 +62,12 @@ Section Defs.
       rewrite IHi.
       rewrite r_subst_subst_eq.
       reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        reflexivity.
+      }
+      rewrite IHi.
+      reflexivity.
   Qed.
 
   Lemma i_subst_subst_eq_2
@@ -74,6 +83,8 @@ Section Defs.
     - rewrite a_subst_subst_eq_2; auto.
     - rewrite r_subst_subst_eq_2; auto.
       destruct (Set_VAR.MF.eq_dec x v). { reflexivity. }
+      rewrite IHi; auto.
+    - destruct (Set_VAR.MF.eq_dec x v). { reflexivity. }
       rewrite IHi; auto.
   Qed.
 
@@ -104,6 +115,18 @@ Section Defs.
       }
       rewrite IHi; auto.
       rewrite r_subst_subst_neq; auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        destruct (Set_VAR.MF.eq_dec y v). {
+          subst.
+          contradiction.
+        }
+        reflexivity.
+      }
+      destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        reflexivity.
+      }
+      rewrite IHi; auto.
   Qed.
 
   Lemma i_subst_subst_neq_3:
@@ -137,6 +160,19 @@ Section Defs.
         reflexivity.
       }
       rewrite IHc; auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        destruct (Set_VAR.MF.eq_dec y v). {
+          subst.
+          reflexivity.
+        }
+        reflexivity.
+      }
+      destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        reflexivity.
+      }
+      rewrite IHc; auto.
   Qed.
 
   Lemma i_subst_subst_eq_1:
@@ -158,6 +194,11 @@ Section Defs.
         reflexivity.
       }
       rewrite r_subst_subst_eq_1.
+      rewrite IHc; auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        reflexivity.
+      }
       rewrite IHc; auto.
   Qed.
 End Defs.

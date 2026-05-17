@@ -16,6 +16,7 @@ Section Occurs.
     | If b i j => BFree x b \/ t x i \/ t x j
     | Seq i j => t x i \/ t x j
     | For y r i => x = y \/ RFree x r \/ t x i
+    | Decl y i => x = y \/ t x i
     end.
 
   Lemma inv_subst:
@@ -30,6 +31,8 @@ Section Occurs.
     - apply n_free_inv_subst in H.
       intuition.
     - apply r_free_inv_subst in H; intuition.
+    - destruct (Set_VAR.MF.eq_dec x v0); auto.
+      intuition.
     - destruct (Set_VAR.MF.eq_dec x v0); auto.
       intuition.
   Qed.
@@ -61,6 +64,11 @@ Section Occurs.
         contradiction.
       }
       auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        contradiction.
+      }
+      auto.
   Qed.
 
   Lemma subst_not_occurs:
@@ -80,6 +88,8 @@ Section Occurs.
     - rewrite a_subst_not_free; auto.
     - rewrite IHc; auto.
       rewrite r_subst_not_free; auto.
+      destruct (Set_VAR.MF.eq_dec x v); subst; auto.
+    - rewrite IHc; auto.
       destruct (Set_VAR.MF.eq_dec x v); subst; auto.
   Qed.
 End Occurs.

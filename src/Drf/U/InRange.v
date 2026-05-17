@@ -10,6 +10,7 @@ Section InRange.
     | Skip | MemAcc _ => False
     | If _ i j | Seq i j => t x i \/ t x j
     | For _ r i => RFree x r \/ t x i
+    | Decl _ i => t x i
     end.
 
   Lemma inv_subst:
@@ -19,6 +20,7 @@ Section InRange.
   Proof.
     induction i; simpl; intros; auto; try (destruct H; auto).
     - apply r_free_subst_neq in H; auto.
+    - destruct (Set_VAR.MF.eq_dec x v); auto.
     - destruct (Set_VAR.MF.eq_dec x v); auto.
   Qed.
 End InRange.

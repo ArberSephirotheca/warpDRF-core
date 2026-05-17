@@ -14,6 +14,7 @@ Section Free.
     | If b i j => BFree x b \/ t x i \/ t x j
     | Seq i j => t x i \/ t x j
     | For y r i => RFree x r \/ (x <> y /\ t x i)
+    | Decl y i => x <> y /\ t x i
     end.
 
   Lemma subst_not_free:
@@ -33,6 +34,8 @@ Section Free.
     - rewrite a_subst_not_free; auto.
     - rewrite r_subst_not_free; auto.
       destruct (Set_VAR.MF.eq_dec x v); subst; auto.
+      rewrite IHc; auto.
+    - destruct (Set_VAR.MF.eq_dec x v); subst; auto.
       rewrite IHc; auto.
   Qed.
 End Free.

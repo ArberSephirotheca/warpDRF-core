@@ -12,7 +12,7 @@ Section Var.
     match i with
     | Skip | MemAcc _ => False
     | If _ i j | Seq i j => t x i \/ t x j
-    | For y _ i => x = y \/ t x i
+    | For y _ i | Decl y i => x = y \/ t x i
     end.
 
   Lemma inv_subst:
@@ -21,7 +21,7 @@ Section Var.
     t y i.
   Proof.
     induction i; simpl; intros; auto; intuition.
-    destruct (Set_VAR.MF.eq_dec x v); auto.
+    all: destruct (Set_VAR.MF.eq_dec x v); auto.
   Qed.
 
   Lemma subst:
@@ -36,6 +36,16 @@ Section Var.
       destruct Hp as [Hp|Hp]; eauto.
     - rename_hyp (_ \/ _) as Hp.
       destruct Hp as [Hp|Hp]; eauto.
+    - rename_hyp (_ \/ _) as Hp.
+      destruct Hp as [Hp|Hp]. {
+        subst.
+        auto.
+      }
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        auto.
+      }
+      auto.
     - rename_hyp (_ \/ _) as Hp.
       destruct Hp as [Hp|Hp]. {
         subst.
@@ -66,6 +76,16 @@ Section Var.
     - rewrite a_subst_subst_neq_5; auto.
     - rename v into z.
       rewrite <- r_subst_subst_neq_5; auto.
+      destruct (Set_VAR.MF.eq_dec y z). {
+        subst.
+        intuition.
+      }
+      destruct (Set_VAR.MF.eq_dec x z). {
+        subst.
+        intuition.
+      }
+      rewrite IHc; auto.
+    - rename v into z.
       destruct (Set_VAR.MF.eq_dec y z). {
         subst.
         intuition.

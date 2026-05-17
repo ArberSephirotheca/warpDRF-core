@@ -24,6 +24,7 @@ Section Defs.
     | If _ _ _
     | MemAcc _
     | For _ _ _
+    | Decl _ _
       => Seq c1 c2
     | Seq c1 c3 => c_seq c1 (c_seq c3 c2)
     end.
@@ -34,6 +35,7 @@ Section Defs.
     | If _ _ _
     | MemAcc _
     | For _ _ _
+    | Decl _ _
       => false
     | Seq _ _ => true
     end.

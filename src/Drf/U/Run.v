@@ -53,6 +53,10 @@ Section Defs.
     forall x i r,
     REmpty tid r ->
     Run (For x r i) []
+  | run_decl:
+    forall x i h,
+    Run i h ->
+    Run (Decl x i) h
   .
 
   Lemma run_if_true:
@@ -101,7 +105,11 @@ Section Defs.
     forall x r i,
     RDefined tid r ->
     (forall n, RPick tid r n -> CanRun (f x (NNum n) i)) ->
-    CanRun (For x r i).
+    CanRun (For x r i)
+  | can_run_decl:
+    forall x i,
+    CanRun i ->
+    CanRun (Decl x i).
   End RUN.
 
   Definition REq i1 i2 :=
@@ -159,6 +167,7 @@ Section Defs.
     - apply List.in_app_iff in H2.
       intuition.
     - contradiction.
+    - auto.
   Qed.
 
   Lemma run_all_inv_in_eq:
@@ -242,6 +251,15 @@ Section Defs.
     forall r y i,
     REmpty tid (r_subst x e r) ->
     XRun (For y r i) []
+  | x_run_decl_eq:
+    forall i h,
+    Run tid i h ->
+    XRun (Decl x i) h
+  | x_run_decl_neq:
+    forall y i h,
+    x <> y ->
+    XRun i h ->
+    XRun (Decl y i) h
   .
   End XRun.
 
@@ -296,6 +314,13 @@ Section Defs.
         eauto using x_run_for_nil.
       }
       eapply x_run_for_nil; auto.
+    - destruct i0; inversion Heqj; subst; clear Heqj.
+      destruct (Set_VAR.MF.eq_dec x0 v). {
+        subst.
+        eapply x_run_decl_eq.
+        eassumption.
+      }
+      eapply x_run_decl_neq; eauto.
   Qed.
 
   Lemma x_run_to_run:
@@ -335,6 +360,12 @@ Section Defs.
         eapply run_for_nil; eauto.
       }
       eapply run_for_nil; eauto.
+    - destruct (Set_VAR.MF.eq_dec x x) as [_|?]; try contradiction.
+      eapply run_decl.
+      eassumption.
+    - destruct (Set_VAR.MF.eq_dec x y) as [?|_]; try contradiction.
+      eapply run_decl.
+      eauto.
   Qed.
 
   Lemma run_subst t:
@@ -383,6 +414,8 @@ Section Defs.
       eapply x_run_for_nil; eauto.
       rewrite <- r1.
       auto.
+    - eapply x_run_decl_eq; eassumption.
+    - eapply x_run_decl_neq; eauto.
   Qed.
 
   Lemma run_all_inv_skip:
@@ -430,6 +463,7 @@ Section Defs.
        + intros.
         contradict H.
         eauto using r_pick_to_empty.
+     - econstructor; eauto.
   Qed.
 
   Lemma run_all_impl:
