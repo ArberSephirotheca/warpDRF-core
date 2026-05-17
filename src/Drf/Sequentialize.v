@@ -26,14 +26,14 @@ Section Defs.
     | Lang.Seq i j => TLang.Seq (trace i) (trace j)
     | Lang.If b i j => TLang.If (B.Exp.to_pure tid b) (trace i) (trace j)
     | Lang.MemAcc a => TLang.MemAcc (A.Exp.to_pure tid a)
-    | Lang.For x r i => TLang.Decl x (R.Exp.to_pure tid r) (trace i)
-    | Lang.Decl x i => TLang.Decl x (NNum 1, NNum 0) (trace i)
+    | Lang.For x r i => TLang.BoundedDecl x (R.Exp.to_pure tid r) (trace i)
+    | Lang.Decl x i => TLang.Decl x (trace i)
     end.
   End TRACE.
 
   Definition sequentialize c : TLang.inst :=
-    TLang.Decl T1 (NNum 1, NNum TID_COUNT)
-      (TLang.Decl T2 (NNum 0, NVar T1)
+    TLang.BoundedDecl T1 (NNum 1, NNum TID_COUNT)
+      (TLang.BoundedDecl T2 (NNum 0, NVar T1)
         (TLang.Seq (trace (NVar T1) c) (trace (NVar T2) c))).
 
   (* ----------------------- SUBSTITUTION --------------------------- *)
@@ -202,13 +202,9 @@ Section Defs.
       apply p_in_for with (n:=n); auto.
       apply IHHi.
       rewrite i_subst_trace_num_rw; auto.
-    - exfalso.
-      invc H.
-      rename_hyp (NStep (NNum 1) _) as h1.
-      rename_hyp (NStep (NNum 0) _) as h0.
-      invc h1.
-      invc h0.
-      lia.
+    - apply p_in_decl.
+      apply IHHi.
+      reflexivity.
   Qed.
 
   Lemma p_in_to_i_in:
@@ -230,14 +226,10 @@ Section Defs.
       rewrite B.Exp.b_step_to_pure.
       assumption.
     - rewrite <- R.Exp.r_pick_to_pure in H.
-      apply TLang.i_in_decl with (n:=n); auto.
+      apply TLang.i_in_bounded_decl with (n:=n); auto.
       rewrite <- i_subst_trace_rw; auto.
-    - (* Decl case: trace wraps body in TLang.Decl with singleton range
-         (NNum 0, NNum 1); we instantiate with n=0. The substitution
-         resulting from i_in_decl is identity only when the binder x
-         is not free in (trace ... i), which we don't track. *)
-      admit.
-  Admitted.
+    - apply TLang.i_in_decl. auto.
+  Qed.
 
   Lemma i_in_p_in_iff:
     forall a i,
@@ -331,13 +323,6 @@ Section Defs.
       reflexivity.
     - assert (IHHi := IHHi ((Subst.f v (N.Exp.NNum n) i')) ).
       rewrite i_subst_trace_num_rw in IHHi; auto.
-    - exfalso.
-      invc H.
-      rename_hyp (NStep (NNum 1) _) as h1.
-      rename_hyp (NStep (NNum 0) _) as h0.
-      invc h1.
-      invc h0.
-      lia.
   Qed.
 
   Lemma i_subst_trace_eq:
@@ -449,19 +434,19 @@ Section Defs.
     IIn.IIn y i ->
     AVal.av_owner x < AVal.av_owner y ->
     TLang.IPairIn (x, y)
-      (TLang.Decl T1 (NNum 1, NNum TID_COUNT)
-         (TLang.Decl T2 (NNum 0, NVar T1)
+      (TLang.BoundedDecl T1 (NNum 1, NNum TID_COUNT)
+         (TLang.BoundedDecl T2 (NNum 0, NVar T1)
             (TLang.Seq (trace (NVar T1) i)
                (trace (NVar T2) i)))).
   Proof.
     intros.
-    apply TLang.i_pair_in_decl with (n:=AVal.av_owner y) (r:=(NNum 1, NNum TID_COUNT)).
+    apply TLang.i_pair_in_bounded_decl with (n:=AVal.av_owner y) (r:=(NNum 1, NNum TID_COUNT)).
     1: { eapply r_pick_def; eauto using n_step_num with *. }
     simpl.
     (* clean up goal *)
     remove_eq T1 T1.
     remove_eq T1 T2.
-    apply TLang.i_pair_in_decl with (n:=AVal.av_owner x) (r:=(NNum 0, NNum (AVal.av_owner y))).
+    apply TLang.i_pair_in_bounded_decl with (n:=AVal.av_owner x) (r:=(NNum 0, NNum (AVal.av_owner y))).
     1: { eapply r_pick_def; eauto using n_step_num with *. }
 
     simpl.
@@ -552,8 +537,8 @@ Section Defs.
     Search (av_owner _ < TID_COUNT).
     destruct X as [Hlt|Hlt]. {
       assert (TLang.IPairIn (x, y)
-         (TLang.Decl T1 (NNum 1, NNum TID_COUNT)
-            (TLang.Decl T2 (NNum 0, NVar T1)
+         (TLang.BoundedDecl T1 (NNum 1, NNum TID_COUNT)
+            (TLang.BoundedDecl T2 (NNum 0, NVar T1)
                (TLang.Seq (trace (NVar T1) i) (trace (NVar T2) i)))))
       by (
       (* We know that x < y, thus T1 = y and T2 = x *)

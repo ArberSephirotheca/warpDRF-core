@@ -27,7 +27,8 @@ Section Defs.
   | Seq: inst -> inst -> inst
   | If: bexp -> inst -> inst -> inst
   | MemAcc: access_exp -> inst
-  | Decl : var -> range -> inst -> inst
+  | BoundedDecl : var -> range -> inst -> inst
+  | Decl : var -> inst -> inst
   | Fork : inst -> inst -> inst
   .
 
@@ -37,9 +38,12 @@ Section Defs.
     | MemAcc e => MemAcc (a_subst x v e)
     | Seq i j => Seq (i_subst x v i) (i_subst x v j)
     | If b i j => If (b_subst x v b) (i_subst x v i) (i_subst x v j)
-    | Decl y r i =>
+    | BoundedDecl y r i =>
       let i' := if VAR.eq_dec x y then i else i_subst x v i in
-      Decl y (r_subst x v r) i'
+      BoundedDecl y (r_subst x v r) i'
+    | Decl y i =>
+      let i' := if VAR.eq_dec x y then i else i_subst x v i in
+      Decl y i'
     | Fork i j => Fork (i_subst x v i) (i_subst x v j)
     end
   .
@@ -76,15 +80,19 @@ Section Defs.
     NRun i h1 ->
     NRun j h2 ->
     NRun (Fork i j) h2
-  | n_run_decl_cons:
+  | n_run_bounded_decl_cons:
     forall r n i x h,
     RPick r n ->
     NRun (i_subst x (NNum n) i) h ->
-    NRun (Decl x r i) h
-  | n_run_decl_nil:
+    NRun (BoundedDecl x r i) h
+  | n_run_bounded_decl_nil:
     forall r i x,
     REmpty r ->
-    NRun (Decl x r i) []
+    NRun (BoundedDecl x r i) []
+  | n_run_decl:
+    forall x i h,
+    NRun i h ->
+    NRun (Decl x i) h
   .
 
   Lemma n_run_if_true:
@@ -131,6 +139,11 @@ Section Defs.
       rewrite IHi; auto.
       rewrite r_subst_subst_eq.
       reflexivity.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        reflexivity.
+      }
+      rewrite IHi; auto.
   Qed.
 
   Lemma i_subst_subst_neq:
@@ -160,6 +173,18 @@ Section Defs.
       }
       rewrite r_subst_subst_neq; auto.
       rewrite IHi; auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        destruct (Set_VAR.MF.eq_dec y v). {
+          subst.
+          contradiction.
+        }
+        reflexivity.
+      }
+      destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        reflexivity.
+      }
+      rewrite IHi; auto.
   Qed.
 
   Lemma i_subst_subst_neq_2:
@@ -183,6 +208,15 @@ Section Defs.
         rewrite r_subst_subst_neq_2; auto.
       }
       rewrite r_subst_subst_neq_2; auto.
+      destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        reflexivity.
+      }
+      rewrite IHi; auto.
+    - destruct (Set_VAR.MF.eq_dec z v). {
+        subst.
+        reflexivity.
+      }
       destruct (Set_VAR.MF.eq_dec x v). {
         subst.
         reflexivity.
@@ -221,6 +255,19 @@ Section Defs.
       }
       rewrite r_subst_subst_neq_3; auto.
       rewrite IHc;auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        destruct (Set_VAR.MF.eq_dec y v). {
+          subst.
+          contradiction.
+        }
+        reflexivity.
+      }
+      destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        reflexivity.
+      }
+      rewrite IHc; auto.
     - rewrite IHc1; auto.
       rewrite IHc2; auto.
   Qed.
@@ -233,7 +280,8 @@ Section Defs.
     | Skip => False
     | Seq i j => Occurs x i \/ Occurs x j
     | If b i j => BFree x b \/ Occurs x i \/ Occurs x j
-    | Decl y r i => x = y \/ RFree x r \/ Occurs x i 
+    | BoundedDecl y r i => x = y \/ RFree x r \/ Occurs x i
+    | Decl y i => x = y \/ Occurs x i
     | Fork i j => Occurs x i \/ Occurs x j
     end.
 
@@ -256,6 +304,11 @@ Section Defs.
       }
       rewrite r_subst_not_free; auto.
       rewrite IHi; auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
+        subst.
+        intuition.
+      }
+      rewrite IHi; auto.
     - rewrite IHi1; auto.
       rewrite IHi2; auto.
   Qed.
@@ -276,6 +329,14 @@ Section Defs.
     - rewrite a_subst_subst_trans; auto.
     - rewrite r_subst_subst_trans; auto.
       destruct (Set_VAR.MF.eq_dec x v). {
+        intuition.
+      }
+      destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        rewrite i_subst_not_occurs; auto.
+      }
+      rewrite IHi; auto.
+    - destruct (Set_VAR.MF.eq_dec x v). {
         intuition.
       }
       destruct (Set_VAR.MF.eq_dec y v). {
@@ -308,6 +369,12 @@ Section Defs.
           auto.
         }
         eauto.
+    - destruct H as [H|H]; auto.
+      destruct (Set_VAR.MF.eq_dec y v). {
+        subst.
+        auto.
+      }
+      eauto.
     - destruct H; eauto.
   Qed.
 
@@ -337,6 +404,8 @@ Section Defs.
     - destruct H as [H|[H|H]]; auto.
       + eauto using r_free_subst_neq.
       + destruct (Set_VAR.MF.eq_dec x v); auto.
+    - destruct H as [H|H]; auto.
+      destruct (Set_VAR.MF.eq_dec x v); auto.
     - destruct H; auto.
   Qed.
 
@@ -346,7 +415,7 @@ Section Defs.
     match i with
     | Skip | MemAcc _=> False
     | If _ i j | Seq i j | Fork i j => Var x i \/ Var x j
-    | Decl y _ i => x = y \/ Var x i
+    | BoundedDecl y _ i | Decl y i => x = y \/ Var x i
     end.
 
   Lemma var_not_in_fork:
@@ -377,7 +446,8 @@ Section Defs.
   match i with
   | Skip | MemAcc _ => False
   | If _ i j | Seq i j | Fork i j => InRange x i \/ InRange x j
-  | Decl _ r i => RFree x r \/ InRange x i
+  | BoundedDecl _ r i => RFree x r \/ InRange x i
+  | Decl _ i => InRange x i
   end.
 
   Lemma in_range_inv_subst_1:
@@ -387,6 +457,8 @@ Section Defs.
   Proof.
     induction i; simpl; intros; simpl; try destruct H; auto.
     - apply r_free_subst_neq in H; auto.
+    - destruct (Set_VAR.MF.eq_dec x v);
+      auto.
     - destruct (Set_VAR.MF.eq_dec x v);
       auto.
   Qed.
@@ -424,23 +496,27 @@ Section Defs.
     forall i j,
     IIn a j ->
     IIn a (Fork i j)
-  | i_in_decl:
+  | i_in_bounded_decl:
     forall r n x i,
     RPick r n ->
     IIn a (i_subst x (NNum n) i) ->
-    IIn a (Decl x r i)
+    IIn a (BoundedDecl x r i)
+  | i_in_decl:
+    forall x i,
+    IIn a i ->
+    IIn a (Decl x i)
   .
 
-  Lemma i_in_decl_r_step:
+  Lemma i_in_bounded_decl_r_step:
     forall r n r',
     RStep r n r' ->
     forall a x i,
-    IIn a (Decl x r' i) ->
-    IIn a (Decl x r i).
+    IIn a (BoundedDecl x r' i) ->
+    IIn a (BoundedDecl x r i).
   Proof.
     intros.
     invc H0.
-    apply i_in_decl with (n:=n0); eauto using r_step_pick_rev.
+    apply i_in_bounded_decl with (n:=n0); eauto using r_step_pick_rev.
   Qed.
 
   Lemma n_run_in_to_i_in:
@@ -462,8 +538,9 @@ Section Defs.
       assumption.
     - auto using i_in_fork_l.
     - auto using i_in_fork_r.
-    - apply i_in_decl with (n:=n); eauto.
+    - apply i_in_bounded_decl with (n:=n); eauto.
     - contradiction.
+    - apply i_in_decl. auto.
   Qed.
 
   Inductive CanRun : inst -> Prop :=
@@ -489,11 +566,11 @@ Section Defs.
     CanRun i ->
     CanRun j ->
     CanRun (Fork i j)
-  | can_run_decl:
+  | can_run_bounded_decl:
     forall x r i,
     RDefined r ->
     (forall n, RPick r n -> CanRun (i_subst x (NNum n) i)) ->
-    CanRun (Decl x r i).
+    CanRun (BoundedDecl x r i).
 
   Lemma can_run_to_n_run {i}:
     CanRun i ->
@@ -583,7 +660,7 @@ Section Defs.
       destruct Hx as (h, (Hn, Hi)).
       exists h.
       split; auto.
-      apply n_run_decl_cons with (n:=n); auto.
+      apply n_run_bounded_decl_cons with (n:=n); auto.
   Qed.
   (* ------------------------ PAIR IN ------------------------------------- *)
 
@@ -617,11 +694,15 @@ Section Defs.
   | i_pair_in_fork_r i j:
     IPairIn p j ->
     IPairIn p (Fork i j)
-  | i_pair_in_decl:
+  | i_pair_in_bounded_decl:
     forall n r i x,
     RPick r n ->
     IPairIn p (i_subst x (NNum n) i) ->
-    IPairIn p (Decl x r i).
+    IPairIn p (BoundedDecl x r i)
+  | i_pair_in_decl:
+    forall x i,
+    IPairIn p i ->
+    IPairIn p (Decl x i).
 
   Lemma i_one_of_sym:
     forall x y i j,
@@ -650,6 +731,7 @@ Section Defs.
     - eauto using i_pair_in_if_false.
     - eauto using i_pair_in_fork_l.
     - eauto using i_pair_in_fork_r.
+    - eapply i_pair_in_bounded_decl; eauto.
     - eapply i_pair_in_decl; eauto.
   Qed.
 
@@ -677,7 +759,9 @@ Section Defs.
     - edestruct IHHi; eauto.
       auto using i_in_fork_r.
     - edestruct IHHi; eauto.
-      eauto using i_in_decl.
+      eauto using i_in_bounded_decl.
+    - edestruct IHHi; eauto.
+      auto using i_in_decl.
   Qed.
 
   Lemma n_run_pair_in_to_i_pair_in:
@@ -717,9 +801,10 @@ Section Defs.
       auto.
     - apply i_pair_in_fork_r.
       auto.
-    - eapply i_pair_in_decl; eauto.
+    - eapply i_pair_in_bounded_decl; eauto.
     - apply pair_not_in_nil in Hi.
       contradiction.
+    - apply i_pair_in_decl; auto.
   Qed.
 
   Lemma n_run_i_pair_in_to_pair_in:
@@ -789,6 +874,6 @@ Section Defs.
       destruct hi as (h, (Hr1, hp)).
       exists h.
       split; auto.
-      eapply n_run_decl_cons; eauto.
+      eapply n_run_bounded_decl_cons; eauto.
   Qed.
 End Defs.

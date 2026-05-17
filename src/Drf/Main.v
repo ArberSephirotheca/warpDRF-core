@@ -27,7 +27,7 @@ Section Defs.
       (* case: u;sync *)
     | PhaseSplit.Phase c => Sequentialize.sequentialize c
       (* case: for^s x in n .. m {q} *)
-    | PhaseSplit.Decl x r p => TLang.Decl x r (seq p)
+    | PhaseSplit.Decl x r p => TLang.BoundedDecl x r (seq p)
     end.
 
   Definition seq_l l :=
@@ -81,7 +81,7 @@ Section Defs.
     - constructor.
       apply Sequentialize.i_pair_in_1; auto.
       unfold Sequentialize.sequentialize.
-      eapply TLang.i_pair_in_decl; eauto.
+      eapply TLang.i_pair_in_bounded_decl; eauto.
    - simpl in *.
     rewrite ph_to_hist_subst in hp; auto using Pure.N.Exp.n_closed_num. 2: { intuition. }
     assert (hq: PhaseSplit.PPairIn p (PhaseSplit.ph_subst v (Pure.N.Exp.NNum n) ph)). {
@@ -114,7 +114,7 @@ Section Defs.
     induction H; simpl; intros a1 a2 heq hneq ht1 ht2 hvv.
     - subst.
       auto using Sequentialize.i_pair_in_2.
-    - eapply TLang.i_pair_in_decl; eauto.
+    - eapply TLang.i_pair_in_bounded_decl; eauto.
       rewrite ph_to_hist_subst; auto using Pure.N.Exp.n_closed_num.
       2: { intuition. }
       eapply IHPPairIn; eauto using PhaseSplit.not_var_subst.
@@ -817,7 +817,7 @@ Module Example.
     (* seq(skip; wr[0]) *)
 Sequentialize.sequentialize (Seq Skip (MemAcc (ae_write (SIMT.N.Exp.NNum 0))));
     (* var x in 1 + 0..10; seq(skip; wr[x - 1]; wr[x]) *)
-TLang.Decl (variable "x") (NBin NPlus (NNum 1) (NNum 0), NNum 10)
+TLang.BoundedDecl (variable "x") (NBin NPlus (NNum 1) (NNum 0), NNum 10)
   (Sequentialize.sequentialize
      (Seq Skip
         (Seq (MemAcc (ae_write (N.Exp.NBin NMinus (N.Exp.NVar (variable "x")) (N.Exp.NNum 1))))
