@@ -1,7 +1,8 @@
-From Stdlib Require Import Lists.List Lia.
+From Stdlib Require Import Lists.List Bool.Bool Lia.
 From Faial.Core Require Import AVal.
 From Faial.Core Require Hist.
 From Faial.Warp Require Import Semantics Participation Speculation.
+From Faial.Warp Require Reference.
 
 Import ListNotations.
 
@@ -33,6 +34,28 @@ Definition ParticipationGuaranteed p input start expected :=
 Definition conditions p input start reference_trace reference_group :=
   MemDRF reference_trace /\
   ParticipationGuaranteed p input start reference_group.
+
+Definition read_history tid trace :=
+  filter (fun e => Nat.eqb (av_owner (access e)) tid &&
+    match av_mode (access e) with m_read => true | m_write => false end)
+    (memory_events trace).
+
+Definition same_observations input reference_trace reference_last trace last :=
+  participants reference_last = participants last /\
+  (forall tid, read_history tid reference_trace = read_history tid trace) /\
+  (forall address,
+    load input (memory (machine reference_last)) address =
+    load input (memory (machine last)) address).
+
+(* Statement of the next theorem, not a proof or an assumed axiom. Participation
+   preservation is a premise; deriving it from SSO remains a separate task. *)
+Definition SSOAgreement : Prop :=
+  forall programs input reference_trace reference_last,
+  Reference.run input programs = Some (reference_trace, reference_last) ->
+  conditions SSO input (initial programs) reference_trace (participants reference_last) ->
+  forall trace last,
+  execution SSO input (initial programs) trace last -> finished last ->
+  same_observations input reference_trace reference_last trace last.
 
 Lemma collective_orders_forward : forall trace i j t u,
   collective_orders trace i j t u -> i < j.

@@ -75,13 +75,33 @@ Nested branches, loops, repeated collective instances, full dynamic-block
 semantics, and weak memory remain out of scope. This is a bounded instantiation
 of SIMT-Step's SSO/Spec distinction, not a complete implementation of either.
 
+## Deterministic reference execution
+
+`Reference.supported` defines the initial fragment: a nonempty list of thread
+programs, each with exactly one conditional, one collective in its true branch,
+and none in its false branch. All collective calls denote one common abstract
+site. Ordinary reads, writes, and sequencing may surround the conditional and
+collective. Nested or repeated conditionals, additional
+collectives, and full-warp barriers are rejected. This checks program structure,
+not variable binding; an unresolved expression can still prevent execution.
+
+`Reference.run input programs` runs the lowest-numbered runnable thread until
+it waits or finishes, then selects the next. When no thread can advance alone,
+it attempts the SSO collective step. It reuses the existing transitions and
+returns `Some (trace, last)` only when `Participation.finished` holds. The
+function also executes racy programs; checking memory DRF remains separate.
+
+The evaluator's step bound is derived from syntax size. `advance_decreases`
+proves that every successful step decreases this measure, including collective
+steps. `Reference.run_sound` proves that success is a completed SSO execution
+of an in-fragment program. `Reference.run_failure` proves that failure on an
+in-fragment program reaches an unfinished state with no enabled action: it
+cannot be caused by insufficient fuel.
+
 ## Connection to the contract
 
-`Contract.v` fixes a reference run for the litmus: thread 0 runs to the
-collective, thread 1 runs to it, and after the collective they finish in that
-order. Its trace and participant group are proved to arise from a completed
-execution, not just assumed. This is one example of the paper's reference
-scheduling discipline, not a general reference scheduler.
+`Contract.v` retains the explicit reference traces for both litmus programs.
+`ReferenceExamples.v` proves that the reference scheduler reproduces them.
 
 The memory-DRF condition reuses Faial's `Conflict` definition. Every conflicting pair
 must have a collective between its accesses, with both threads in that
@@ -121,6 +141,17 @@ and the final value of `x` for all completed SSO executions;
 These example-specific proofs show that the SSO guarantee does not transfer to
 Spec. They are not a general proof that `conditions` implies reference agreement.
 
+`same_observations` compares participant groups, each thread's ordered read
+history (including addresses and values), and the final value at every memory
+location. It does not require the same global event order or the same internal
+representation of the memory map.
+
+`SSOAgreement` states the proposed theorem as a `Prop`: for every input and supported
+program with a successful reference run, the two contract conditions imply
+matching observations for every completed SSO execution. This proposition is
+not proved or assumed as an axiom. It still takes `ParticipationGuaranteed` as a
+premise; deriving that guarantee from the SSO rules is separate work.
+
 ## Verification
 
 - `Semantics.v`: matching full-warp barriers, unchanged memory and other warps,
@@ -135,12 +166,18 @@ Spec. They are not a general proof that `conditions` implies reference agreement
   completed Spec schedules, and inability to finish with a wrong prediction.
 - `Contract.v`: reference runs, memory-DRF classifications, participant-scoped
   ordering, and the SSO/Spec contract distinction for the single-writer example.
+- `Reference.v`: decreasing syntax size, a complete action search, successful-run
+  soundness, and failure reaching a stuck state rather than exhausting fuel.
+- `ReferenceExamples.v`: the existing litmus traces, input-dependent and partial
+  participation, 32 threads, rejected programs, unresolved expressions, and
+  read-history comparisons that ignore interleaving but preserve read values.
 
 ```sh
 dune build
 rocq check -silent -Q _build/default/src Faial \
   Faial.Warp.Semantics Faial.Warp.Examples Faial.Warp.Handoff \
-  Faial.Warp.Participation Faial.Warp.Speculation Faial.Warp.Contract
+  Faial.Warp.Participation Faial.Warp.Speculation Faial.Warp.Contract \
+  Faial.Warp.Reference Faial.Warp.ReferenceExamples
 ```
 
 Tested with Rocq 9.1.1, Stdlib 9.0.0, Dune 3.23.1, OCaml 5.2.1, and
