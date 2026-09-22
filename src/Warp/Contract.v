@@ -47,8 +47,7 @@ Definition same_observations input reference_trace reference_last trace last :=
     load input (memory (machine reference_last)) address =
     load input (memory (machine last)) address).
 
-(* Statement of the next theorem, not a proof or an assumed axiom. Participation
-   preservation is a premise; deriving it from SSO remains a separate task. *)
+(* Agreement.sso_agreement proves this contract for the bounded SSO semantics. *)
 Definition SSOAgreement : Prop :=
   forall programs input reference_trace reference_last,
   Reference.run input programs = Some (reference_trace, reference_last) ->

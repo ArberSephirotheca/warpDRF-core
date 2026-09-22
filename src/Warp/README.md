@@ -139,18 +139,41 @@ has a memory race despite both policies supplying participant-scoped ordering.
 and the final value of `x` for all completed SSO executions;
 `single_writer_spec_validated` supplies the differing speculative execution.
 These example-specific proofs show that the SSO guarantee does not transfer to
-Spec. They are not a general proof that `conditions` implies reference agreement.
+Spec. The general result for the supported SSO fragment is described below.
+
+## SSO agreement proof
 
 `same_observations` compares participant groups, each thread's ordered read
 history (including addresses and values), and the final value at every memory
 location. It does not require the same global event order or the same internal
 representation of the memory map.
 
-`SSOAgreement` states the proposed theorem as a `Prop`: for every input and supported
+`Agreement.sso_agreement` proves `SSOAgreement`: for every input and supported
 program with a successful reference run, the two contract conditions imply
-matching observations for every completed SSO execution. This proposition is
-not proved or assumed as an axiom. It still takes `ParticipationGuaranteed` as a
-premise; deriving that guarantee from the SSO rules is separate work.
+matching observations for every completed SSO execution. The proof uses the
+existing transitions without changing either execution policy:
+
+1. `Commutation.v` proves that nonconflicting steps by different threads can be
+   swapped while preserving their observations and continuations. A collective
+   and an ordinary step enabled together commute because that thread is outside
+   the collective. Memory maps are compared by their values, not their tree shape.
+2. `TraceOrder.v` proves that the permitted swaps preserve memory DRF and each
+   thread's read history, including synchronization ordering for participants.
+3. `Agreement.pull_enabled` moves the target's next action to the front of the
+   reference execution. Repeating this aligns the executions without assuming
+   that every target schedule is already DRF.
+
+The stronger `completed_sso_agreement` theorem only needs the reference run to
+be memory-DRF. In this bounded SSO model, waiting for all branch decisions also
+preserves the reference participant group. `sso_participation_guaranteed` derives
+that guarantee, and `sso_memory_drf` proves that completed target traces remain
+memory-DRF. Neither conclusion extends to Spec: the single-writer counterexample
+has a completed speculative execution with different reads and participants.
+
+The result covers the supported single-warp, single-collective fragment above,
+with ordinary SC accesses and the zero-result collective. It does not add loops,
+general dynamic blocks, additional primitives, delayed visibility, or a progress
+guarantee for target executions.
 
 ## Verification
 
@@ -170,14 +193,22 @@ premise; deriving that guarantee from the SSO rules is separate work.
   soundness, and failure reaching a stuck state rather than exhausting fuel.
 - `ReferenceExamples.v`: the existing litmus traces, input-dependent and partial
   participation, 32 threads, rejected programs, unresolved expressions, and
-  read-history comparisons that ignore interleaving but preserve read values.
+  read-history comparisons that ignore interleaving but preserve read values;
+  an all-input handoff with a data-dependent address, nonparticipant execution
+  across a collective, distinct map shapes with equal values, and Spec disagreement.
+- `Commutation.v`: memory replay, execution transport across equal memory values,
+  ordinary and collective step swaps, and preservation of enabled actions.
+- `TraceOrder.v`: preservation of memory DRF and read histories under permitted swaps.
+- `Agreement.v`: agreement for every completed SSO execution, participation
+  preservation, and memory-DRF preservation.
 
 ```sh
 dune build
 rocq check -silent -Q _build/default/src Faial \
   Faial.Warp.Semantics Faial.Warp.Examples Faial.Warp.Handoff \
   Faial.Warp.Participation Faial.Warp.Speculation Faial.Warp.Contract \
-  Faial.Warp.Reference Faial.Warp.ReferenceExamples
+  Faial.Warp.Reference Faial.Warp.TraceOrder Faial.Warp.Commutation \
+  Faial.Warp.Agreement Faial.Warp.ReferenceExamples
 ```
 
 Tested with Rocq 9.1.1, Stdlib 9.0.0, Dune 3.23.1, OCaml 5.2.1, and
