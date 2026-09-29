@@ -71,9 +71,10 @@ The symmetric singleton group and the full group are also permitted by `Spec`.
 The original uses atomic accesses. This adaptation uses ordinary SC accesses,
 so its race classification does not apply to the original atomic program.
 
-Nested branches, loops, repeated collective instances, full dynamic-block
-semantics, and weak memory remain out of scope. This is a bounded instantiation
-of SIMT-Step's SSO/Spec distinction, not a complete implementation of either.
+Nested branches, loops, repeated collective instances, and full dynamic-block
+semantics remain out of scope. This is a bounded instantiation of SIMT-Step's
+SSO/Spec distinction, not a complete implementation of either. These two
+policies use SC memory; the separate delayed-memory SSO model is described below.
 
 ## Deterministic reference execution
 
@@ -170,10 +171,87 @@ that guarantee, and `sso_memory_drf` proves that completed target traces remain
 memory-DRF. Neither conclusion extends to Spec: the single-writer counterexample
 has a completed speculative execution with different reads and participants.
 
-The result covers the supported single-warp, single-collective fragment above,
-with ordinary SC accesses and the zero-result collective. It does not add loops,
-general dynamic blocks, additional primitives, delayed visibility, or a progress
-guarantee for target executions.
+This agreement proof covers the supported single-warp, single-collective fragment
+above, with ordinary SC accesses and the zero-result collective. Progress and
+delayed visibility have separate proofs below. None of these proofs adds loops,
+general dynamic blocks, or additional primitives.
+
+## Progress of the bounded SSO model
+
+`Progress.sso_prefix_completion` strengthens the completed-execution argument:
+every SSO prefix from the same initial state still has a completion agreeing with
+a completed memory-DRF reference execution. It does not assume the target prefix
+has finished. `sso_progress` therefore rules out an unfinished stuck state, and
+`sso_maximal_agreement` establishes termination and observable agreement for any
+finite execution with no enabled action left.
+
+Every successful transition consumes syntax. `execution_length_bound` bounds a
+schedule's successful actions by the starting syntax size, and
+`no_infinite_execution` excludes infinitely many successful actions. Together
+these establish that maximal executions terminate when the reference succeeds
+and is memory-DRF. A scheduler that stops while an action remains enabled is not
+maximal. This is a result for the loop-free fragment, not unconditional
+termination of arbitrary GPU programs.
+
+## Delayed visibility
+
+`Delayed.v` defines a concrete barrier-published write-buffer model. A store
+enters the issuing thread's buffer; that thread reads its own newest write,
+while other threads read committed memory. A collective publishes all buffered
+writes of its recorded participants and removes only those writes from the
+buffers. Kernel completion publishes any remaining writes before final memory
+is observed. Publication is not allowed as an arbitrary extra scheduler action.
+Once published, writes are globally visible, but only the collective's
+participants gain synchronization ordering. This is one explicit weak model,
+not a formalization of a CUDA, PTX, or Vulkan memory specification.
+
+`DelayedExecution.v` runs the same bounded programs with unchanged SSO control
+rules. Ordinary steps use the issuing thread's memory view; collective steps
+flush the recorded group. `PublishFinal` is enabled only after every thread has
+finished. The final state requires empty buffers. A decreasing measure combining
+remaining syntax and buffered writes excludes infinite successful executions.
+
+`DelayedAgreement.delayed_sso_agreement` proves that a successful memory-DRF
+reference run agrees with every completed delayed SSO execution on participants,
+per-thread read histories, and final memory. Target traces remain memory-DRF.
+The proof does not assume that reads already agree or that target executions
+are race-free:
+
+1. Buffered writes retain a witness of their issue event and the absence of a
+   later collective involving the writer.
+2. An SC completion supplied by `sso_prefix_completion` shows that the next
+   access cannot conflict with another thread's unpublished write: there would
+   be no collective to order the pair, contradicting reference DRF.
+3. This establishes read agreement and prevents writes by distinct threads to
+   the same still-buffered location. Flushing a participant group consequently
+   preserves logical memory, which includes all issued writes.
+4. Each delayed step is matched with an SC step. Final publication needs no
+   additional SC action. The existing SC theorem then gives reference agreement.
+
+`delayed_progress` rules out stuck unfinished prefixes. Together with
+`DelayedExecution.no_infinite_execution`, `delayed_maximal_agreement` extends
+the result to maximal executions without assuming their termination separately.
+The SC speculative counterexample is unchanged; this proof concerns SSO only.
+
+## Remaining generalization
+
+| Area | Current status |
+| --- | --- |
+| Ordinary SC memory | Agreement and progress proved for the bounded fragment |
+| Delayed visibility | Concrete buffered semantics, agreement, and progress proved for that same fragment |
+| Loops and general dynamic blocks | Not implemented; require explicit dynamic occurrence identity and join/exit rules |
+| Repeated collectives | Not implemented in the participation model; the lower-level full-warp barrier model already permits repeated barriers |
+| General collective results | Not implemented; only the fixed zero-result, memory-ordering collective is covered |
+| Multiple warps | Supported by the lower-level barrier model, not by the SSO agreement theorem |
+
+The full paper theorem is not yet mechanized. The next control-flow extension
+must provide local variable updates, nested regions and loops, distinguish
+dynamic occurrences, and prove preservation of enabled operations and their
+participants. Primitive results must depend on the recorded arguments and group,
+with memory ordering a separate parameter. Simply adding syntax or assuming
+participant stability would not complete this proof. Loops also invalidate the
+current syntax-size termination argument; their termination needs a separate
+argument rather than an unconditional claim.
 
 ## Verification
 
@@ -201,6 +279,17 @@ guarantee for target executions.
 - `TraceOrder.v`: preservation of memory DRF and read histories under permitted swaps.
 - `Agreement.v`: agreement for every completed SSO execution, participation
   preservation, and memory-DRF preservation.
+- `Progress.v`: completion of arbitrary prefixes, no stuck unfinished states,
+  finite execution bounds, and agreement of maximal SSO executions.
+- `Delayed.v`: own-write visibility, scoped publication, coherent buffers, and
+  preservation of logical memory under publication.
+- `DelayedExecution.v`: executable write buffering with the existing SSO control
+  rules, run/execution equivalence, guarded final publication, and termination measure.
+- `DelayedAgreement.v`: reference-to-delayed agreement and progress derived from
+  reference DRF, without an assumed target-read or target-participation invariant.
+- `DelayedExamples.v`: an all-input indexed handoff, a racy store-buffering result
+  differing from SC, partial publication, guarded completion, and an all-schedules
+  handoff result using the general theorem.
 
 ```sh
 dune build
@@ -208,7 +297,9 @@ rocq check -silent -Q _build/default/src Faial \
   Faial.Warp.Semantics Faial.Warp.Examples Faial.Warp.Handoff \
   Faial.Warp.Participation Faial.Warp.Speculation Faial.Warp.Contract \
   Faial.Warp.Reference Faial.Warp.TraceOrder Faial.Warp.Commutation \
-  Faial.Warp.Agreement Faial.Warp.ReferenceExamples
+  Faial.Warp.Agreement Faial.Warp.ReferenceExamples Faial.Warp.Progress \
+  Faial.Warp.Delayed Faial.Warp.DelayedExecution Faial.Warp.DelayedAgreement \
+  Faial.Warp.DelayedExamples
 ```
 
 Tested with Rocq 9.1.1, Stdlib 9.0.0, Dune 3.23.1, OCaml 5.2.1, and
