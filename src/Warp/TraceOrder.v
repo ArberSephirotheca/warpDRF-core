@@ -4,9 +4,11 @@ From Faial.Warp Require Import Semantics Participation Contract.
 
 Import ListNotations.
 
+(* Only independent events commute: conflicting accesses keep their order. *)
 Definition swappable (e f : event) : Prop :=
   match e, f with
-  | Memory x, Memory y => av_owner (access x) <> av_owner (access y)
+  | Memory x, Memory y =>
+      av_owner (access x) <> av_owner (access y) /\ ~ Conflict (access x) (access y)
   | Memory x, Synchronize group | Synchronize group, Memory x =>
       ~ In (av_owner (access x)) group
   | Synchronize _, Synchronize _ => False
@@ -108,7 +110,7 @@ Proof.
     rewrite !read_history_app; f_equal; unfold read_history; cbn; try reflexivity.
   destruct (Nat.eqb (av_owner (access x)) tid) eqn:Hx,
     (Nat.eqb (av_owner (access y)) tid) eqn:Hy; cbn; try reflexivity.
-  exfalso. apply Nat.eqb_eq in Hx, Hy. apply Hswap; congruence.
+  exfalso. apply Nat.eqb_eq in Hx, Hy. destruct Hswap as [Hswap _]. apply Hswap; congruence.
 Qed.
 
 Inductive reorders : list event -> list event -> Prop :=

@@ -664,7 +664,9 @@ Proof.
     destruct (thread_event_owner _ _ _ _ _ _ Ha) as [->|[x [-> Hx]]],
       (thread_event_owner _ _ _ _ _ _ Hb) as [->|[y [-> Hy]]];
       try apply reorders_refl.
-    apply (reorders_swap [] _ _ trace). cbn. congruence.
+    apply (reorders_swap [] _ _ trace). cbn. split; [congruence|]. intros Hc.
+    exact (conflicting_adjacent_accesses_reject_memory_drf
+      (Memory x :: Memory y :: trace) 0 x y eq_refl eq_refl Hc Hdrf).
   - destruct Henabled as [sync [sc Hsync]].
     destruct (collective_thread_diamond _ _ _ _ _ _ _ Hsync Ha)
       as [last [Ht [Hc Houtside]]].

@@ -78,14 +78,27 @@ Proof.
     + eapply reorders_trans; [exact Horder|now apply reorders_emit].
 Qed.
 
-Theorem sso_agreement : SSOAgreement.
+(* Reference memory DRF alone suffices: participant agreement is a conclusion. *)
+Theorem sso_agreement_from_drf : forall programs input reference_trace reference_last,
+  Reference.run input programs = Some (reference_trace, reference_last) ->
+  MemDRF reference_trace ->
+  forall trace last,
+  execution SSO input (initial programs) trace last -> finished last ->
+  same_observations input reference_trace reference_last trace last.
 Proof.
-  intros programs input reference_trace reference_last Hreference [Hdrf _]
+  intros programs input reference_trace reference_last Hreference Hdrf
     trace last Htarget Hdone.
   apply Reference.run_sound in Hreference as [_ [Hreference Hrefdone]].
   destruct (completed_sso_agreement _ _ _ _ Htarget Hdone
     _ _ Hreference Hrefdone Hdrf) as [[_ [_ [Hgroup Hmemory]]] Horder].
   split; [exact Hgroup|]. split; [now apply reorders_read_history|exact Hmemory].
+Qed.
+
+(* The contract's participation condition is unused; SSO derives it below. *)
+Theorem sso_agreement : SSOAgreement.
+Proof.
+  intros programs input reference_trace reference_last Hreference [Hdrf _].
+  exact (sso_agreement_from_drf _ _ _ _ Hreference Hdrf).
 Qed.
 
 Corollary sso_participation_guaranteed : forall programs input reference_trace reference_last,

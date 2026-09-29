@@ -106,11 +106,17 @@ cannot be caused by insufficient fuel.
 
 The memory-DRF condition reuses Faial's `Conflict` definition. Every conflicting pair
 must have a collective between its accesses, with both threads in that
-collective's recorded group. This gives the cross-thread happens-before check
-for the bounded fragment with at most one collective. `Hist.Safe` remains a
-special case: a trace with no conflicting accesses is memory-DRF without using
-the collective's ordering. Multiple collective instances and general
-happens-before chains are not implemented by this check.
+collective's recorded group. `Hist.Safe` remains a special case: a trace with no
+conflicting accesses is memory-DRF without using the collective's ordering.
+
+`HappensBefore.v` defines the paper's transitive happens-before, in which a
+collective belongs to the program order of each participant.
+`memory_drf_iff_hb` proves that its DRF condition coincides with this check on
+every execution trace, because an execution contains at most one collective.
+`sso_agreement_hb` states the agreement theorem with the transitive order. The
+two definitions differ only with repeated collectives: `chained_collectives`
+shows an ordering through a third thread that only the transitive definition
+accepts.
 
 `conditions` conjoins reference memory DRF with `ParticipationGuaranteed`:
 every completed execution under the selected policy must preserve the reference
@@ -160,12 +166,16 @@ existing transitions without changing either execution policy:
    the collective. Memory maps are compared by their values, not their tree shape.
 2. `TraceOrder.v` proves that the permitted swaps preserve memory DRF and each
    thread's read history, including synchronization ordering for participants.
+   Only independent events are swapped: nonconflicting accesses by distinct
+   threads, or an access and a collective that excludes its thread.
 3. `Agreement.pull_enabled` moves the target's next action to the front of the
    reference execution. Repeating this aligns the executions without assuming
    that every target schedule is already DRF.
 
 The stronger `completed_sso_agreement` theorem only needs the reference run to
-be memory-DRF. In this bounded SSO model, waiting for all branch decisions also
+be memory-DRF. `sso_agreement_from_drf` states this for supported programs, and
+`sso_agreement` follows from it without using the contract's participation
+condition. In this bounded SSO model, waiting for all branch decisions also
 preserves the reference participant group. `sso_participation_guaranteed` derives
 that guarantee, and `sso_memory_drf` proves that completed target traces remain
 memory-DRF. Neither conclusion extends to Spec: the single-writer counterexample
@@ -277,8 +287,10 @@ argument rather than an unconditional claim.
 - `Commutation.v`: memory replay, execution transport across equal memory values,
   ordinary and collective step swaps, and preservation of enabled actions.
 - `TraceOrder.v`: preservation of memory DRF and read histories under permitted swaps.
-- `Agreement.v`: agreement for every completed SSO execution, participation
-  preservation, and memory-DRF preservation.
+- `Agreement.v`: agreement for every completed SSO execution from reference
+  memory DRF alone, participation preservation, and memory-DRF preservation.
+- `HappensBefore.v`: the transitive happens-before, its coincidence with the
+  single-collective check on execution traces, and agreement stated with it.
 - `Progress.v`: completion of arbitrary prefixes, no stuck unfinished states,
   finite execution bounds, and agreement of maximal SSO executions.
 - `Delayed.v`: own-write visibility, scoped publication, coherent buffers, and
@@ -299,7 +311,7 @@ rocq check -silent -Q _build/default/src Faial \
   Faial.Warp.Reference Faial.Warp.TraceOrder Faial.Warp.Commutation \
   Faial.Warp.Agreement Faial.Warp.ReferenceExamples Faial.Warp.Progress \
   Faial.Warp.Delayed Faial.Warp.DelayedExecution Faial.Warp.DelayedAgreement \
-  Faial.Warp.DelayedExamples
+  Faial.Warp.DelayedExamples Faial.Warp.HappensBefore
 ```
 
 Tested with Rocq 9.1.1, Stdlib 9.0.0, Dune 3.23.1, OCaml 5.2.1, and
