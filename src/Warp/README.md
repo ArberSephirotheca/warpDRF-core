@@ -123,9 +123,14 @@ the kernel and its reference trace, never on target executions. The latter
 requires each recorded collective group to be nonempty and contain distinct
 threads from the warp. `FullWarp` is the portable configuration: the group must
 be the whole warp, and the collective must sit in warp-uniform control flow.
-`Uniform.v` defines that for this fragment: every branch test mentions neither
-the thread identifier nor a value read from memory, and all tests share one
-value, so every thread takes the same branch in every execution.
+As in the paper, only branches around a warp primitive are constrained:
+`Uniform.v` requires each such branch test to mention neither the thread
+identifier nor a value read from memory, and all of them to share one value, so
+every thread takes the same branch around each primitive in every execution.
+Branches without a primitive may diverge
+(`divergent_branch_without_primitive_is_permitted`). In this fragment each
+thread's only branch surrounds the collective, so the rule coincides with the
+stricter per-branch check the proofs use (`supported_primitives_uniform`).
 `StructuredPartial` admits the partial group determined by the reference's
 resolved branch decisions. A run with no collective has no group to check.
 These are two configurations of the bounded model, not a model of all GPU API
@@ -340,8 +345,9 @@ argument rather than an unconditional claim.
   acceptance of every reference run by the `StructuredPartial` check.
 - `HappensBefore.v`: the transitive happens-before, its coincidence with the
   single-collective check on execution traces, and agreement stated with it.
-- `Uniform.v`: warp-uniform control flow for this fragment, and its
-  preservation by ordinary steps and collective releases.
+- `Uniform.v`: warp-uniform control flow around warp primitives, its agreement
+  with the per-branch check on supported programs, and preservation of that
+  check by ordinary steps and collective releases.
 - `SpecConformance.v`: Spec agreement under the full-warp configuration, an
   early release that never completes, and a proof that Condition 2 is needed.
 - `Progress.v`: completion of arbitrary prefixes, no stuck unfinished states,

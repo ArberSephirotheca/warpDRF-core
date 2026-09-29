@@ -180,8 +180,10 @@ Theorem spec_full_warp_agreement : forall programs input reference_trace referen
   execution Spec input (initial programs) trace last -> finished last ->
   same_observations input reference_trace reference_last trace last.
 Proof.
-  intros programs input reference_trace reference_last Hrun [Hdrf [[b Hcodes] _]]
+  intros programs input reference_trace reference_last Hrun [Hdrf [Hplacement _]]
     trace last Hexec Hdone.
+  pose proof Hrun as Hsound. apply Reference.run_sound in Hsound as [Hsupported _].
+  destruct (supported_warp_uniform _ Hsupported Hplacement) as [b Hcodes].
   apply (sso_agreement_from_drf _ _ _ _ Hrun Hdrf); [|exact Hdone].
   apply (completed_spec_is_sso _ _ _ _ b Hexec Hdone).
   split; [exact Hcodes|].

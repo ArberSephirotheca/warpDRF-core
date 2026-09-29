@@ -67,12 +67,23 @@ Proof.
   discriminate.
 Qed.
 
-(* The branch depends on the thread identifier, so it is not warp-uniform. *)
+(* The branch around the collective depends on the thread identifier, so it
+   is not warp-uniform. *)
 Example partial_branch_is_not_warp_uniform :
   ~ PermittedPlacement FullWarp [partial; partial; partial].
 Proof.
   intros [b Huniform]. apply Forall_inv in Huniform. discriminate.
 Qed.
+
+(* Only branches around primitives must be uniform: a thread-dependent branch
+   that holds no primitive is permitted. The execution model runs one branch
+   per thread, so this kernel is outside it; the example checks the rule. *)
+Example divergent_branch_without_primitive_is_permitted :
+  let divergent := Lang.Cond (NRel NEquals NTid (NNum 0))
+    (Lang.Write (NNum 1) NTid) Lang.Skip in
+  let uniform := Lang.Cond (NRel NEquals (NNum 0) (NNum 0)) Lang.AddZero Lang.Skip in
+  PermittedPlacement FullWarp [Lang.Seq divergent uniform; Lang.Seq divergent uniform].
+Proof. cbn zeta. exists true. repeat constructor. Qed.
 
 Example invalid_thread_is_not_a_partial_group :
   ~ UnambiguousParticipation StructuredPartial [partial; partial; partial] [Synchronize [3]].

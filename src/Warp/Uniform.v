@@ -3,7 +3,7 @@ From Faial.Core Require Import Var.
 From Faial.Expr.SIMT.N Require Import Exp.
 From Faial.Expr.SIMT.B Require Import Exp.
 From Faial.Warp Require Import Semantics Participation.
-From Faial.Warp Require Lang.
+From Faial.Warp Require Lang Reference.
 
 Import ListNotations.
 
@@ -25,7 +25,8 @@ Fixpoint closed_bexp (e : bexp) : bool :=
   | BNot inner => closed_bexp inner
   end.
 
-(* Every branch in the code has a closed test whose value is b. *)
+(* The strict form used by the proofs: every branch in the code has a closed
+   test whose value is b. *)
 Fixpoint uniform_tests (b : bool) (code : Lang.t) : bool :=
   match code with
   | Lang.Read _ _ body => uniform_tests b body
@@ -37,10 +38,33 @@ Fixpoint uniform_tests (b : bool) (code : Lang.t) : bool :=
   | _ => true
   end.
 
-(* Every thread takes the same branch, so a collective in the taken branch
-   runs with the whole warp in every execution. *)
+Fixpoint has_primitive (code : Lang.t) : bool :=
+  match code with
+  | Lang.AddZero | Lang.Barrier _ => true
+  | Lang.Read _ _ body => has_primitive body
+  | Lang.Seq first rest => has_primitive first || has_primitive rest
+  | Lang.Cond _ yes no => has_primitive yes || has_primitive no
+  | _ => false
+  end.
+
+(* The paper's rule: every branch around a warp primitive has a closed test
+   whose value is b. Branches without a primitive may diverge. *)
+Fixpoint primitives_uniform (b : bool) (code : Lang.t) : bool :=
+  match code with
+  | Lang.Read _ _ body => primitives_uniform b body
+  | Lang.Seq first rest => primitives_uniform b first && primitives_uniform b rest
+  | Lang.Cond test yes no =>
+      (negb (has_primitive yes || has_primitive no) ||
+       (closed_bexp test &&
+        match b_step 0 test with Some v => Bool.eqb v b | None => false end)) &&
+      primitives_uniform b yes && primitives_uniform b no
+  | _ => true
+  end.
+
+(* Every thread takes the same branch around each warp primitive, so a
+   collective in the taken branch runs with the whole warp in every execution. *)
 Definition warp_uniform (programs : list Lang.t) :=
-  exists b, Forall (fun code => uniform_tests b code = true) programs.
+  exists b, Forall (fun code => primitives_uniform b code = true) programs.
 
 Lemma closed_nexp_step : forall e tid, closed_nexp e = true -> n_step tid e = n_step 0 e.
 Proof.
@@ -167,4 +191,66 @@ Proof.
       inversion Hrelease; subst.
       constructor; [eapply uniform_tests_release; eauto|eapply IH; eauto].
     + inversion Hrelease; subst. constructor; [assumption|eapply IH; eauto].
+Qed.
+
+(* Ordinary code and a collective's body contain no branch. *)
+Local Lemma ordinary_uniform : forall b code,
+  Reference.ordinary code = true -> uniform_tests b code = true.
+Proof.
+  intros b code.
+  induction code as [x address body IH | address contents | first IH1 rest IH2 |
+    test yes IH1 no IH2 | site | |]; intros Hordinary; cbn in *; try discriminate;
+    auto.
+  apply andb_true_iff in Hordinary as [H1 H2]. now rewrite (IH1 H1), (IH2 H2).
+Qed.
+
+Local Lemma collective_body_uniform : forall b code,
+  Reference.collective_body code = true ->
+  uniform_tests b code = true /\ has_primitive code = true.
+Proof.
+  intros b code.
+  induction code as [x address body IH | address contents | first IH1 rest IH2 |
+    test yes IH1 no IH2 | site | |]; intros Hbody; cbn in *; try discriminate.
+  - exact (IH Hbody).
+  - apply orb_true_iff in Hbody as [Hbody|Hbody]; apply andb_true_iff in Hbody as [H1 H2].
+    + destruct (IH2 H2) as [Hu Hp].
+      rewrite (ordinary_uniform _ _ H1), Hu, Hp, orb_true_r. split; reflexivity.
+    + destruct (IH1 H1) as [Hu Hp].
+      rewrite (ordinary_uniform _ _ H2), Hu, Hp. split; reflexivity.
+  - split; reflexivity.
+Qed.
+
+(* In the programs the reference accepts, each thread's only branch surrounds
+   the collective, so the paper's rule and the strict form coincide. *)
+Lemma supported_primitives_uniform : forall b code,
+  Reference.supported_thread code = true ->
+  primitives_uniform b code = true -> uniform_tests b code = true.
+Proof.
+  intros b code.
+  induction code as [x address body IH | address contents | first IH1 rest IH2 |
+    test yes IH1 no IH2 | site | |]; intros Hsupported Hprimitives; cbn in *;
+    try discriminate.
+  - exact (IH Hsupported Hprimitives).
+  - apply andb_true_iff in Hprimitives as [P1 P2].
+    apply orb_true_iff in Hsupported as [Hs|Hs]; apply andb_true_iff in Hs as [H1 H2].
+    + now rewrite (ordinary_uniform _ _ H1), (IH2 H2 P2).
+    + now rewrite (IH1 H1 P1), (ordinary_uniform _ _ H2).
+  - apply andb_true_iff in Hsupported as [Hyes Hno].
+    destruct (collective_body_uniform b _ Hyes) as [Hyesu Hyesp].
+    rewrite Hyesp in Hprimitives. cbn in Hprimitives.
+    rewrite !andb_true_iff in Hprimitives.
+    destruct Hprimitives as [[[Hclosed Hvalue] _] _].
+    now rewrite Hclosed, Hvalue, Hyesu, (ordinary_uniform _ _ Hno).
+Qed.
+
+Lemma supported_warp_uniform : forall programs,
+  Reference.supported programs = true -> warp_uniform programs ->
+  exists b, Forall (fun code => uniform_tests b code = true) programs.
+Proof.
+  intros programs Hsupported [b Hprimitives]. exists b.
+  assert (Hall : forallb Reference.supported_thread programs = true).
+  { unfold Reference.supported in Hsupported.
+    destruct programs; [discriminate|exact Hsupported]. }
+  rewrite forallb_forall in Hall. rewrite Forall_forall in *.
+  intros code Hin. apply supported_primitives_uniform; auto.
 Qed.

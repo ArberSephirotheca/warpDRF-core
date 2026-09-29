@@ -16,7 +16,8 @@ target execution already forms those groups.
 
 **Warp-uniform control flow**:
 Every thread takes the same branch around a primitive, whatever the input and
-schedule. The full-warp configuration permits primitives only there.
+schedule. The full-warp configuration permits primitives only there; branches
+that contain no primitive may still diverge.
 
 **Conforming target**:
 A target that forms the groups its configuration describes. Spec conforms to
