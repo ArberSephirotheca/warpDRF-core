@@ -1,4 +1,4 @@
-From Stdlib Require Import Lists.List Arith.PeanoNat.
+From Stdlib Require Import Lists.List Arith.PeanoNat Lia.
 From Faial.Warp Require Import Semantics Participation Contract TraceOrder Commutation.
 From Faial.Warp Require Reference.
 
@@ -94,11 +94,74 @@ Proof.
   split; [exact Hgroup|]. split; [now apply reorders_read_history|exact Hmemory].
 Qed.
 
-(* The contract's participation condition is unused; SSO derives it below. *)
+(* The contract has two reference premises. This concrete SSO model also
+   supports the stronger memory-only theorem above; group agreement is kept
+   as a conclusion, not used to discharge the participation premise. *)
 Theorem sso_agreement : SSOAgreement.
 Proof.
-  intros programs input reference_trace reference_last Hreference [Hdrf _].
+  intros c programs input reference_trace reference_last Hreference [Hdrf _].
   exact (sso_agreement_from_drf _ _ _ _ Hreference Hdrf).
+Qed.
+
+Local Lemma replace_decision_length : forall (ds : list decision) tid d,
+  tid < length ds -> length (firstn tid ds ++ [d] ++ skipn (S tid) ds) = length ds.
+Proof.
+  induction ds as [|x ds IH]; intros [|tid] d Hlt; cbn in *; try lia.
+  f_equal. apply IH. lia.
+Qed.
+
+Local Lemma decide_length : forall group tid branch ds ds',
+  Commutation.decide group tid branch ds = Some ds' -> length ds' = length ds.
+Proof.
+  intros group tid [b|] ds ds' Hdecide; unfold Commutation.decide in Hdecide.
+  - destruct (nth_error ds tid) as [[]|] eqn:Hnth; try discriminate.
+    assert (Hlt : tid < length ds) by (apply nth_error_Some; congruence).
+    destruct group, b; try discriminate; inversion Hdecide; subst.
+    all: apply replace_decision_length; exact Hlt.
+  - now inversion Hdecide.
+Qed.
+
+(* A recorded group is nonempty, has no duplicates, and names only threads
+   with a branch decision. Thread steps record no group and keep the count. *)
+Local Lemma execution_groups_valid : forall input s trace last,
+  execution SSO input s trace last ->
+  forall group, In (Synchronize group) trace ->
+  group <> [] /\ NoDup group /\ Forall (fun tid => tid < length (decisions s)) group.
+Proof.
+  intros input s trace last Hexec.
+  induction Hexec as [s|a s e s' trace last Hstep Hexec IH]; intros group Hin;
+    [contradiction|].
+  destruct a as [tid|].
+  - apply thread_advance_view in Hstep
+      as [code [o [m' [code' [ds' [_ [_ [Hdecide [-> ->]]]]]]]]].
+    apply decide_length in Hdecide. cbn [decisions] in IH. rewrite <- Hdecide.
+    destruct o as [o|]; cbn [emit_event option_map In] in Hin;
+      [destruct Hin as [Hbad|Hin]; [discriminate|]|].
+    all: apply IH; exact Hin.
+  - apply collective_advance_view in Hstep
+      as [_ [_ [g [codes [Hg [Hne [_ [-> ->]]]]]]]].
+    subst g. cbn [decisions] in IH. cbn [emit_event In] in Hin.
+    destruct Hin as [Heq|Hin]; [|apply IH; exact Hin].
+    injection Heq as <-. split; [exact Hne|]. unfold entered_threads. split.
+    + apply NoDup_filter, seq_NoDup.
+    + apply Forall_forall. intros tid Htid. apply filter_In in Htid as [Htid _].
+      apply in_seq in Htid. lia.
+Qed.
+
+(* The reference run forms each group from resolved branch decisions, so every
+   run passes the StructuredPartial check: under that configuration, the
+   participation premise of SSOAgreement holds automatically. *)
+Theorem reference_structured_partial : forall programs input reference_trace reference_last,
+  Reference.run input programs = Some (reference_trace, reference_last) ->
+  UnambiguousParticipation StructuredPartial programs reference_trace.
+Proof.
+  intros programs input reference_trace reference_last Hreference.
+  split; [exact I|]. intros group Hin.
+  apply Reference.run_sound in Hreference as [_ [Hreference _]].
+  destruct (execution_groups_valid _ _ _ _ Hreference group Hin)
+    as [Hne [Hnodup Hbound]].
+  cbn [decisions initial] in Hbound. rewrite repeat_length in Hbound.
+  repeat split; auto.
 Qed.
 
 Corollary sso_participation_guaranteed : forall programs input reference_trace reference_last,

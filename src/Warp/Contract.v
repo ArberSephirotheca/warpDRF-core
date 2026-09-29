@@ -1,7 +1,7 @@
 From Stdlib Require Import Lists.List Bool.Bool Lia.
 From Faial.Core Require Import AVal.
 From Faial.Core Require Hist.
-From Faial.Warp Require Import Semantics Participation Speculation.
+From Faial.Warp Require Import Semantics Participation Speculation Uniform.
 From Faial.Warp Require Reference.
 
 Import ListNotations.
@@ -22,18 +22,40 @@ Definition MemDRF (trace : list event) :=
   collective_orders trace i j (av_owner (access e)) (av_owner (access f)) \/
   collective_orders trace j i (av_owner (access f)) (av_owner (access e)).
 
-(* One collective at most, with thread identifiers recorded in ascending order.
-   The guarantee concerns all completed executions, not one selected schedule. *)
+(* A property of target executions, derived by the agreement proof rather than
+   assumed as the reference participation condition. *)
 Definition ParticipationGuaranteed p input start expected :=
   forall trace last,
   execution p input start trace last -> finished last ->
   participants last = expected.
 
-(* Apply to observations of a reference execution, established separately.
-   This is the bounded, single-collective fragment of the two conditions. *)
-Definition conditions p input start reference_trace reference_group :=
+(* A configuration says where a collective may occur and which groups it
+   guarantees. The portable full-warp configuration permits a collective only
+   in warp-uniform control flow, with the whole warp. The structured partial
+   configuration also admits the partial group the reference forms after all
+   branch decisions. *)
+Inductive participation_config := FullWarp | StructuredPartial.
+
+Definition PermittedPlacement c programs :=
+  match c with
+  | FullWarp => warp_uniform programs
+  | StructuredPartial => True
+  end.
+
+Definition UnambiguousParticipation c programs (reference_trace : list event) :=
+  PermittedPlacement c programs /\
+  forall group, In (Synchronize group) reference_trace ->
+  group <> [] /\ NoDup group /\ Forall (fun tid => tid < length programs) group /\
+  match c with
+  | FullWarp => group = seq 0 (length programs)
+  | StructuredPartial => True
+  end.
+
+(* Both conditions inspect the kernel and its reference trace, not executions
+   of the target. *)
+Definition conditions c programs reference_trace :=
   MemDRF reference_trace /\
-  ParticipationGuaranteed p input start reference_group.
+  UnambiguousParticipation c programs reference_trace.
 
 Definition read_history tid trace :=
   filter (fun e => Nat.eqb (av_owner (access e)) tid &&
@@ -49,9 +71,9 @@ Definition same_observations input reference_trace reference_last trace last :=
 
 (* Agreement.sso_agreement proves this contract for the bounded SSO semantics. *)
 Definition SSOAgreement : Prop :=
-  forall programs input reference_trace reference_last,
+  forall c programs input reference_trace reference_last,
   Reference.run input programs = Some (reference_trace, reference_last) ->
-  conditions SSO input (initial programs) reference_trace (participants reference_last) ->
+  conditions c programs reference_trace ->
   forall trace last,
   execution SSO input (initial programs) trace last -> finished last ->
   same_observations input reference_trace reference_last trace last.
@@ -156,10 +178,10 @@ Proof.
           exact litmus_spec_participation_not_guaranteed].
 Qed.
 
-Corollary litmus_does_not_satisfy_both_conditions : forall p,
-  ~ conditions p zero_input litmus reference_trace (Some [0; 1]).
+Corollary litmus_does_not_satisfy_both_conditions : forall c programs,
+  ~ conditions c programs reference_trace.
 Proof.
-  intros p [Hmemory _]. exact (litmus_reference_not_memory_drf Hmemory).
+  intros c programs [Hmemory _]. exact (litmus_reference_not_memory_drf Hmemory).
 Qed.
 
 Example speculative_trace_not_memory_drf : ~ MemDRF speculative_trace.
@@ -241,19 +263,35 @@ Proof.
   - right. exists 2, [0; 1]. repeat split; cbn; auto; lia.
 Qed.
 
-Theorem single_writer_sso_conditions :
-  conditions SSO zero_input single_writer single_writer_reference_trace (Some [0; 1]).
+Theorem single_writer_reference_conditions :
+  conditions StructuredPartial (threads (machine single_writer))
+    single_writer_reference_trace.
 Proof.
   split; [exact single_writer_reference_memory_drf|].
-  intros trace last Hexec Hdone.
-  apply single_writer_sso_all_executions in Hexec; [|exact Hdone].
-  exact (proj1 (proj2 Hexec)).
+  split; [exact I|]. intros group Hin.
+  cbn in Hin. destruct Hin as [H|[H|[H|[H|H]]]];
+    try discriminate; try contradiction.
+  inversion H; subst group. cbn.
+  repeat split.
+  - discriminate.
+  - repeat constructor; cbn; intuition congruence.
+  - repeat constructor; lia.
 Qed.
 
-Theorem single_writer_spec_not_conditions :
-  ~ conditions Spec zero_input single_writer single_writer_reference_trace (Some [0; 1]).
+(* Both threads join only because both read zero: the branch depends on
+   memory, so the full-warp configuration does not permit the collective. *)
+Theorem single_writer_not_full_warp :
+  ~ UnambiguousParticipation FullWarp (threads (machine single_writer))
+      single_writer_reference_trace.
 Proof.
-  intros [_ Hguarantee].
+  intros [[b Huniform] _]. cbn in Huniform.
+  apply Forall_inv in Huniform. vm_compute in Huniform. discriminate.
+Qed.
+
+Theorem single_writer_spec_participation_not_guaranteed :
+  ~ ParticipationGuaranteed Spec zero_input single_writer (Some [0; 1]).
+Proof.
+  intros Hguarantee.
   destruct single_writer_spec_validated as [last [Hrun [Hdone [Hgroup _]]]].
   apply run_sound in Hrun.
   specialize (Hguarantee _ _ Hrun Hdone).

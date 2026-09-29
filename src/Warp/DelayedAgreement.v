@@ -352,10 +352,7 @@ Proof.
   assert (Hscdone : finished sc).
   { destruct Haligned as [Hcodes [Hds _]], Hdone as [Hthreads Hdecisions].
     split; [unfold Semantics.finished in *; now rewrite Hcodes|now rewrite Hds]. }
-  assert (Hconditions : conditions SSO input (initial programs) reference_trace
-    (participants reference_last)).
-  { split; [exact Hdrf|]. eapply sso_participation_guaranteed; eauto. }
-  destruct (sso_agreement _ _ _ _ Hrun Hconditions _ _ Hsc Hscdone)
+  destruct (sso_agreement_from_drf _ _ _ _ Hrun Hdrf _ _ Hsc Hscdone)
     as [Hgroup [Hreads Hmemory]].
   destruct Haligned as [_ [_ [Hparticipants Hlogical]]].
   split; [|eapply sso_memory_drf; eauto].

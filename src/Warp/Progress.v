@@ -109,7 +109,6 @@ Proof.
   intros programs input reference_trace reference_last trace last Hrun Hdrf Htarget Hstuck.
   assert (Hdone : finished last) by (eapply sso_stuck_is_finished; eauto).
   split; [exact Hdone|]. split.
-  - eapply sso_agreement; eauto. split; [exact Hdrf|].
-    eapply sso_participation_guaranteed; eauto.
+  - eapply sso_agreement_from_drf; eauto.
   - eapply sso_memory_drf; eauto.
 Qed.

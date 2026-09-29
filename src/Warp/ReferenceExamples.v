@@ -51,6 +51,40 @@ Proof.
   split; [split; repeat constructor|reflexivity].
 Qed.
 
+Example partial_group_meets_structured_contract :
+  conditions StructuredPartial [partial; partial; partial] [Synchronize [0]].
+Proof.
+  split; [apply safe_history_memory_drf; intros e f Hin; contradiction|].
+  split; [exact I|].
+  intros group [H|H]; [inversion H; subst group|contradiction].
+  repeat split; try discriminate; repeat constructor; cbn; intuition lia.
+Qed.
+
+Example partial_group_fails_full_warp_contract :
+  ~ UnambiguousParticipation FullWarp [partial; partial; partial] [Synchronize [0]].
+Proof.
+  intros [_ H]. destruct (H [0] (or_introl eq_refl)) as [_ [_ [_ Hfull]]].
+  discriminate.
+Qed.
+
+(* The branch depends on the thread identifier, so it is not warp-uniform. *)
+Example partial_branch_is_not_warp_uniform :
+  ~ PermittedPlacement FullWarp [partial; partial; partial].
+Proof.
+  intros [b Huniform]. apply Forall_inv in Huniform. discriminate.
+Qed.
+
+Example invalid_thread_is_not_a_partial_group :
+  ~ UnambiguousParticipation StructuredPartial [partial; partial; partial] [Synchronize [3]].
+Proof.
+  intros [_ H]. destruct (H [3] (or_introl eq_refl)) as [_ [_ [Hthreads _]]].
+  inversion Hthreads; cbn in *; lia.
+Qed.
+
+Example no_collective_needs_no_group : forall c programs,
+  PermittedPlacement c programs -> UnambiguousParticipation c programs [].
+Proof. intros c programs Hplacement. split; [exact Hplacement|]. intros group H; contradiction. Qed.
+
 Definition all_enter :=
   Lang.Cond (NRel NEquals (NNum 0) (NNum 0)) Lang.AddZero Lang.Skip.
 
@@ -199,11 +233,15 @@ Theorem indexed_handoff_all_sso : forall input v trace last,
 Proof.
   intros input v trace last Hexec Hdone.
   destruct (indexed_handoff_reference input v) as [reference_last [Hrun Hvalue]].
-  assert (Hconditions : conditions SSO input (initial (indexed_handoff v))
-    (indexed_handoff_trace v) (participants reference_last)).
-  { split; [apply indexed_handoff_memory_drf|].
-    eapply sso_participation_guaranteed; eauto using indexed_handoff_memory_drf. }
-  destruct (sso_agreement _ _ _ _ Hrun Hconditions _ _ Hexec Hdone)
+  assert (Hconditions : conditions FullWarp (indexed_handoff v) (indexed_handoff_trace v)).
+  { split; [apply indexed_handoff_memory_drf|]. split.
+    - exists true. unfold indexed_handoff. repeat constructor.
+    - intros group Hin. cbn in Hin.
+      destruct Hin as [H|[H|[H|[H|H]]]]; try discriminate; try contradiction.
+      inversion H; subst group. repeat split; try discriminate; try reflexivity.
+      + repeat constructor; cbn; intuition congruence.
+      + repeat constructor; cbn; lia. }
+  destruct (sso_agreement FullWarp _ _ _ _ Hrun Hconditions _ _ Hexec Hdone)
     as [_ [Hreads Hmemory]].
   split; [rewrite <- Hreads; reflexivity|]. split.
   - now rewrite <- Hmemory.
@@ -254,8 +292,8 @@ Example sso_contract_does_not_transfer_to_spec :
   exists reference_last last,
   Reference.run zero_input (threads (machine single_writer)) =
     Some (single_writer_reference_trace, reference_last) /\
-  conditions SSO zero_input single_writer single_writer_reference_trace
-    (participants reference_last) /\
+  conditions StructuredPartial (threads (machine single_writer))
+    single_writer_reference_trace /\
   execution Spec zero_input single_writer speculative_trace last /\ finished last /\
   ~ same_observations zero_input single_writer_reference_trace reference_last
       speculative_trace last.
@@ -263,7 +301,7 @@ Proof.
   destruct reference_reproduces_single_writer as [reference_last [Hreference [_ Hgroup]]].
   destruct single_writer_spec_validated as [last [Hrun [Hdone [Hspec _]]]].
   exists reference_last, last. split; [exact Hreference|].
-  split; [rewrite Hgroup; exact single_writer_sso_conditions|].
+  split; [exact single_writer_reference_conditions|].
   split; [eapply Participation.run_sound; exact Hrun|]. split; [exact Hdone|].
   intros [Heq _]. rewrite Hgroup, Hspec in Heq. discriminate.
 Qed.

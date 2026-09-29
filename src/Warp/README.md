@@ -118,10 +118,23 @@ two definitions differ only with repeated collectives: `chained_collectives`
 shows an ordering through a third thread that only the transitive definition
 accepts.
 
-`conditions` conjoins reference memory DRF with `ParticipationGuaranteed`:
-every completed execution under the selected policy must preserve the reference
-group. This is a logical property, not a static checker or a reference-only
-participation test. The two-writer adaptation fails reference memory DRF:
+`conditions` conjoins `MemDRF` with `UnambiguousParticipation`, both checked on
+the kernel and its reference trace, never on target executions. The latter
+requires each recorded collective group to be nonempty and contain distinct
+threads from the warp. `FullWarp` is the portable configuration: the group must
+be the whole warp, and the collective must sit in warp-uniform control flow.
+`Uniform.v` defines that for this fragment: every branch test mentions neither
+the thread identifier nor a value read from memory, and all tests share one
+value, so every thread takes the same branch in every execution.
+`StructuredPartial` admits the partial group determined by the reference's
+resolved branch decisions. A run with no collective has no group to check.
+These are two configurations of the bounded model, not a model of all GPU API
+rules. The successful `Reference.run` premise establishes that the trace and its
+groups actually come from the reference semantics.
+
+`ParticipationGuaranteed` is different: every completed target execution must
+preserve the reference group. It is a conclusion of the SSO agreement proof,
+not Condition 2. The two-writer adaptation fails reference memory DRF:
 both writes follow the collective and remain unordered.
 
 The separately named `single_writer` variant removes only thread 1's store.
@@ -132,6 +145,8 @@ conditional is added to the bounded semantics. Its results are:
 | Check | SSO | Spec |
 | --- | --- | --- |
 | Memory DRF of the same reference trace | Holds | Holds |
+| `FullWarp` participation: the branch depends on memory | Fails | Fails |
+| `StructuredPartial` participation of the same reference trace | Holds | Holds |
 | Every completed execution preserves the reference group `[0; 1]` | Holds | Fails |
 | Thread 0 and thread 1 read values | Always `0, 0` | `0, 1` is also possible |
 
@@ -140,13 +155,20 @@ speculative execution, only thread 0 participates; the collective therefore
 does not order its write against thread 1's later read. The speculative trace
 has a memory race despite both policies supplying participant-scoped ordering.
 
-`single_writer_reference_memory_drf`, `single_writer_sso_conditions`, and
-`single_writer_spec_not_conditions` connect the example to the contract.
+`single_writer_reference_conditions` proves both reference conditions under
+`StructuredPartial`, without assuming anything about target runs.
+`single_writer_not_full_warp` shows that `FullWarp` rejects the kernel: both
+threads join only because both read zero.
+`single_writer_spec_participation_not_guaranteed` shows that Spec can form a
+different group.
 `single_writer_sso_all_executions` proves reference read values, participation,
 and the final value of `x` for all completed SSO executions;
 `single_writer_spec_validated` supplies the differing speculative execution.
-These example-specific proofs show that the SSO guarantee does not transfer to
-Spec. The general result for the supported SSO fragment is described below.
+`sso_contract_does_not_transfer_to_spec` combines the `StructuredPartial`
+reference conditions with a completed Spec execution that disagrees, so Spec
+does not conform to `StructuredPartial`. It does conform to `FullWarp`, which
+is how the need for Condition 2 is established below. The general result for
+the supported SSO fragment is described next.
 
 ## SSO agreement proof
 
@@ -155,10 +177,12 @@ history (including addresses and values), and the final value at every memory
 location. It does not require the same global event order or the same internal
 representation of the memory map.
 
-`Agreement.sso_agreement` proves `SSOAgreement`: for every input and supported
-program with a successful reference run, the two contract conditions imply
-matching observations for every completed SSO execution. The proof uses the
-existing transitions without changing either execution policy:
+`Agreement.sso_agreement` proves `SSOAgreement`: for either configuration,
+every input and supported program with a successful reference run satisfying
+both reference conditions has matching observations in every completed SSO
+execution. This retains participant agreement as part of the conclusion: the
+reference participation check alone does not establish target agreement.
+The proof uses the existing transitions without changing either execution policy:
 
 1. `Commutation.v` proves that nonconflicting steps by different threads can be
    swapped while preserving their observations and continuations. A collective
@@ -174,17 +198,41 @@ existing transitions without changing either execution policy:
 
 The stronger `completed_sso_agreement` theorem only needs the reference run to
 be memory-DRF. `sso_agreement_from_drf` states this for supported programs, and
-`sso_agreement` follows from it without using the contract's participation
-condition. In this bounded SSO model, waiting for all branch decisions also
-preserves the reference participant group. `sso_participation_guaranteed` derives
-that guarantee, and `sso_memory_drf` proves that completed target traces remain
-memory-DRF. Neither conclusion extends to Spec: the single-writer counterexample
-has a completed speculative execution with different reads and participants.
+`sso_agreement` follows from it. The configuration premise restricts where a
+collective may occur and which reference groups are allowed; the stronger proof
+needs neither restriction because this bounded SSO model supports every
+reference group formed after all branch decisions. `reference_structured_partial` proves that every successful reference
+run passes the `StructuredPartial` check, so under that configuration the
+participation premise holds automatically. `sso_participation_guaranteed`
+derives participant agreement, and `sso_memory_drf` proves that completed target
+traces remain memory-DRF. Neither conclusion extends to Spec: the single-writer
+counterexample has a completed speculative execution with different reads and
+participants.
 
 This agreement proof covers the supported single-warp, single-collective fragment
 above, with ordinary SC accesses and the zero-result collective. Progress and
 delayed visibility have separate proofs below. None of these proofs adds loops,
 general dynamic blocks, or additional primitives.
+
+## Spec conformance and the need for Condition 2
+
+`SpecConformance.v` shows that Spec is a conforming target for `FullWarp`, and
+uses it to show that Condition 2 cannot be dropped. Spec releases a collective
+with whichever threads have entered, as `__activemask()` reports whichever
+threads have arrived. In warp-uniform control flow every thread takes the same
+branch, so a thread left out of the collective must later enter, which Spec
+rejects. `early_release_gets_stuck` shows such a run never completes.
+`completed_spec_is_sso` proves that every completed Spec run of such a kernel
+waited for all branch decisions and is also an SSO run, and
+`spec_full_warp_agreement` then gives agreement for every kernel meeting both
+`FullWarp` conditions.
+
+`participation_condition_needed` shows that Condition 2 is needed. The
+single-writer kernel is memory-DRF, but its collective sits under a branch
+that depends on memory, so it fails `FullWarp`. Spec conforms to `FullWarp`
+yet forms a different group on this kernel and reads a different value.
+`memory_drf_alone_insufficient` states the consequence: memory DRF alone does
+not give agreement on a conforming target.
 
 ## Progress of the bounded SSO model
 
@@ -288,9 +336,14 @@ argument rather than an unconditional claim.
   ordinary and collective step swaps, and preservation of enabled actions.
 - `TraceOrder.v`: preservation of memory DRF and read histories under permitted swaps.
 - `Agreement.v`: agreement for every completed SSO execution from reference
-  memory DRF alone, participation preservation, and memory-DRF preservation.
+  memory DRF alone, participation preservation, memory-DRF preservation, and
+  acceptance of every reference run by the `StructuredPartial` check.
 - `HappensBefore.v`: the transitive happens-before, its coincidence with the
   single-collective check on execution traces, and agreement stated with it.
+- `Uniform.v`: warp-uniform control flow for this fragment, and its
+  preservation by ordinary steps and collective releases.
+- `SpecConformance.v`: Spec agreement under the full-warp configuration, an
+  early release that never completes, and a proof that Condition 2 is needed.
 - `Progress.v`: completion of arbitrary prefixes, no stuck unfinished states,
   finite execution bounds, and agreement of maximal SSO executions.
 - `Delayed.v`: own-write visibility, scoped publication, coherent buffers, and
@@ -311,7 +364,8 @@ rocq check -silent -Q _build/default/src Faial \
   Faial.Warp.Reference Faial.Warp.TraceOrder Faial.Warp.Commutation \
   Faial.Warp.Agreement Faial.Warp.ReferenceExamples Faial.Warp.Progress \
   Faial.Warp.Delayed Faial.Warp.DelayedExecution Faial.Warp.DelayedAgreement \
-  Faial.Warp.DelayedExamples Faial.Warp.HappensBefore
+  Faial.Warp.DelayedExamples Faial.Warp.HappensBefore Faial.Warp.Uniform \
+  Faial.Warp.SpecConformance
 ```
 
 Tested with Rocq 9.1.1, Stdlib 9.0.0, Dune 3.23.1, OCaml 5.2.1, and
@@ -320,8 +374,8 @@ Tested with Rocq 9.1.1, Stdlib 9.0.0, Dune 3.23.1, OCaml 5.2.1, and
 To reuse the isolated local toolchain from the repository root:
 
 ```sh
-OPAMROOT=/private/tmp/warpdrf-opam-root-20260921 \
-OCAMLPATH=/private/tmp/warpdrf-opam-root-20260921/warpdrf/lib \
+OPAMROOT=/private/tmp/warpdrf-proof-check-20260928 \
+OCAMLPATH=/private/tmp/warpdrf-proof-check-20260928/warpdrf/lib \
 LIBRARY_PATH=/opt/homebrew/opt/gmp/lib \
 opam exec --switch=warpdrf -- dune build -j 4
 ```
