@@ -20,8 +20,9 @@ schedule. The full-warp configuration permits primitives only there; branches
 that contain no primitive may still diverge.
 
 **Conforming target**:
-A target that forms the groups its configuration describes. Spec conforms to
-the full-warp configuration but not to the structured partial one.
+A target that forms the groups its configuration describes. Spec, which fires a
+collective with whichever threads have arrived, does not conform to the
+structured partial configuration: which threads join depends on the schedule.
 
 **Participant agreement**:
 Target executions form the same primitive groups as the reference execution.

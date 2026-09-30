@@ -11,11 +11,11 @@ conditionals, several collectives, and structured loops with `Break` and
   group at every collective instance, gives each thread the same reads, and
   leaves the same final memory. The proof uses only condition 1
   (`agreement_from_drf`); the groups are part of the conclusion.
-- `Spec.v` proves that Spec, which releases a collective with whichever threads
-  have arrived, conforms to the full-warp configuration
-  (`spec_full_warp_agreement`). It then shows that condition 2 is needed:
-  `participation_condition_needed` gives a memory-DRF kernel on which Spec
-  disagrees with the reference.
+- `Spec.v` shows that Spec, which fires a collective with whichever threads
+  have arrived, is not a conforming target. On a kernel that is WarpDRF for
+  `StructuredPartial`, the group of a collective under Spec depends on the
+  schedule (`spec_grouping_depends_on_schedule`), so the guarantee of
+  `sso_agreement` fails for Spec (`warpdrf_fails_under_spec`).
 
 ## The model
 
@@ -102,45 +102,34 @@ assumed to be DRF. `agreement_from_drf` applies this to the reference run, and
 `sso_agreement` follows. `target_memory_drf` proves that completed target
 traces are memory-DRF.
 
-## Spec conformance and the need for condition 2
+## Spec
 
-Spec releases an instance as soon as some thread waits there, like
-`__activemask()`, which reports whichever threads have arrived. It does not
-wait for the unknown set to empty. It releases each instance at most once, so a
-thread that arrives after the release waits forever (`late_arrival_stuck`).
-`early_release_gets_stuck` shows an early release in warp-uniform code that
-leaves a run that never finishes.
+Spec is SIMT-Step's speculative target. It fires a collective as soon as some
+thread waits there, with whichever threads have arrived, like `__activemask()`;
+it does not wait for the unknown set to empty. SIMT-Step prunes a run in which
+a thread arrives after the firing. Here each instance fires at most once, so
+such a thread waits forever and the run never completes. This rule belongs to
+Spec, not to WarpDRF. Thread steps are the SSO thread steps.
 
-`completed_full_warp_spec_is_sso` proves that every completed Spec run of a
-full-warp kernel is an SSO run. `spec_full_warp_agreement` then applies
-`sso_agreement` to every kernel that meets both `FullWarp` conditions. The first
-proof abstracts each thread's code to its shape: the collectives, the loops that
-contain them, and the jumps that end their iterations. Other code is erased, and
-a conditional around a collective is resolved by its closed test.
+`spec_grouping_depends_on_schedule` shows that Spec does not conform to
+`StructuredPartial`. In `single_writer`, both threads read a flag and, when it
+is zero, meet at `AddZero`; afterwards thread 0 sets the flag. The kernel meets
+both `StructuredPartial` conditions: the reference orders thread 1's read
+before thread 0's write through the collective (`single_writer_memory_drf`),
+and every reference run passes the participation check. Under Spec, which
+threads join the collective depends on the schedule:
 
-- Every thread starts at the same shape and moves along one path of abstract
-  steps, so at a release every other thread is ahead of the waiting threads, at
-  their position, or behind them.
-- A thread ahead has already passed the instance, but Spec releases it only
-  once.
-- A thread behind would arrive after the release and never finish.
-- So in a completed run every thread waits at each instance Spec releases, and
-  that release is also enabled under SSO.
+- If thread 1 arrives in time, the collective fires with `[0; 1]`, and the run
+  is the reference run (`single_writer_on_time`).
+- If thread 0 fires it alone, it then writes 1; thread 1 reads 1 and skips the
+  collective (`single_writer_early`). The group and thread 1's read differ from
+  the reference.
 
-`participation_condition_needed` shows that condition 2 is needed. In
-`single_writer`, both threads read a flag and, when it is zero, meet at
-`AddZero`; afterwards thread 0 sets the flag. The reference orders thread 1's
-read before thread 0's write through the collective, so the kernel is
-memory-DRF (`single_writer_memory_drf`). `agreement_from_drf` therefore fixes
-the group `[0; 1]` and thread 1's read of `0` in every completed SSO execution.
-
-The collective sits under a test of a value read from memory, so the kernel
-fails `FullWarp` (`single_writer_not_full_warp`). Spec can run thread 0 alone
-through the collective; thread 1 then reads `1` and skips it
-(`single_writer_speculative`). `memory_drf_alone_insufficient` states the
-consequence: memory DRF alone does not give agreement on a conforming target.
-The same kernel meets both `StructuredPartial` conditions, so Spec does not
-conform to `StructuredPartial` (`spec_not_structured_partial`).
+The theorem states both groups: `[0; 1]` in the reference and the first Spec
+run, and `[0]` in the second. So the collective has no fixed group under Spec.
+`warpdrf_fails_under_spec` states the consequence. It takes the statement of
+`sso_agreement` for `StructuredPartial`, with Spec executions in place of SSO
+executions, and proves it false.
 
 ## Examples
 
@@ -185,9 +174,9 @@ rejected.
   of every reference run by the `StructuredPartial` check.
 - `Blocks.v`: at most one group per instance in any execution of a well-sited
   kernel.
-- `Spec.v`: completed Spec runs of full-warp kernels are SSO runs, Spec
-  agreement under `FullWarp`, late arrivals never finish, condition 2 is
-  needed, and Spec does not conform to `StructuredPartial`.
+- `Spec.v`: a kernel that is WarpDRF for `StructuredPartial`, with two
+  completed Spec runs that form different groups, one agreeing with the
+  reference and one not, and the failure of the guarantee under Spec.
 - `Tests.v`: the examples above.
 
 ```sh

@@ -321,8 +321,7 @@ Proof.
 Qed.
 
 (* Theorem 1 of the paper for SSO, under either configuration. SSO forms every
-   group by the reference's own rule, so the proof needs only condition 1;
-   condition 2 matters for other targets (Spec.v). *)
+   group by the reference's own rule, so the proof needs only condition 1. *)
 Theorem sso_agreement : forall c programs fuel input reference_trace reference_last,
   run fuel input programs = Some (reference_trace, reference_last) ->
   conditions c programs reference_trace ->
