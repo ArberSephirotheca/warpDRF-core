@@ -4,6 +4,7 @@ From Faial.Core Require Import Var AVal.
 From Faial.Expr.SIMT.N Require Import Exp.
 From Faial.Expr.SIMT.B Require Import Exp.
 From Faial.Warp Require Import Store Code Model Order Agree.
+From Faial.Warp Require Delayed.
 
 Import ListNotations.
 Open Scope string_scope.
@@ -359,6 +360,40 @@ Proof.
   - apply clos_trans_t1n in Hhb.
     inversion Hhb as [y Hstep|y z Hstep _]; exact (Hno _ Hstep).
   - apply hb_lt in Hhb. lia.
+Qed.
+
+(* Under delayed visibility (Delayed.v), a write stays pending until its
+   thread takes part in a primitive that orders memory. On the same schedule,
+   the handoff without ordering reads the stale 0 where SSO reads 1; with
+   ordering, every completed run reads 1, as under SSO. *)
+Definition handoff_schedule sync :=
+  [Thread 0; Thread 0; Thread 0; Thread 1; Release (Site 0 sync false, []);
+   Thread 1; Thread 1; Thread 0].
+
+Example nosync_handoff_delayed_stale : exists trace last,
+  Delayed.delayed_completed zero_input (handoff false) trace last /\
+  read_history 1 trace = [Observe (av_read 1 0) 0] /\
+  read_history 1 (handoff_trace false) = [Observe (av_read 1 0) 1].
+Proof.
+  destruct (Delayed.drun zero_input (handoff_schedule false)
+    (Delayed.dinitial (handoff false))) as [[trace d]|] eqn:Hrun;
+    [|vm_compute in Hrun; discriminate].
+  pose proof (Delayed.drun_sound _ _ _ _ _ Hrun) as Hexec.
+  vm_compute in Hrun. injection Hrun as <- <-.
+  eexists _, _. split.
+  - eexists. split; [exact Hexec|]. split; [reflexivity|]. cbn. finished_codes.
+  - split; reflexivity.
+Qed.
+
+Theorem sync_handoff_delayed_reads : forall trace last,
+  Delayed.delayed_completed zero_input (handoff true) trace last ->
+  read_history 1 trace = [Observe (av_read 1 0) 1].
+Proof.
+  intros trace last Hdone.
+  destruct (handoff_reference true) as [reference_last [Hrun _]].
+  destruct (Delayed.delayed_agreement_from_drf _ _ _ _ _ Hrun sync_handoff_drf _ _ Hdone)
+    as [_ [Hreads _]].
+  rewrite <- Hreads. reflexivity.
 Qed.
 
 (* A primitive with two arguments: each thread supplies tid and tid + 1, and
