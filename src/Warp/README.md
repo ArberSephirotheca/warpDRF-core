@@ -164,9 +164,8 @@ contains the same collective twice is rejected.
 | Area | Status |
 | --- | --- |
 | Memory | Sequentially consistent; agreement for completed executions |
-| Progress | No SSO run of a WarpDRF kernel gets stuck: it can always still complete (`prefix_agreement`). Termination of every schedule is not proved |
 | Delayed visibility | Not modeled |
-| Warps | One warp; no subgroups inside it and no workgroup barrier |
+| Warps | One warp; no workgroup of several warps and no workgroup barrier |
 | Control flow | Nested conditionals and structured loops with `Break` and `Continue`; no `switch` |
 | Local state | Loop counters live in memory cells a thread owns; no local variable updates |
 | Collectives | `AddZero` and `Barrier n`, which order memory among their participants; no collective results |
