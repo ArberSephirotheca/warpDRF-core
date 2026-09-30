@@ -12,11 +12,12 @@ Open Scope string_scope.
    no thread may still run it. Spec waits only for the threads known to run
    it, those whose every path reaches it. It does not wait for a thread that
    may still take a branch away from the collective, SIMT-Step's unknown
-   threads; it bets that such a thread will not come. SIMT-Step prunes a run
+   threads; it bets that such a thread will not come. SIMT-Step discards a run
    in which an unknown thread joins the collective's dynamic block after the
-   firing. Here each instance fires at most once, so that thread waits at the
-   collective forever and the run never completes. Thread steps are the SSO
-   thread steps.
+   firing. We approximate this by letting Spec fire each instance at most
+   once: a thread that joins late waits at the collective forever, so the run
+   never completes, and the theorems, which are about completed runs, never
+   count it. Thread steps are the SSO thread steps.
 
    Spec conforms to neither configuration: on a kernel that is WarpDRF for
    both, which threads join a collective depends on the schedule, even in

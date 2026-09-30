@@ -113,13 +113,15 @@ Spec is SIMT-Step's speculative target. SSO fires a collective only when no
 thread may still run it. Spec waits only for the threads known to run it,
 those whose every path reaches it (`must_reach`). It does not wait for a thread
 that may still take a branch away from the collective, which SIMT-Step calls
-unknown; it bets that such a thread will not come. SIMT-Step prunes a run in
+unknown; it bets that such a thread will not come. SIMT-Step discards a run in
 which an unknown thread joins the collective's dynamic block after the firing.
-Here each instance fires at most once, so that thread waits at the collective
-forever and the run never completes. This rule belongs to Spec, not to
-WarpDRF. Thread steps are the SSO thread steps. In `late`, each thread writes
-its own cell and then calls `AddZero` with no branch in between, so Spec must
-wait for both threads (`late_waits`).
+We approximate this by letting Spec fire each instance at most once: a thread
+that joins late waits at the collective forever, so the run never completes,
+and the theorems, which are about completed runs, never count it. Firing before
+the unknown threads have decided is specific to Spec; under SSO no thread can
+arrive after a firing. Thread steps are the SSO thread steps. In `late`, each
+thread writes its own cell and then calls `AddZero` with no branch in between,
+so Spec must wait for both threads (`late_waits`).
 
 `spec_grouping_depends_on_schedule` shows that Spec conforms to neither
 configuration. In `single_writer`, both threads read a flag and, when it is
