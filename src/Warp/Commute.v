@@ -314,10 +314,10 @@ Proof.
     unfold finished in Hdone; cbn in Hdone; rewrite Forall_forall in Hdone.
   - apply thread_view in Hstep as [c [o [m' [c' [Hc [Hthread _]]]]]].
     cbn in Hc. apply nth_error_In in Hc.
-    rewrite (Hdone _ Hc) in Hthread. discriminate.
+    destruct (Hdone _ Hc) as [-> | ->]; discriminate.
   - apply release_view in Hstep as [Harrived _]. apply Harrived. cbn.
     apply select_nil. intros tid c Hc. apply nth_error_In in Hc.
-    now rewrite (Hdone _ Hc).
+    now destruct (Hdone _ Hc) as [-> | ->].
 Qed.
 
 Lemma thread_event_owner : forall input tid s e s',

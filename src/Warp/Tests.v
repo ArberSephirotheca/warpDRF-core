@@ -185,7 +185,7 @@ Proof.
 Qed.
 
 (* A thread that has arrived at Barrier n. *)
-Definition arrived_at (n : nat) := Wait n true (fun _ _ => 0) 0 unused Skip.
+Definition arrived_at (n : nat) := Wait n true false (fun _ _ => 0) [] unused Skip.
 
 (* Each thread is before or at its first barrier. *)
 Definition crossed_state (s : state) : Prop :=
@@ -208,9 +208,9 @@ Proof.
       split; [reflexivity|]. split; [exact Hx|right; reflexivity].
   - apply release_view in Hstep as [Harrived [Hunknown _]]. exfalso.
     rewrite Hthreads in Harrived, Hunknown.
-    destruct (instance_eq_dec i (Site 1 true, [])) as [->|H1].
+    destruct (instance_eq_dec i (Site 1 true false, [])) as [->|H1].
     { destruct Hx as [-> | ->], Hy as [-> | ->]; vm_compute in Hunknown; discriminate. }
-    destruct (instance_eq_dec i (Site 2 true, [])) as [->|H2].
+    destruct (instance_eq_dec i (Site 2 true false, [])) as [->|H2].
     { destruct Hx as [-> | ->], Hy as [-> | ->]; vm_compute in Hunknown; discriminate. }
     apply Harrived. apply select_nil. intros t c Hc.
     destruct t as [|[|[|t]]]; cbn in Hc; inversion Hc; subst.
@@ -227,7 +227,7 @@ Proof.
   refine (never_finishes crossed_state zero_input _ crossed_closed _ _ _ _ Hexec Hdone).
   - intros s [x [y [Hthreads [Hx _]]]] Hfinished. unfold finished in Hfinished.
     rewrite Hthreads in Hfinished. apply Forall_inv in Hfinished.
-    destruct Hx as [-> | ->]; discriminate.
+    destruct Hx as [-> | ->]; destruct Hfinished; discriminate.
   - exists (Seq (Barrier 1) (Barrier 2)), (Seq (Barrier 2) (Barrier 1)).
     split; [reflexivity|]. split; left; reflexivity.
 Qed.
@@ -279,15 +279,15 @@ Proof.
   rewrite <- Hmemory. exact Hload.
 Qed.
 
-Definition sum_values (values : list (nat * nat)) (_ : nat) : nat :=
-  fold_right (fun p total => snd p + total) 0 values.
+Definition sum_values (values : list (nat * list nat)) (_ : nat) : nat :=
+  fold_right (fun p total => hd 0 (snd p) + total) 0 values.
 
 Definition total := variable "total".
 
 (* Each thread adds tid + 1 with a reduction that does not order memory, and
    thread 0 stores the sum it receives. *)
 Definition reduce :=
-  Prim 0 false sum_values (plus1 NTid) total
+  Prim 0 false false sum_values [plus1 NTid] total
     (Cond (tid_is 0) (Write (NNum 0) (NVar total)) Skip).
 
 Theorem reduce_result : forall trace last,
@@ -303,11 +303,11 @@ Qed.
    reads the cell. A primitive that orders memory orders the write before the
    read; one that does not leaves them racing. *)
 Definition handoff (sync : bool) :=
-  [Seq (Write (NNum 0) (NNum 1)) (Prim 0 sync (fun _ _ => 0) (NNum 0) unused Skip);
-   Prim 0 sync (fun _ _ => 0) (NNum 0) unused (Read (variable "r") (NNum 0) Skip)].
+  [Seq (Write (NNum 0) (NNum 1)) (Prim 0 sync false (fun _ _ => 0) [] unused Skip);
+   Prim 0 sync false (fun _ _ => 0) [] unused (Read (variable "r") (NNum 0) Skip)].
 
 Definition handoff_trace (sync : bool) :=
-  [Memory (Observe (av_write 0 0) 1); Sync (Site 0 sync, []) [0; 1];
+  [Memory (Observe (av_write 0 0) 1); Sync (Site 0 sync false, []) [0; 1];
    Memory (Observe (av_read 1 0) 1)].
 
 Example handoff_reference : forall sync,
@@ -360,6 +360,77 @@ Proof.
     inversion Hhb as [y Hstep|y z Hstep _]; exact (Hno _ Hstep).
   - apply hb_lt in Hhb. lia.
 Qed.
+
+(* A primitive with two arguments: each thread supplies tid and tid + 1, and
+   every participant receives the sum of the products; thread 0 stores it. *)
+Definition dot_values (values : list (nat * list nat)) (_ : nat) : nat :=
+  fold_right (fun p total =>
+    match snd p with [a; b] => a * b + total | _ => total end) 0 values.
+
+Definition dot :=
+  Prim 0 false false dot_values [NTid; plus1 NTid] total
+    (Cond (tid_is 0) (Write (NNum 0) (NVar total)) Skip).
+
+Theorem dot_result : forall trace last,
+  execution zero_input (initial [dot; dot; dot]) trace last -> finished last ->
+  load zero_input (memory last) 0 = 8.
+Proof.
+  intros trace last Hexec Hdone.
+  refine (memory_in_every_execution 100 _ 0 8 _ trace last Hexec Hdone).
+  vm_compute. split; reflexivity.
+Qed.
+
+(* A primitive that requires the whole warp (req(p) = full), run by thread 0
+   alone: the structured partial configuration rejects the kernel. *)
+Definition lone_full :=
+  Cond (tid_is 0) (Prim 0 true true (fun _ _ => 0) [] unused Skip) Skip.
+
+Theorem lone_full_rejected : forall trace last,
+  run 100 zero_input [lone_full; lone_full] = Some (trace, last) ->
+  ~ UnambiguousParticipation StructuredPartial [lone_full; lone_full] trace.
+Proof.
+  intros trace last Hrun Hpart. vm_compute in Hrun. inversion Hrun; subst.
+  destruct (Hpart (Site 0 true true, []) [0] (or_introl eq_refl)) as [_ [_ [_ Hfull]]].
+  specialize (Hfull eq_refl). vm_compute in Hfull. discriminate.
+Qed.
+
+(* Local statements, return and switch. *)
+
+Definition double := variable "double".
+
+(* Each thread computes double := 2 * tid locally and stores it in its own
+   cell. *)
+Definition doubled := Local double (fun vs => 2 * hd 0 vs) [NTid] (Write NTid (NVar double)).
+
+Theorem doubled_result : forall trace last,
+  execution zero_input (initial [doubled; doubled; doubled]) trace last -> finished last ->
+  load zero_input (memory last) 2 = 4.
+Proof.
+  intros trace last Hexec Hdone.
+  refine (memory_in_every_execution 100 _ 2 4 _ trace last Hexec Hdone).
+  vm_compute. split; reflexivity.
+Qed.
+
+(* Thread 1 returns before the barrier, so barrier 1 is met by threads 0 and 2
+   in every completed execution. *)
+Definition early_return := Seq (Cond (tid_is 1) Return Skip) (Barrier 1).
+
+Theorem early_return_groups : forall trace last,
+  execution zero_input (initial [early_return; early_return; early_return]) trace last ->
+  finished last ->
+  groups_at (BarrierSite 1, []) trace = [[0; 2]].
+Proof. groups_by_reference 100. Qed.
+
+(* Each thread picks a barrier by its thread identifier. *)
+Definition switched := Switch NTid [(0, Barrier 1); (1, Barrier 2)] (Barrier 3).
+
+Theorem switch_groups : forall trace last,
+  execution zero_input (initial [switched; switched; switched]) trace last ->
+  finished last ->
+  groups_at (BarrierSite 1, []) trace = [[0]] /\
+  groups_at (BarrierSite 2, []) trace = [[1]] /\
+  groups_at (BarrierSite 3, []) trace = [[2]].
+Proof. groups_by_reference 100. Qed.
 
 (* Loops. *)
 

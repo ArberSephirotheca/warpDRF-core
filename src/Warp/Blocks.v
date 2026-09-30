@@ -30,6 +30,7 @@ Proof.
   - now rewrite IHc1, IHc2.
   - destruct (VAR.eq_dec x v); [reflexivity|now rewrite IHc].
   - destruct (VAR.eq_dec x v); [reflexivity|now rewrite IHc].
+  - destruct (VAR.eq_dec x v); [reflexivity|apply IHc].
 Qed.
 
 Lemma static_subst : forall c x value, static (subst x value c) = static c.
@@ -39,6 +40,7 @@ Proof.
   - now rewrite IHc1, IHc2.
   - now rewrite IHc1, IHc2.
   - apply IHc.
+  - destruct (VAR.eq_dec x v); [reflexivity|apply IHc].
   - destruct (VAR.eq_dec x v); [reflexivity|apply IHc].
 Qed.
 
@@ -58,6 +60,7 @@ Proof.
   - apply orb_true_iff in H as [H|H].
     + apply andb_true_iff in H as [H _]. apply site_eqb_true in H. subst. left; reflexivity.
     + right. eapply IHc; eauto.
+  - eapply IHc; eauto.
 Qed.
 
 Lemma step_sites : forall c tid input m e m' c',
@@ -69,8 +72,10 @@ Proof.
   - cbn in H. destruct (n_step tid n), (n_step tid n0); try discriminate.
     inversion H; subst. intros a [].
   - apply step_seq_view in H as
-      [[-> [_ [_ ->]]]|[[-> [_ [_ ->]]]|[[-> [_ [_ ->]]]|[first' [Hfirst ->]]]]].
+      [[-> [_ [_ ->]]]|[[-> [_ [_ ->]]]|[[-> [_ [_ ->]]]|[[-> [_ [_ ->]]]|
+       [first' [Hfirst ->]]]]]].
     + apply incl_refl.
+    + intros a [].
     + intros a [].
     + intros a [].
     + cbn. apply incl_app_app; [eapply IHc1; eauto|apply incl_refl].
@@ -78,16 +83,22 @@ Proof.
       inversion H; subst; cbn; [apply incl_appl|apply incl_appr]; apply incl_refl.
   - cbn in H. inversion H; subst. cbn. intros a Ha.
     apply in_app_iff in Ha as [Ha|Ha]; exact Ha.
-  - apply step_iter_view in H as [[_ [_ [_ ->]]]|[[_ [_ [_ ->]]]|[rest' [Hrest ->]]]].
+  - apply step_iter_view in H as
+      [[_ [_ [_ ->]]]|[[_ [_ [_ ->]]]|[[_ [_ [_ ->]]]|[rest' [Hrest ->]]]]].
     + cbn. intros a Ha. apply in_app_iff in Ha as [Ha|Ha]; apply in_or_app; right; exact Ha.
+    + intros a [].
     + intros a [].
     + cbn. apply incl_app_app; [eapply IHc1; eauto|apply incl_refl].
   - cbn in H; discriminate.
   - cbn in H; discriminate.
-  - cbn in H. match type of H with context [n_step ?t ?a] =>
-      destruct (n_step t a) eqn:Harg end; try discriminate.
+  - cbn in H. match type of H with context [eval_all ?t ?a] =>
+      destruct (eval_all t a) eqn:Harg end; try discriminate.
     inversion H; subst. apply incl_refl.
   - cbn in H; discriminate.
+  - cbn in H; discriminate.
+  - cbn in H. match type of H with context [eval_all ?t ?a] =>
+      destruct (eval_all t a) eqn:Harg end; try discriminate.
+    inversion H; subst. rewrite sites_subst. apply incl_refl.
   - cbn in H; discriminate.
 Qed.
 
@@ -107,7 +118,7 @@ Fixpoint ws (c : code) : Prop :=
       ws first /\ static rest = true /\ NoDup (sites rest) /\
       (forall s, In s (sites first) -> ~ In s (sites rest))
   | Iter _ rest body => ws rest /\ static body = true /\ NoDup (sites body)
-  | Wait _ _ _ _ _ body => static body = true /\ NoDup (sites c)
+  | Wait _ _ _ _ _ _ body => static body = true /\ NoDup (sites c)
   | _ => static c = true /\ NoDup (sites c)
   end.
 
@@ -133,8 +144,10 @@ Proof.
     inversion H; subst. cbn. split; [reflexivity|constructor].
   - cbn in Hws. destruct Hws as [Hws1 [Hstatic [Hnodup Hdisj]]].
     apply step_seq_view in H as
-      [[-> [_ [_ ->]]]|[[-> [_ [_ ->]]]|[[-> [_ [_ ->]]]|[first' [Hfirst ->]]]]].
+      [[-> [_ [_ ->]]]|[[-> [_ [_ ->]]]|[[-> [_ [_ ->]]]|[[-> [_ [_ ->]]]|
+       [first' [Hfirst ->]]]]]].
     + apply static_ws; assumption.
+    + cbn. split; [reflexivity|constructor].
     + cbn. split; [reflexivity|constructor].
     + cbn. split; [reflexivity|constructor].
     + cbn. split; [eapply IHc1; eauto|]. split; [exact Hstatic|]. split; [exact Hnodup|].
@@ -146,16 +159,23 @@ Proof.
   - cbn in H. inversion H; subst. cbn in Hws |- *. destruct Hws as [Hs Hn].
     split; [apply static_ws; assumption|]. split; assumption.
   - cbn in Hws. destruct Hws as [Hws1 [Hs Hn]].
-    apply step_iter_view in H as [[_ [_ [_ ->]]]|[[_ [_ [_ ->]]]|[rest' [Hrest ->]]]].
+    apply step_iter_view in H as
+      [[_ [_ [_ ->]]]|[[_ [_ [_ ->]]]|[[_ [_ [_ ->]]]|[rest' [Hrest ->]]]]].
     + cbn. split; [apply static_ws; assumption|]. split; assumption.
+    + cbn. split; [reflexivity|constructor].
     + cbn. split; [reflexivity|constructor].
     + cbn. split; [eapply IHc1; eauto|]. split; assumption.
   - cbn in H; discriminate.
   - cbn in H; discriminate.
-  - cbn in H. match type of H with context [n_step ?t ?a] =>
-      destruct (n_step t a) eqn:Harg end; try discriminate.
+  - cbn in H. match type of H with context [eval_all ?t ?a] =>
+      destruct (eval_all t a) eqn:Harg end; try discriminate.
     inversion H; subst. cbn in Hws |- *. exact Hws.
   - cbn in H; discriminate.
+  - cbn in H; discriminate.
+  - cbn in H. match type of H with context [eval_all ?t ?a] =>
+      destruct (eval_all t a) eqn:Harg end; try discriminate.
+    inversion H; subst. cbn in Hws. destruct Hws as [Hs Hn].
+    apply static_ws; [now rewrite static_subst|now rewrite sites_subst].
   - cbn in H; discriminate.
 Qed.
 
@@ -193,8 +213,8 @@ Proof.
   - inversion H; subst. cbn in Hws. destruct Hws as [_ Hn].
     apply NoDup_cons_iff in Hn as [Hnotin _].
     cbn [resume reach]. rewrite reach_subst. cbn.
-    destruct (reach c (Site n b) []) eqn:Hr; [|reflexivity]. exfalso.
-    apply Hnotin. exact (reach_sites _ _ _ Hr).
+    lazymatch goal with |- ?g = false => destruct g eqn:Hr; [|reflexivity] end.
+    exfalso. apply Hnotin. exact (reach_sites _ _ _ Hr).
 Qed.
 
 Lemma in_replace_thread : forall (codes : list code) tid c d,

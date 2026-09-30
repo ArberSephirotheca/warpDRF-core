@@ -111,14 +111,14 @@ Qed.
    takes a step budget. *)
 
 Definition finishedb (st : state) :=
-  forallb (fun c => match c with Skip => true | _ => false end) (threads st).
+  forallb (fun c => match c with Skip | Return => true | _ => false end) (threads st).
 
 Lemma finishedb_spec : forall st, finishedb st = true <-> finished st.
 Proof.
   intros st. unfold finishedb, finished.
   rewrite forallb_forall, Forall_forall. split.
-  - intros H c Hin. specialize (H c Hin). destruct c; congruence.
-  - intros H c Hin. now rewrite (H c Hin).
+  - intros H c Hin. specialize (H c Hin). destruct c; try discriminate; auto.
+  - intros H c Hin. now destruct (H c Hin) as [-> | ->].
 Qed.
 
 Definition waiting_instances (codes : list code) : list instance :=
@@ -196,20 +196,21 @@ Qed.
    sites are counted once, not once per iteration. *)
 Fixpoint sites (c : code) : list site :=
   match c with
-  | Prim n sync _ _ _ body | Wait n sync _ _ _ body => Site n sync :: sites body
-  | Read _ _ body | Loop body => sites body
+  | Prim n sync full _ _ _ body | Wait n sync full _ _ _ body =>
+      Site n sync full :: sites body
+  | Read _ _ body | Loop body | Local _ _ _ body => sites body
   | Seq first rest | Cond _ first rest => sites first ++ sites rest
   | Iter _ rest body => sites rest ++ sites body
-  | Write _ _ | Break | Continue | Skip => []
+  | Write _ _ | Break | Continue | Skip | Return => []
   end.
 
 (* Source programs: Iter and Wait are runtime forms. *)
 Fixpoint static (c : code) : bool :=
   match c with
-  | Iter _ _ _ | Wait _ _ _ _ _ _ => false
-  | Read _ _ body | Loop body | Prim _ _ _ _ _ body => static body
+  | Iter _ _ _ | Wait _ _ _ _ _ _ _ => false
+  | Read _ _ body | Loop body | Prim _ _ _ _ _ _ body | Local _ _ _ body => static body
   | Seq first rest | Cond _ first rest => static first && static rest
-  | Write _ _ | Break | Continue | Skip => true
+  | Write _ _ | Break | Continue | Skip | Return => true
   end.
 
 (* Distinct sites name distinct collectives: no thread's code names a site
@@ -238,7 +239,8 @@ Qed.
 (* The contract. As in the paper, condition 2 checks the group of every
    instance in the reference execution. The full-warp configuration requires
    every executed collective to include the whole warp; the structured partial
-   configuration also admits the partial groups the reference forms. *)
+   configuration also admits the partial groups the reference forms, except
+   for a primitive that requires the whole warp (req(p) = full). *)
 
 Inductive participation_config := FullWarp | StructuredPartial.
 
@@ -248,7 +250,7 @@ Definition UnambiguousParticipation c (programs : list code)
   group <> [] /\ NoDup group /\ Forall (fun tid => tid < length programs) group /\
   match c with
   | FullWarp => group = seq 0 (length programs)
-  | StructuredPartial => True
+  | StructuredPartial => site_full (fst i) = true -> group = seq 0 (length programs)
   end.
 
 Definition conditions c programs reference_trace :=
@@ -331,14 +333,18 @@ Proof.
     apply Forall_forall. intros tid Htid. eapply select_bound; exact Htid.
 Qed.
 
-(* Every reference run passes the StructuredPartial check, so under that
-   configuration the participation premise holds automatically. *)
+(* A reference run passes the StructuredPartial check as soon as every
+   primitive that requires the whole warp got it; the other groups the
+   reference forms are always valid. *)
 Theorem reference_structured_partial : forall programs fuel input reference_trace
     reference_last,
   run fuel input programs = Some (reference_trace, reference_last) ->
+  (forall i group, In (Sync i group) reference_trace -> site_full (fst i) = true ->
+    group = seq 0 (length programs)) ->
   UnambiguousParticipation StructuredPartial programs reference_trace.
 Proof.
-  intros programs fuel input reference_trace reference_last Hreference i group Hin.
+  intros programs fuel input reference_trace reference_last Hreference Hfull i group Hin.
+  pose proof (Hfull i group Hin) as Hgroup.
   apply run_sound in Hreference as [_ [Hreference _]].
   destruct (execution_groups_valid _ _ _ _ Hreference i group Hin)
     as [Hne [Hnodup Hbound]].

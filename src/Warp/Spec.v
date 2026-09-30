@@ -27,27 +27,41 @@ Open Scope string_scope.
 Fixpoint has_jump (c : code) : bool :=
   match c with
   | Break | Continue => true
-  | Read _ _ body | Prim _ _ _ _ _ body | Wait _ _ _ _ _ body => has_jump body
+  | Read _ _ body | Prim _ _ _ _ _ _ body | Wait _ _ _ _ _ _ body | Local _ _ _ body =>
+      has_jump body
   | Seq first rest | Cond _ first rest => has_jump first || has_jump rest
+  | _ => false
+  end.
+
+(* A Return anywhere in the code, which ends the thread. *)
+Fixpoint can_return (c : code) : bool :=
+  match c with
+  | Return => true
+  | Read _ _ body | Loop body | Prim _ _ _ _ _ _ body | Wait _ _ _ _ _ _ body
+  | Local _ _ _ body => can_return body
+  | Seq first rest | Cond _ first rest => can_return first || can_return rest
+  | Iter _ rest body => can_return rest || can_return body
   | _ => false
   end.
 
 (* A thread must reach an instance when every path of its remaining code runs
    it: a conditional must reach it in both branches, and the code after a part
-   is reached only if that part cannot jump out. The threads that must reach a
-   collective are the ones SIMT-Step knows to be in its dynamic block. *)
+   is reached only if that part can neither jump out nor return. The threads
+   that must reach a collective are the ones SIMT-Step knows to be in its
+   dynamic block. *)
 Fixpoint must_reach (c : code) (s : site) (v : list nat) : bool :=
   match c with
-  | Read _ _ body => must_reach body s v
+  | Read _ _ body | Local _ _ _ body => must_reach body s v
   | Seq first rest =>
-      must_reach first s v || (negb (has_jump first) && must_reach rest s v)
+      must_reach first s v ||
+      (negb (has_jump first) && negb (can_return first) && must_reach rest s v)
   | Cond _ yes no => must_reach yes s v && must_reach no s v
   | Loop body => match v with 0 :: v' => must_reach body s v' | _ => false end
   | Iter k rest body =>
       match v with j :: v' => Nat.eqb j k && must_reach rest s v' | [] => false end
-  | Prim n sync _ _ _ body | Wait n sync _ _ _ body =>
-      (site_eqb s (Site n sync) && is_nil v) || must_reach body s v
-  | Write _ _ | Break | Continue | Skip => false
+  | Prim n sync full _ _ _ body | Wait n sync full _ _ _ body =>
+      (site_eqb s (Site n sync full) && is_nil v) || must_reach body s v
+  | Write _ _ | Break | Continue | Skip | Return => false
   end.
 
 (* Threads known to run an instance that have not arrived at it. *)
@@ -209,7 +223,8 @@ Lemma single_writer_conditions : forall c fuel reference_last,
 Proof.
   intros c fuel reference_last Hrun. split; [exact single_writer_memory_drf|].
   destruct c; [exact single_writer_full_warp|].
-  exact (reference_structured_partial _ _ _ _ _ Hrun).
+  apply (reference_structured_partial _ _ _ _ _ Hrun).
+  intros i group Hin _. apply (single_writer_full_warp i group Hin).
 Qed.
 
 (* single_writer is WarpDRF for either configuration, yet under Spec the group

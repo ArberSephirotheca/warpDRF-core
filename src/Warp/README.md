@@ -22,23 +22,32 @@ conditionals, several collectives, and structured loops with `Break` and
 - `Store.v`: shared memory. Writes are immediately visible, and a fixed `input`
   function supplies the initial value of every location. An observation
   records one access and the value it read or wrote.
-- `Code.v`: kernel code. It has reads that bind a variable, writes, sequencing,
-  conditionals, loops, and warp primitives. `Loop body` repeats `body` until a
-  `Break`; `Continue` ends the current iteration early. A running loop is
-  `Iter k rest body`: iteration `k`, with `rest` left in it. `step` is one step
-  of one thread.
-  - `Prim n sync f arg x body` is a warp primitive with site label `n`. Each
-    participant supplies the value of `arg` and receives `f` applied to the
-    participants' (thread, value) pairs and its own thread; the result is bound
-    to `x` in `body`. As in the paper, `f` is uninterpreted: every theorem holds
-    for every `f`. `sync` is the paper's `ord(p)`: whether the primitive orders
-    memory among its participants.
-  - A thread that reaches a primitive evaluates `arg` and waits as `Wait`; the
+- `Code.v`: kernel code, following the paper's language. It has reads that
+  bind a variable, writes, local statements, sequencing, conditionals, loops,
+  `Return`, and warp primitives. `Loop body` repeats `body` until a `Break`;
+  `Continue` ends the current iteration early; `Return` ends the thread. A
+  running loop is `Iter k rest body`: iteration `k`, with `rest` left in it.
+  `step` is one step of one thread.
+  - `Local x f args body` binds `x` to `f` applied to the values of `args`, a
+    thread-local function, and runs `body`. It covers both plain assignment and
+    the paper's uninterpreted functions `f(e, ...)`.
+  - `Switch e cases default` runs the first case whose label equals `e`. It is
+    a chain of conditionals, which gives the reference the same executions.
+  - `Prim n sync full f args x body` is a warp primitive with site label `n`.
+    Each participant supplies the values of `args` and receives `f` applied to
+    the participants' (thread, values) pairs and its own thread; the result is
+    bound to `x` in `body`. As in the paper, `f` is uninterpreted: every
+    theorem holds for every `f`. `sync` is the paper's `ord(p)`, whether the
+    primitive orders memory among its participants, and `full` is `req(p)`,
+    whether it requires the whole warp.
+  - A thread that reaches a primitive evaluates `args` and waits as `Wait`; the
     warp releases it (`Model.v`).
-  - `Barrier n` and `AddZero n` are primitives that order memory and return
-    nothing useful; `AddZero n` stands for `subgroupAdd(0)`.
+  - `Barrier n` and `AddZero n` are primitives that order memory, do not
+    require the whole warp, and return nothing useful; `AddZero n` stands for
+    `subgroupAdd(0)`.
 - `Model.v`: SSO. Each primitive is named by its site, its label together with
-  its `sync` flag. Its dynamic block, its instance, is the site together with
+  its `sync` and `full` flags. A thread is finished when its code is `Skip` or
+  `Return`. Its dynamic block, its instance, is the site together with
   the iteration counts of the loops around it, outermost first. A primitive
   after a loop drops that loop's count, so threads that leave the loop in
   different iterations meet there.
@@ -92,10 +101,10 @@ requirement:
 - `FullWarp`: every group is the whole warp. As in the paper, every executed
   collective must include the complete warp; nothing restricts where a
   collective may occur in the code.
-- `StructuredPartial`: admits the partial groups the reference forms.
-  `reference_structured_partial` proves that every reference run passes this
-  check, so under this configuration the participation premise holds
-  automatically.
+- `StructuredPartial`: admits the partial groups the reference forms, except
+  that a primitive that requires the whole warp must get it.
+  `reference_structured_partial` proves that a reference run passes this check
+  as soon as those primitives got the whole warp.
 
 `same_observations` compares the group of every instance, each thread's
 ordered read history (addresses and values), and the final value at every
@@ -184,6 +193,20 @@ Two examples use primitive results and `sync`:
   memory-DRF and thread 1 reads 1 in every completed execution
   (`sync_handoff_reads`). If it does not, nothing orders the write before the
   read, and the reference trace is not memory-DRF (`nosync_handoff_race`).
+- `dot`: a primitive with two arguments; every completed execution stores the
+  sum of `tid * (tid + 1)` over three threads, 8 (`dot_result`).
+- `lone_full`: a primitive that requires the whole warp, run by thread 0
+  alone; the structured partial configuration rejects the kernel
+  (`lone_full_rejected`).
+
+Three examples use the other statements:
+
+- `doubled`: each thread computes `2 * tid` with a local statement and stores
+  it (`doubled_result`).
+- `early_return`: thread 1 returns before a barrier, which threads 0 and 2 then
+  meet (`early_return_groups`).
+- `switched`: each thread picks a barrier with a `Switch` on its thread
+  identifier (`switch_groups`).
 
 ## Scope
 
@@ -192,9 +215,9 @@ Two examples use primitive results and `sync`:
 | Memory | Sequentially consistent; agreement for completed executions |
 | Delayed visibility | Not modeled |
 | Warps | One warp; no workgroup of several warps and no workgroup barrier |
-| Control flow | Nested conditionals and structured loops with `Break` and `Continue`; no `switch` |
-| Local state | Loop counters live in memory cells a thread owns; no local variable updates |
-| Primitives | Results from an uninterpreted function of the participants' values, and `ord(p)` as `sync`; one argument per primitive; `req(p)` is not modeled |
+| Control flow | Nested conditionals, `Switch` as a chain of conditionals, structured loops with `Break` and `Continue`, and `Return` |
+| Local state | `x := f(e, ...)` binds `x` over the code after it; a variable cannot be updated, so loop-carried values such as counters live in memory cells a thread owns |
+| Primitives | Several arguments, results from an uninterpreted function of the participants' values, `ord(p)` as `sync`, and `req(p)` as `full` |
 
 ## Verification
 

@@ -9,18 +9,23 @@ From Faial.Warp Require Import Store.
 Import ListNotations.
 
 (* Kernel code with structured loops and warp primitives. A loop repeats its
-   body until a Break leaves it; Continue ends the current iteration early.
-   Iter k rest body is a loop in progress: iteration k, with rest left to run
-   in that iteration.
+   body until a Break leaves it; Continue ends the current iteration early;
+   Return ends the thread. Iter k rest body is a loop in progress: iteration
+   k, with rest left to run in that iteration.
 
-   Prim n sync f arg x body is a warp primitive with site label n. Each
-   participant supplies the value of arg and receives f applied to the
-   participants' (thread, value) pairs and its own thread; the result is bound
-   to x in body. The function is uninterpreted: every theorem holds for every
-   f. sync says whether the primitive orders memory among its participants. A
-   thread that reaches a primitive evaluates arg and then waits as
-   Wait n sync f value x body. Source programs use Loop and Prim; Iter and
-   Wait appear as they run. *)
+   Local x f args body binds x to f applied to the values of args, for a
+   thread-local function f, and runs body. Plain assignment x := e is the
+   case of one argument and the identity.
+
+   Prim n sync full f args x body is a warp primitive with site label n. Each
+   participant supplies the values of args and receives f applied to the
+   participants' (thread, values) pairs and its own thread; the result is
+   bound to x in body. The functions are uninterpreted: every theorem holds
+   for every f. sync is the paper's ord(p): whether the primitive orders
+   memory among its participants. full is req(p): whether it requires the
+   whole warp. A thread that reaches a primitive evaluates args and then waits
+   as Wait n sync full f values x body. Source programs use Loop and Prim;
+   Iter and Wait appear as they run. *)
 Inductive code :=
 | Read : var -> nexp -> code -> code
 | Write : nexp -> nexp -> code
@@ -30,16 +35,42 @@ Inductive code :=
 | Iter : nat -> code -> code -> code
 | Break
 | Continue
-| Prim : nat -> bool -> (list (nat * nat) -> nat -> nat) -> nexp -> var -> code -> code
-| Wait : nat -> bool -> (list (nat * nat) -> nat -> nat) -> nat -> var -> code -> code
-| Skip.
+| Prim : nat -> bool -> bool -> (list (nat * list nat) -> nat -> nat) -> list nexp ->
+    var -> code -> code
+| Wait : nat -> bool -> bool -> (list (nat * list nat) -> nat -> nat) -> list nat ->
+    var -> code -> code
+| Skip
+| Local : var -> (list nat -> nat) -> list nexp -> code -> code
+| Return.
 
 Definition unused := variable String.EmptyString.
 
 (* A barrier orders memory and returns nothing. AddZero is subgroupAdd(0),
-   modeled as ordering memory, with its zero result unused. *)
-Definition Barrier (n : nat) : code := Prim n true (fun _ _ => 0) (NNum 0) unused Skip.
-Definition AddZero (n : nat) : code := Prim n true (fun _ _ => 0) (NNum 0) unused Skip.
+   modeled as ordering memory, with its zero result unused. Neither requires
+   the whole warp. *)
+Definition Barrier (n : nat) : code := Prim n true false (fun _ _ => 0) [] unused Skip.
+Definition AddZero (n : nat) : code :=
+  Prim n true false (fun _ _ => 0) [NNum 0] unused Skip.
+
+(* switch e { n1 => s1, ... } else default runs the first case whose label
+   equals e. It is a chain of conditionals, which gives the reference the same
+   executions. *)
+Fixpoint Switch (e : nexp) (cases : list (nat * code)) (default : code) : code :=
+  match cases with
+  | [] => default
+  | (n, s) :: rest => Cond (NRel NEquals e (NNum n)) s (Switch e rest default)
+  end.
+
+(* The values of a list of expressions in one thread. *)
+Fixpoint eval_all (tid : nat) (args : list nexp) : option (list nat) :=
+  match args with
+  | [] => Some []
+  | a :: rest =>
+      match n_step tid a, eval_all tid rest with
+      | Some v, Some vs => Some (v :: vs)
+      | _, _ => None
+      end
+  end.
 
 (* Substitute a value read into x. A Read binds its variable in its body, so an
    inner Read of the same variable shadows it. *)
@@ -55,17 +86,22 @@ Fixpoint subst x v (c : code) : code :=
   | Iter k rest body => Iter k (subst x v rest) (subst x v body)
   | Break => Break
   | Continue => Continue
-  | Prim n sync f arg y body =>
-      Prim n sync f (n_subst x v arg) y (if VAR.eq_dec x y then body else subst x v body)
-  | Wait n sync f w y body =>
-      Wait n sync f w y (if VAR.eq_dec x y then body else subst x v body)
+  | Prim n sync full f args y body =>
+      Prim n sync full f (map (n_subst x v) args) y
+        (if VAR.eq_dec x y then body else subst x v body)
+  | Wait n sync full f w y body =>
+      Wait n sync full f w y (if VAR.eq_dec x y then body else subst x v body)
   | Skip => Skip
+  | Local y f args body =>
+      Local y f (map (n_subst x v) args) (if VAR.eq_dec x y then body else subst x v body)
+  | Return => Return
   end.
 
 (* One step of one thread. A Break or Continue drops the rest of its sequence
    and ends the innermost iteration; the loop then exits or starts the next
-   iteration. A thread that reaches a primitive evaluates its argument and
-   waits; the warp releases it (Model.v). *)
+   iteration. A Return drops everything and ends the thread. A thread that
+   reaches a primitive evaluates its arguments and waits; the warp releases
+   it (Model.v). *)
 Fixpoint step (tid : nat) (input : nat -> nat) (m : Mem.t) (c : code)
     : option (option observation * Mem.t * code) :=
   match c with
@@ -87,6 +123,7 @@ Fixpoint step (tid : nat) (input : nat -> nat) (m : Mem.t) (c : code)
       | Skip => Some (None, m, rest)
       | Break => Some (None, m, Break)
       | Continue => Some (None, m, Continue)
+      | Return => Some (None, m, Return)
       | _ =>
           match step tid input m first with
           | Some (e, m', first') => Some (e, m', Seq first' rest)
@@ -103,23 +140,29 @@ Fixpoint step (tid : nat) (input : nat -> nat) (m : Mem.t) (c : code)
       match rest with
       | Skip | Continue => Some (None, m, Iter (S k) body body)
       | Break => Some (None, m, Skip)
+      | Return => Some (None, m, Return)
       | _ =>
           match step tid input m rest with
           | Some (e, m', rest') => Some (e, m', Iter k rest' body)
           | None => None
           end
       end
-  | Prim n sync f arg x body =>
-      match n_step tid arg with
-      | Some w => Some (None, m, Wait n sync f w x body)
+  | Prim n sync full f args x body =>
+      match eval_all tid args with
+      | Some vs => Some (None, m, Wait n sync full f vs x body)
       | None => None
       end
-  | Break | Continue | Wait _ _ _ _ _ _ | Skip => None
+  | Local x f args body =>
+      match eval_all tid args with
+      | Some vs => Some (None, m, subst x (NNum (f vs)) body)
+      | None => None
+      end
+  | Break | Continue | Wait _ _ _ _ _ _ _ | Skip | Return => None
   end.
 
 (* Codes that end an iteration or a sequence rather than step. *)
 Definition ender (c : code) : bool :=
-  match c with Skip | Break | Continue => true | _ => false end.
+  match c with Skip | Break | Continue | Return => true | _ => false end.
 
 Lemma step_ender : forall tid input m c, ender c = true -> step tid input m c = None.
 Proof. intros tid input m [] H; try discriminate; reflexivity. Qed.
@@ -170,6 +213,7 @@ Lemma step_seq_view : forall tid input m first rest e m' c',
   (first = Skip /\ e = None /\ m' = m /\ c' = rest) \/
   (first = Break /\ e = None /\ m' = m /\ c' = Break) \/
   (first = Continue /\ e = None /\ m' = m /\ c' = Continue) \/
+  (first = Return /\ e = None /\ m' = m /\ c' = Return) \/
   (exists first', step tid input m first = Some (e, m', first') /\ c' = Seq first' rest).
 Proof.
   intros tid input m first rest e m' c' H.
@@ -178,15 +222,17 @@ Proof.
     + right; left; repeat split.
     + right; right; left; repeat split.
     + left; repeat split.
+    + right; right; right; left; repeat split.
   - rewrite step_seq_other in H by exact Hend.
     destruct (step tid input m first) as [[[ev mem] f']|] eqn:Hfirst; [|discriminate].
-    inversion H; subst. right; right; right. eauto.
+    inversion H; subst. right; right; right; right. eauto.
 Qed.
 
 Lemma step_iter_view : forall tid input m k rest body e m' c',
   step tid input m (Iter k rest body) = Some (e, m', c') ->
   ((rest = Skip \/ rest = Continue) /\ e = None /\ m' = m /\ c' = Iter (S k) body body) \/
   (rest = Break /\ e = None /\ m' = m /\ c' = Skip) \/
+  (rest = Return /\ e = None /\ m' = m /\ c' = Return) \/
   (exists rest', step tid input m rest = Some (e, m', rest') /\ c' = Iter k rest' body).
 Proof.
   intros tid input m k rest body e m' c' H.
@@ -195,9 +241,10 @@ Proof.
     + right; left; repeat split.
     + left; repeat split; auto.
     + left; repeat split; auto.
+    + right; right; left; repeat split.
   - rewrite step_iter_other in H by exact Hend.
     destruct (step tid input m rest) as [[[ev mem] r']|] eqn:Hrest; [|discriminate].
-    inversion H; subst. right; right. eauto.
+    inversion H; subst. right; right; right. eauto.
 Qed.
 
 (* A step's next operation depends only on the code; only a read's result
@@ -220,8 +267,9 @@ Proof.
     + intros o Ho; inversion Ho; reflexivity.
     + intros other _. cbn. rewrite Haddress, Hvalue. reflexivity.
   - apply step_seq_view in H as
-      [[-> [-> [-> ->]]]|[[-> [-> [-> ->]]]|[[-> [-> [-> ->]]]|[first' [Hfirst ->]]]]].
-    1-3: repeat split; try reflexivity; try (intros o Ho; discriminate);
+      [[-> [-> [-> ->]]]|[[-> [-> [-> ->]]]|[[-> [-> [-> ->]]]|
+       [[-> [-> [-> ->]]]|[first' [Hfirst ->]]]]]].
+    1-4: repeat split; try reflexivity; try (intros o Ho; discriminate);
       intros other _; reflexivity.
     destruct (IHc1 _ _ _ _ _ _ Hfirst) as [Hmem [Hread [Howner Hreplay]]].
     repeat split; try assumption.
@@ -233,20 +281,26 @@ Proof.
   - cbn in H. inversion H; subst. repeat split; try reflexivity;
       try (intros o Ho; discriminate); intros other _; reflexivity.
   - apply step_iter_view in H as
-      [[[-> | ->] [-> [-> ->]]]|[[-> [-> [-> ->]]]|[rest' [Hrest ->]]]].
-    1-3: repeat split; try reflexivity; try (intros o Ho; discriminate);
+      [[[-> | ->] [-> [-> ->]]]|[[-> [-> [-> ->]]]|[[-> [-> [-> ->]]]|[rest' [Hrest ->]]]]].
+    1-4: repeat split; try reflexivity; try (intros o Ho; discriminate);
       intros other _; reflexivity.
     destruct (IHc1 _ _ _ _ _ _ Hrest) as [Hmem [Hread [Howner Hreplay]]].
     repeat split; try assumption.
     intros other Hread'. apply step_iter_rest. now apply Hreplay.
   - cbn in H; discriminate.
   - cbn in H; discriminate.
-  - cbn in H. match type of H with context [n_step ?t ?a] =>
-      destruct (n_step t a) eqn:Harg end; try discriminate.
+  - cbn in H. match type of H with context [eval_all ?t ?a] =>
+      destruct (eval_all t a) eqn:Harg end; try discriminate.
     inversion H; subst. repeat split; try reflexivity.
     + intros o Ho; discriminate.
     + intros other _. cbn. rewrite Harg. reflexivity.
   - cbn in H; discriminate.
+  - cbn in H; discriminate.
+  - cbn in H. match type of H with context [eval_all ?t ?a] =>
+      destruct (eval_all t a) eqn:Harg end; try discriminate.
+    inversion H; subst. repeat split; try reflexivity.
+    + intros o Ho; discriminate.
+    + intros other _. cbn. rewrite Harg. reflexivity.
   - cbn in H; discriminate.
 Qed.
 
@@ -299,23 +353,27 @@ Proof.
   - cbn in H. destruct (n_step tid n) eqn:Haddress, (n_step tid n0) eqn:Hvalue;
       try discriminate.
     cbn. rewrite Haddress, Hvalue. eauto.
-  - apply step_seq_view in H as [[-> _]|[[-> _]|[[-> _]|[first' [Hfirst ->]]]]].
-    1-3: cbn; eauto.
+  - apply step_seq_view in H as [[-> _]|[[-> _]|[[-> _]|[[-> _]|[first' [Hfirst ->]]]]]].
+    1-4: cbn; eauto.
     destruct (IHc1 _ _ _ _ _ _ other Hfirst) as [f [n' [next Hnext]]].
     exists f, n', (Seq next c2). now apply step_seq_first.
   - cbn in H. destruct (b_step tid b) eqn:Htest; try discriminate.
     cbn. rewrite Htest. eauto.
   - cbn. eauto.
-  - apply step_iter_view in H as [[[-> | ->] _]|[[-> _]|[rest' [Hrest ->]]]].
-    1-3: cbn; eauto.
+  - apply step_iter_view in H as [[[-> | ->] _]|[[-> _]|[[-> _]|[rest' [Hrest ->]]]]].
+    1-4: cbn; eauto.
     destruct (IHc1 _ _ _ _ _ _ other Hrest) as [f [n' [next Hnext]]].
     exists f, n', (Iter n next c2). now apply step_iter_rest.
   - cbn in H; discriminate.
   - cbn in H; discriminate.
-  - cbn in H. match type of H with context [n_step ?t ?a] =>
-      destruct (n_step t a) eqn:Harg end; try discriminate.
+  - cbn in H. match type of H with context [eval_all ?t ?a] =>
+      destruct (eval_all t a) eqn:Harg end; try discriminate.
     cbn. rewrite Harg. eauto.
   - cbn in H; discriminate.
+  - cbn in H; discriminate.
+  - cbn in H. match type of H with context [eval_all ?t ?a] =>
+      destruct (eval_all t a) eqn:Harg end; try discriminate.
+    cbn. rewrite Harg. eauto.
   - cbn in H; discriminate.
 Qed.
 
