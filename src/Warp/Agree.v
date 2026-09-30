@@ -346,57 +346,16 @@ Proof.
   split; [now apply reorders_read_history|exact Hmemory].
 Qed.
 
-(* What a run has observed so far: each instance's groups and each thread's
-   reads are the first ones of the reference. *)
-Definition observations_so_far reference_trace trace :=
-  (forall i, exists more, groups_at i reference_trace = groups_at i trace ++ more) /\
-  (forall tid, exists more,
-    read_history tid reference_trace = read_history tid trace ++ more).
-
-(* The guarantee for every SSO run, finished or not: every collective it has
-   run formed the reference's group, every read returned the reference's
-   value, and the run can still complete with the reference's observations. *)
-Theorem sso_every_run_agreement : forall c programs fuel input reference_trace
-    reference_last,
-  run fuel input programs = Some (reference_trace, reference_last) ->
-  conditions c programs reference_trace ->
-  forall trace last,
-  execution input (initial programs) trace last ->
-  observations_so_far reference_trace trace /\
-  exists rest final,
-    execution input last rest final /\ finished final /\
-    same_observations input reference_trace reference_last (trace ++ rest) final.
-Proof.
-  intros c programs fuel input reference_trace reference_last Hrun [Hdrf _]
-    trace last Htarget.
-  apply run_sound in Hrun as [_ [Hreference Hrefdone]].
-  destruct (prefix_agreement _ _ _ _ Htarget _ _ Hreference Hrefdone Hdrf)
-    as [rest [final [Hcomplete [Hdone [[_ Hmemory] Horder]]]]].
-  split; [split|].
-  - intros i. exists (groups_at i rest).
-    rewrite <- groups_at_app. exact (reorders_groups_at _ _ Horder i).
-  - intros tid. exists (read_history tid rest).
-    rewrite <- read_history_app. exact (reorders_read_history _ _ Horder tid).
-  - exists rest, final. split; [exact Hcomplete|]. split; [exact Hdone|].
-    split; [intros i; exact (reorders_groups_at _ _ Horder i)|].
-    split; [intros tid; exact (reorders_read_history _ _ Horder tid)|exact Hmemory].
-Qed.
-
-(* Theorem 1 of the paper for SSO, under either configuration: the case of a
-   completed run, which has nothing left to complete. *)
-Corollary sso_agreement : forall c programs fuel input reference_trace reference_last,
+(* Theorem 1 of the paper for SSO, under either configuration. *)
+Theorem sso_agreement : forall c programs fuel input reference_trace reference_last,
   run fuel input programs = Some (reference_trace, reference_last) ->
   conditions c programs reference_trace ->
   forall trace last,
   execution input (initial programs) trace last -> finished last ->
   same_observations input reference_trace reference_last trace last.
 Proof.
-  intros c programs fuel input reference_trace reference_last Hrun Hconditions
-    trace last Htarget Hdone.
-  destruct (sso_every_run_agreement _ _ _ _ _ _ Hrun Hconditions _ _ Htarget)
-    as [_ [rest [final [Hcomplete [_ Hsame]]]]].
-  destruct (finished_execution _ _ _ _ Hdone Hcomplete) as [-> ->].
-  now rewrite app_nil_r in Hsame.
+  intros c programs fuel input reference_trace reference_last Hreference [Hdrf _].
+  exact (agreement_from_drf _ _ _ _ _ Hreference Hdrf).
 Qed.
 
 Corollary target_memory_drf : forall programs fuel input reference_trace reference_last

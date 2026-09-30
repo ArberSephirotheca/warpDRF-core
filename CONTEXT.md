@@ -21,10 +21,10 @@ that contain no primitive may still diverge.
 
 **Conforming target**:
 A target that forms the groups its configuration describes. Spec, which fires a
-collective with whichever threads have arrived, is not conforming: which
-threads join depends on the schedule. Under the structured partial
-configuration this shows in completed runs, under the full-warp one only in
-runs that never complete.
+collective without waiting for threads that may still branch away from it, is
+not conforming: which threads join depends on the schedule. Under the
+structured partial configuration this shows in completed runs, under the
+full-warp one only in runs that never complete.
 
 **Participant agreement**:
 Target executions form the same primitive groups as the reference execution.

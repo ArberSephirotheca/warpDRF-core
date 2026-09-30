@@ -1,4 +1,4 @@
-From Stdlib Require Import Lists.List Strings.String Lia.
+From Stdlib Require Import Lists.List Strings.String Bool.Bool Lia.
 From Stdlib Require Import Relations.Relation_Operators.
 From Faial.Core Require Import Var AVal.
 From Faial.Expr.SIMT.N Require Import Exp.
@@ -8,17 +8,42 @@ From Faial.Warp Require Import Store Code Model Order Agree.
 Import ListNotations.
 Open Scope string_scope.
 
-(* Spec, SIMT-Step's speculative target, fires a collective as soon as some
-   thread waits at it, with whichever threads have arrived, like
-   __activemask(). It does not wait for the unknown set to empty. Each
-   instance fires at most once, so a thread that arrives after the firing
-   waits forever: a run whose speculation fails never completes. Thread steps
-   are the SSO thread steps.
+(* Spec is SIMT-Step's speculative target. SSO fires a collective only when
+   no thread may still run it. Spec waits only for the threads known to run
+   it, those whose every path reaches it. It does not wait for a thread that
+   may still take a branch away from the collective, SIMT-Step's unknown
+   threads; it bets that such a thread will not come. SIMT-Step prunes a run
+   in which an unknown thread joins the collective's dynamic block after the
+   firing. Here each instance fires at most once, so that thread waits at the
+   collective forever and the run never completes. Thread steps are the SSO
+   thread steps.
 
    Spec does not conform to the structured partial configuration: on a kernel
    that is WarpDRF for it, which threads join a collective depends on the
    schedule, even in completed runs. Once unfinished runs count, it conforms
    to neither configuration. *)
+
+(* A thread must reach an instance when every path of its remaining code runs
+   it: a conditional must reach it in both branches, and the code after a part
+   is reached only if that part cannot jump out. The threads that must reach a
+   collective are the ones SIMT-Step knows to be in its dynamic block. *)
+Fixpoint must_reach (c : code) (s : site) (v : list nat) : bool :=
+  match c with
+  | Read _ _ body => must_reach body s v
+  | Seq first rest =>
+      must_reach first s v || (negb (has_jump first) && must_reach rest s v)
+  | Cond _ yes no => must_reach yes s v && must_reach no s v
+  | Loop body => match v with 0 :: v' => must_reach body s v' | _ => false end
+  | Iter k rest body =>
+      match v with j :: v' => Nat.eqb j k && must_reach rest s v' | [] => false end
+  | Barrier n => site_eqb s (BarrierSite n) && is_nil v
+  | AddZero => site_eqb s AddSite && is_nil v
+  | Write _ _ | Break | Continue | Skip => false
+  end.
+
+(* Threads known to run an instance that have not arrived at it. *)
+Definition absent (i : instance) (codes : list code) :=
+  select (fun c => must_reach c (fst i) (snd i) && negb (waits_at i c)) codes.
 
 Record spec_state := SpecState {
   base : state;
@@ -37,12 +62,12 @@ Definition spec_advance input (a : action) (s : spec_state)
       end
   | Release i =>
       if existsb (instance_eqb i) (released s) then None else
-      match arrived i (threads (base s)) with
-      | [] => None
-      | group =>
+      match arrived i (threads (base s)), absent i (threads (base s)) with
+      | (_ :: _) as group, [] =>
           Some (Some (Sync i group),
             SpecState (State (memory (base s)) (release i (threads (base s))))
               (i :: released s))
+      | _, _ => None
       end
   end.
 
@@ -138,8 +163,9 @@ Proof.
   split; [vm_compute; reflexivity|unfold finished; repeat constructor].
 Qed.
 
-(* Or thread 0 fires the collective alone and sets the flag; thread 1 then
-   reads 1 and skips the collective. *)
+(* Or thread 0 fires the collective alone while thread 1, which has not yet
+   taken the branch, is unknown. Thread 0 sets the flag; thread 1 then reads 1
+   and skips the collective, so the bet wins. *)
 Definition early_schedule :=
   [Thread 0; Thread 0; Release (AddSite, []); Thread 0; Thread 0; Thread 0;
    Thread 1; Thread 1].
@@ -210,52 +236,58 @@ Proof.
   exact (Hdiffer (Hagree _ _ _ _ _ Hrun Hconditions _ _ Hexec Hdone)).
 Qed.
 
-(* The guarantee for every run, finished or not, fails under Spec in both
-   configurations. In late, each thread writes its own cell and then calls
-   AddZero, in uniform code: the kernel is WarpDRF for either configuration.
-   Spec can fire the collective with thread 0 alone, so a run forms a group
-   the reference never forms. Thread 1 then arrives after the firing, and the
-   run never completes. *)
+(* Spec still waits for a thread known to run the collective. In late, each
+   thread writes its own cell and then calls AddZero, with no branch between:
+   Spec cannot fire the collective with thread 0 alone. *)
 Definition late := Seq (Write NTid (NNum 1)) AddZero.
 
-Definition late_reference_trace :=
-  [Memory (Observe (av_write 0 0) 1); Memory (Observe (av_write 1 1) 1);
-   Sync (AddSite, []) [0; 1]].
+Example late_waits :
+  spec_run zero_input [Thread 0; Thread 0; Release (AddSite, [])]
+    (spec_initial [late; late]) = None.
+Proof. vm_compute. reflexivity. Qed.
 
-Example late_reference :
-  exists last, run 100 zero_input [late; late] = Some (late_reference_trace, last).
+(* What a run has observed so far: each instance's groups and each thread's
+   reads are the first ones of the reference. Read over every run, finished or
+   not, this is the guarantee for runs that have not completed. *)
+Definition observations_so_far reference_trace trace :=
+  (forall i, exists more,
+    groups_at i reference_trace = (groups_at i trace ++ more)%list) /\
+  (forall tid, exists more,
+    read_history tid reference_trace = (read_history tid trace ++ more)%list).
+
+(* That guarantee fails under Spec in both configurations. In uniform_if every
+   thread takes the branch to AddZero: the kernel is WarpDRF for either
+   configuration, and the reference forms [0; 1]. Spec can fire the collective
+   with thread 0 while thread 1 has not yet taken the branch, a group the
+   reference never forms. Thread 1 then joins, and the run never completes. *)
+Definition uniform_if := Cond (BBool true) AddZero Skip.
+
+Definition uniform_if_reference_trace := [Sync (AddSite, []) [0; 1]].
+
+Example uniform_if_reference :
+  exists last,
+  run 100 zero_input [uniform_if; uniform_if] = Some (uniform_if_reference_trace, last).
 Proof. eexists; vm_compute; reflexivity. Qed.
 
-Lemma late_memory_drf : MemDRF late_reference_trace.
-Proof.
-  intros i j e f He Hf Hconflict.
-  assert (Hi : i < 3).
-  { apply (proj1 (nth_error_Some late_reference_trace i)). rewrite He. discriminate. }
-  assert (Hj : j < 3).
-  { apply (proj1 (nth_error_Some late_reference_trace j)). rewrite Hf. discriminate. }
-  destruct i as [|[|[|i]]], j as [|[|[|j]]]; try lia;
-    cbn in He, Hf; try discriminate;
-    inversion He; inversion Hf; subst; clear He Hf;
-    inversion Hconflict; cbn in *; congruence.
-Qed.
+Lemma uniform_if_memory_drf : MemDRF uniform_if_reference_trace.
+Proof. intros i j e f He. destruct i as [|[|i]]; cbn in He; discriminate. Qed.
 
-Lemma late_full_warp :
-  UnambiguousParticipation FullWarp [late; late] late_reference_trace.
+Lemma uniform_if_full_warp :
+  UnambiguousParticipation FullWarp [uniform_if; uniform_if] uniform_if_reference_trace.
 Proof.
   unfold UnambiguousParticipation, PermittedPlacement, warp_uniform. split.
-  - exists late. split; [reflexivity|]. split; [reflexivity|repeat constructor].
+  - exists uniform_if. split; [reflexivity|]. split; [reflexivity|repeat constructor].
   - intros i group Hin. cbn in Hin.
-    destruct Hin as [Heq|[Heq|[Heq|[]]]]; inversion Heq; subst.
+    destruct Hin as [Heq|[]]; inversion Heq; subst.
     split; [discriminate|]. split; [repeat constructor; cbn; intuition discriminate|].
     split; [|reflexivity].
     apply Forall_forall. intros tid [<-|[<-|[]]]; cbn; lia.
 Qed.
 
-Example late_early :
+Example uniform_if_early :
   exists s,
-  spec_run zero_input [Thread 0; Thread 0; Release (AddSite, [])]
-    (spec_initial [late; late]) =
-    Some ([Memory (Observe (av_write 0 0) 1); Sync (AddSite, []) [0]], s).
+  spec_run zero_input [Thread 0; Release (AddSite, [])]
+    (spec_initial [uniform_if; uniform_if]) = Some ([Sync (AddSite, []) [0]], s).
 Proof. eexists; vm_compute; reflexivity. Qed.
 
 Theorem warpdrf_fails_under_spec_every_run : forall c,
@@ -267,11 +299,12 @@ Theorem warpdrf_fails_under_spec_every_run : forall c,
        observations_so_far reference_trace trace).
 Proof.
   intros c Hagree.
-  destruct late_reference as [reference_last Hrun].
-  destruct late_early as [s Hspec].
-  assert (Hconditions : conditions c [late; late] late_reference_trace).
-  { split; [exact late_memory_drf|].
-    destruct c; [exact late_full_warp|exact (reference_structured_partial _ _ _ _ _ Hrun)]. }
+  destruct uniform_if_reference as [reference_last Hrun].
+  destruct uniform_if_early as [s Hspec].
+  assert (Hconditions : conditions c [uniform_if; uniform_if] uniform_if_reference_trace).
+  { split; [exact uniform_if_memory_drf|].
+    destruct c;
+      [exact uniform_if_full_warp|exact (reference_structured_partial _ _ _ _ _ Hrun)]. }
   destruct (Hagree _ _ _ _ _ Hrun Hconditions _ _ (spec_run_sound _ _ _ _ _ Hspec))
     as [Hgroups _].
   destruct (Hgroups (AddSite, [])) as [more Hmore].

@@ -10,16 +10,12 @@ conditionals, several collectives, and structured loops with `Break` and
   kernel that is WarpDRF for either configuration, every completed SSO
   execution forms the reference's group at every collective instance, gives
   each thread the same reads, and leaves the same final memory.
-- `sso_every_run_agreement` extends this to every SSO run, finished or not.
-  Every collective it has run so far formed the reference's group, every read
-  so far returned the reference's value, and the run can still complete with
-  the reference's observations.
-- `Spec.v` shows that Spec, which fires a collective with whichever threads
-  have arrived, is not a conforming target. On a kernel that is WarpDRF for
-  `StructuredPartial`, the group of a collective under Spec depends on the
-  schedule (`spec_grouping_depends_on_schedule`), so the guarantee of
-  `sso_agreement` fails for Spec (`warpdrf_fails_under_spec`). Counting
-  unfinished runs, the guarantee also fails under `FullWarp`
+- `Spec.v` shows that Spec, which fires a collective without waiting for
+  threads that may still branch away from it, is not a conforming target. On
+  a kernel that is WarpDRF for `StructuredPartial`, the group of a collective
+  under Spec depends on the schedule (`spec_grouping_depends_on_schedule`), so
+  the guarantee of `sso_agreement` fails for Spec (`warpdrf_fails_under_spec`).
+  Counting unfinished runs, the guarantee also fails under `FullWarp`
   (`warpdrf_fails_under_spec_every_run`).
 
 ## The model
@@ -110,22 +106,25 @@ assumed to be DRF. `pull_enabled` needs only the reference to be complete, so
 the target run never has to finish; the rest of the rearranged reference then
 completes it.
 
-`sso_every_run_agreement` applies this to the reference run and states the
-guarantee for every run, using `observations_so_far`: each instance's groups
-and each thread's reads so far are the first ones of the reference. A finished
-run has nothing left to complete, so `sso_agreement` and `completed_agreement`
-are corollaries. `agreement_from_drf` states the completed case from reference
-memory DRF alone, and `target_memory_drf` proves that completed target traces
-are memory-DRF.
+A finished run has nothing left to complete, so `completed_agreement` is a
+corollary: the target trace is a rearrangement of the reference trace, and the
+final states hold the same values. `agreement_from_drf` applies it to the
+reference run, and `sso_agreement` follows. `target_memory_drf` proves that
+completed target traces are memory-DRF.
 
 ## Spec
 
-Spec is SIMT-Step's speculative target. It fires a collective as soon as some
-thread waits there, with whichever threads have arrived, like `__activemask()`;
-it does not wait for the unknown set to empty. SIMT-Step prunes a run in which
-a thread arrives after the firing. Here each instance fires at most once, so
-such a thread waits forever and the run never completes. This rule belongs to
-Spec, not to WarpDRF. Thread steps are the SSO thread steps.
+Spec is SIMT-Step's speculative target. SSO fires a collective only when no
+thread may still run it. Spec waits only for the threads known to run it,
+those whose every path reaches it (`must_reach`). It does not wait for a thread
+that may still take a branch away from the collective, which SIMT-Step calls
+unknown; it bets that such a thread will not come. SIMT-Step prunes a run in
+which an unknown thread joins the collective's dynamic block after the firing.
+Here each instance fires at most once, so that thread waits at the collective
+forever and the run never completes. This rule belongs to Spec, not to
+WarpDRF. Thread steps are the SSO thread steps. In `late`, each thread writes
+its own cell and then calls `AddZero` with no branch in between, so Spec must
+wait for both threads (`late_waits`).
 
 `spec_grouping_depends_on_schedule` shows that Spec does not conform to
 `StructuredPartial`. In `single_writer`, both threads read a flag and, when it
@@ -137,9 +136,10 @@ threads join the collective depends on the schedule:
 
 - If thread 1 arrives in time, the collective fires with `[0; 1]`, and the run
   is the reference run (`single_writer_on_time`).
-- If thread 0 fires it alone, it then writes 1; thread 1 reads 1 and skips the
-  collective (`single_writer_early`). The group and thread 1's read differ from
-  the reference.
+- If thread 0 fires it alone while thread 1 has not yet taken the branch, it
+  then writes 1; thread 1 reads 1 and skips the collective
+  (`single_writer_early`). The group and thread 1's read differ from the
+  reference.
 
 The theorem states both groups: `[0; 1]` in the reference and the first Spec
 run, and `[0]` in the second. So the collective has no fixed group under Spec.
@@ -148,14 +148,16 @@ run, and `[0]` in the second. So the collective has no fixed group under Spec.
 executions, and proves it false.
 
 Under `FullWarp` every completed Spec run does agree: a collective in uniform
-code is reached by every thread, so a thread that Spec leaves out arrives after
+code is reached by every thread, so a thread that Spec leaves out joins after
 the firing, and the run never completes. The failure shows up in unfinished
-runs. In `late`, each thread writes its own cell and then calls `AddZero`; the
-kernel is WarpDRF for either configuration, and the reference forms `[0; 1]`.
-Spec can fire the collective with thread 0 alone (`late_early`), a group the
-reference never forms. `warpdrf_fails_under_spec_every_run` takes the statement
-of `sso_every_run_agreement` for either configuration, with Spec executions in
-place of SSO executions, and proves it false.
+runs. `observations_so_far` states the guarantee for a run that has not
+completed: each instance's groups and each thread's reads so far are the first
+ones of the reference. In `uniform_if`, every thread takes a branch to
+`AddZero`; the kernel is WarpDRF for either configuration, and the reference
+forms `[0; 1]`. Spec can fire the collective with thread 0 while thread 1 has
+not yet taken the branch (`uniform_if_early`), a group the reference never
+forms. `warpdrf_fails_under_spec_every_run` proves that, for either
+configuration, Spec does not meet this guarantee.
 
 ## Examples
 
@@ -179,8 +181,8 @@ rejected.
 
 | Area | Status |
 | --- | --- |
-| Memory | Sequentially consistent; full agreement for completed runs, agreement so far for unfinished ones |
-| Progress | No SSO run of a WarpDRF kernel gets stuck: it can always still complete (`sso_every_run_agreement`). Termination of every schedule is not proved |
+| Memory | Sequentially consistent; agreement for completed executions |
+| Progress | No SSO run of a WarpDRF kernel gets stuck: it can always still complete (`prefix_agreement`). Termination of every schedule is not proved |
 | Delayed visibility | Not modeled |
 | Warps | One warp; no subgroups inside it and no workgroup barrier |
 | Control flow | Nested conditionals and structured loops with `Break` and `Continue`; no `switch` |
@@ -196,16 +198,17 @@ rejected.
 - `Order.v`: the transitive happens-before and its preservation under swaps.
 - `Commute.v`: commutation and persistence of actions.
 - `Agree.v`: agreement for every completed SSO execution from reference memory
-  DRF alone, agreement so far and completion for every unfinished one,
-  memory-DRF preservation, reference-run soundness, and acceptance of every
-  reference run by the `StructuredPartial` check.
+  DRF alone, a completion for every unfinished one, memory-DRF preservation,
+  reference-run soundness, and acceptance of every reference run by the
+  `StructuredPartial` check.
 - `Blocks.v`: at most one group per instance in any execution of a well-sited
   kernel.
 - `Spec.v`: a kernel that is WarpDRF for `StructuredPartial`, with two
   completed Spec runs that form different groups, one agreeing with the
   reference and one not, and the failure of the guarantee under Spec; a
   kernel that is WarpDRF for either configuration, with an unfinished Spec run
-  that forms a group the reference never forms.
+  that forms a group the reference never forms; and Spec waiting for a thread
+  known to reach a collective.
 - `Tests.v`: the examples above.
 
 ```sh
