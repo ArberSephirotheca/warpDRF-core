@@ -18,7 +18,7 @@ Import ListNotations.
    iteration, and any j > k through the loop body. Steps only shrink reach,
    so a thread that has left an instance behind never comes back to it. *)
 
-Inductive site := AddSite | BarrierSite (n : nat).
+Inductive site := AddSite (n : nat) | BarrierSite (n : nat).
 
 Definition site_eq_dec (a b : site) : {a = b} + {a <> b}.
 Proof. decide equality; apply Nat.eq_dec. Defined.
@@ -56,7 +56,7 @@ Fixpoint reach (c : code) (s : site) (v : list nat) : bool :=
       | j :: v' => (Nat.eqb j k && reach rest s v') || (Nat.ltb k j && reach body s v')
       end
   | Barrier n => site_eqb s (BarrierSite n) && is_nil v
-  | AddZero => site_eqb s AddSite && is_nil v
+  | AddZero n => site_eqb s (AddSite n) && is_nil v
   | Write _ _ | Break | Continue | Skip => false
   end.
 
@@ -75,7 +75,7 @@ Qed.
 Fixpoint at_collective (c : code) : option (instance * code) :=
   match c with
   | Barrier n => Some ((BarrierSite n, []), Skip)
-  | AddZero => Some ((AddSite, []), Skip)
+  | AddZero n => Some ((AddSite n, []), Skip)
   | Seq first rest =>
       match at_collective first with
       | Some ((s, v), first') => Some ((s, v), Seq first' rest)
@@ -99,7 +99,8 @@ Proof.
     inversion H; subst. cbn. rewrite Nat.eqb_refl. now rewrite (IHc1 _ _ _ eq_refl).
   - inversion H; subst. cbn. unfold site_eqb.
     destruct (site_eq_dec (BarrierSite n) (BarrierSite n)); [reflexivity|congruence].
-  - inversion H; subst. reflexivity.
+  - inversion H; subst. cbn. unfold site_eqb.
+    destruct (site_eq_dec (AddSite n) (AddSite n)); [reflexivity|congruence].
 Qed.
 
 Lemma at_collective_released : forall c i c',

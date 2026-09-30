@@ -191,17 +191,27 @@ Qed.
 
 (* One conditional per thread and one collective in its true branch: only
    thread 0 meets at AddZero. *)
-Definition partial := Cond (tid_is 0) AddZero Skip.
+Definition partial := Cond (tid_is 0) (AddZero 0) Skip.
 
 Example partial_reference :
   exists last,
-  run 100 zero_input [partial; partial; partial] = Some ([Sync (AddSite, []) [0]], last) /\
+  run 100 zero_input [partial; partial; partial] = Some ([Sync (AddSite 0, []) [0]], last) /\
   finished last.
 Proof. eexists; split; [vm_compute; reflexivity|finished_codes]. Qed.
 
 Theorem partial_groups : forall trace last,
   execution zero_input (initial [partial; partial; partial]) trace last -> finished last ->
-  groups_at (AddSite, []) trace = [[0]].
+  groups_at (AddSite 0, []) trace = [[0]].
+Proof. groups_by_reference 100. Qed.
+
+(* Two AddZero calls in one thread's code, with different labels, are two
+   collectives, each met by both threads. *)
+Definition two_adds := Seq (AddZero 0) (AddZero 1).
+
+Theorem two_adds_groups : forall trace last,
+  execution zero_input (initial [two_adds; two_adds]) trace last -> finished last ->
+  groups_at (AddSite 0, []) trace = [[0; 1]] /\
+  groups_at (AddSite 1, []) trace = [[0; 1]].
 Proof. groups_by_reference 100. Qed.
 
 (* Loops. *)

@@ -23,16 +23,17 @@ conditionals, several collectives, and structured loops with `Break` and
   function supplies the initial value of every location. An observation
   records one access and the value it read or wrote.
 - `Code.v`: kernel code. It has reads that bind a variable, writes, sequencing,
-  conditionals, loops, `Barrier n`, and `AddZero`, which is `subgroupAdd(0)`
-  with its unused zero result. `Loop body` repeats `body` until a `Break`;
+  conditionals, loops, `Barrier n`, and `AddZero n`, which is
+  `subgroupAdd(0)` with its unused zero result. The label `n` names the
+  collective in the code. `Loop body` repeats `body` until a `Break`;
   `Continue` ends the current iteration early. A running loop is
   `Iter k rest body`: iteration `k`, with `rest` left in it. `step` is one step
   of one thread; a collective does not step on its own.
-- `Model.v`: SSO. Each collective is named by its site: `AddZero` has one site
-  and `Barrier n` has site `n`. Its dynamic block, its instance, is the site
-  together with the iteration counts of the loops around it, outermost first.
-  A collective after a loop drops that loop's count, so threads that leave the
-  loop in different iterations meet there.
+- `Model.v`: SSO. Each collective is named by its site: `AddZero n` has site
+  `AddSite n` and `Barrier n` has site `BarrierSite n`. Its dynamic block, its
+  instance, is the site together with the iteration counts of the loops around
+  it, outermost first. A collective after a loop drops that loop's count, so
+  threads that leave the loop in different iterations meet there.
   - `reach c s v` says whether a thread with remaining code `c` may still run
     site `s` at counts `v`. Before a conditional, a thread may reach the sites
     of both branches; once it takes one, the other is dropped. In iteration
@@ -149,6 +150,7 @@ every completed execution for these kernels:
 
 - nested sites and two independent halves of the warp;
 - `partial`, where only thread 0 runs `AddZero`;
+- `two_adds`, with two `AddZero`s in one thread's code under different labels;
 - a `Break` from a conditional and a `Continue`, each of which excludes a thread
   from a barrier in its loop;
 - threads that leave a loop in different iterations and meet after it;
@@ -168,7 +170,7 @@ contains the same collective twice is rejected.
 | Warps | One warp; no workgroup of several warps and no workgroup barrier |
 | Control flow | Nested conditionals and structured loops with `Break` and `Continue`; no `switch` |
 | Local state | Loop counters live in memory cells a thread owns; no local variable updates |
-| Collectives | `AddZero` and `Barrier n`, which order memory among their participants; no collective results |
+| Collectives | `AddZero n` and `Barrier n`, which order memory among their participants; no collective results |
 
 ## Verification
 

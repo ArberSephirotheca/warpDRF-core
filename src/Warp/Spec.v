@@ -45,7 +45,7 @@ Fixpoint must_reach (c : code) (s : site) (v : list nat) : bool :=
   | Iter k rest body =>
       match v with j :: v' => Nat.eqb j k && must_reach rest s v' | [] => false end
   | Barrier n => site_eqb s (BarrierSite n) && is_nil v
-  | AddZero => site_eqb s AddSite && is_nil v
+  | AddZero n => site_eqb s (AddSite n) && is_nil v
   | Write _ _ | Break | Continue | Skip => false
   end.
 
@@ -122,13 +122,13 @@ Definition flag := variable "flag".
 Definition single_writer :=
   Read flag (NNum 0)
     (Cond (NRel NEquals (NVar flag) (NNum 0))
-      (Seq AddZero
+      (Seq (AddZero 0)
         (Cond (NRel NEquals NTid (NNum 0)) (Write (NNum 0) (NNum 1)) Skip))
       Skip).
 
 Definition single_writer_reference_trace :=
   [Memory (Observe (av_read 0 0) 0); Memory (Observe (av_read 1 0) 0);
-   Sync (AddSite, []) [0; 1]; Memory (Observe (av_write 0 0) 1)].
+   Sync (AddSite 0, []) [0; 1]; Memory (Observe (av_write 0 0) 1)].
 
 Ltac hb_link t :=
   split; [lia|]; do 2 eexists; exists t;
@@ -156,7 +156,7 @@ Qed.
 (* Under Spec thread 1 may arrive in time: both threads wait when the
    collective fires, and the run is the reference run. *)
 Definition on_time_schedule :=
-  [Thread 0; Thread 0; Thread 1; Thread 1; Release (AddSite, []);
+  [Thread 0; Thread 0; Thread 1; Thread 1; Release (AddSite 0, []);
    Thread 0; Thread 0; Thread 0; Thread 1; Thread 1].
 
 Example single_writer_on_time :
@@ -164,7 +164,7 @@ Example single_writer_on_time :
   run 100 zero_input [single_writer; single_writer] =
     Some (single_writer_reference_trace, last) /\
   spec_run zero_input on_time_schedule (spec_initial [single_writer; single_writer]) =
-    Some (single_writer_reference_trace, SpecState last [(AddSite, [])]) /\
+    Some (single_writer_reference_trace, SpecState last [(AddSite 0, [])]) /\
   finished last.
 Proof.
   eexists. split; [vm_compute; reflexivity|].
@@ -175,11 +175,11 @@ Qed.
    taken the branch, is unknown. Thread 0 sets the flag; thread 1 then reads 1
    and skips the collective, so the bet wins. *)
 Definition early_schedule :=
-  [Thread 0; Thread 0; Release (AddSite, []); Thread 0; Thread 0; Thread 0;
+  [Thread 0; Thread 0; Release (AddSite 0, []); Thread 0; Thread 0; Thread 0;
    Thread 1; Thread 1].
 
 Definition early_trace :=
-  [Memory (Observe (av_read 0 0) 0); Sync (AddSite, []) [0];
+  [Memory (Observe (av_read 0 0) 0); Sync (AddSite 0, []) [0];
    Memory (Observe (av_write 0 0) 1); Memory (Observe (av_read 1 0) 1)].
 
 Example single_writer_early :
@@ -219,14 +219,14 @@ Theorem spec_grouping_depends_on_schedule : forall c,
   exists programs fuel input reference_trace reference_last,
     run fuel input programs = Some (reference_trace, reference_last) /\
     conditions c programs reference_trace /\
-    groups_at (AddSite, []) reference_trace = [[0; 1]] /\
+    groups_at (AddSite 0, []) reference_trace = [[0; 1]] /\
     (exists trace last,
        spec_execution input (spec_initial programs) trace last /\ finished (base last) /\
-       groups_at (AddSite, []) trace = [[0; 1]] /\
+       groups_at (AddSite 0, []) trace = [[0; 1]] /\
        same_observations input reference_trace reference_last trace (base last)) /\
     (exists trace last,
        spec_execution input (spec_initial programs) trace last /\ finished (base last) /\
-       groups_at (AddSite, []) trace = [[0]] /\
+       groups_at (AddSite 0, []) trace = [[0]] /\
        ~ same_observations input reference_trace reference_last trace (base last)).
 Proof.
   intros c.
@@ -238,14 +238,14 @@ Proof.
   split; [exact (single_writer_conditions c _ _ Hrun)|].
   split; [reflexivity|].
   split.
-  - exists single_writer_reference_trace, (SpecState reference_last [(AddSite, [])]).
+  - exists single_writer_reference_trace, (SpecState reference_last [(AddSite 0, [])]).
     split; [exact (spec_run_sound _ _ _ _ _ Hon_time)|]. split; [exact Hdone|].
     split; [reflexivity|].
     unfold same_observations. repeat split; intros; reflexivity.
   - exists early_trace, last.
     split; [exact (spec_run_sound _ _ _ _ _ Hearly)|]. split; [exact Hearly_done|].
     split; [reflexivity|].
-    intros [Hgroups _]. specialize (Hgroups (AddSite, [])).
+    intros [Hgroups _]. specialize (Hgroups (AddSite 0, [])).
     vm_compute in Hgroups. discriminate.
 Qed.
 
@@ -270,9 +270,9 @@ Qed.
 (* Spec still waits for a thread known to run the collective. In late, each
    thread writes its own cell and then calls AddZero, with no branch between:
    Spec cannot fire the collective with thread 0 alone. *)
-Definition late := Seq (Write NTid (NNum 1)) AddZero.
+Definition late := Seq (Write NTid (NNum 1)) (AddZero 0).
 
 Example late_waits :
-  spec_run zero_input [Thread 0; Thread 0; Release (AddSite, [])]
+  spec_run zero_input [Thread 0; Thread 0; Release (AddSite 0, [])]
     (spec_initial [late; late]) = None.
 Proof. vm_compute. reflexivity. Qed.

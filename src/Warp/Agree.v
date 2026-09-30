@@ -197,7 +197,7 @@ Qed.
 Fixpoint sites (c : code) : list site :=
   match c with
   | Barrier n => [BarrierSite n]
-  | AddZero => [AddSite]
+  | AddZero n => [AddSite n]
   | Read _ _ body | Loop body => sites body
   | Seq first rest | Cond _ first rest => sites first ++ sites rest
   | Iter _ rest body => sites rest ++ sites body
@@ -210,7 +210,7 @@ Fixpoint static (c : code) : bool :=
   | Iter _ _ _ => false
   | Read _ _ body | Loop body => static body
   | Seq first rest | Cond _ first rest => static first && static rest
-  | Write _ _ | Break | Continue | Barrier _ | AddZero | Skip => true
+  | Write _ _ | Break | Continue | Barrier _ | AddZero _ | Skip => true
   end.
 
 (* Distinct sites name distinct collectives: no thread's code names a site

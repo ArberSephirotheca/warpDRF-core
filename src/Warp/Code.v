@@ -21,7 +21,7 @@ Inductive code :=
 | Break
 | Continue
 | Barrier : nat -> code
-| AddZero
+| AddZero : nat -> code
 | Skip.
 
 (* Substitute a value read into x. A Read binds its variable in its body, so an
@@ -39,7 +39,7 @@ Fixpoint subst x v (c : code) : code :=
   | Break => Break
   | Continue => Continue
   | Barrier n => Barrier n
-  | AddZero => AddZero
+  | AddZero n => AddZero n
   | Skip => Skip
   end.
 
@@ -89,7 +89,7 @@ Fixpoint step (tid : nat) (input : nat -> nat) (m : Mem.t) (c : code)
           | None => None
           end
       end
-  | Break | Continue | Barrier _ | AddZero | Skip => None
+  | Break | Continue | Barrier _ | AddZero _ | Skip => None
   end.
 
 (* Codes that end an iteration or a sequence rather than step. *)
