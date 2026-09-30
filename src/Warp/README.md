@@ -1,377 +1,201 @@
-# Independent-execution baseline
+# Warp agreement proofs
 
-`Lang.v` contains reads, writes, sequencing, conditionals, labeled warp barriers,
-and a zero-contribution collective. It uses Faial's expressions and read-binding
-rules. A separate syntax lets us add barriers without changing upstream Faial
-definitions.
-`Semantics.v` reuses Faial's memory and access records. A state holds shared
-memory and one remaining program per thread; list indices are thread identifiers.
-Writes are immediately visible. A fixed `input` function supplies initial values.
-Traces record memory accesses and their values.
+These files mechanize the WarpDRF contract for one warp with nested
+conditionals, several collectives, and structured loops with `Break` and
+`Continue`. Memory is sequentially consistent.
 
-For a fixed positive width `W`, warp `q` contains threads `q*W` through
-`q*W+W-1`. Schedules contain `Thread tid` for ordinary steps and `Sync q` for
-joint barrier steps. `Sync q` succeeds only if all `W` threads exist and are
-waiting at the same barrier label. It consumes exactly one barrier per thread
-and leaves other warps' programs unchanged. Repeated uses of a label are consumed
-in successive joint steps, so a thread cannot run ahead to a later occurrence.
-Barriers do not change memory in this sequentially consistent model.
+## Main results
 
-`advance` performs one action; `execution` permits any successful action;
-`run` follows a supplied schedule. `run_sound` and `run_complete` connect them.
-`None` means the selected action cannot execute, not that the kernel has
-terminated. Only `finished` identifies termination; exhausting a schedule does
-not. Waiting threads need not be selected, and no fairness is assumed.
+- `Agree.v` proves `sso_agreement`, Theorem 1 of the paper for SSO. Under
+  reference memory DRF, every completed SSO execution forms the reference's
+  group at every collective instance, gives each thread the same reads, and
+  leaves the same final memory. The proof uses only condition 1
+  (`agreement_from_drf`); the groups are part of the conclusion.
+- `Spec.v` proves that Spec, which releases a collective with whichever threads
+  have arrived, conforms to the full-warp configuration
+  (`spec_full_warp_agreement`). It then shows that condition 2 is needed:
+  `participation_condition_needed` gives a memory-DRF kernel on which Spec
+  disagrees with the reference.
 
-## Bounded participation and speculation
+## The model
 
-`Participation.v` adds one conditional per thread and one collective in its true
-branch, for a single warp. `AddZero` represents `subgroupAdd(0)` with its unused
-zero result; it is distinct from the full-warp `Barrier`. For this experiment,
-both policies give the collective memory ordering among its actual participants.
-This is a choice of abstract semantics, not a claim about every real subgroup
-intrinsic. The model calls `thread_step` directly for ordinary operations;
-collective execution is a separate joint step.
+- `Store.v`: shared memory. Writes are immediately visible, and a fixed `input`
+  function supplies the initial value of every location. An observation
+  records one access and the value it read or wrote.
+- `Code.v`: kernel code. It has reads that bind a variable, writes, sequencing,
+  conditionals, loops, `Barrier n`, and `AddZero`, which is `subgroupAdd(0)`
+  with its unused zero result. `Loop body` repeats `body` until a `Break`;
+  `Continue` ends the current iteration early. A running loop is
+  `Iter k rest body`: iteration `k`, with `rest` left in it. `step` is one step
+  of one thread; a collective does not step on its own.
+- `Model.v`: SSO. Each collective is named by its site: `AddZero` has one site
+  and `Barrier n` has site `n`. Its dynamic block, its instance, is the site
+  together with the iteration counts of the loops around it, outermost first.
+  A collective after a loop drops that loop's count, so threads that leave the
+  loop in different iterations meet there.
+  - `reach c s v` says whether a thread with remaining code `c` may still run
+    site `s` at counts `v`. Before a conditional, a thread may reach the sites
+    of both branches; once it takes one, the other is dropped. In iteration
+    `k`, a thread may reach `k :: v'` through the rest of the iteration and any
+    `j > k` through the loop body.
+  - A release of an instance is enabled when some thread waits there and no
+    other thread may still reach it; the waiting threads form the group. This
+    is SIMT-Step's rule that a collective waits until its unknown set is empty,
+    with the unknown set computed from the code.
+  - `step_reach` and `release_reach` show that steps and releases never enlarge
+    `reach`: a thread that has left an instance behind cannot come back to it.
+- `Order.v`: the happens-before of condition 1. It is the transitive closure of
+  each thread's program order, in which a collective belongs to every
+  participant. With several collectives, a write can reach a read only through
+  a relay thread (`relay` in `Tests.v`). Only events with no common thread
+  swap; the permitted swaps preserve memory DRF and each thread's read history.
+- `Commute.v`: the facts the agreement proof uses. A thread step and a release
+  commute, releases of different instances commute, enabled actions stay
+  enabled, and finished states enable nothing.
+- `Agree.v`: the reference run, the contract, and agreement (below).
+- `Blocks.v`: in a well-sited kernel each instance forms at most one group
+  (`instance_released_once`), so no thread arrives after a release.
+- `Spec.v`: the Spec target (below).
+- `Tests.v`: examples (below).
 
-Each thread's branch decision is `Unresolved`, `Entered`, or `Skipped`. A
-collective requires all `Entered` threads to arrive and records their thread
-identifiers. The two policies differ only in handling unresolved threads:
+## Reference run and contract
 
-- `SSO` waits for every thread's branch decision. A partial group is allowed
-  when the other threads have decided to skip it.
-- `Spec` can execute while decisions remain unresolved, predicting those
-  threads will skip it. A later decision to enter is rejected. Successful
-  termination requires every thread to finish and every decision to be
-  resolved, so an unfinished speculative prefix is not a validated execution.
+`run fuel input programs` is the reference execution. It runs the lowest
+runnable thread and releases an instance only when no thread can run. Loops can
+run forever, so the run takes a step budget. It accepts only well-sited source
+programs, in which no thread's code names a site twice, so an instance is one
+dynamic block. `run_sound` proves that a successful run is a completed SSO
+execution. The run also executes racy programs; checking memory DRF is
+separate.
 
-The trace records `Memory` events and `Synchronize group` events. A collective
-orders accesses before it against accesses after it only when both accessing
-threads belong to `group`. It does not order two accesses on the same side, or
-an access by an excluded thread. `memory_events` projects out synchronization
-events when comparing memory values.
+`conditions` conjoins `MemDRF` with `UnambiguousParticipation`. Both are
+checked on the kernel and its reference trace, never on target executions.
+Condition 2 requires every recorded group to be nonempty and to contain
+distinct threads of the warp, and it applies the configuration's placement
+rule:
 
-`Speculation.v` adapts the two-thread example from SIMT-Step's `speculate.tex`,
-with `x` initially zero:
+- `FullWarp`: every group is the whole warp, and every thread runs one program
+  whose collectives sit where every thread takes the same path
+  (`warp_uniform`). A test that decides whether a collective runs, or whether a
+  loop with a collective ends its iteration, must be closed: it mentions
+  neither the thread identifier nor a value read from memory. Branches without
+  a collective may still diverge. The rule is conservative for loops: a loop
+  that contains a collective exits in its first iteration or never, and a loop
+  bound read from memory is not recognized as uniform.
+- `StructuredPartial`: admits the partial groups the reference forms.
+  `reference_structured_partial` proves that every reference run passes this
+  check, so under this configuration the participation premise holds
+  automatically.
 
-```c
-int cond = load(x);
-if (cond == 0) {
-    subgroupAdd(0);
-    store(x, 1);
-}
-```
-
-Every terminating `SSO` execution reads zero in both threads and records
-participants `[0; 1]`. A validated `Spec` execution instead records `[0]`:
-thread 0 reads zero, executes the collective, and writes one; thread 1 then
-reads one and skips the branch. Both executions end with `x = 1`, so the
-distinguishing observations are the reads and participants, not final memory.
-The symmetric singleton group and the full group are also permitted by `Spec`.
-
-The original uses atomic accesses. This adaptation uses ordinary SC accesses,
-so its race classification does not apply to the original atomic program.
-
-Nested branches, loops, repeated collective instances, and full dynamic-block
-semantics remain out of scope. This is a bounded instantiation of SIMT-Step's
-SSO/Spec distinction, not a complete implementation of either. These two
-policies use SC memory; the separate delayed-memory SSO model is described below.
-
-## Deterministic reference execution
-
-`Reference.supported` defines the initial fragment: a nonempty list of thread
-programs, each with exactly one conditional, one collective in its true branch,
-and none in its false branch. All collective calls denote one common abstract
-site. Ordinary reads, writes, and sequencing may surround the conditional and
-collective. Nested or repeated conditionals, additional
-collectives, and full-warp barriers are rejected. This checks program structure,
-not variable binding; an unresolved expression can still prevent execution.
-
-`Reference.run input programs` runs the lowest-numbered runnable thread until
-it waits or finishes, then selects the next. When no thread can advance alone,
-it attempts the SSO collective step. It reuses the existing transitions and
-returns `Some (trace, last)` only when `Participation.finished` holds. The
-function also executes racy programs; checking memory DRF remains separate.
-
-The evaluator's step bound is derived from syntax size. `advance_decreases`
-proves that every successful step decreases this measure, including collective
-steps. `Reference.run_sound` proves that success is a completed SSO execution
-of an in-fragment program. `Reference.run_failure` proves that failure on an
-in-fragment program reaches an unfinished state with no enabled action: it
-cannot be caused by insufficient fuel.
-
-## Connection to the contract
-
-`Contract.v` retains the explicit reference traces for both litmus programs.
-`ReferenceExamples.v` proves that the reference scheduler reproduces them.
-
-The memory-DRF condition reuses Faial's `Conflict` definition. Every conflicting pair
-must have a collective between its accesses, with both threads in that
-collective's recorded group. `Hist.Safe` remains a special case: a trace with no
-conflicting accesses is memory-DRF without using the collective's ordering.
-
-`HappensBefore.v` defines the paper's transitive happens-before, in which a
-collective belongs to the program order of each participant.
-`memory_drf_iff_hb` proves that its DRF condition coincides with this check on
-every execution trace, because an execution contains at most one collective.
-`sso_agreement_hb` states the agreement theorem with the transitive order. The
-two definitions differ only with repeated collectives: `chained_collectives`
-shows an ordering through a third thread that only the transitive definition
-accepts.
-
-`conditions` conjoins `MemDRF` with `UnambiguousParticipation`, both checked on
-the kernel and its reference trace, never on target executions. The latter
-requires each recorded collective group to be nonempty and contain distinct
-threads from the warp. `FullWarp` is the portable configuration: the group must
-be the whole warp, and the collective must sit in warp-uniform control flow.
-As in the paper, only branches around a warp primitive are constrained:
-`Uniform.v` requires each such branch test to mention neither the thread
-identifier nor a value read from memory, and all of them to share one value, so
-every thread takes the same branch around each primitive in every execution.
-Branches without a primitive may diverge
-(`divergent_branch_without_primitive_is_permitted`). In this fragment each
-thread's only branch surrounds the collective, so the rule coincides with the
-stricter per-branch check the proofs use (`supported_primitives_uniform`).
-`StructuredPartial` admits the partial group determined by the reference's
-resolved branch decisions. A run with no collective has no group to check.
-These are two configurations of the bounded model, not a model of all GPU API
-rules. The successful `Reference.run` premise establishes that the trace and its
-groups actually come from the reference semantics.
-
-`ParticipationGuaranteed` is different: every completed target execution must
-preserve the reference group. It is a conclusion of the SSO agreement proof,
-not Condition 2. The two-writer adaptation fails reference memory DRF:
-both writes follow the collective and remain unordered.
-
-The separately named `single_writer` variant removes only thread 1's store.
-Both threads still load `x` and conditionally execute the collective; only
-thread 0 writes afterward. The programs are supplied per thread, so no nested
-conditional is added to the bounded semantics. Its results are:
-
-| Check | SSO | Spec |
-| --- | --- | --- |
-| Memory DRF of the same reference trace | Holds | Holds |
-| `FullWarp` participation: the branch depends on memory | Fails | Fails |
-| `StructuredPartial` participation of the same reference trace | Holds | Holds |
-| Every completed execution preserves the reference group `[0; 1]` | Holds | Fails |
-| Thread 0 and thread 1 read values | Always `0, 0` | `0, 1` is also possible |
-
-The reference collective orders thread 1's read before thread 0's write. In the
-speculative execution, only thread 0 participates; the collective therefore
-does not order its write against thread 1's later read. The speculative trace
-has a memory race despite both policies supplying participant-scoped ordering.
-
-`single_writer_reference_conditions` proves both reference conditions under
-`StructuredPartial`, without assuming anything about target runs.
-`single_writer_not_full_warp` shows that `FullWarp` rejects the kernel: both
-threads join only because both read zero.
-`single_writer_spec_participation_not_guaranteed` shows that Spec can form a
-different group.
-`single_writer_sso_all_executions` proves reference read values, participation,
-and the final value of `x` for all completed SSO executions;
-`single_writer_spec_validated` supplies the differing speculative execution.
-`sso_contract_does_not_transfer_to_spec` combines the `StructuredPartial`
-reference conditions with a completed Spec execution that disagrees, so Spec
-does not conform to `StructuredPartial`. It does conform to `FullWarp`, which
-is how the need for Condition 2 is established below. The general result for
-the supported SSO fragment is described next.
-
-## SSO agreement proof
-
-`same_observations` compares participant groups, each thread's ordered read
-history (including addresses and values), and the final value at every memory
+`same_observations` compares the group of every instance, each thread's
+ordered read history (addresses and values), and the final value at every
 location. It does not require the same global event order or the same internal
 representation of the memory map.
 
-`Agreement.sso_agreement` proves `SSOAgreement`: for either configuration,
-every input and supported program with a successful reference run satisfying
-both reference conditions has matching observations in every completed SSO
-execution. This retains participant agreement as part of the conclusion: the
-reference participation check alone does not establish target agreement.
-The proof uses the existing transitions without changing either execution policy:
+## Agreement proof
 
-1. `Commutation.v` proves that nonconflicting steps by different threads can be
-   swapped while preserving their observations and continuations. A collective
-   and an ordinary step enabled together commute because that thread is outside
-   the collective. Memory maps are compared by their values, not their tree shape.
-2. `TraceOrder.v` proves that the permitted swaps preserve memory DRF and each
-   thread's read history, including synchronization ordering for participants.
-   Only independent events are swapped: nonconflicting accesses by distinct
-   threads, or an access and a collective that excludes its thread.
-3. `Agreement.pull_enabled` moves the target's next action to the front of the
-   reference execution. Repeating this aligns the executions without assuming
-   that every target schedule is already DRF.
+`completed_agreement` matches any completed execution with a completed
+memory-DRF one from the same state. The target schedule supplies the next
+action, and `pull_enabled` moves that action to the front of the reference
+execution. Each reordering preserves memory DRF, so no target schedule is
+assumed to be DRF. `agreement_from_drf` applies this to the reference run, and
+`sso_agreement` follows. `target_memory_drf` proves that completed target
+traces are memory-DRF.
 
-The stronger `completed_sso_agreement` theorem only needs the reference run to
-be memory-DRF. `sso_agreement_from_drf` states this for supported programs, and
-`sso_agreement` follows from it. The configuration premise restricts where a
-collective may occur and which reference groups are allowed; the stronger proof
-needs neither restriction because this bounded SSO model supports every
-reference group formed after all branch decisions. `reference_structured_partial` proves that every successful reference
-run passes the `StructuredPartial` check, so under that configuration the
-participation premise holds automatically. `sso_participation_guaranteed`
-derives participant agreement, and `sso_memory_drf` proves that completed target
-traces remain memory-DRF. Neither conclusion extends to Spec: the single-writer
-counterexample has a completed speculative execution with different reads and
-participants.
+## Spec conformance and the need for condition 2
 
-This agreement proof covers the supported single-warp, single-collective fragment
-above, with ordinary SC accesses and the zero-result collective. Progress and
-delayed visibility have separate proofs below. None of these proofs adds loops,
-general dynamic blocks, or additional primitives.
+Spec releases an instance as soon as some thread waits there, like
+`__activemask()`, which reports whichever threads have arrived. It does not
+wait for the unknown set to empty. It releases each instance at most once, so a
+thread that arrives after the release waits forever (`late_arrival_stuck`).
+`early_release_gets_stuck` shows an early release in warp-uniform code that
+leaves a run that never finishes.
 
-## Spec conformance and the need for Condition 2
+`completed_full_warp_spec_is_sso` proves that every completed Spec run of a
+full-warp kernel is an SSO run. `spec_full_warp_agreement` then applies
+`sso_agreement` to every kernel that meets both `FullWarp` conditions. The first
+proof abstracts each thread's code to its shape: the collectives, the loops that
+contain them, and the jumps that end their iterations. Other code is erased, and
+a conditional around a collective is resolved by its closed test.
 
-`SpecConformance.v` shows that Spec is a conforming target for `FullWarp`, and
-uses it to show that Condition 2 cannot be dropped. Spec releases a collective
-with whichever threads have entered, as `__activemask()` reports whichever
-threads have arrived. In warp-uniform control flow every thread takes the same
-branch, so a thread left out of the collective must later enter, which Spec
-rejects. `early_release_gets_stuck` shows such a run never completes.
-`completed_spec_is_sso` proves that every completed Spec run of such a kernel
-waited for all branch decisions and is also an SSO run, and
-`spec_full_warp_agreement` then gives agreement for every kernel meeting both
-`FullWarp` conditions.
+- Every thread starts at the same shape and moves along one path of abstract
+  steps, so at a release every other thread is ahead of the waiting threads, at
+  their position, or behind them.
+- A thread ahead has already passed the instance, but Spec releases it only
+  once.
+- A thread behind would arrive after the release and never finish.
+- So in a completed run every thread waits at each instance Spec releases, and
+  that release is also enabled under SSO.
 
-`participation_condition_needed` shows that Condition 2 is needed. The
-single-writer kernel is memory-DRF, but its collective sits under a branch
-that depends on memory, so it fails `FullWarp`. Spec conforms to `FullWarp`
-yet forms a different group on this kernel and reads a different value.
-`memory_drf_alone_insufficient` states the consequence: memory DRF alone does
-not give agreement on a conforming target.
+`participation_condition_needed` shows that condition 2 is needed. In
+`single_writer`, both threads read a flag and, when it is zero, meet at
+`AddZero`; afterwards thread 0 sets the flag. The reference orders thread 1's
+read before thread 0's write through the collective, so the kernel is
+memory-DRF (`single_writer_memory_drf`). `agreement_from_drf` therefore fixes
+the group `[0; 1]` and thread 1's read of `0` in every completed SSO execution.
 
-## Progress of the bounded SSO model
+The collective sits under a test of a value read from memory, so the kernel
+fails `FullWarp` (`single_writer_not_full_warp`). Spec can run thread 0 alone
+through the collective; thread 1 then reads `1` and skips it
+(`single_writer_speculative`). `memory_drf_alone_insufficient` states the
+consequence: memory DRF alone does not give agreement on a conforming target.
+The same kernel meets both `StructuredPartial` conditions, so Spec does not
+conform to `StructuredPartial` (`spec_not_structured_partial`).
 
-`Progress.sso_prefix_completion` strengthens the completed-execution argument:
-every SSO prefix from the same initial state still has a completion agreeing with
-a completed memory-DRF reference execution. It does not assume the target prefix
-has finished. `sso_progress` therefore rules out an unfinished stuck state, and
-`sso_maximal_agreement` establishes termination and observable agreement for any
-finite execution with no enabled action left.
+## Examples
 
-Every successful transition consumes syntax. `execution_length_bound` bounds a
-schedule's successful actions by the starting syntax size, and
-`no_infinite_execution` excludes infinitely many successful actions. Together
-these establish that maximal executions terminate when the reference succeeds
-and is memory-DRF. A scheduler that stops while an action remains enabled is not
-maximal. This is a result for the loop-free fragment, not unconditional
-termination of arbitrary GPU programs.
+`Tests.v` computes reference traces and proves the group of an instance in
+every completed execution for these kernels:
 
-## Delayed visibility
+- nested sites and two independent halves of the warp;
+- `partial`, where only thread 0 runs `AddZero`;
+- a `Break` from a conditional and a `Continue`, each of which excludes a thread
+  from a barrier in its loop;
+- threads that leave a loop in different iterations and meet after it;
+- a barrier met by fewer threads in each iteration;
+- nested loops.
 
-`Delayed.v` defines a concrete barrier-published write-buffer model. A store
-enters the issuing thread's buffer; that thread reads its own newest write,
-while other threads read committed memory. A collective publishes all buffered
-writes of its recorded participants and removes only those writes from the
-buffers. Kernel completion publishes any remaining writes before final memory
-is observed. Publication is not allowed as an arbitrary extra scheduler action.
-Once published, writes are globally visible, but only the collective's
-participants gain synchronization ordering. This is one explicit weak model,
-not a formalization of a CUDA, PTX, or Vulkan memory specification.
+It also proves thread 2's read in every completed execution of the relay. It
+shows that crossed collectives never finish, that the placement rule rejects a
+data-dependent `Break` in a loop with a collective, and that a repeated site is
+rejected.
 
-`DelayedExecution.v` runs the same bounded programs with unchanged SSO control
-rules. Ordinary steps use the issuing thread's memory view; collective steps
-flush the recorded group. `PublishFinal` is enabled only after every thread has
-finished. The final state requires empty buffers. A decreasing measure combining
-remaining syntax and buffered writes excludes infinite successful executions.
+## Scope
 
-`DelayedAgreement.delayed_sso_agreement` proves that a successful memory-DRF
-reference run agrees with every completed delayed SSO execution on participants,
-per-thread read histories, and final memory. Target traces remain memory-DRF.
-The proof does not assume that reads already agree or that target executions
-are race-free:
-
-1. Buffered writes retain a witness of their issue event and the absence of a
-   later collective involving the writer.
-2. An SC completion supplied by `sso_prefix_completion` shows that the next
-   access cannot conflict with another thread's unpublished write: there would
-   be no collective to order the pair, contradicting reference DRF.
-3. This establishes read agreement and prevents writes by distinct threads to
-   the same still-buffered location. Flushing a participant group consequently
-   preserves logical memory, which includes all issued writes.
-4. Each delayed step is matched with an SC step. Final publication needs no
-   additional SC action. The existing SC theorem then gives reference agreement.
-
-`delayed_progress` rules out stuck unfinished prefixes. Together with
-`DelayedExecution.no_infinite_execution`, `delayed_maximal_agreement` extends
-the result to maximal executions without assuming their termination separately.
-The SC speculative counterexample is unchanged; this proof concerns SSO only.
-
-## Remaining generalization
-
-| Area | Current status |
+| Area | Status |
 | --- | --- |
-| Ordinary SC memory | Agreement and progress proved for the bounded fragment |
-| Delayed visibility | Concrete buffered semantics, agreement, and progress proved for that same fragment |
-| Loops and general dynamic blocks | Not implemented; require explicit dynamic occurrence identity and join/exit rules |
-| Repeated collectives | Not implemented in the participation model; the lower-level full-warp barrier model already permits repeated barriers |
-| General collective results | Not implemented; only the fixed zero-result, memory-ordering collective is covered |
-| Multiple warps | Supported by the lower-level barrier model, not by the SSO agreement theorem |
-
-The full paper theorem is not yet mechanized. The next control-flow extension
-must provide local variable updates, nested regions and loops, distinguish
-dynamic occurrences, and prove preservation of enabled operations and their
-participants. Primitive results must depend on the recorded arguments and group,
-with memory ordering a separate parameter. Simply adding syntax or assuming
-participant stability would not complete this proof. Loops also invalidate the
-current syntax-size termination argument; their termination needs a separate
-argument rather than an unconditional claim.
+| Memory | Sequentially consistent; agreement for completed executions |
+| Progress | Not proved: loops can run forever, and there is no termination argument |
+| Delayed visibility | Not modeled |
+| Warps | One warp; no subgroups inside it and no workgroup barrier |
+| Control flow | Nested conditionals and structured loops with `Break` and `Continue`; no `switch` |
+| Local state | Loop counters live in memory cells a thread owns; no local variable updates |
+| Collectives | `AddZero` and `Barrier n`, which order memory among their participants; no collective results |
+| `FullWarp` placement | Conservative for loops, as described above |
 
 ## Verification
 
-- `Semantics.v`: matching full-warp barriers, unchanged memory and other warps,
-  thread counts, and equivalence of schedules and the execution relation.
-- `Examples.v`: SC reads/writes, invalid steps, mismatched and repeated barriers,
-  a 32-thread release, and cross-warp handoffs that can read old or new values.
-- `Handoff.v`: every completed schedule of a two-thread synchronized handoff
-  reads the written value, for any initial memory.
-- `Participation.v`: schedule/execution equivalence and rejection of late
-  participants after speculative execution.
-- `Speculation.v`: all completed SSO schedules for both examples, differing
-  completed Spec schedules, and inability to finish with a wrong prediction.
-- `Contract.v`: reference runs, memory-DRF classifications, participant-scoped
-  ordering, and the SSO/Spec contract distinction for the single-writer example.
-- `Reference.v`: decreasing syntax size, a complete action search, successful-run
-  soundness, and failure reaching a stuck state rather than exhausting fuel.
-- `ReferenceExamples.v`: the existing litmus traces, input-dependent and partial
-  participation, 32 threads, rejected programs, unresolved expressions, and
-  read-history comparisons that ignore interleaving but preserve read values;
-  an all-input handoff with a data-dependent address, nonparticipant execution
-  across a collective, distinct map shapes with equal values, and Spec disagreement.
-- `Commutation.v`: memory replay, execution transport across equal memory values,
-  ordinary and collective step swaps, and preservation of enabled actions.
-- `TraceOrder.v`: preservation of memory DRF and read histories under permitted swaps.
-- `Agreement.v`: agreement for every completed SSO execution from reference
-  memory DRF alone, participation preservation, memory-DRF preservation, and
-  acceptance of every reference run by the `StructuredPartial` check.
-- `HappensBefore.v`: the transitive happens-before, its coincidence with the
-  single-collective check on execution traces, and agreement stated with it.
-- `Uniform.v`: warp-uniform control flow around warp primitives, its agreement
-  with the per-branch check on supported programs, and preservation of that
-  check by ordinary steps and collective releases.
-- `SpecConformance.v`: Spec agreement under the full-warp configuration, an
-  early release that never completes, and a proof that Condition 2 is needed.
-- `Progress.v`: completion of arbitrary prefixes, no stuck unfinished states,
-  finite execution bounds, and agreement of maximal SSO executions.
-- `Delayed.v`: own-write visibility, scoped publication, coherent buffers, and
-  preservation of logical memory under publication.
-- `DelayedExecution.v`: executable write buffering with the existing SSO control
-  rules, run/execution equivalence, guarded final publication, and termination measure.
-- `DelayedAgreement.v`: reference-to-delayed agreement and progress derived from
-  reference DRF, without an assumed target-read or target-participation invariant.
-- `DelayedExamples.v`: an all-input indexed handoff, a racy store-buffering result
-  differing from SC, partial publication, guarded completion, and an all-schedules
-  handoff result using the general theorem.
+- `Store.v`, `Code.v`: commuting memory effects, the loop step, its replay
+  from an observation, and the swap of steps by different threads.
+- `Model.v`: `reach` and its monotonicity under steps and releases.
+- `Order.v`: the transitive happens-before and its preservation under swaps.
+- `Commute.v`: commutation and persistence of actions.
+- `Agree.v`: agreement for every completed SSO execution from reference memory
+  DRF alone, memory-DRF preservation, reference-run soundness, and acceptance
+  of every reference run by the `StructuredPartial` check.
+- `Blocks.v`: at most one group per instance in any execution of a well-sited
+  kernel.
+- `Spec.v`: completed Spec runs of full-warp kernels are SSO runs, Spec
+  agreement under `FullWarp`, late arrivals never finish, condition 2 is
+  needed, and Spec does not conform to `StructuredPartial`.
+- `Tests.v`: the examples above.
 
 ```sh
 dune build
 rocq check -silent -Q _build/default/src Faial \
-  Faial.Warp.Semantics Faial.Warp.Examples Faial.Warp.Handoff \
-  Faial.Warp.Participation Faial.Warp.Speculation Faial.Warp.Contract \
-  Faial.Warp.Reference Faial.Warp.TraceOrder Faial.Warp.Commutation \
-  Faial.Warp.Agreement Faial.Warp.ReferenceExamples Faial.Warp.Progress \
-  Faial.Warp.Delayed Faial.Warp.DelayedExecution Faial.Warp.DelayedAgreement \
-  Faial.Warp.DelayedExamples Faial.Warp.HappensBefore Faial.Warp.Uniform \
-  Faial.Warp.SpecConformance
+  Faial.Warp.Store Faial.Warp.Code Faial.Warp.Model Faial.Warp.Order \
+  Faial.Warp.Commute Faial.Warp.Agree Faial.Warp.Blocks Faial.Warp.Spec \
+  Faial.Warp.Tests
 ```
 
 Tested with Rocq 9.1.1, Stdlib 9.0.0, Dune 3.23.1, OCaml 5.2.1, and

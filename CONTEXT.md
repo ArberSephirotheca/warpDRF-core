@@ -30,3 +30,15 @@ This is part of the contract's guarantee.
 **Memory DRF**:
 Every pair of conflicting accesses is ordered by synchronization and program
 order in the execution being checked.
+
+**Collective site**:
+The name of a warp collective in the kernel's code. A kernel is well-sited
+when no thread's code names a site twice.
+
+**Collective instance**:
+A site together with the iteration counts of the loops around it. An instance
+names one dynamic block; in loop-free code it is just the site.
+
+**Unknown thread**:
+For a collective instance, a thread that may still reach the instance but has
+not arrived. SSO releases an instance only when no thread is unknown for it.
