@@ -282,16 +282,27 @@ Proof.
   split; [now apply reorders_read_history|exact Hmemory].
 Qed.
 
-(* Theorem 1 of the paper for SSO, under either configuration. *)
-Theorem sso_agreement : forall c programs fuel input reference_trace reference_last,
+(* WarpDRF's guarantee for configuration c on a target whose completed runs
+   are described by completed: every completed run of a kernel that meets
+   both conditions has the reference's observations. *)
+Definition Guarantee c
+    (completed : (nat -> nat) -> list code -> list event -> state -> Prop) : Prop :=
+  forall programs fuel input reference_trace reference_last,
   run fuel input programs = Some (reference_trace, reference_last) ->
   conditions c programs reference_trace ->
-  forall trace last,
-  execution input (initial programs) trace last -> finished last ->
+  forall trace last, completed input programs trace last ->
   same_observations input reference_trace reference_last trace last.
+
+(* A completed SSO run. *)
+Definition sso_completed input programs trace last :=
+  execution input (initial programs) trace last /\ finished last.
+
+(* Theorem 1 of the paper for SSO, under either configuration. *)
+Theorem sso_agreement : forall c, Guarantee c sso_completed.
 Proof.
-  intros c programs fuel input reference_trace reference_last Hreference [Hdrf _].
-  exact (agreement_from_drf _ _ _ _ _ Hreference Hdrf).
+  intros c programs fuel input reference_trace reference_last Hreference [Hdrf _]
+    trace last [Htarget Hdone].
+  exact (agreement_from_drf _ _ _ _ _ Hreference Hdrf _ _ Htarget Hdone).
 Qed.
 
 Corollary target_memory_drf : forall programs fuel input reference_trace reference_last

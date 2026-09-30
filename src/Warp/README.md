@@ -6,16 +6,19 @@ conditionals, several collectives, and structured loops with `Break` and
 
 ## Main results
 
-- `Agree.v` proves `sso_agreement`, Theorem 1 of the paper for SSO. For a
-  kernel that is WarpDRF for either configuration, every completed SSO
-  execution forms the reference's group at every collective instance, gives
-  each thread the same reads, and leaves the same final memory.
-- `Spec.v` shows that Spec, which fires a collective without waiting for
-  threads that may still branch away from it, is not a conforming target. On
-  a kernel that is WarpDRF for either configuration, the group of a
-  collective under Spec depends on the schedule
-  (`spec_grouping_depends_on_schedule`), so the guarantee `sso_agreement`
-  proves for SSO does not hold for Spec (`warpdrf_fails_under_spec`).
+`Guarantee c completed` in `Agree.v` states WarpDRF's guarantee for
+configuration `c` on a target whose completed runs are described by
+`completed`: every completed run of a kernel that meets both conditions forms
+the reference's group at every collective instance, gives each thread the same
+reads, and leaves the same final memory.
+
+- `sso_agreement : forall c, Guarantee c sso_completed` is Theorem 1 of the
+  paper for SSO.
+- `warpdrf_fails_under_spec : forall c, ~ Guarantee c spec_completed` shows
+  that Spec, which fires a collective without waiting for threads that may
+  still branch away from it, is not a conforming target. On a kernel that is
+  WarpDRF for either configuration, the group of a collective under Spec
+  depends on the schedule (`spec_grouping_depends_on_schedule`).
 
 ## The model
 
@@ -161,9 +164,9 @@ schedule:
 
 The theorem states both groups: `[0; 1]` in the reference and the first Spec
 run, and `[0]` in the second. So the collective has no fixed group under Spec.
-`warpdrf_fails_under_spec` states the consequence. For either configuration, it
-takes the statement of `sso_agreement`, with Spec executions in place of SSO
-executions, and proves it false.
+`warpdrf_fails_under_spec` states the consequence: for either configuration,
+the guarantee that `sso_agreement` proves for SSO does not hold for completed
+Spec runs.
 
 ## Examples
 

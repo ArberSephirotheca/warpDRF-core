@@ -265,22 +265,21 @@ Proof.
     vm_compute in Hgroups. discriminate.
 Qed.
 
+(* A completed Spec run; last is its final state. *)
+Definition spec_completed input programs trace last :=
+  exists s, spec_execution input (spec_initial programs) trace s /\
+    finished (base s) /\ last = base s.
+
 (* So the guarantee sso_agreement proves for SSO does not hold for Spec, in
-   either configuration: its statement with Spec executions in place of SSO
-   executions is false. *)
-Corollary warpdrf_fails_under_spec : forall c,
-  ~ (forall programs fuel input reference_trace reference_last,
-       run fuel input programs = Some (reference_trace, reference_last) ->
-       conditions c programs reference_trace ->
-       forall trace last,
-       spec_execution input (spec_initial programs) trace last -> finished (base last) ->
-       same_observations input reference_trace reference_last trace (base last)).
+   either configuration. *)
+Corollary warpdrf_fails_under_spec : forall c, ~ Guarantee c spec_completed.
 Proof.
   intros c Hagree.
   destruct (spec_grouping_depends_on_schedule c)
     as [programs [fuel [input [reference_trace [reference_last
       [Hrun [Hconditions [_ [_ [trace [last [Hexec [Hdone [_ Hdiffer]]]]]]]]]]]]]].
-  exact (Hdiffer (Hagree _ _ _ _ _ Hrun Hconditions _ _ Hexec Hdone)).
+  apply Hdiffer. apply (Hagree _ _ _ _ _ Hrun Hconditions).
+  exists last. split; [exact Hexec|]. split; [exact Hdone|reflexivity].
 Qed.
 
 (* Spec still waits for a thread known to run the collective. In late, each
