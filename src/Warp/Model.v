@@ -18,10 +18,18 @@ Import ListNotations.
    iteration, and any j > k through the loop body. Steps only shrink reach,
    so a thread that has left an instance behind never comes back to it. *)
 
-Inductive site := AddSite (n : nat) | BarrierSite (n : nat).
+(* A site names one primitive in the code by its label, and records whether
+   the primitive orders memory. *)
+Inductive site := Site (n : nat) (sync : bool).
 
 Definition site_eq_dec (a b : site) : {a = b} + {a <> b}.
-Proof. decide equality; apply Nat.eq_dec. Defined.
+Proof. decide equality; first [apply Nat.eq_dec|apply Bool.bool_dec]. Defined.
+
+Definition site_sync (s : site) : bool := match s with Site _ sync => sync end.
+
+(* The sites of Barrier n and AddZero n. *)
+Definition BarrierSite (n : nat) : site := Site n true.
+Definition AddSite (n : nat) : site := Site n true.
 
 Definition site_eqb (a b : site) : bool := if site_eq_dec a b then true else false.
 
@@ -55,8 +63,8 @@ Fixpoint reach (c : code) (s : site) (v : list nat) : bool :=
       | [] => false
       | j :: v' => (Nat.eqb j k && reach rest s v') || (Nat.ltb k j && reach body s v')
       end
-  | Barrier n => site_eqb s (BarrierSite n) && is_nil v
-  | AddZero n => site_eqb s (AddSite n) && is_nil v
+  | Prim n sync _ _ _ body | Wait n sync _ _ _ body =>
+      (site_eqb s (Site n sync) && is_nil v) || reach body s v
   | Write _ _ | Break | Continue | Skip => false
   end.
 
@@ -68,67 +76,69 @@ Proof.
   - now rewrite IHc1, IHc2.
   - destruct w; [reflexivity|apply IHc].
   - destruct w; [reflexivity|now rewrite IHc1, IHc2].
+  - destruct (VAR.eq_dec x v); [reflexivity|now rewrite IHc].
+  - destruct (VAR.eq_dec x v); [reflexivity|now rewrite IHc].
 Qed.
 
-(* A thread waits at a collective when it is its next instruction; the
-   instance records the iterations it is in. Releasing replaces it by Skip. *)
-Fixpoint at_collective (c : code) : option (instance * code) :=
+(* A thread waits at a collective when it is its next instruction. The
+   instance records the iterations it is in; the thread also supplies a value
+   and its result function. *)
+Fixpoint at_collective (c : code)
+    : option (instance * nat * (list (nat * nat) -> nat -> nat)) :=
   match c with
-  | Barrier n => Some ((BarrierSite n, []), Skip)
-  | AddZero n => Some ((AddSite n, []), Skip)
-  | Seq first rest =>
-      match at_collective first with
-      | Some ((s, v), first') => Some ((s, v), Seq first' rest)
-      | None => None
-      end
-  | Iter k rest body =>
+  | Wait n sync fn value _ _ => Some ((Site n sync, []), value, fn)
+  | Seq first _ => at_collective first
+  | Iter k rest _ =>
       match at_collective rest with
-      | Some ((s, v), rest') => Some ((s, k :: v), Iter k rest' body)
+      | Some ((s, v), value, fn) => Some ((s, k :: v), value, fn)
       | None => None
       end
   | _ => None
   end.
 
-Lemma at_collective_reach : forall c s w c',
-  at_collective c = Some ((s, w), c') -> reach c s w = true.
+(* After a release, the waiting primitive gives way to its body with the
+   result bound, behind a Skip, so the thread is not at a collective. *)
+Fixpoint resume (c : code) (r : nat) : code :=
+  match c with
+  | Wait _ _ _ _ x body => Seq Skip (subst x (NNum r) body)
+  | Seq first rest => Seq (resume first r) rest
+  | Iter k rest body => Iter k (resume rest r) body
+  | _ => c
+  end.
+
+Lemma at_collective_reach : forall c s w value fn,
+  at_collective c = Some ((s, w), value, fn) -> reach c s w = true.
 Proof.
-  induction c; intros s w c' H; cbn in H; try discriminate.
-  - destruct (at_collective c1) as [[[s1 v1] f]|] eqn:Hf; try discriminate.
-    inversion H; subst. cbn. now rewrite (IHc1 _ _ _ eq_refl).
-  - destruct (at_collective c1) as [[[s1 v1] r]|] eqn:Hr; try discriminate.
-    inversion H; subst. cbn. rewrite Nat.eqb_refl. now rewrite (IHc1 _ _ _ eq_refl).
+  induction c; intros s w value fn H; cbn in H; try discriminate.
+  - cbn. now rewrite (IHc1 _ _ _ _ H).
+  - destruct (at_collective c1) as [[[[s1 v1] w1] f1]|] eqn:Hr; try discriminate.
+    inversion H; subst. cbn. rewrite Nat.eqb_refl. now rewrite (IHc1 _ _ _ _ eq_refl).
   - inversion H; subst. cbn. unfold site_eqb.
-    destruct (site_eq_dec (BarrierSite n) (BarrierSite n)); [reflexivity|congruence].
-  - inversion H; subst. cbn. unfold site_eqb.
-    destruct (site_eq_dec (AddSite n) (AddSite n)); [reflexivity|congruence].
+    destruct (site_eq_dec (Site n b) (Site n b)); [reflexivity|congruence].
 Qed.
 
-Lemma at_collective_released : forall c i c',
-  at_collective c = Some (i, c') -> at_collective c' = None.
+Lemma resume_not_waiting : forall c r x,
+  at_collective c = Some x -> at_collective (resume c r) = None.
 Proof.
-  induction c; intros i c' H; cbn in H; try discriminate.
-  - destruct (at_collective c1) as [[[s1 v1] f]|] eqn:Hf; try discriminate.
-    inversion H; subst. cbn. now rewrite (IHc1 _ _ eq_refl).
-  - destruct (at_collective c1) as [[[s1 v1] r]|] eqn:Hr; try discriminate.
-    inversion H; subst. cbn. now rewrite (IHc1 _ _ eq_refl).
-  - inversion H; subst; reflexivity.
-  - inversion H; subst; reflexivity.
-Qed.
-
-Lemma at_collective_not_ender : forall c i c', at_collective c = Some (i, c') -> ender c = false.
-Proof. intros [] i c' H; cbn in H; try discriminate; reflexivity. Qed.
-
-Lemma at_collective_blocks : forall c i c' tid input m,
-  at_collective c = Some (i, c') -> step tid input m c = None.
-Proof.
-  induction c; intros i c' tid input m H; cbn in H; try discriminate.
-  - destruct (at_collective c1) as [[[s1 v1] f]|] eqn:Hf; try discriminate.
-    rewrite step_seq_other by (eapply at_collective_not_ender; eauto).
-    now rewrite (IHc1 _ _ tid input m eq_refl).
-  - destruct (at_collective c1) as [[[s1 v1] r]|] eqn:Hr; try discriminate.
-    rewrite step_iter_other by (eapply at_collective_not_ender; eauto).
-    now rewrite (IHc1 _ _ tid input m eq_refl).
+  induction c; intros r x H; cbn in H; try discriminate.
+  - cbn. exact (IHc1 _ _ H).
+  - destruct (at_collective c1) as [[[[s1 v1] w1] f1]|] eqn:Hr; try discriminate.
+    cbn. now rewrite (IHc1 r _ eq_refl).
   - reflexivity.
+Qed.
+
+Lemma at_collective_not_ender : forall c x, at_collective c = Some x -> ender c = false.
+Proof. intros [] x H; cbn in H; try discriminate; reflexivity. Qed.
+
+Lemma at_collective_blocks : forall c x tid input m,
+  at_collective c = Some x -> step tid input m c = None.
+Proof.
+  induction c; intros x tid input m H; cbn in H; try discriminate.
+  - rewrite step_seq_other by (eapply at_collective_not_ender; eauto).
+    now rewrite (IHc1 _ tid input m H).
+  - destruct (at_collective c1) as [[[[s1 v1] w1] f1]|] eqn:Hr; try discriminate.
+    rewrite step_iter_other by (eapply at_collective_not_ender; eauto).
+    now rewrite (IHc1 _ tid input m eq_refl).
   - reflexivity.
 Qed.
 
@@ -170,28 +180,28 @@ Proof.
       * right. apply andb_true_iff. split; [exact Hj|exact Hr].
   - cbn in H; discriminate.
   - cbn in H; discriminate.
-  - cbn in H; discriminate.
+  - cbn in H. match type of H with context [n_step ?t ?a] =>
+      destruct (n_step t a) eqn:Harg end; try discriminate.
+    inversion H; subst. exact Hr.
   - cbn in H; discriminate.
   - cbn in H; discriminate.
 Qed.
 
 (* Releasing a collective drops only the collective itself. *)
-Lemma release_reach : forall c i c' s w,
-  at_collective c = Some (i, c') -> reach c' s w = true -> reach c s w = true.
+Lemma resume_reach : forall c r x s w,
+  at_collective c = Some x -> reach (resume c r) s w = true -> reach c s w = true.
 Proof.
-  induction c; intros i c' s w H Hr; cbn in H; try discriminate.
-  - destruct (at_collective c1) as [[[s1 v1] f]|] eqn:Hf; try discriminate.
-    inversion H; subst. cbn [reach] in Hr |- *. apply orb_true_iff in Hr as [Hr|Hr].
-    + now rewrite (IHc1 _ _ _ _ eq_refl Hr).
+  induction c; intros r x s w H Hr; cbn in H; try discriminate.
+  - cbn [resume reach] in Hr |- *. apply orb_true_iff in Hr as [Hr|Hr].
+    + now rewrite (IHc1 _ _ _ _ H Hr).
     + now rewrite Hr, orb_true_r.
-  - destruct (at_collective c1) as [[[s1 v1] r]|] eqn:Hrest; try discriminate.
-    inversion H; subst. cbn [reach] in Hr |- *. destruct w as [|j w']; [discriminate|].
+  - destruct (at_collective c1) as [[[[s1 v1] w1] f1]|] eqn:Hrest; try discriminate.
+    cbn [resume reach] in Hr |- *. destruct w as [|j w']; [discriminate|].
     apply orb_true_iff in Hr as [Hr|Hr]; apply andb_true_iff in Hr as [Hj Hr];
       apply orb_true_iff.
     + left. apply andb_true_iff. split; [exact Hj|]. exact (IHc1 _ _ _ _ eq_refl Hr).
     + right. apply andb_true_iff. split; [exact Hj|exact Hr].
-  - inversion H; subst. discriminate.
-  - inversion H; subst. discriminate.
+  - cbn in Hr. rewrite reach_subst in Hr. cbn [reach]. now rewrite Hr, orb_true_r.
 Qed.
 
 Record state := State {
@@ -211,7 +221,7 @@ Inductive event :=
 
 Definition waits_at (i : instance) (c : code) : bool :=
   match at_collective c with
-  | Some (i', _) => instance_eqb i i'
+  | Some (i', _, _) => instance_eqb i i'
   | None => false
   end.
 
@@ -230,13 +240,36 @@ Definition arrived (i : instance) (codes : list code) := select (waits_at i) cod
 Definition unknown (i : instance) (codes : list code) :=
   select (fun c => may_reach i c && negb (waits_at i c)) codes.
 
-Definition release_one (i : instance) (c : code) : code :=
+(* The values the waiting threads supply, with their threads. *)
+Definition supply (i : instance) (tid : nat) (c : code) : list (nat * nat) :=
   match at_collective c with
-  | Some (i', c') => if instance_eqb i i' then c' else c
+  | Some (i', value, _) => if instance_eqb i i' then [(tid, value)] else []
+  | None => []
+  end.
+
+Definition supplied (i : instance) (codes : list code) : list (nat * nat) :=
+  flat_map (fun tid =>
+    match nth_error codes tid with Some c => supply i tid c | None => [] end)
+    (seq 0 (length codes)).
+
+(* A release gives each waiting thread its result, computed from the values
+   the whole group supplied, and resumes it. *)
+Definition release_one (i : instance) (values : list (nat * nat)) (tid : nat)
+    (c : code) : code :=
+  match at_collective c with
+  | Some (i', _, fn) => if instance_eqb i i' then resume c (fn values tid) else c
   | None => c
   end.
 
-Definition release (i : instance) (codes : list code) := map (release_one i) codes.
+Fixpoint release_from (i : instance) (values : list (nat * nat)) (tid : nat)
+    (codes : list code) : list code :=
+  match codes with
+  | [] => []
+  | c :: rest => release_one i values tid c :: release_from i values (S tid) rest
+  end.
+
+Definition release (i : instance) (codes : list code) :=
+  release_from i (supplied i codes) 0 codes.
 
 Definition advance input (a : action) (st : state) : option (option event * state) :=
   match a with
@@ -369,19 +402,19 @@ Qed.
 (* Waiting and reaching. *)
 
 Lemma waits_at_true : forall i c,
-  waits_at i c = true <-> exists c', at_collective c = Some (i, c').
+  waits_at i c = true <-> exists value fn, at_collective c = Some (i, value, fn).
 Proof.
-  intros i c. unfold waits_at. destruct (at_collective c) as [[i' c']|]; split.
+  intros i c. unfold waits_at. destruct (at_collective c) as [[[i' value] fn]|]; split.
   - intros H. apply instance_eqb_true in H. subst. eauto.
-  - intros [c'' H]. inversion H; subst. now apply instance_eqb_true.
+  - intros [value' [fn' H]]. inversion H; subst. now apply instance_eqb_true.
   - discriminate.
-  - intros [c'' H]. discriminate.
+  - intros [value' [fn' H]]. discriminate.
 Qed.
 
 Lemma waits_at_reaches : forall i c, waits_at i c = true -> may_reach i c = true.
 Proof.
-  intros [s v] c H. apply waits_at_true in H as [c' H].
-  exact (at_collective_reach _ _ _ _ H).
+  intros [s v] c H. apply waits_at_true in H as [value [fn H]].
+  exact (at_collective_reach _ _ _ _ _ H).
 Qed.
 
 Lemma unknown_nil_waits : forall i codes tid c,
@@ -406,38 +439,58 @@ Lemma step_not_waiting : forall i c tid input m e m' c',
   step tid input m c = Some (e, m', c') -> waits_at i c = false.
 Proof.
   intros i c tid input m e m' c' Hstep. unfold waits_at.
-  destruct (at_collective c) as [[i' c'']|] eqn:Hat; [|reflexivity].
-  rewrite (at_collective_blocks _ _ _ tid input m Hat) in Hstep. discriminate.
+  destruct (at_collective c) as [[[i' value] fn]|] eqn:Hat; [|reflexivity].
+  rewrite (at_collective_blocks _ _ tid input m Hat) in Hstep. discriminate.
 Qed.
 
 Lemma step_may_reach : forall i c tid input m e m' c',
   step tid input m c = Some (e, m', c') -> may_reach i c' = true -> may_reach i c = true.
 Proof. intros [s v] c tid input m e m' c' H. apply (step_reach _ _ _ _ _ _ _ _ _ H). Qed.
 
-Lemma release_one_other : forall i c, waits_at i c = false -> release_one i c = c.
+Lemma release_one_other : forall i values tid c,
+  waits_at i c = false -> release_one i values tid c = c.
 Proof.
-  intros i c H. unfold release_one, waits_at in *.
-  destruct (at_collective c) as [[i' c']|]; [now rewrite H|reflexivity].
+  intros i values tid c H. unfold release_one, waits_at in *.
+  destruct (at_collective c) as [[[i' value] fn]|]; [now rewrite H|reflexivity].
 Qed.
 
-Lemma release_one_waiting : forall i c c', at_collective c = Some (i, c') -> release_one i c = c'.
+Lemma release_one_waiting : forall i values tid c value fn,
+  at_collective c = Some (i, value, fn) ->
+  release_one i values tid c = resume c (fn values tid).
 Proof.
-  intros i c c' H. unfold release_one. rewrite H.
+  intros i values tid c value fn H. unfold release_one. rewrite H.
   now rewrite (proj2 (instance_eqb_true i i) eq_refl).
 Qed.
 
-Lemma release_one_may_reach : forall i j c,
-  may_reach j (release_one i c) = true -> may_reach j c = true.
+Lemma release_one_may_reach : forall i values tid j c,
+  may_reach j (release_one i values tid c) = true -> may_reach j c = true.
 Proof.
-  intros i [s v] c H. unfold release_one in H.
-  destruct (at_collective c) as [[i' c']|] eqn:Hat; [|exact H].
+  intros i values tid [s v] c H. unfold release_one in H.
+  destruct (at_collective c) as [[[i' value] fn]|] eqn:Hat; [|exact H].
   destruct (instance_eqb i i'); [|exact H].
-  exact (release_reach _ _ _ _ _ Hat H).
+  exact (resume_reach _ _ _ _ _ Hat H).
+Qed.
+
+Lemma release_from_nth : forall i values codes k tid,
+  nth_error (release_from i values k codes) tid =
+  option_map (release_one i values (k + tid)) (nth_error codes tid).
+Proof.
+  intros i values codes. induction codes as [|c codes IH]; intros k [|tid]; cbn;
+    try reflexivity.
+  - now rewrite Nat.add_0_r.
+  - rewrite IH. now replace (S k + tid) with (k + S tid) by lia.
 Qed.
 
 Lemma release_nth : forall i codes tid,
-  nth_error (release i codes) tid = option_map (release_one i) (nth_error codes tid).
-Proof. intros i codes tid. unfold release. apply nth_error_map. Qed.
+  nth_error (release i codes) tid =
+  option_map (release_one i (supplied i codes) tid) (nth_error codes tid).
+Proof. intros i codes tid. unfold release. apply release_from_nth. Qed.
+
+Lemma release_from_length : forall i values codes k,
+  length (release_from i values k codes) = length codes.
+Proof.
+  intros i values codes. induction codes as [|c codes IH]; intros k; cbn; auto.
+Qed.
 
 Lemma release_length : forall i codes, length (release i codes) = length codes.
-Proof. intros i codes. unfold release. apply length_map. Qed.
+Proof. intros i codes. apply release_from_length. Qed.

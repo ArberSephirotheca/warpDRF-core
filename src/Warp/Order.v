@@ -5,15 +5,18 @@ From Faial.Warp Require Import Store Model.
 
 Import ListNotations.
 
-(* A memory event belongs to its owner; a collective belongs to each participant. *)
+(* A memory event belongs to its owner. A collective that orders memory
+   belongs to each participant; one that does not belongs to no thread, so it
+   adds no ordering between threads. *)
 Definition involves (e : event) (t : nat) : Prop :=
   match e with
   | Memory o => av_owner (access o) = t
-  | Sync _ group => In t group
+  | Sync i group => site_sync (fst i) = true /\ In t group
   end.
 
 (* The paper's happens-before is the transitive closure of each thread's
-   program order, in which a collective belongs to every participant. One step
+   program order, in which a collective that orders memory belongs to every
+   participant. One step
    relates two events that share a thread. With several collectives, the
    closure matters: a relay thread can order two threads that never meet. *)
 Definition hb_step (trace : list event) (i j : nat) : Prop :=

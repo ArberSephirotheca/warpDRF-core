@@ -123,7 +123,7 @@ Qed.
 
 Definition waiting_instances (codes : list code) : list instance :=
   flat_map (fun c =>
-    match at_collective c with Some (i, _) => [i] | None => [] end) codes.
+    match at_collective c with Some (i, _, _) => [i] | None => [] end) codes.
 
 Definition next input st :=
   find (fun a => match advance input a st with Some _ => true | None => false end)
@@ -196,21 +196,20 @@ Qed.
    sites are counted once, not once per iteration. *)
 Fixpoint sites (c : code) : list site :=
   match c with
-  | Barrier n => [BarrierSite n]
-  | AddZero n => [AddSite n]
+  | Prim n sync _ _ _ body | Wait n sync _ _ _ body => Site n sync :: sites body
   | Read _ _ body | Loop body => sites body
   | Seq first rest | Cond _ first rest => sites first ++ sites rest
   | Iter _ rest body => sites rest ++ sites body
   | Write _ _ | Break | Continue | Skip => []
   end.
 
-(* Source programs: Iter is a runtime form. *)
+(* Source programs: Iter and Wait are runtime forms. *)
 Fixpoint static (c : code) : bool :=
   match c with
-  | Iter _ _ _ => false
-  | Read _ _ body | Loop body => static body
+  | Iter _ _ _ | Wait _ _ _ _ _ _ => false
+  | Read _ _ body | Loop body | Prim _ _ _ _ _ body => static body
   | Seq first rest | Cond _ first rest => static first && static rest
-  | Write _ _ | Break | Continue | Barrier _ | AddZero _ | Skip => true
+  | Write _ _ | Break | Continue | Skip => true
   end.
 
 (* Distinct sites name distinct collectives: no thread's code names a site

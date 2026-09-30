@@ -1,5 +1,5 @@
 From Stdlib Require Import Lists.List Strings.String Arith.PeanoNat Bool.Bool Lia.
-From Stdlib Require Import Relations.Relation_Operators.
+From Stdlib Require Import Relations.Relation_Operators Relations.Operators_Properties.
 From Faial.Core Require Import Var AVal.
 From Faial.Expr.SIMT.N Require Import Exp.
 From Faial.Expr.SIMT.B Require Import Exp.
@@ -172,21 +172,64 @@ Definition crossed :=
 Example crossed_reference_fails : run 100 zero_input crossed = None.
 Proof. vm_compute. reflexivity. Qed.
 
+(* A run stays within states satisfying P; if none of them is finished, no run
+   finishes. *)
+Lemma never_finishes : forall (P : state -> Prop) input,
+  (forall s, P s -> ~ finished s) ->
+  (forall s a e s', P s -> advance input a s = Some (e, s') -> P s') ->
+  forall s trace last, P s -> execution input s trace last -> ~ finished last.
+Proof.
+  intros P input Hnot Hclosed s trace last Hs Hexec.
+  induction Hexec as [s|a s e s' trace last Hstep Hexec IH]; [exact (Hnot s Hs)|].
+  exact (IH (Hclosed _ _ _ _ Hs Hstep)).
+Qed.
+
+(* A thread that has arrived at Barrier n. *)
+Definition arrived_at (n : nat) := Wait n true (fun _ _ => 0) 0 unused Skip.
+
+(* Each thread is before or at its first barrier. *)
+Definition crossed_state (s : state) : Prop :=
+  exists x y, threads s = [x; y] /\
+    (x = Seq (Barrier 1) (Barrier 2) \/ x = Seq (arrived_at 1) (Barrier 2)) /\
+    (y = Seq (Barrier 2) (Barrier 1) \/ y = Seq (arrived_at 2) (Barrier 1)).
+
+Lemma crossed_closed : forall s a e s',
+  crossed_state s -> advance zero_input a s = Some (e, s') -> crossed_state s'.
+Proof.
+  intros s a e s' [x [y [Hthreads [Hx Hy]]]] Hstep. destruct a as [tid|i].
+  - apply thread_view in Hstep as [c [o [m' [c' [Hc [Hthread [_ ->]]]]]]].
+    rewrite Hthreads in Hc |- *.
+    destruct tid as [|[|[|tid]]]; cbn in Hc; inversion Hc; subst.
+    + destruct Hx as [-> | ->]; cbn in Hthread; inversion Hthread; subst.
+      exists (Seq (arrived_at 1) (Barrier 2)), y.
+      split; [reflexivity|]. split; [right; reflexivity|exact Hy].
+    + destruct Hy as [-> | ->]; cbn in Hthread; inversion Hthread; subst.
+      exists x, (Seq (arrived_at 2) (Barrier 1)).
+      split; [reflexivity|]. split; [exact Hx|right; reflexivity].
+  - apply release_view in Hstep as [Harrived [Hunknown _]]. exfalso.
+    rewrite Hthreads in Harrived, Hunknown.
+    destruct (instance_eq_dec i (Site 1 true, [])) as [->|H1].
+    { destruct Hx as [-> | ->], Hy as [-> | ->]; vm_compute in Hunknown; discriminate. }
+    destruct (instance_eq_dec i (Site 2 true, [])) as [->|H2].
+    { destruct Hx as [-> | ->], Hy as [-> | ->]; vm_compute in Hunknown; discriminate. }
+    apply Harrived. apply select_nil. intros t c Hc.
+    destruct t as [|[|[|t]]]; cbn in Hc; inversion Hc; subst.
+    + destruct Hx as [-> | ->]; unfold waits_at; cbn [at_collective arrived_at Barrier];
+        [reflexivity|]. now apply instance_eqb_false.
+    + destruct Hy as [-> | ->]; unfold waits_at; cbn [at_collective arrived_at Barrier];
+        [reflexivity|]. now apply instance_eqb_false.
+Qed.
+
 Theorem crossed_never_finishes : forall trace last,
   ~ (execution zero_input (initial crossed) trace last /\ finished last).
 Proof.
   intros trace last [Hexec Hdone].
-  inversion Hexec as [s Hs|a s e s' tail final Hstep]; subst.
-  - unfold finished in Hdone. cbn in Hdone.
-    inversion Hdone as [|x l Hx _]. discriminate.
-  - destruct a as [tid|[x w]].
-    + apply thread_view in Hstep as [c [o [m' [c' [Hc [Hthread _]]]]]].
-      destruct tid as [|[|tid]]; cbn in Hc; [| |destruct tid; discriminate];
-        inversion Hc; subst; cbn in Hthread; discriminate.
-    + apply release_view in Hstep as [Harrived [Hunknown _]].
-      destruct x as [|[|[|[|n]]]]; destruct w as [|j w];
-        vm_compute in Harrived, Hunknown;
-        solve [exfalso; apply Harrived; reflexivity|discriminate Hunknown].
+  refine (never_finishes crossed_state zero_input _ crossed_closed _ _ _ _ Hexec Hdone).
+  - intros s [x [y [Hthreads [Hx _]]]] Hfinished. unfold finished in Hfinished.
+    rewrite Hthreads in Hfinished. apply Forall_inv in Hfinished.
+    destruct Hx as [-> | ->]; discriminate.
+  - exists (Seq (Barrier 1) (Barrier 2)), (Seq (Barrier 2) (Barrier 1)).
+    split; [reflexivity|]. split; left; reflexivity.
 Qed.
 
 (* One conditional per thread and one collective in its true branch: only
@@ -213,6 +256,110 @@ Theorem two_adds_groups : forall trace last,
   groups_at (AddSite 0, []) trace = [[0; 1]] /\
   groups_at (AddSite 1, []) trace = [[0; 1]].
 Proof. groups_by_reference 100. Qed.
+
+(* Primitive results and memory ordering. *)
+
+Lemma memory_in_every_execution : forall fuel programs address expected,
+  match run fuel zero_input programs with
+  | Some (reference_trace, reference_last) =>
+      conflict_free reference_trace = true /\
+      load zero_input (memory reference_last) address = expected
+  | None => False
+  end ->
+  forall trace last,
+  execution zero_input (initial programs) trace last -> finished last ->
+  load zero_input (memory last) address = expected.
+Proof.
+  intros fuel programs address expected H trace last Hexec Hdone.
+  destruct (run fuel zero_input programs) as [[reference_trace reference_last]|] eqn:Hrun;
+    [|contradiction].
+  destruct H as [Hfree Hload].
+  destruct (agreement_from_drf _ _ _ _ _ Hrun (conflict_free_drf _ Hfree) _ _ Hexec Hdone)
+    as [_ [_ Hmemory]].
+  rewrite <- Hmemory. exact Hload.
+Qed.
+
+Definition sum_values (values : list (nat * nat)) (_ : nat) : nat :=
+  fold_right (fun p total => snd p + total) 0 values.
+
+Definition total := variable "total".
+
+(* Each thread adds tid + 1 with a reduction that does not order memory, and
+   thread 0 stores the sum it receives. *)
+Definition reduce :=
+  Prim 0 false sum_values (plus1 NTid) total
+    (Cond (tid_is 0) (Write (NNum 0) (NVar total)) Skip).
+
+Theorem reduce_result : forall trace last,
+  execution zero_input (initial [reduce; reduce; reduce]) trace last -> finished last ->
+  load zero_input (memory last) 0 = 6.
+Proof.
+  intros trace last Hexec Hdone.
+  refine (memory_in_every_execution 100 _ 0 6 _ trace last Hexec Hdone).
+  vm_compute. split; reflexivity.
+Qed.
+
+(* Thread 0 writes a cell, both threads meet at a primitive, and thread 1 then
+   reads the cell. A primitive that orders memory orders the write before the
+   read; one that does not leaves them racing. *)
+Definition handoff (sync : bool) :=
+  [Seq (Write (NNum 0) (NNum 1)) (Prim 0 sync (fun _ _ => 0) (NNum 0) unused Skip);
+   Prim 0 sync (fun _ _ => 0) (NNum 0) unused (Read (variable "r") (NNum 0) Skip)].
+
+Definition handoff_trace (sync : bool) :=
+  [Memory (Observe (av_write 0 0) 1); Sync (Site 0 sync, []) [0; 1];
+   Memory (Observe (av_read 1 0) 1)].
+
+Example handoff_reference : forall sync,
+  exists last, run 100 zero_input (handoff sync) = Some (handoff_trace sync, last) /\
+  finished last.
+Proof. intros []; eexists; split; [vm_compute; reflexivity|finished_codes| |];
+  [vm_compute; reflexivity|finished_codes]. Qed.
+
+Lemma sync_handoff_drf : MemDRF (handoff_trace true).
+Proof.
+  intros i j e f He Hf Hconflict.
+  assert (Hi : i < 3).
+  { apply (proj1 (nth_error_Some (handoff_trace true) i)). rewrite He. discriminate. }
+  assert (Hj : j < 3).
+  { apply (proj1 (nth_error_Some (handoff_trace true) j)). rewrite Hf. discriminate. }
+  destruct i as [|[|[|i]]], j as [|[|[|j]]]; try lia;
+    cbn in He, Hf; try discriminate;
+    inversion He; inversion Hf; subst; clear He Hf;
+    try solve [inversion Hconflict; cbn in *; congruence].
+  - left. apply t_trans with 1; apply t_step; [hb_link 0|hb_link 1].
+  - right. apply t_trans with 1; apply t_step; [hb_link 0|hb_link 1].
+Qed.
+
+Theorem sync_handoff_reads : forall trace last,
+  execution zero_input (initial (handoff true)) trace last -> finished last ->
+  read_history 1 trace = [Observe (av_read 1 0) 1].
+Proof.
+  intros trace last Hexec Hdone.
+  destruct (handoff_reference true) as [reference_last [Hrun _]].
+  destruct (agreement_from_drf _ _ _ _ _ Hrun sync_handoff_drf _ _ Hexec Hdone)
+    as [_ [Hreads _]].
+  rewrite <- Hreads. reflexivity.
+Qed.
+
+Theorem nosync_handoff_race : ~ MemDRF (handoff_trace false).
+Proof.
+  intros Hdrf.
+  assert (Hconflict : Conflict (av_write 0 0) (av_read 1 0))
+    by (apply conflict_l; cbn; [discriminate|reflexivity|reflexivity]).
+  assert (Hno : forall y, ~ hb_step (handoff_trace false) 0 y).
+  { intros y [Hlt [e [f [t [He [Hf [Het Hft]]]]]]].
+    cbn in He. inversion He; subst e. cbn in Het.
+    destruct y as [|[|[|[|y]]]]; cbn in Hf; inversion Hf; subst f; cbn in Hft.
+    - lia.
+    - destruct Hft as [Hsync _]. discriminate.
+    - congruence. }
+  destruct (Hdrf 0 2 (Observe (av_write 0 0) 1) (Observe (av_read 1 0) 1)
+    eq_refl eq_refl Hconflict) as [Hhb|Hhb].
+  - apply clos_trans_t1n in Hhb.
+    inversion Hhb as [y Hstep|y z Hstep _]; exact (Hno _ Hstep).
+  - apply hb_lt in Hhb. lia.
+Qed.
 
 (* Loops. *)
 

@@ -23,17 +23,25 @@ conditionals, several collectives, and structured loops with `Break` and
   function supplies the initial value of every location. An observation
   records one access and the value it read or wrote.
 - `Code.v`: kernel code. It has reads that bind a variable, writes, sequencing,
-  conditionals, loops, `Barrier n`, and `AddZero n`, which is
-  `subgroupAdd(0)` with its unused zero result. The label `n` names the
-  collective in the code. `Loop body` repeats `body` until a `Break`;
-  `Continue` ends the current iteration early. A running loop is
+  conditionals, loops, and warp primitives. `Loop body` repeats `body` until a
+  `Break`; `Continue` ends the current iteration early. A running loop is
   `Iter k rest body`: iteration `k`, with `rest` left in it. `step` is one step
-  of one thread; a collective does not step on its own.
-- `Model.v`: SSO. Each collective is named by its site: `AddZero n` has site
-  `AddSite n` and `Barrier n` has site `BarrierSite n`. Its dynamic block, its
-  instance, is the site together with the iteration counts of the loops around
-  it, outermost first. A collective after a loop drops that loop's count, so
-  threads that leave the loop in different iterations meet there.
+  of one thread.
+  - `Prim n sync f arg x body` is a warp primitive with site label `n`. Each
+    participant supplies the value of `arg` and receives `f` applied to the
+    participants' (thread, value) pairs and its own thread; the result is bound
+    to `x` in `body`. As in the paper, `f` is uninterpreted: every theorem holds
+    for every `f`. `sync` is the paper's `ord(p)`: whether the primitive orders
+    memory among its participants.
+  - A thread that reaches a primitive evaluates `arg` and waits as `Wait`; the
+    warp releases it (`Model.v`).
+  - `Barrier n` and `AddZero n` are primitives that order memory and return
+    nothing useful; `AddZero n` stands for `subgroupAdd(0)`.
+- `Model.v`: SSO. Each primitive is named by its site, its label together with
+  its `sync` flag. Its dynamic block, its instance, is the site together with
+  the iteration counts of the loops around it, outermost first. A primitive
+  after a loop drops that loop's count, so threads that leave the loop in
+  different iterations meet there.
   - `reach c s v` says whether a thread with remaining code `c` may still run
     site `s` at counts `v`. Before a conditional, a thread may reach the sites
     of both branches; once it takes one, the other is dropped. In iteration
@@ -43,11 +51,14 @@ conditionals, several collectives, and structured loops with `Break` and
     other thread may still reach it; the waiting threads form the group. This
     is SIMT-Step's rule that a collective waits until its unknown set is empty,
     with the unknown set computed from the code.
-  - `step_reach` and `release_reach` show that steps and releases never enlarge
+  - The release collects the values the group supplied, gives each participant
+    its result, and resumes it in the primitive's body (`resume`).
+  - `step_reach` and `resume_reach` show that steps and releases never enlarge
     `reach`: a thread that has left an instance behind cannot come back to it.
 - `Order.v`: the happens-before of condition 1. It is the transitive closure of
-  each thread's program order, in which a collective belongs to every
-  participant. With several collectives, a write can reach a read only through
+  each thread's program order, in which a primitive that orders memory belongs
+  to every participant; one that does not adds no ordering between threads.
+  With several collectives, a write can reach a read only through
   a relay thread (`relay` in `Tests.v`). Only events with no common thread
   swap; the permitted swaps preserve memory DRF and each thread's read history.
 - `Commute.v`: the facts the agreement proof uses. A thread step and a release
@@ -163,6 +174,17 @@ It also proves thread 2's read in every completed execution of the relay. It
 shows that crossed collectives never finish, and that a thread whose code
 contains the same collective twice is rejected.
 
+Two examples use primitive results and `sync`:
+
+- `reduce`: each of three threads adds `tid + 1` with a reduction that does
+  not order memory, and thread 0 stores the sum. Every completed execution ends
+  with 6 in that cell (`reduce_result`).
+- `handoff`: thread 0 writes a cell, both threads meet at a primitive, and
+  thread 1 reads the cell. If the primitive orders memory, the kernel is
+  memory-DRF and thread 1 reads 1 in every completed execution
+  (`sync_handoff_reads`). If it does not, nothing orders the write before the
+  read, and the reference trace is not memory-DRF (`nosync_handoff_race`).
+
 ## Scope
 
 | Area | Status |
@@ -172,11 +194,11 @@ contains the same collective twice is rejected.
 | Warps | One warp; no workgroup of several warps and no workgroup barrier |
 | Control flow | Nested conditionals and structured loops with `Break` and `Continue`; no `switch` |
 | Local state | Loop counters live in memory cells a thread owns; no local variable updates |
-| Collectives | `AddZero n` and `Barrier n`, which order memory among their participants; no collective results |
+| Primitives | Results from an uninterpreted function of the participants' values, and `ord(p)` as `sync`; one argument per primitive; `req(p)` is not modeled |
 
 ## Verification
 
-- `Store.v`, `Code.v`: commuting memory effects, the loop step, its replay
+- `Store.v`, `Code.v`: commuting memory effects, the thread step, its replay
   from an observation, and the swap of steps by different threads.
 - `Model.v`: `reach` and its monotonicity under steps and releases.
 - `Order.v`: the transitive happens-before and its preservation under swaps.

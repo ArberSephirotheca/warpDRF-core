@@ -27,7 +27,7 @@ Open Scope string_scope.
 Fixpoint has_jump (c : code) : bool :=
   match c with
   | Break | Continue => true
-  | Read _ _ body => has_jump body
+  | Read _ _ body | Prim _ _ _ _ _ body | Wait _ _ _ _ _ body => has_jump body
   | Seq first rest | Cond _ first rest => has_jump first || has_jump rest
   | _ => false
   end.
@@ -45,8 +45,8 @@ Fixpoint must_reach (c : code) (s : site) (v : list nat) : bool :=
   | Loop body => match v with 0 :: v' => must_reach body s v' | _ => false end
   | Iter k rest body =>
       match v with j :: v' => Nat.eqb j k && must_reach rest s v' | [] => false end
-  | Barrier n => site_eqb s (BarrierSite n) && is_nil v
-  | AddZero n => site_eqb s (AddSite n) && is_nil v
+  | Prim n sync _ _ _ body | Wait n sync _ _ _ body =>
+      (site_eqb s (Site n sync) && is_nil v) || must_reach body s v
   | Write _ _ | Break | Continue | Skip => false
   end.
 
@@ -157,8 +157,8 @@ Qed.
 (* Under Spec thread 1 may arrive in time: both threads wait when the
    collective fires, and the run is the reference run. *)
 Definition on_time_schedule :=
-  [Thread 0; Thread 0; Thread 1; Thread 1; Release (AddSite 0, []);
-   Thread 0; Thread 0; Thread 0; Thread 1; Thread 1].
+  [Thread 0; Thread 0; Thread 0; Thread 1; Thread 1; Thread 1; Release (AddSite 0, []);
+   Thread 0; Thread 0; Thread 0; Thread 0; Thread 1; Thread 1; Thread 1].
 
 Example single_writer_on_time :
   exists last,
@@ -176,8 +176,8 @@ Qed.
    taken the branch, is unknown. Thread 0 sets the flag; thread 1 then reads 1
    and skips the collective, so the bet wins. *)
 Definition early_schedule :=
-  [Thread 0; Thread 0; Release (AddSite 0, []); Thread 0; Thread 0; Thread 0;
-   Thread 1; Thread 1].
+  [Thread 0; Thread 0; Thread 0; Release (AddSite 0, []);
+   Thread 0; Thread 0; Thread 0; Thread 0; Thread 1; Thread 1].
 
 Definition early_trace :=
   [Memory (Observe (av_read 0 0) 0); Sync (AddSite 0, []) [0];
@@ -274,6 +274,6 @@ Qed.
 Definition late := Seq (Write NTid (NNum 1)) (AddZero 0).
 
 Example late_waits :
-  spec_run zero_input [Thread 0; Thread 0; Release (AddSite 0, [])]
+  spec_run zero_input [Thread 0; Thread 0; Thread 0; Release (AddSite 0, [])]
     (spec_initial [late; late]) = None.
 Proof. vm_compute. reflexivity. Qed.

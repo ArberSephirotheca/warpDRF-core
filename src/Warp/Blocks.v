@@ -28,6 +28,8 @@ Proof.
   - now rewrite IHc1, IHc2.
   - apply IHc.
   - now rewrite IHc1, IHc2.
+  - destruct (VAR.eq_dec x v); [reflexivity|now rewrite IHc].
+  - destruct (VAR.eq_dec x v); [reflexivity|now rewrite IHc].
 Qed.
 
 Lemma static_subst : forall c x value, static (subst x value c) = static c.
@@ -37,6 +39,7 @@ Proof.
   - now rewrite IHc1, IHc2.
   - now rewrite IHc1, IHc2.
   - apply IHc.
+  - destruct (VAR.eq_dec x v); [reflexivity|apply IHc].
 Qed.
 
 Lemma reach_sites : forall c s w, reach c s w = true -> In s (sites c).
@@ -49,8 +52,12 @@ Proof.
   - destruct w as [|j w]; [discriminate|].
     apply orb_true_iff in H as [H|H]; apply andb_true_iff in H as [_ H];
       apply in_or_app; [left|right]; eauto.
-  - apply andb_true_iff in H as [H _]. apply site_eqb_true in H. subst. left; reflexivity.
-  - apply andb_true_iff in H as [H _]. apply site_eqb_true in H. subst. left; reflexivity.
+  - apply orb_true_iff in H as [H|H].
+    + apply andb_true_iff in H as [H _]. apply site_eqb_true in H. subst. left; reflexivity.
+    + right. eapply IHc; eauto.
+  - apply orb_true_iff in H as [H|H].
+    + apply andb_true_iff in H as [H _]. apply site_eqb_true in H. subst. left; reflexivity.
+    + right. eapply IHc; eauto.
 Qed.
 
 Lemma step_sites : forall c tid input m e m' c',
@@ -77,20 +84,21 @@ Proof.
     + cbn. apply incl_app_app; [eapply IHc1; eauto|apply incl_refl].
   - cbn in H; discriminate.
   - cbn in H; discriminate.
-  - cbn in H; discriminate.
+  - cbn in H. match type of H with context [n_step ?t ?a] =>
+      destruct (n_step t a) eqn:Harg end; try discriminate.
+    inversion H; subst. apply incl_refl.
   - cbn in H; discriminate.
   - cbn in H; discriminate.
 Qed.
 
-Lemma release_sites : forall c i c', at_collective c = Some (i, c') -> incl (sites c') (sites c).
+Lemma resume_sites : forall c r x,
+  at_collective c = Some x -> incl (sites (resume c r)) (sites c).
 Proof.
-  induction c; intros i c' H; cbn in H; try discriminate.
-  - destruct (at_collective c1) as [[[s1 w1] a']|] eqn:Ha; try discriminate.
-    inversion H; subst. cbn. apply incl_app_app; [eapply IHc1; reflexivity|apply incl_refl].
-  - destruct (at_collective c1) as [[[s1 w1] r']|] eqn:Hr; try discriminate.
-    inversion H; subst. cbn. apply incl_app_app; [eapply IHc1; reflexivity|apply incl_refl].
-  - inversion H; subst. intros a [].
-  - inversion H; subst. intros a [].
+  induction c; intros r x H; cbn in H; try discriminate.
+  - cbn. apply incl_app_app; [eapply IHc1; eauto|apply incl_refl].
+  - destruct (at_collective c1) as [[[[s1 v1] w1] f1]|] eqn:Hr; try discriminate.
+    cbn. apply incl_app_app; [eapply IHc1; reflexivity|apply incl_refl].
+  - cbn. rewrite sites_subst. intros a Ha. right. exact Ha.
 Qed.
 
 Fixpoint ws (c : code) : Prop :=
@@ -99,6 +107,7 @@ Fixpoint ws (c : code) : Prop :=
       ws first /\ static rest = true /\ NoDup (sites rest) /\
       (forall s, In s (sites first) -> ~ In s (sites rest))
   | Iter _ rest body => ws rest /\ static body = true /\ NoDup (sites body)
+  | Wait _ _ _ _ _ body => static body = true /\ NoDup (sites c)
   | _ => static c = true /\ NoDup (sites c)
   end.
 
@@ -109,6 +118,7 @@ Proof.
     split; [apply IHc1; [exact H1|eapply NoDup_app_remove_r; exact Hnodup]|].
     split; [exact H2|]. split; [eapply NoDup_app_remove_l; exact Hnodup|].
     intros s Hs. eapply nodup_app_disjoint; eauto.
+  - discriminate.
   - discriminate.
 Qed.
 
@@ -142,44 +152,49 @@ Proof.
     + cbn. split; [eapply IHc1; eauto|]. split; assumption.
   - cbn in H; discriminate.
   - cbn in H; discriminate.
-  - cbn in H; discriminate.
+  - cbn in H. match type of H with context [n_step ?t ?a] =>
+      destruct (n_step t a) eqn:Harg end; try discriminate.
+    inversion H; subst. cbn in Hws |- *. exact Hws.
   - cbn in H; discriminate.
   - cbn in H; discriminate.
 Qed.
 
-Lemma release_ws : forall c i c', at_collective c = Some (i, c') -> ws c -> ws c'.
+Lemma resume_ws : forall c r x, at_collective c = Some x -> ws c -> ws (resume c r).
 Proof.
-  induction c; intros i c' H Hws; cbn in H; try discriminate.
-  - destruct (at_collective c1) as [[[s1 w1] a']|] eqn:Ha; try discriminate.
-    inversion H; subst. cbn in Hws |- *. destruct Hws as [Hws1 [Hs [Hn Hdisj]]].
-    split; [eapply IHc1; [reflexivity|exact Hws1]|]. split; [exact Hs|].
-    split; [exact Hn|]. intros s Hin. apply Hdisj. eapply release_sites; [exact Ha|exact Hin].
-  - destruct (at_collective c1) as [[[s1 w1] r']|] eqn:Hr; try discriminate.
-    inversion H; subst. cbn in Hws |- *. destruct Hws as [Hws1 [Hs Hn]].
+  induction c; intros r x H Hws; cbn in H; try discriminate.
+  - cbn in Hws |- *. destruct Hws as [Hws1 [Hs [Hn Hdisj]]].
+    split; [eapply IHc1; eauto|]. split; [exact Hs|].
+    split; [exact Hn|]. intros s Hin. apply Hdisj. eapply resume_sites; [exact H|exact Hin].
+  - destruct (at_collective c1) as [[[[s1 v1] w1] f1]|] eqn:Hr; try discriminate.
+    cbn in Hws |- *. destruct Hws as [Hws1 [Hs Hn]].
     split; [eapply IHc1; [reflexivity|exact Hws1]|]. split; assumption.
-  - inversion H; subst. cbn. split; [reflexivity|constructor].
-  - inversion H; subst. cbn. split; [reflexivity|constructor].
+  - cbn in Hws |- *. destruct Hws as [Hs Hn]. apply NoDup_cons_iff in Hn as [_ Hn].
+    split; [split; [reflexivity|constructor]|].
+    split; [now rewrite static_subst|]. split; [now rewrite sites_subst|].
+    intros s [].
 Qed.
 
 (* After a release, the released thread can no longer reach the instance it
    left: the rest of the iteration does not name the site again, and the
    loop body names it only for later iterations. *)
-Lemma released_unreachable : forall c s w c',
-  ws c -> at_collective c = Some ((s, w), c') -> reach c' s w = false.
+Lemma resume_unreachable : forall c r s w value fn,
+  ws c -> at_collective c = Some ((s, w), value, fn) -> reach (resume c r) s w = false.
 Proof.
-  induction c; intros s w c' Hws H; cbn in H; try discriminate.
-  - destruct (at_collective c1) as [[[s1 w1] a']|] eqn:Ha; try discriminate.
-    inversion H; subst. cbn in Hws. destruct Hws as [Hws1 [_ [_ Hdisj]]].
-    cbn [reach]. rewrite (IHc1 _ _ _ Hws1 eq_refl). cbn.
+  induction c; intros r s w value fn Hws H; cbn in H; try discriminate.
+  - cbn in Hws. destruct Hws as [Hws1 [_ [_ Hdisj]]].
+    cbn [resume reach]. rewrite (IHc1 _ _ _ _ _ Hws1 H). cbn.
     destruct (reach c2 s w) eqn:Hr; [|reflexivity]. exfalso.
     apply (Hdisj s); [|exact (reach_sites _ _ _ Hr)].
-    exact (reach_sites _ _ _ (at_collective_reach _ _ _ _ Ha)).
-  - destruct (at_collective c1) as [[[s1 w1] r']|] eqn:Hr; try discriminate.
+    exact (reach_sites _ _ _ (at_collective_reach _ _ _ _ _ H)).
+  - destruct (at_collective c1) as [[[[s1 v1] w1] f1]|] eqn:Hr; try discriminate.
     inversion H; subst. cbn in Hws. destruct Hws as [Hws1 _].
-    cbn [reach]. rewrite Nat.eqb_refl, Nat.ltb_irrefl, (IHc1 _ _ _ Hws1 eq_refl).
+    cbn [resume reach]. rewrite Nat.eqb_refl, Nat.ltb_irrefl, (IHc1 _ _ _ _ _ Hws1 eq_refl).
     reflexivity.
-  - inversion H; subst; reflexivity.
-  - inversion H; subst; reflexivity.
+  - inversion H; subst. cbn in Hws. destruct Hws as [_ Hn].
+    apply NoDup_cons_iff in Hn as [Hnotin _].
+    cbn [resume reach]. rewrite reach_subst. cbn.
+    destruct (reach c (Site n b) []) eqn:Hr; [|reflexivity]. exfalso.
+    apply Hnotin. exact (reach_sites _ _ _ Hr).
 Qed.
 
 Lemma in_replace_thread : forall (codes : list code) tid c d,
@@ -200,11 +215,14 @@ Proof.
     + eapply step_ws; [exact Hthread|apply Hws; eapply nth_error_In; exact Hc].
     + apply Hws; exact Hin.
   - apply release_view in Hstep as [_ [_ [_ ->]]].
-    intros d Hin. cbn in Hin. unfold release in Hin. apply in_map_iff in Hin as [c [<- Hc]].
-    unfold release_one. destruct (at_collective c) as [[i' c']|] eqn:Hat;
+    intros d Hin. cbn in Hin. apply In_nth_error in Hin as [t Ht].
+    rewrite release_nth in Ht.
+    destruct (nth_error (threads st) t) as [c|] eqn:Hc; [|discriminate].
+    cbn in Ht. inversion Ht; subst d. apply nth_error_In in Hc.
+    unfold release_one. destruct (at_collective c) as [[[i' value] fn]|] eqn:Hat;
       [|apply Hws; exact Hc].
     destruct (instance_eqb i i'); [|apply Hws; exact Hc].
-    eapply release_ws; [exact Hat|apply Hws; exact Hc].
+    eapply resume_ws; [exact Hat|apply Hws; exact Hc].
 Qed.
 
 (* When no thread may reach an instance, no later step releases it. *)
@@ -225,10 +243,13 @@ Proof.
       pose proof (step_may_reach _ _ _ _ _ _ _ _ Hthread Hr) as Hback.
       rewrite (Hfar c (nth_error_In _ _ Hc)) in Hback. discriminate.
     - apply release_view in Hstep as [_ [_ [_ ->]]].
-      intros d Hin. cbn in Hin. unfold release in Hin.
-      apply in_map_iff in Hin as [c [<- Hc]].
-      destruct (may_reach i (release_one j c)) eqn:Hr; [|reflexivity].
-      pose proof (release_one_may_reach _ _ _ Hr) as Hback.
+      intros d Hin. cbn in Hin. apply In_nth_error in Hin as [t Ht].
+      rewrite release_nth in Ht.
+      destruct (nth_error (threads st) t) as [c|] eqn:Hc; [|discriminate].
+      cbn in Ht. inversion Ht; subst d. apply nth_error_In in Hc.
+      destruct (may_reach i (release_one j (supplied j (threads st)) t c)) eqn:Hr;
+        [|reflexivity].
+      pose proof (release_one_may_reach _ _ _ _ _ Hr) as Hback.
       rewrite (Hfar c Hc) in Hback. discriminate. }
   specialize (IH Hfar').
   destruct a as [tid|j].
@@ -262,13 +283,17 @@ Proof.
     destruct (instance_eqb i j) eqn:Hij; [|apply IH; exact Hws'].
     apply instance_eqb_true in Hij. subst j.
     assert (Hfar : forall c, In c (threads st') -> may_reach i c = false).
-    { rewrite Hst'. cbn. intros d Hin. unfold release in Hin.
-      apply in_map_iff in Hin as [c [<- Hc]].
+    { rewrite Hst'. cbn. intros d Hin. apply In_nth_error in Hin as [t Ht].
+      rewrite release_nth in Ht.
+      destruct (nth_error (threads st) t) as [c|] eqn:Hc; [|discriminate].
+      cbn in Ht. inversion Ht; subst d.
       destruct (waits_at i c) eqn:Hw.
-      - apply waits_at_true in Hw as [c' Hat]. rewrite (release_one_waiting _ _ _ Hat).
+      - apply waits_at_true in Hw as [value [fn Hat]].
+        rewrite (release_one_waiting _ _ _ _ _ _ Hat).
         destruct i as [s w]. unfold may_reach. cbn [fst snd].
-        rewrite Forall_forall in Hws. exact (released_unreachable _ _ _ _ (Hws c Hc) Hat).
-      - rewrite (release_one_other _ _ Hw). apply In_nth_error in Hc as [tid Hc].
+        rewrite Forall_forall in Hws.
+        exact (resume_unreachable _ _ _ _ _ _ (Hws c (nth_error_In _ _ Hc)) Hat).
+      - rewrite (release_one_other _ _ _ _ Hw).
         eapply enabled_release_excludes; eauto. }
     rewrite (unreachable_instance_never_released _ _ _ _ _ Hexec Hfar). cbn. lia.
 Qed.

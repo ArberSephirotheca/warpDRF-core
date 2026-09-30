@@ -1,4 +1,5 @@
 From Stdlib Require Import Lists.List Arith.PeanoNat Bool.Bool Lia.
+From Stdlib Require Strings.String.
 From Faial.Core Require Import Var AVal NatUtil.
 From Faial.Core Require Mem.
 From Faial.Expr.SIMT.N Require Import Exp.
@@ -7,10 +8,19 @@ From Faial.Warp Require Import Store.
 
 Import ListNotations.
 
-(* Kernel code with structured loops. A loop repeats its body until a Break
-   leaves it; Continue ends the current iteration early. Iter k rest body is a
-   loop in progress: iteration k, with rest left to run in that iteration.
-   Source programs use Loop; Iter appears as they run. *)
+(* Kernel code with structured loops and warp primitives. A loop repeats its
+   body until a Break leaves it; Continue ends the current iteration early.
+   Iter k rest body is a loop in progress: iteration k, with rest left to run
+   in that iteration.
+
+   Prim n sync f arg x body is a warp primitive with site label n. Each
+   participant supplies the value of arg and receives f applied to the
+   participants' (thread, value) pairs and its own thread; the result is bound
+   to x in body. The function is uninterpreted: every theorem holds for every
+   f. sync says whether the primitive orders memory among its participants. A
+   thread that reaches a primitive evaluates arg and then waits as
+   Wait n sync f value x body. Source programs use Loop and Prim; Iter and
+   Wait appear as they run. *)
 Inductive code :=
 | Read : var -> nexp -> code -> code
 | Write : nexp -> nexp -> code
@@ -20,9 +30,16 @@ Inductive code :=
 | Iter : nat -> code -> code -> code
 | Break
 | Continue
-| Barrier : nat -> code
-| AddZero : nat -> code
+| Prim : nat -> bool -> (list (nat * nat) -> nat -> nat) -> nexp -> var -> code -> code
+| Wait : nat -> bool -> (list (nat * nat) -> nat -> nat) -> nat -> var -> code -> code
 | Skip.
+
+Definition unused := variable String.EmptyString.
+
+(* A barrier orders memory and returns nothing. AddZero is subgroupAdd(0),
+   modeled as ordering memory, with its zero result unused. *)
+Definition Barrier (n : nat) : code := Prim n true (fun _ _ => 0) (NNum 0) unused Skip.
+Definition AddZero (n : nat) : code := Prim n true (fun _ _ => 0) (NNum 0) unused Skip.
 
 (* Substitute a value read into x. A Read binds its variable in its body, so an
    inner Read of the same variable shadows it. *)
@@ -38,14 +55,17 @@ Fixpoint subst x v (c : code) : code :=
   | Iter k rest body => Iter k (subst x v rest) (subst x v body)
   | Break => Break
   | Continue => Continue
-  | Barrier n => Barrier n
-  | AddZero n => AddZero n
+  | Prim n sync f arg y body =>
+      Prim n sync f (n_subst x v arg) y (if VAR.eq_dec x y then body else subst x v body)
+  | Wait n sync f w y body =>
+      Wait n sync f w y (if VAR.eq_dec x y then body else subst x v body)
   | Skip => Skip
   end.
 
 (* One step of one thread. A Break or Continue drops the rest of its sequence
    and ends the innermost iteration; the loop then exits or starts the next
-   iteration. A collective does not step: the warp releases it (Model.v). *)
+   iteration. A thread that reaches a primitive evaluates its argument and
+   waits; the warp releases it (Model.v). *)
 Fixpoint step (tid : nat) (input : nat -> nat) (m : Mem.t) (c : code)
     : option (option observation * Mem.t * code) :=
   match c with
@@ -89,7 +109,12 @@ Fixpoint step (tid : nat) (input : nat -> nat) (m : Mem.t) (c : code)
           | None => None
           end
       end
-  | Break | Continue | Barrier _ | AddZero _ | Skip => None
+  | Prim n sync f arg x body =>
+      match n_step tid arg with
+      | Some w => Some (None, m, Wait n sync f w x body)
+      | None => None
+      end
+  | Break | Continue | Wait _ _ _ _ _ _ | Skip => None
   end.
 
 (* Codes that end an iteration or a sequence rather than step. *)
@@ -216,7 +241,11 @@ Proof.
     intros other Hread'. apply step_iter_rest. now apply Hreplay.
   - cbn in H; discriminate.
   - cbn in H; discriminate.
-  - cbn in H; discriminate.
+  - cbn in H. match type of H with context [n_step ?t ?a] =>
+      destruct (n_step t a) eqn:Harg end; try discriminate.
+    inversion H; subst. repeat split; try reflexivity.
+    + intros o Ho; discriminate.
+    + intros other _. cbn. rewrite Harg. reflexivity.
   - cbn in H; discriminate.
   - cbn in H; discriminate.
 Qed.
@@ -283,7 +312,9 @@ Proof.
     exists f, n', (Iter n next c2). now apply step_iter_rest.
   - cbn in H; discriminate.
   - cbn in H; discriminate.
-  - cbn in H; discriminate.
+  - cbn in H. match type of H with context [n_step ?t ?a] =>
+      destruct (n_step t a) eqn:Harg end; try discriminate.
+    cbn. rewrite Harg. eauto.
   - cbn in H; discriminate.
   - cbn in H; discriminate.
 Qed.

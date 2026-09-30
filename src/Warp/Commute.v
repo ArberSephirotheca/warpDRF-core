@@ -71,7 +71,8 @@ Proof.
 Qed.
 
 Lemma select_release : forall p i codes,
-  (forall tid c, nth_error codes tid = Some c -> p (release_one i c) = p c) ->
+  (forall tid c, nth_error codes tid = Some c ->
+    p (release_one i (supplied i codes) tid c) = p c) ->
   select p (release i codes) = select p codes.
 Proof.
   intros p i codes H. apply select_ext; [apply release_length|].
@@ -79,33 +80,74 @@ Proof.
   inversion Hc; subst. eauto.
 Qed.
 
-Lemma release_one_commute : forall i j c, i <> j ->
-  release_one j (release_one i c) = release_one i (release_one j c).
+Lemma flat_map_ext_in : forall {A B} (f g : A -> list B) l,
+  (forall a, In a l -> f a = g a) -> flat_map f l = flat_map g l.
 Proof.
-  intros i j c Hneq.
-  destruct (at_collective c) as [[i0 c0]|] eqn:Hat.
-  - pose proof (at_collective_released _ _ _ Hat) as Hc0.
-    assert (Hfixed : forall x, release_one x c0 = c0)
-      by (intros x; unfold release_one; now rewrite Hc0).
-    assert (Hother : forall x, x <> i0 -> release_one x c = c).
-    { intros x Hx. apply release_one_other. unfold waits_at. rewrite Hat.
+  intros A B f g l H. induction l as [|a l IH]; cbn; [reflexivity|].
+  rewrite H by (left; reflexivity). f_equal. apply IH.
+  intros b Hb. apply H. right. exact Hb.
+Qed.
+
+Lemma supply_other : forall i tid c, waits_at i c = false -> supply i tid c = [].
+Proof.
+  intros i tid c H. unfold supply, waits_at in *.
+  destruct (at_collective c) as [[[i' value] fn]|]; [now rewrite H|reflexivity].
+Qed.
+
+Lemma supplied_ext : forall i codes codes',
+  length codes = length codes' ->
+  (forall tid c c', nth_error codes tid = Some c ->
+    nth_error codes' tid = Some c' -> supply i tid c = supply i tid c') ->
+  supplied i codes = supplied i codes'.
+Proof.
+  intros i codes codes' Hlength Hext. unfold supplied. rewrite <- Hlength.
+  apply flat_map_ext_in. intros tid Htid. apply in_seq in Htid.
+  destruct (nth_error codes tid) as [c|] eqn:Hc, (nth_error codes' tid) as [c'|] eqn:Hc'.
+  - eauto.
+  - apply nth_error_None in Hc'. lia.
+  - apply nth_error_None in Hc. lia.
+  - reflexivity.
+Qed.
+
+Lemma supplied_release : forall i j codes,
+  (forall tid c, nth_error codes tid = Some c ->
+    supply j tid (release_one i (supplied i codes) tid c) = supply j tid c) ->
+  supplied j (release i codes) = supplied j codes.
+Proof.
+  intros i j codes H. apply supplied_ext; [apply release_length|].
+  intros tid c c' Hc Hc'. rewrite release_nth, Hc' in Hc. cbn in Hc.
+  inversion Hc; subst. eauto.
+Qed.
+
+Lemma release_one_commute : forall i j vi vj tid c, i <> j ->
+  release_one j vj tid (release_one i vi tid c) =
+  release_one i vi tid (release_one j vj tid c).
+Proof.
+  intros i j vi vj tid c Hneq.
+  destruct (at_collective c) as [[[i0 value] fn]|] eqn:Hat.
+  - assert (Hfixed : forall x vx r, release_one x vx tid (resume c r) = resume c r)
+      by (intros x vx r; unfold release_one; now rewrite (resume_not_waiting _ r _ Hat)).
+    assert (Hother : forall x vx, x <> i0 -> release_one x vx tid c = c).
+    { intros x vx Hx. apply release_one_other. unfold waits_at. rewrite Hat.
       now apply instance_eqb_false. }
     destruct (instance_eq_dec i0 i) as [->|Hi].
-    + rewrite (release_one_waiting _ _ _ Hat), Hfixed.
-      rewrite (Hother j) by congruence. now rewrite (release_one_waiting _ _ _ Hat).
+    + rewrite (release_one_waiting _ _ _ _ _ _ Hat), Hfixed.
+      rewrite (Hother j vj) by congruence.
+      now rewrite (release_one_waiting _ _ _ _ _ _ Hat).
     + destruct (instance_eq_dec i0 j) as [->|Hj].
-      * rewrite (Hother i) by congruence. rewrite (release_one_waiting _ _ _ Hat).
+      * rewrite (Hother i vi) by congruence. rewrite (release_one_waiting _ _ _ _ _ _ Hat).
         now rewrite Hfixed.
-      * repeat first [rewrite (Hother i) by congruence|rewrite (Hother j) by congruence].
+      * repeat first [rewrite (Hother i vi) by congruence|rewrite (Hother j vj) by congruence].
         reflexivity.
-  - assert (Hfixed : forall x, release_one x c = c)
-      by (intros x; unfold release_one; now rewrite Hat).
+  - assert (Hfixed : forall x vx, release_one x vx tid c = c)
+      by (intros x vx; unfold release_one; now rewrite Hat).
     now rewrite !Hfixed.
 Qed.
 
 (* A release and a thread step commute. The stepping thread is not waiting at
    the instance, and an enabled release leaves no thread outside its group
-   that may still reach it; steps never make it reachable again. *)
+   that may still reach it; steps never make it reachable again. The values
+   the group supplied do not change, so neither do the results. *)
 Theorem thread_release_diamond : forall input i st sync sr tid e stt,
   advance input (Release i) st = Some (sync, sr) ->
   advance input (Thread tid) st = Some (e, stt) ->
@@ -127,19 +169,34 @@ Proof.
   assert (Hwait' : waits_at i c' = false).
   { destruct (waits_at i c') eqn:Hw; [|reflexivity].
     rewrite (waits_at_reaches _ _ Hw) in Hfar'. discriminate. }
+  assert (Hlt : tid < length codes) by (eapply nth_error_Some_lt; eauto).
   assert (Harrived' : arrived i (replace_thread tid c' codes) = arrived i codes).
   { apply select_replace with (c := c); [exact Hc|congruence]. }
   assert (Hunknown' : unknown i (replace_thread tid c' codes) = unknown i codes).
   { apply select_replace with (c := c); [exact Hc|]. now rewrite Hfar, Hfar'. }
+  assert (Hsupplied : supplied i (replace_thread tid c' codes) = supplied i codes).
+  { apply supplied_ext; [apply replace_thread_length|].
+    intros t d d' Hd Hd'. destruct (Nat.eq_dec t tid) as [->|Hne].
+    - rewrite replace_thread_same in Hd by exact Hlt.
+      rewrite Hc in Hd'. inversion Hd; inversion Hd'; subst.
+      now rewrite (supply_other _ _ _ Hwait), (supply_other _ _ _ Hwait').
+    - rewrite replace_thread_other in Hd by exact Hne. rewrite Hd in Hd'.
+      now inversion Hd'. }
+  assert (Hcodes : release i (replace_thread tid c' codes) =
+                   replace_thread tid c' (release i codes)).
+  { apply nth_error_ext. intros t. rewrite release_nth, Hsupplied.
+    destruct (Nat.eq_dec t tid) as [->|Hne].
+    - rewrite !replace_thread_same by (rewrite ?release_length; exact Hlt). cbn.
+      now rewrite (release_one_other _ _ _ _ Hwait').
+    - rewrite !replace_thread_other by exact Hne. now rewrite release_nth. }
   exists (State m' (replace_thread tid c' (release i codes))).
   split; [|split].
   - apply (thread_build input tid (State m (release i codes)) c); cbn.
-    + rewrite release_nth, Hc. cbn. now rewrite (release_one_other _ _ Hwait).
+    + rewrite release_nth, Hc. cbn. now rewrite (release_one_other _ _ _ _ Hwait).
     + exact Hstep.
   - rewrite (release_build input i (State m' (replace_thread tid c' codes)));
       cbn [threads memory]; [|congruence|congruence].
-    rewrite Harrived'. unfold release. rewrite replace_thread_map.
-    now rewrite (release_one_other _ _ Hwait').
+    now rewrite Harrived', Hcodes.
   - intros obs group Hobs Hgroup Hin. inversion Hgroup; subst group.
     destruct o as [obs'|]; [|discriminate]. inversion Hobs; subst obs'.
     pose proof (step_replay _ _ _ _ _ _ _ Hstep) as [_ [_ [Howner _]]].
@@ -148,8 +205,9 @@ Proof.
     congruence.
 Qed.
 
-(* Releases of different instances commute: no thread waits at both, and a
-   thread waiting at one cannot also be unknown for the other. *)
+(* Releases of different instances commute: no thread waits at both, a thread
+   waiting at one cannot also be unknown for the other, and neither release
+   changes the values the other group supplies. *)
 Theorem release_release_diamond : forall input i j st e st1 f st2,
   i <> j ->
   advance input (Release i) st = Some (e, st1) ->
@@ -164,43 +222,55 @@ Proof.
   apply release_view in Hfirst as [Harrived [Hunknown [-> ->]]].
   apply release_view in Hsecond as [Harrived' [Hunknown' [-> ->]]].
   cbn [threads memory] in *.
-  assert (Hkeep : forall x y, x <> y -> unknown y codes = [] ->
+  assert (Hkeep : forall x y vx, x <> y -> unknown y codes = [] ->
     forall tid c, nth_error codes tid = Some c ->
-    waits_at y (release_one x c) = waits_at y c /\
-    may_reach y (release_one x c) = may_reach y c).
-  { intros x y Hxy Hunk tid c Hc.
+    waits_at y (release_one x vx tid c) = waits_at y c /\
+    may_reach y (release_one x vx tid c) = may_reach y c /\
+    supply y tid (release_one x vx tid c) = supply y tid c).
+  { intros x y vx Hxy Hunk tid c Hc.
     destruct (waits_at x c) eqn:Hx.
-    - apply waits_at_true in Hx as [c' Hat].
+    - apply waits_at_true in Hx as [value [fn Hat]].
       assert (Hy : waits_at y c = false).
       { unfold waits_at. rewrite Hat. apply instance_eqb_false. congruence. }
       assert (Hfar : may_reach y c = false) by (eapply enabled_release_excludes; eauto).
-      assert (Hfar' : may_reach y (release_one x c) = false).
-      { destruct (may_reach y (release_one x c)) eqn:Hr; [|reflexivity].
-        rewrite (release_one_may_reach _ _ _ Hr) in Hfar. discriminate. }
-      rewrite Hy, Hfar, Hfar'. split; [|reflexivity].
-      rewrite (release_one_waiting _ _ _ Hat). unfold waits_at.
-      now rewrite (at_collective_released _ _ _ Hat).
-    - now rewrite (release_one_other _ _ Hx). }
+      assert (Hfar' : may_reach y (release_one x vx tid c) = false).
+      { destruct (may_reach y (release_one x vx tid c)) eqn:Hr; [|reflexivity].
+        rewrite (release_one_may_reach _ _ _ _ _ Hr) in Hfar. discriminate. }
+      assert (Hy' : waits_at y (release_one x vx tid c) = false).
+      { rewrite (release_one_waiting _ _ _ _ _ _ Hat). unfold waits_at.
+        now rewrite (resume_not_waiting _ _ _ Hat). }
+      rewrite Hy, Hfar, Hfar', Hy'. split; [reflexivity|]. split; [reflexivity|].
+      now rewrite (supply_other _ _ _ Hy), (supply_other _ _ _ Hy').
+    - rewrite (release_one_other _ _ _ _ Hx). split; [reflexivity|split; reflexivity]. }
   assert (Hsame : forall x y, x <> y -> unknown y codes = [] ->
     arrived y (release x codes) = arrived y codes /\
-    unknown y (release x codes) = unknown y codes).
-  { intros x y Hxy Hunk. split; apply select_release; intros tid c Hc;
-      destruct (Hkeep x y Hxy Hunk tid c Hc) as [Hw Hr]; [exact Hw|].
-    now rewrite Hw, Hr. }
-  destruct (Hsame i j Hneq Hunknown') as [Ha1 Hu1].
-  destruct (Hsame j i (not_eq_sym Hneq) Hunknown) as [Ha2 Hu2].
+    unknown y (release x codes) = unknown y codes /\
+    supplied y (release x codes) = supplied y codes).
+  { intros x y Hxy Hunk. split; [|split].
+    - apply select_release. intros tid c Hc.
+      exact (proj1 (Hkeep x y _ Hxy Hunk tid c Hc)).
+    - apply select_release. intros tid c Hc.
+      destruct (Hkeep x y (supplied x codes) Hxy Hunk tid c Hc) as [Hw [Hr _]].
+      now rewrite Hw, Hr.
+    - apply supplied_release. intros tid c Hc.
+      exact (proj2 (proj2 (Hkeep x y _ Hxy Hunk tid c Hc))). }
+  destruct (Hsame i j Hneq Hunknown') as [Ha1 [Hu1 Hs1]].
+  destruct (Hsame j i (not_eq_sym Hneq) Hunknown) as [Ha2 [Hu2 Hs2]].
+  assert (Hcodes : release i (release j codes) = release j (release i codes)).
+  { apply nth_error_ext. intros tid. rewrite !release_nth, Hs1, Hs2.
+    destruct (nth_error codes tid) as [c|]; cbn; [|reflexivity].
+    f_equal. symmetry. apply release_one_commute. exact Hneq. }
   exists (State m (release j (release i codes))). split; [|split].
   - rewrite (release_build input j (State m (release i codes)));
       cbn [threads memory]; [|congruence|congruence].
     now rewrite Ha1.
   - rewrite (release_build input i (State m (release j codes)));
       cbn [threads memory]; [|congruence|congruence].
-    rewrite Ha2. do 3 f_equal. unfold release. rewrite !map_map.
-    apply map_ext. intros c. symmetry. now apply release_one_commute.
+    now rewrite Ha2, Hcodes.
   - intros g g' Hg Hg' t Hin Hin'. inversion Hg; inversion Hg'; subst g g'.
     apply select_spec in Hin as [c [Hc Hw]]. apply select_spec in Hin' as [c' [Hc' Hw']].
     rewrite Hc in Hc'. inversion Hc'; subst c'.
-    apply waits_at_true in Hw as [k Hk]. apply waits_at_true in Hw' as [k' Hk'].
+    apply waits_at_true in Hw as [v1 [f1 Hk]]. apply waits_at_true in Hw' as [v2 [f2 Hk']].
     rewrite Hk in Hk'. inversion Hk'. congruence.
 Qed.
 
@@ -323,7 +393,7 @@ Proof.
     apply release_view in Hsync as [_ [_ [-> _]]].
     destruct (thread_event_owner _ _ _ _ _ Ha) as [->|[o [-> Ho]]]; [constructor|].
     apply (reorders_swap [] _ _ trace). split; [|exact I].
-    intros w Hw Hw'. cbn in Hw, Hw'. subst w.
+    intros w Hw [_ Hw']. cbn in Hw. subst w.
     exact (Houtside o _ eq_refl eq_refl Hw').
   - destruct Henabled as [ev [st Hthread]].
     destruct (thread_release_diamond _ _ _ _ _ _ _ _ Ha Hthread)
@@ -334,7 +404,7 @@ Proof.
     apply release_view in Ha as [_ [_ [-> _]]].
     destruct (thread_event_owner _ _ _ _ _ Hthread) as [->|[o [-> Ho]]]; [constructor|].
     apply (reorders_swap [] _ _ trace). split; [|exact I].
-    intros w Hw Hw'. cbn in Hw, Hw'. subst w.
+    intros w [_ Hw] Hw'. cbn in Hw'. subst w.
     exact (Houtside o _ eq_refl eq_refl Hw).
   - assert (Hxy : x <> y) by congruence.
     destruct Henabled as [g [sy Hy]].
@@ -346,5 +416,5 @@ Proof.
     apply release_view in Ha as [_ [_ [-> _]]].
     apply release_view in Hy as [_ [_ [-> _]]].
     apply (reorders_swap [] _ _ trace). split; [|exact Hxy].
-    intros w Hw Hw'. exact (Hdisjoint _ _ eq_refl eq_refl w Hw Hw').
+    intros w [_ Hw] [_ Hw']. exact (Hdisjoint _ _ eq_refl eq_refl w Hw Hw').
 Qed.
