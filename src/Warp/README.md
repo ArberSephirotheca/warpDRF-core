@@ -11,11 +11,17 @@ conditionals, several collectives, and structured loops with `Break` and
   group at every collective instance, gives each thread the same reads, and
   leaves the same final memory. The proof uses only condition 1
   (`agreement_from_drf`); the groups are part of the conclusion.
+- `sso_every_run_agreement` extends this to every SSO run, finished or not.
+  Every collective it has run so far formed the reference's group, every read
+  so far returned the reference's value, and the run can still complete with
+  the reference's observations.
 - `Spec.v` shows that Spec, which fires a collective with whichever threads
   have arrived, is not a conforming target. On a kernel that is WarpDRF for
   `StructuredPartial`, the group of a collective under Spec depends on the
   schedule (`spec_grouping_depends_on_schedule`), so the guarantee of
-  `sso_agreement` fails for Spec (`warpdrf_fails_under_spec`).
+  `sso_agreement` fails for Spec (`warpdrf_fails_under_spec`). Counting
+  unfinished runs, the guarantee also fails under `FullWarp`
+  (`warpdrf_fails_under_spec_every_run`).
 
 ## The model
 
@@ -102,6 +108,13 @@ assumed to be DRF. `agreement_from_drf` applies this to the reference run, and
 `sso_agreement` follows. `target_memory_drf` proves that completed target
 traces are memory-DRF.
 
+The target run never has to finish: `pull_enabled` needs only the reference to
+be complete. `prefix_agreement` aligns an unfinished run the same way, and the
+rest of the rearranged reference then completes it. `sso_every_run_agreement`
+states the result as the guarantee for every run, using `observations_so_far`:
+each instance's groups and each thread's reads so far are the first ones of
+the reference.
+
 ## Spec
 
 Spec is SIMT-Step's speculative target. It fires a collective as soon as some
@@ -131,6 +144,16 @@ run, and `[0]` in the second. So the collective has no fixed group under Spec.
 `sso_agreement` for `StructuredPartial`, with Spec executions in place of SSO
 executions, and proves it false.
 
+Under `FullWarp` every completed Spec run does agree: a collective in uniform
+code is reached by every thread, so a thread that Spec leaves out arrives after
+the firing, and the run never completes. The failure shows up in unfinished
+runs. In `late`, each thread writes its own cell and then calls `AddZero`; the
+kernel is WarpDRF for either configuration, and the reference forms `[0; 1]`.
+Spec can fire the collective with thread 0 alone (`late_early`), a group the
+reference never forms. `warpdrf_fails_under_spec_every_run` takes the statement
+of `sso_every_run_agreement` for either configuration, with Spec executions in
+place of SSO executions, and proves it false.
+
 ## Examples
 
 `Tests.v` computes reference traces and proves the group of an instance in
@@ -153,8 +176,8 @@ rejected.
 
 | Area | Status |
 | --- | --- |
-| Memory | Sequentially consistent; agreement for completed executions |
-| Progress | Not proved: loops can run forever, and there is no termination argument |
+| Memory | Sequentially consistent; full agreement for completed runs, agreement so far for unfinished ones |
+| Progress | No SSO run of a WarpDRF kernel gets stuck: it can always still complete (`sso_every_run_agreement`). Termination of every schedule is not proved |
 | Delayed visibility | Not modeled |
 | Warps | One warp; no subgroups inside it and no workgroup barrier |
 | Control flow | Nested conditionals and structured loops with `Break` and `Continue`; no `switch` |
@@ -170,13 +193,16 @@ rejected.
 - `Order.v`: the transitive happens-before and its preservation under swaps.
 - `Commute.v`: commutation and persistence of actions.
 - `Agree.v`: agreement for every completed SSO execution from reference memory
-  DRF alone, memory-DRF preservation, reference-run soundness, and acceptance
-  of every reference run by the `StructuredPartial` check.
+  DRF alone, agreement so far and completion for every unfinished one,
+  memory-DRF preservation, reference-run soundness, and acceptance of every
+  reference run by the `StructuredPartial` check.
 - `Blocks.v`: at most one group per instance in any execution of a well-sited
   kernel.
 - `Spec.v`: a kernel that is WarpDRF for `StructuredPartial`, with two
   completed Spec runs that form different groups, one agreeing with the
-  reference and one not, and the failure of the guarantee under Spec.
+  reference and one not, and the failure of the guarantee under Spec; a
+  kernel that is WarpDRF for either configuration, with an unfinished Spec run
+  that forms a group the reference never forms.
 - `Tests.v`: the examples above.
 
 ```sh

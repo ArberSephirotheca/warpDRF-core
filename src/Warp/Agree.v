@@ -80,6 +80,42 @@ Proof.
     + eapply reorders_trans; [exact Horder|now apply reorders_emit].
 Qed.
 
+Lemma emit_event_app : forall e trace rest,
+  emit_event e (trace ++ rest) = emit_event e trace ++ rest.
+Proof. intros [e|] trace rest; reflexivity. Qed.
+
+(* The same alignment for an execution that has not finished: after its steps
+   are pulled to the front, the rest of the reference completes it. *)
+Theorem prefix_agreement : forall input s trace last,
+  execution input s trace last ->
+  forall reference_trace reference_last,
+  execution input s reference_trace reference_last ->
+  finished reference_last -> MemDRF reference_trace ->
+  exists rest final,
+    execution input last rest final /\ finished final /\
+    state_equiv input reference_last final /\ reorders reference_trace (trace ++ rest).
+Proof.
+  intros input s trace last Htarget.
+  induction Htarget as [s|a s e s' trace last Hstep Htarget IH];
+    intros reference_trace reference_last Hreference Hrefdone Hdrf.
+  - exists reference_trace, reference_last.
+    split; [exact Hreference|]. split; [exact Hrefdone|].
+    split; [apply state_equiv_refl|constructor].
+  - assert (Henabled : enabled input a s) by (exists e, s'; exact Hstep).
+    destruct (pull_enabled _ _ _ _ Hreference Hrefdone Hdrf a Henabled)
+      as [f [next [tail [final [Hfront [Hrest [Hfinished [Hequiv Horder]]]]]]]].
+    rewrite Hstep in Hfront. inversion Hfront; subst f next.
+    assert (Htail : MemDRF tail).
+    { apply memory_drf_emit_tail with (e := e).
+      eapply reorders_memory_drf; eauto. }
+    destruct (IH tail final Hrest Hfinished Htail)
+      as [rest [final' [Hcomplete [Hdone [Hequiv' Horder']]]]].
+    exists rest, final'. split; [exact Hcomplete|]. split; [exact Hdone|].
+    split; [eapply state_equiv_trans; eauto|].
+    rewrite <- emit_event_app.
+    eapply reorders_trans; [exact Horder|now apply reorders_emit].
+Qed.
+
 (* The reference execution: run the lowest runnable thread; release an
    instance only when no thread can run. Loops can run forever, so the run
    takes a step budget. *)
@@ -331,6 +367,42 @@ Theorem sso_agreement : forall c programs fuel input reference_trace reference_l
 Proof.
   intros c programs fuel input reference_trace reference_last Hreference [Hdrf _].
   exact (agreement_from_drf _ _ _ _ _ Hreference Hdrf).
+Qed.
+
+(* What a run has observed so far: each instance's groups and each thread's
+   reads are the first ones of the reference. *)
+Definition observations_so_far reference_trace trace :=
+  (forall i, exists more, groups_at i reference_trace = groups_at i trace ++ more) /\
+  (forall tid, exists more,
+    read_history tid reference_trace = read_history tid trace ++ more).
+
+(* The guarantee for every SSO run, finished or not: every collective it has
+   run formed the reference's group, every read returned the reference's
+   value, and the run can still complete with the reference's observations. *)
+Theorem sso_every_run_agreement : forall c programs fuel input reference_trace
+    reference_last,
+  run fuel input programs = Some (reference_trace, reference_last) ->
+  conditions c programs reference_trace ->
+  forall trace last,
+  execution input (initial programs) trace last ->
+  observations_so_far reference_trace trace /\
+  exists rest final,
+    execution input last rest final /\ finished final /\
+    same_observations input reference_trace reference_last (trace ++ rest) final.
+Proof.
+  intros c programs fuel input reference_trace reference_last Hrun [Hdrf _]
+    trace last Htarget.
+  apply run_sound in Hrun as [_ [Hreference Hrefdone]].
+  destruct (prefix_agreement _ _ _ _ Htarget _ _ Hreference Hrefdone Hdrf)
+    as [rest [final [Hcomplete [Hdone [[_ Hmemory] Horder]]]]].
+  split; [split|].
+  - intros i. exists (groups_at i rest).
+    rewrite <- groups_at_app. exact (reorders_groups_at _ _ Horder i).
+  - intros tid. exists (read_history tid rest).
+    rewrite <- read_history_app. exact (reorders_read_history _ _ Horder tid).
+  - exists rest, final. split; [exact Hcomplete|]. split; [exact Hdone|].
+    split; [intros i; exact (reorders_groups_at _ _ Horder i)|].
+    split; [intros tid; exact (reorders_read_history _ _ Horder tid)|exact Hmemory].
 Qed.
 
 Corollary target_memory_drf : forall programs fuel input reference_trace reference_last

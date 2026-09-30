@@ -17,7 +17,8 @@ Open Scope string_scope.
 
    Spec does not conform to the structured partial configuration: on a kernel
    that is WarpDRF for it, which threads join a collective depends on the
-   schedule, even in completed runs. *)
+   schedule, even in completed runs. Once unfinished runs count, it conforms
+   to neither configuration. *)
 
 Record spec_state := SpecState {
   base : state;
@@ -207,4 +208,72 @@ Proof.
     as [programs [fuel [input [reference_trace [reference_last
       [Hrun [Hconditions [_ [_ [trace [last [Hexec [Hdone [_ Hdiffer]]]]]]]]]]]]]].
   exact (Hdiffer (Hagree _ _ _ _ _ Hrun Hconditions _ _ Hexec Hdone)).
+Qed.
+
+(* The guarantee for every run, finished or not, fails under Spec in both
+   configurations. In late, each thread writes its own cell and then calls
+   AddZero, in uniform code: the kernel is WarpDRF for either configuration.
+   Spec can fire the collective with thread 0 alone, so a run forms a group
+   the reference never forms. Thread 1 then arrives after the firing, and the
+   run never completes. *)
+Definition late := Seq (Write NTid (NNum 1)) AddZero.
+
+Definition late_reference_trace :=
+  [Memory (Observe (av_write 0 0) 1); Memory (Observe (av_write 1 1) 1);
+   Sync (AddSite, []) [0; 1]].
+
+Example late_reference :
+  exists last, run 100 zero_input [late; late] = Some (late_reference_trace, last).
+Proof. eexists; vm_compute; reflexivity. Qed.
+
+Lemma late_memory_drf : MemDRF late_reference_trace.
+Proof.
+  intros i j e f He Hf Hconflict.
+  assert (Hi : i < 3).
+  { apply (proj1 (nth_error_Some late_reference_trace i)). rewrite He. discriminate. }
+  assert (Hj : j < 3).
+  { apply (proj1 (nth_error_Some late_reference_trace j)). rewrite Hf. discriminate. }
+  destruct i as [|[|[|i]]], j as [|[|[|j]]]; try lia;
+    cbn in He, Hf; try discriminate;
+    inversion He; inversion Hf; subst; clear He Hf;
+    inversion Hconflict; cbn in *; congruence.
+Qed.
+
+Lemma late_full_warp :
+  UnambiguousParticipation FullWarp [late; late] late_reference_trace.
+Proof.
+  unfold UnambiguousParticipation, PermittedPlacement, warp_uniform. split.
+  - exists late. split; [reflexivity|]. split; [reflexivity|repeat constructor].
+  - intros i group Hin. cbn in Hin.
+    destruct Hin as [Heq|[Heq|[Heq|[]]]]; inversion Heq; subst.
+    split; [discriminate|]. split; [repeat constructor; cbn; intuition discriminate|].
+    split; [|reflexivity].
+    apply Forall_forall. intros tid [<-|[<-|[]]]; cbn; lia.
+Qed.
+
+Example late_early :
+  exists s,
+  spec_run zero_input [Thread 0; Thread 0; Release (AddSite, [])]
+    (spec_initial [late; late]) =
+    Some ([Memory (Observe (av_write 0 0) 1); Sync (AddSite, []) [0]], s).
+Proof. eexists; vm_compute; reflexivity. Qed.
+
+Theorem warpdrf_fails_under_spec_every_run : forall c,
+  ~ (forall programs fuel input reference_trace reference_last,
+       run fuel input programs = Some (reference_trace, reference_last) ->
+       conditions c programs reference_trace ->
+       forall trace last,
+       spec_execution input (spec_initial programs) trace last ->
+       observations_so_far reference_trace trace).
+Proof.
+  intros c Hagree.
+  destruct late_reference as [reference_last Hrun].
+  destruct late_early as [s Hspec].
+  assert (Hconditions : conditions c [late; late] late_reference_trace).
+  { split; [exact late_memory_drf|].
+    destruct c; [exact late_full_warp|exact (reference_structured_partial _ _ _ _ _ Hrun)]. }
+  destruct (Hagree _ _ _ _ _ Hrun Hconditions _ _ (spec_run_sound _ _ _ _ _ Hspec))
+    as [Hgroups _].
+  destruct (Hgroups (AddSite, [])) as [more Hmore].
+  vm_compute in Hmore. discriminate.
 Qed.
