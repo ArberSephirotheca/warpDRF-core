@@ -12,11 +12,10 @@ conditionals, several collectives, and structured loops with `Break` and
   each thread the same reads, and leaves the same final memory.
 - `Spec.v` shows that Spec, which fires a collective without waiting for
   threads that may still branch away from it, is not a conforming target. On
-  a kernel that is WarpDRF for `StructuredPartial`, the group of a collective
-  under Spec depends on the schedule (`spec_grouping_depends_on_schedule`), so
-  the guarantee of `sso_agreement` fails for Spec (`warpdrf_fails_under_spec`).
-  Counting unfinished runs, the guarantee also fails under `FullWarp`
-  (`warpdrf_fails_under_spec_every_run`).
+  a kernel that is WarpDRF for either configuration, the group of a
+  collective under Spec depends on the schedule
+  (`spec_grouping_depends_on_schedule`), so the guarantee `sso_agreement`
+  proves for SSO does not hold for Spec (`warpdrf_fails_under_spec`).
 
 ## The model
 
@@ -72,20 +71,15 @@ identified by its name and loop counts. `run_sound` proves that a successful
 run is a completed SSO execution. The run also executes racy kernels; memory
 DRF is checked separately.
 
-`conditions` conjoins `MemDRF` with `UnambiguousParticipation`. Both are
-checked on the kernel and its reference trace, never on target executions.
-Condition 2 requires every recorded group to be nonempty and to contain
-distinct threads of the warp, and it applies the configuration's placement
-rule:
+`conditions` conjoins `MemDRF` with `UnambiguousParticipation`. As in the
+paper, both are checked on the reference trace, never on target executions.
+Condition 2 requires every group the reference forms to be nonempty and to
+contain distinct threads of the warp, and adds the configuration's
+requirement:
 
-- `FullWarp`: every group is the whole warp, and every thread runs one program
-  whose collectives sit where every thread takes the same path
-  (`warp_uniform`). A test that decides whether a collective runs, or whether a
-  loop with a collective ends its iteration, must be closed: it mentions
-  neither the thread identifier nor a value read from memory. Branches without
-  a collective may still diverge. The rule is conservative for loops: a loop
-  that contains a collective exits in its first iteration or never, and a loop
-  bound read from memory is not recognized as uniform.
+- `FullWarp`: every group is the whole warp. As in the paper, every executed
+  collective must include the complete warp; nothing restricts where a
+  collective may occur in the code.
 - `StructuredPartial`: admits the partial groups the reference forms.
   `reference_structured_partial` proves that every reference run passes this
   check, so under this configuration the participation premise holds
@@ -126,13 +120,14 @@ WarpDRF. Thread steps are the SSO thread steps. In `late`, each thread writes
 its own cell and then calls `AddZero` with no branch in between, so Spec must
 wait for both threads (`late_waits`).
 
-`spec_grouping_depends_on_schedule` shows that Spec does not conform to
-`StructuredPartial`. In `single_writer`, both threads read a flag and, when it
-is zero, meet at `AddZero`; afterwards thread 0 sets the flag. The kernel meets
-both `StructuredPartial` conditions: the reference orders thread 1's read
-before thread 0's write through the collective (`single_writer_memory_drf`),
-and every reference run passes the participation check. Under Spec, which
-threads join the collective depends on the schedule:
+`spec_grouping_depends_on_schedule` shows that Spec conforms to neither
+configuration. In `single_writer`, both threads read a flag and, when it is
+zero, meet at `AddZero`; afterwards thread 0 sets the flag. The kernel is
+WarpDRF for either configuration (`single_writer_conditions`): the reference
+orders thread 1's read before thread 0's write through the collective
+(`single_writer_memory_drf`), and both threads join it, so its group is the
+whole warp. Under Spec, which threads join the collective depends on the
+schedule:
 
 - If thread 1 arrives in time, the collective fires with `[0; 1]`, and the run
   is the reference run (`single_writer_on_time`).
@@ -143,21 +138,9 @@ threads join the collective depends on the schedule:
 
 The theorem states both groups: `[0; 1]` in the reference and the first Spec
 run, and `[0]` in the second. So the collective has no fixed group under Spec.
-`warpdrf_fails_under_spec` states the consequence. It takes the statement of
-`sso_agreement` for `StructuredPartial`, with Spec executions in place of SSO
+`warpdrf_fails_under_spec` states the consequence. For either configuration, it
+takes the statement of `sso_agreement`, with Spec executions in place of SSO
 executions, and proves it false.
-
-Under `FullWarp` every completed Spec run does agree: a collective in uniform
-code is reached by every thread, so a thread that Spec leaves out joins after
-the firing, and the run never completes. The failure shows up in unfinished
-runs. `observations_so_far` states the guarantee for a run that has not
-completed: each instance's groups and each thread's reads so far are the first
-ones of the reference. In `uniform_if`, every thread takes a branch to
-`AddZero`; the kernel is WarpDRF for either configuration, and the reference
-forms `[0; 1]`. Spec can fire the collective with thread 0 while thread 1 has
-not yet taken the branch (`uniform_if_early`), a group the reference never
-forms. `warpdrf_fails_under_spec_every_run` proves that, for either
-configuration, Spec does not meet this guarantee.
 
 ## Examples
 
@@ -173,9 +156,8 @@ every completed execution for these kernels:
 - nested loops.
 
 It also proves thread 2's read in every completed execution of the relay. It
-shows that crossed collectives never finish, that the placement rule rejects a
-data-dependent `Break` in a loop with a collective, and that a repeated site is
-rejected.
+shows that crossed collectives never finish, and that a thread whose code
+contains the same collective twice is rejected.
 
 ## Scope
 
@@ -188,7 +170,6 @@ rejected.
 | Control flow | Nested conditionals and structured loops with `Break` and `Continue`; no `switch` |
 | Local state | Loop counters live in memory cells a thread owns; no local variable updates |
 | Collectives | `AddZero` and `Barrier n`, which order memory among their participants; no collective results |
-| `FullWarp` placement | Conservative for loops, as described above |
 
 ## Verification
 
@@ -203,12 +184,10 @@ rejected.
   `StructuredPartial` check.
 - `Blocks.v`: at most one group per instance in any execution of a well-sited
   kernel.
-- `Spec.v`: a kernel that is WarpDRF for `StructuredPartial`, with two
+- `Spec.v`: a kernel that is WarpDRF for either configuration, with two
   completed Spec runs that form different groups, one agreeing with the
-  reference and one not, and the failure of the guarantee under Spec; a
-  kernel that is WarpDRF for either configuration, with an unfinished Spec run
-  that forms a group the reference never forms; and Spec waiting for a thread
-  known to reach a collective.
+  reference and one not; the failure of the guarantee under Spec for either
+  configuration; and Spec waiting for a thread known to reach a collective.
 - `Tests.v`: the examples above.
 
 ```sh

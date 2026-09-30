@@ -305,15 +305,8 @@ Theorem nested_loop_groups : forall trace last,
   groups_at (BarrierSite 3, [1]) trace = [[0; 1]].
 Proof. groups_by_reference 500. Qed.
 
-(* The full-warp placement rule rejects a data-dependent Break in a loop with
-   a collective, and accepts a loop whose exits are uniform. *)
-Example break_early_not_full_warp : placed false break_early = false.
-Proof. reflexivity. Qed.
-
-Example uniform_loop_full_warp : placed false (Loop (Seq (Barrier 1) Break)) = true.
-Proof. reflexivity. Qed.
-
-(* A site named twice in one thread's code is rejected, as without loops. *)
+(* The reference run rejects a thread whose code contains the same collective
+   twice. *)
 Example repeated_site_rejected :
   run 100 zero_input [Loop (Seq (Barrier 0) (Seq (Barrier 0) Break))] = None.
 Proof. reflexivity. Qed.

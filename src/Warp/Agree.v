@@ -236,80 +236,15 @@ Proof.
   split; [exact Hstatic|now apply nodup_sites_spec].
 Qed.
 
-(* The contract. Condition 2 checks the group of every instance. A
-   configuration says where a collective may occur and which groups it
-   guarantees. The full-warp configuration places a collective only where every
-   thread takes the same path: every thread runs the same program, and a test
-   that decides whether a collective runs, or whether a loop with a collective
-   ends its iteration, must be closed. A branch without collectives may still
-   diverge. This check is conservative; a loop bound read from memory is not
-   recognized as uniform. The structured partial configuration also admits the
-   partial groups the reference forms. *)
+(* The contract. As in the paper, condition 2 checks the group of every
+   instance in the reference execution. The full-warp configuration requires
+   every executed collective to include the whole warp; the structured partial
+   configuration also admits the partial groups the reference forms. *)
 
 Inductive participation_config := FullWarp | StructuredPartial.
 
-(* A test that mentions neither the thread identifier nor a value read from
-   memory has the same value in every thread, whatever the input and schedule. *)
-Fixpoint closed_nexp (e : nexp) : bool :=
-  match e with
-  | NNum _ => true
-  | NTid | NVar _ => false
-  | NBin _ e1 e2 => closed_nexp e1 && closed_nexp e2
-  end.
-
-Fixpoint closed_bexp (e : bexp) : bool :=
-  match e with
-  | BBool _ => true
-  | NRel _ e1 e2 => closed_nexp e1 && closed_nexp e2
-  | BRel _ e1 e2 => closed_bexp e1 && closed_bexp e2
-  | BNot e1 => closed_bexp e1
-  end.
-
-Fixpoint has_primitive (c : code) : bool :=
-  match c with
-  | Barrier _ | AddZero => true
-  | Read _ _ body | Loop body => has_primitive body
-  | Seq first rest | Cond _ first rest => has_primitive first || has_primitive rest
-  | Iter _ rest body => has_primitive rest || has_primitive body
-  | Write _ _ | Break | Continue | Skip => false
-  end.
-
-(* A Break or Continue that leaves the innermost loop around the code. *)
-Fixpoint has_jump (c : code) : bool :=
-  match c with
-  | Break | Continue => true
-  | Read _ _ body => has_jump body
-  | Seq first rest | Cond _ first rest => has_jump first || has_jump rest
-  | _ => false
-  end.
-
-Fixpoint placed (loop_primitive : bool) (c : code) : bool :=
-  match c with
-  | Cond test yes no =>
-      (negb (has_primitive yes || has_primitive no ||
-             (loop_primitive && (has_jump yes || has_jump no))) ||
-       closed_bexp test) &&
-      placed loop_primitive yes && placed loop_primitive no
-  | Read _ _ body => placed loop_primitive body
-  | Seq first rest => placed loop_primitive first && placed loop_primitive rest
-  | Loop body => placed (has_primitive body) body
-  | Iter _ rest body => placed (has_primitive body) rest && placed (has_primitive body) body
-  | Write _ _ | Break | Continue | Barrier _ | AddZero | Skip => true
-  end.
-
-(* Every thread runs one placed program, which has no Break or Continue
-   outside a loop. *)
-Definition warp_uniform (programs : list code) :=
-  exists p, placed false p = true /\ has_jump p = false /\ Forall (fun c => c = p) programs.
-
-Definition PermittedPlacement c programs :=
-  match c with
-  | FullWarp => warp_uniform programs
-  | StructuredPartial => True
-  end.
-
-Definition UnambiguousParticipation c programs (reference_trace : list event) :=
-  PermittedPlacement c programs /\
+Definition UnambiguousParticipation c (programs : list code)
+    (reference_trace : list event) :=
   forall i group, In (Sync i group) reference_trace ->
   group <> [] /\ NoDup group /\ Forall (fun tid => tid < length programs) group /\
   match c with
@@ -404,8 +339,7 @@ Theorem reference_structured_partial : forall programs fuel input reference_trac
   run fuel input programs = Some (reference_trace, reference_last) ->
   UnambiguousParticipation StructuredPartial programs reference_trace.
 Proof.
-  intros programs fuel input reference_trace reference_last Hreference.
-  split; [exact I|]. intros i group Hin.
+  intros programs fuel input reference_trace reference_last Hreference i group Hin.
   apply run_sound in Hreference as [_ [Hreference _]].
   destruct (execution_groups_valid _ _ _ _ Hreference i group Hin)
     as [Hne [Hnodup Hbound]].

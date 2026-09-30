@@ -10,21 +10,19 @@ for a program and input.
 
 **Unambiguous participation**:
 The reference execution's primitive groups meet the chosen configuration's
-participation requirements, including where the configuration permits a
-primitive to occur. This is a contract premise, not a statement that every
-target execution already forms those groups.
+participation requirements. The full-warp configuration requires every executed
+primitive to include the complete warp. This is a contract premise, not a
+statement that every target execution already forms those groups.
 
 **Warp-uniform control flow**:
-Every thread takes the same branch around a primitive, whatever the input and
-schedule. The full-warp configuration permits primitives only there; branches
-that contain no primitive may still diverge.
+Every thread takes the same branch around a primitive. Placing primitives there
+is how a programmer meets the full-warp configuration; branches that contain
+no primitive may still diverge.
 
 **Conforming target**:
 A target that forms the groups its configuration describes. Spec, which fires a
-collective without waiting for threads that may still branch away from it, is
-not conforming: which threads join depends on the schedule. Under the
-structured partial configuration this shows in completed runs, under the
-full-warp one only in runs that never complete.
+collective without waiting for threads that may still branch away from it,
+conforms to neither configuration: which threads join depends on the schedule.
 
 **Participant agreement**:
 Target executions form the same primitive groups as the reference execution.

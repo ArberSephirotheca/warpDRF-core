@@ -18,10 +18,18 @@ Open Scope string_scope.
    collective forever and the run never completes. Thread steps are the SSO
    thread steps.
 
-   Spec does not conform to the structured partial configuration: on a kernel
-   that is WarpDRF for it, which threads join a collective depends on the
-   schedule, even in completed runs. Once unfinished runs count, it conforms
-   to neither configuration. *)
+   Spec conforms to neither configuration: on a kernel that is WarpDRF for
+   both, which threads join a collective depends on the schedule, even in
+   completed runs. *)
+
+(* A Break or Continue that leaves the innermost loop around the code. *)
+Fixpoint has_jump (c : code) : bool :=
+  match c with
+  | Break | Continue => true
+  | Read _ _ body => has_jump body
+  | Seq first rest | Cond _ first rest => has_jump first || has_jump rest
+  | _ => false
+  end.
 
 (* A thread must reach an instance when every path of its remaining code runs
    it: a conditional must reach it in both branches, and the code after a part
@@ -180,14 +188,37 @@ Example single_writer_early :
     Some (early_trace, last) /\ finished (base last).
 Proof. eexists; split; [vm_compute; reflexivity|unfold finished; repeat constructor]. Qed.
 
-(* single_writer is WarpDRF for the structured partial configuration, yet
-   under Spec the group of its collective is not fixed: the reference and one
-   completed Spec run form [0; 1], and another completed Spec run forms [0]
-   and disagrees with the reference. *)
-Theorem spec_grouping_depends_on_schedule :
+(* In the reference both threads join the collective, so single_writer is
+   WarpDRF for either configuration. *)
+Lemma single_writer_full_warp :
+  UnambiguousParticipation FullWarp [single_writer; single_writer]
+    single_writer_reference_trace.
+Proof.
+  intros i group Hin. cbn in Hin.
+  destruct Hin as [Heq|[Heq|[Heq|[Heq|[]]]]]; inversion Heq; subst.
+  split; [discriminate|]. split; [repeat constructor; cbn; intuition discriminate|].
+  split; [|reflexivity].
+  apply Forall_forall. intros tid [<-|[<-|[]]]; cbn; lia.
+Qed.
+
+Lemma single_writer_conditions : forall c fuel reference_last,
+  run fuel zero_input [single_writer; single_writer] =
+    Some (single_writer_reference_trace, reference_last) ->
+  conditions c [single_writer; single_writer] single_writer_reference_trace.
+Proof.
+  intros c fuel reference_last Hrun. split; [exact single_writer_memory_drf|].
+  destruct c; [exact single_writer_full_warp|].
+  exact (reference_structured_partial _ _ _ _ _ Hrun).
+Qed.
+
+(* single_writer is WarpDRF for either configuration, yet under Spec the group
+   of its collective is not fixed: the reference and one completed Spec run
+   form [0; 1], and another completed Spec run forms [0] and disagrees with
+   the reference. *)
+Theorem spec_grouping_depends_on_schedule : forall c,
   exists programs fuel input reference_trace reference_last,
     run fuel input programs = Some (reference_trace, reference_last) /\
-    conditions StructuredPartial programs reference_trace /\
+    conditions c programs reference_trace /\
     groups_at (AddSite, []) reference_trace = [[0; 1]] /\
     (exists trace last,
        spec_execution input (spec_initial programs) trace last /\ finished (base last) /\
@@ -198,13 +229,13 @@ Theorem spec_grouping_depends_on_schedule :
        groups_at (AddSite, []) trace = [[0]] /\
        ~ same_observations input reference_trace reference_last trace (base last)).
 Proof.
+  intros c.
   destruct single_writer_on_time as [reference_last [Hrun [Hon_time Hdone]]].
   destruct single_writer_early as [last [Hearly Hearly_done]].
   exists [single_writer; single_writer], 100, zero_input, single_writer_reference_trace,
     reference_last.
   split; [exact Hrun|].
-  split; [split; [exact single_writer_memory_drf
-                 |exact (reference_structured_partial _ _ _ _ _ Hrun)]|].
+  split; [exact (single_writer_conditions c _ _ Hrun)|].
   split; [reflexivity|].
   split.
   - exists single_writer_reference_trace, (SpecState reference_last [(AddSite, [])]).
@@ -218,19 +249,19 @@ Proof.
     vm_compute in Hgroups. discriminate.
 Qed.
 
-(* So WarpDRF's guarantee fails under Spec: sso_agreement for the structured
-   partial configuration, with Spec executions in place of SSO executions, is
-   false. *)
-Corollary warpdrf_fails_under_spec :
+(* So the guarantee sso_agreement proves for SSO does not hold for Spec, in
+   either configuration: its statement with Spec executions in place of SSO
+   executions is false. *)
+Corollary warpdrf_fails_under_spec : forall c,
   ~ (forall programs fuel input reference_trace reference_last,
        run fuel input programs = Some (reference_trace, reference_last) ->
-       conditions StructuredPartial programs reference_trace ->
+       conditions c programs reference_trace ->
        forall trace last,
        spec_execution input (spec_initial programs) trace last -> finished (base last) ->
        same_observations input reference_trace reference_last trace (base last)).
 Proof.
-  intros Hagree.
-  destruct spec_grouping_depends_on_schedule
+  intros c Hagree.
+  destruct (spec_grouping_depends_on_schedule c)
     as [programs [fuel [input [reference_trace [reference_last
       [Hrun [Hconditions [_ [_ [trace [last [Hexec [Hdone [_ Hdiffer]]]]]]]]]]]]]].
   exact (Hdiffer (Hagree _ _ _ _ _ Hrun Hconditions _ _ Hexec Hdone)).
@@ -245,68 +276,3 @@ Example late_waits :
   spec_run zero_input [Thread 0; Thread 0; Release (AddSite, [])]
     (spec_initial [late; late]) = None.
 Proof. vm_compute. reflexivity. Qed.
-
-(* What a run has observed so far: each instance's groups and each thread's
-   reads are the first ones of the reference. Read over every run, finished or
-   not, this is the guarantee for runs that have not completed. *)
-Definition observations_so_far reference_trace trace :=
-  (forall i, exists more,
-    groups_at i reference_trace = (groups_at i trace ++ more)%list) /\
-  (forall tid, exists more,
-    read_history tid reference_trace = (read_history tid trace ++ more)%list).
-
-(* That guarantee fails under Spec in both configurations. In uniform_if every
-   thread takes the branch to AddZero: the kernel is WarpDRF for either
-   configuration, and the reference forms [0; 1]. Spec can fire the collective
-   with thread 0 while thread 1 has not yet taken the branch, a group the
-   reference never forms. Thread 1 then joins, and the run never completes. *)
-Definition uniform_if := Cond (BBool true) AddZero Skip.
-
-Definition uniform_if_reference_trace := [Sync (AddSite, []) [0; 1]].
-
-Example uniform_if_reference :
-  exists last,
-  run 100 zero_input [uniform_if; uniform_if] = Some (uniform_if_reference_trace, last).
-Proof. eexists; vm_compute; reflexivity. Qed.
-
-Lemma uniform_if_memory_drf : MemDRF uniform_if_reference_trace.
-Proof. intros i j e f He. destruct i as [|[|i]]; cbn in He; discriminate. Qed.
-
-Lemma uniform_if_full_warp :
-  UnambiguousParticipation FullWarp [uniform_if; uniform_if] uniform_if_reference_trace.
-Proof.
-  unfold UnambiguousParticipation, PermittedPlacement, warp_uniform. split.
-  - exists uniform_if. split; [reflexivity|]. split; [reflexivity|repeat constructor].
-  - intros i group Hin. cbn in Hin.
-    destruct Hin as [Heq|[]]; inversion Heq; subst.
-    split; [discriminate|]. split; [repeat constructor; cbn; intuition discriminate|].
-    split; [|reflexivity].
-    apply Forall_forall. intros tid [<-|[<-|[]]]; cbn; lia.
-Qed.
-
-Example uniform_if_early :
-  exists s,
-  spec_run zero_input [Thread 0; Release (AddSite, [])]
-    (spec_initial [uniform_if; uniform_if]) = Some ([Sync (AddSite, []) [0]], s).
-Proof. eexists; vm_compute; reflexivity. Qed.
-
-Theorem warpdrf_fails_under_spec_every_run : forall c,
-  ~ (forall programs fuel input reference_trace reference_last,
-       run fuel input programs = Some (reference_trace, reference_last) ->
-       conditions c programs reference_trace ->
-       forall trace last,
-       spec_execution input (spec_initial programs) trace last ->
-       observations_so_far reference_trace trace).
-Proof.
-  intros c Hagree.
-  destruct uniform_if_reference as [reference_last Hrun].
-  destruct uniform_if_early as [s Hspec].
-  assert (Hconditions : conditions c [uniform_if; uniform_if] uniform_if_reference_trace).
-  { split; [exact uniform_if_memory_drf|].
-    destruct c;
-      [exact uniform_if_full_warp|exact (reference_structured_partial _ _ _ _ _ Hrun)]. }
-  destruct (Hagree _ _ _ _ _ Hrun Hconditions _ _ (spec_run_sound _ _ _ _ _ Hspec))
-    as [Hgroups _].
-  destruct (Hgroups (AddSite, [])) as [more Hmore].
-  vm_compute in Hmore. discriminate.
-Qed.
