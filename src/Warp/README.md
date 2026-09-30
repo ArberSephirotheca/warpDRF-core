@@ -6,11 +6,10 @@ conditionals, several collectives, and structured loops with `Break` and
 
 ## Main results
 
-- `Agree.v` proves `sso_agreement`, Theorem 1 of the paper for SSO. Under
-  reference memory DRF, every completed SSO execution forms the reference's
-  group at every collective instance, gives each thread the same reads, and
-  leaves the same final memory. The proof uses only condition 1
-  (`agreement_from_drf`); the groups are part of the conclusion.
+- `Agree.v` proves `sso_agreement`, Theorem 1 of the paper for SSO. For a
+  kernel that is WarpDRF for either configuration, every completed SSO
+  execution forms the reference's group at every collective instance, gives
+  each thread the same reads, and leaves the same final memory.
 - `sso_every_run_agreement` extends this to every SSO run, finished or not.
   Every collective it has run so far formed the reference's group, every read
   so far returned the reference's value, and the run can still complete with
@@ -66,13 +65,16 @@ conditionals, several collectives, and structured loops with `Break` and
 
 ## Reference run and contract
 
-`run fuel input programs` is the reference execution. It runs the lowest
-runnable thread and releases an instance only when no thread can run. Loops can
-run forever, so the run takes a step budget. It accepts only well-sited source
-programs, in which no thread's code names a site twice, so an instance is one
-dynamic block. `run_sound` proves that a successful run is a completed SSO
-execution. The run also executes racy programs; checking memory DRF is
-separate.
+`run fuel input programs` is the reference execution. Like the paper's, it
+picks threads in a fixed order: the lowest-numbered thread that can step, and a
+collective only when no thread can step. So each kernel and input has
+exactly one reference execution. `fuel` bounds the number of steps, since a
+loop may not terminate; the theorems cover kernels whose reference run finishes
+within it. The run rejects a kernel in which one thread's code contains the
+same collective twice (for example two `Barrier 0`s), because a collective is
+identified by its name and loop counts. `run_sound` proves that a successful
+run is a completed SSO execution. The run also executes racy kernels; memory
+DRF is checked separately.
 
 `conditions` conjoins `MemDRF` with `UnambiguousParticipation`. Both are
 checked on the kernel and its reference trace, never on target executions.
@@ -100,20 +102,21 @@ representation of the memory map.
 
 ## Agreement proof
 
-`completed_agreement` matches any completed execution with a completed
-memory-DRF one from the same state. The target schedule supplies the next
-action, and `pull_enabled` moves that action to the front of the reference
+`prefix_agreement` matches any execution, finished or not, with the start of a
+completed memory-DRF one from the same state. The target schedule supplies the
+next action, and `pull_enabled` moves that action to the front of the reference
 execution. Each reordering preserves memory DRF, so no target schedule is
-assumed to be DRF. `agreement_from_drf` applies this to the reference run, and
-`sso_agreement` follows. `target_memory_drf` proves that completed target
-traces are memory-DRF.
+assumed to be DRF. `pull_enabled` needs only the reference to be complete, so
+the target run never has to finish; the rest of the rearranged reference then
+completes it.
 
-The target run never has to finish: `pull_enabled` needs only the reference to
-be complete. `prefix_agreement` aligns an unfinished run the same way, and the
-rest of the rearranged reference then completes it. `sso_every_run_agreement`
-states the result as the guarantee for every run, using `observations_so_far`:
-each instance's groups and each thread's reads so far are the first ones of
-the reference.
+`sso_every_run_agreement` applies this to the reference run and states the
+guarantee for every run, using `observations_so_far`: each instance's groups
+and each thread's reads so far are the first ones of the reference. A finished
+run has nothing left to complete, so `sso_agreement` and `completed_agreement`
+are corollaries. `agreement_from_drf` states the completed case from reference
+memory DRF alone, and `target_memory_drf` proves that completed target traces
+are memory-DRF.
 
 ## Spec
 

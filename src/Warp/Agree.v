@@ -52,40 +52,14 @@ Proof.
   exfalso. eapply (finished_not_enabled input s a Hdone). eexists; eexists; eauto.
 Qed.
 
-(* Any completed execution matches a completed DRF one: the target schedule
-   supplies the next action, and pulling it to the front of the reference
-   aligns the two executions one step at a time. *)
-Theorem completed_agreement : forall input s trace last,
-  execution input s trace last -> finished last ->
-  forall reference_trace reference_last,
-  execution input s reference_trace reference_last ->
-  finished reference_last -> MemDRF reference_trace ->
-  state_equiv input reference_last last /\ reorders reference_trace trace.
-Proof.
-  intros input s trace last Htarget.
-  induction Htarget as [s|a s e s' trace last Hstep Htarget IH];
-    intros Hdone reference_trace reference_last Hreference Hrefdone Hdrf.
-  - destruct (finished_execution _ _ _ _ Hdone Hreference) as [-> ->].
-    split; [apply state_equiv_refl|constructor].
-  - assert (Henabled : enabled input a s) by (exists e, s'; exact Hstep).
-    destruct (pull_enabled _ _ _ _ Hreference Hrefdone Hdrf a Henabled)
-      as [f [next [tail [final [Hfront [Hrest [Hfinished [Hequiv Horder]]]]]]]].
-    rewrite Hstep in Hfront. inversion Hfront; subst f next.
-    assert (Htail : MemDRF tail).
-    { apply memory_drf_emit_tail with (e := e).
-      eapply reorders_memory_drf; eauto. }
-    destruct (IH Hdone tail final Hrest Hfinished Htail) as [Hfinal Hrestorder].
-    split.
-    + eapply state_equiv_trans; eauto.
-    + eapply reorders_trans; [exact Horder|now apply reorders_emit].
-Qed.
-
 Lemma emit_event_app : forall e trace rest,
   emit_event e (trace ++ rest) = emit_event e trace ++ rest.
 Proof. intros [e|] trace rest; reflexivity. Qed.
 
-(* The same alignment for an execution that has not finished: after its steps
-   are pulled to the front, the rest of the reference completes it. *)
+(* Any execution, finished or not, matches the start of a completed DRF one:
+   the target schedule supplies the next action, and pulling it to the front
+   of the reference aligns the two executions one step at a time. The rest of
+   the rearranged reference then completes the target run. *)
 Theorem prefix_agreement : forall input s trace last,
   execution input s trace last ->
   forall reference_trace reference_last,
@@ -114,6 +88,22 @@ Proof.
     split; [eapply state_equiv_trans; eauto|].
     rewrite <- emit_event_app.
     eapply reorders_trans; [exact Horder|now apply reorders_emit].
+Qed.
+
+(* A finished execution has nothing left to complete. *)
+Corollary completed_agreement : forall input s trace last,
+  execution input s trace last -> finished last ->
+  forall reference_trace reference_last,
+  execution input s reference_trace reference_last ->
+  finished reference_last -> MemDRF reference_trace ->
+  state_equiv input reference_last last /\ reorders reference_trace trace.
+Proof.
+  intros input s trace last Htarget Hdone reference_trace reference_last
+    Hreference Hrefdone Hdrf.
+  destruct (prefix_agreement _ _ _ _ Htarget _ _ Hreference Hrefdone Hdrf)
+    as [rest [final [Hcomplete [_ [Hequiv Horder]]]]].
+  destruct (finished_execution _ _ _ _ Hdone Hcomplete) as [-> ->].
+  rewrite app_nil_r in Horder. split; assumption.
 Qed.
 
 (* The reference execution: run the lowest runnable thread; release an
@@ -356,19 +346,6 @@ Proof.
   split; [now apply reorders_read_history|exact Hmemory].
 Qed.
 
-(* Theorem 1 of the paper for SSO, under either configuration. SSO forms every
-   group by the reference's own rule, so the proof needs only condition 1. *)
-Theorem sso_agreement : forall c programs fuel input reference_trace reference_last,
-  run fuel input programs = Some (reference_trace, reference_last) ->
-  conditions c programs reference_trace ->
-  forall trace last,
-  execution input (initial programs) trace last -> finished last ->
-  same_observations input reference_trace reference_last trace last.
-Proof.
-  intros c programs fuel input reference_trace reference_last Hreference [Hdrf _].
-  exact (agreement_from_drf _ _ _ _ _ Hreference Hdrf).
-Qed.
-
 (* What a run has observed so far: each instance's groups and each thread's
    reads are the first ones of the reference. *)
 Definition observations_so_far reference_trace trace :=
@@ -403,6 +380,23 @@ Proof.
   - exists rest, final. split; [exact Hcomplete|]. split; [exact Hdone|].
     split; [intros i; exact (reorders_groups_at _ _ Horder i)|].
     split; [intros tid; exact (reorders_read_history _ _ Horder tid)|exact Hmemory].
+Qed.
+
+(* Theorem 1 of the paper for SSO, under either configuration: the case of a
+   completed run, which has nothing left to complete. *)
+Corollary sso_agreement : forall c programs fuel input reference_trace reference_last,
+  run fuel input programs = Some (reference_trace, reference_last) ->
+  conditions c programs reference_trace ->
+  forall trace last,
+  execution input (initial programs) trace last -> finished last ->
+  same_observations input reference_trace reference_last trace last.
+Proof.
+  intros c programs fuel input reference_trace reference_last Hrun Hconditions
+    trace last Htarget Hdone.
+  destruct (sso_every_run_agreement _ _ _ _ _ _ Hrun Hconditions _ _ Htarget)
+    as [_ [rest [final [Hcomplete [_ Hsame]]]]].
+  destruct (finished_execution _ _ _ _ Hdone Hcomplete) as [-> ->].
+  now rewrite app_nil_r in Hsame.
 Qed.
 
 Corollary target_memory_drf : forall programs fuel input reference_trace reference_last
