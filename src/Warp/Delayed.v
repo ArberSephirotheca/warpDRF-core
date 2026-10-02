@@ -8,13 +8,16 @@ From Faial.Warp Require Import Store Code Model Order Commute Agree.
 
 Import ListNotations.
 
-(* A target with delayed visibility, after GPUVerify's synchronous, delayed
-   visibility semantics. A thread's write stays pending, visible only to that
-   thread, until the thread takes part in a primitive that orders memory; the
-   release of such a primitive publishes the pending writes of its
-   participants. A primitive that does not order memory publishes nothing.
-   Kernel completion publishes the remaining writes before final memory is
-   observed. Control is SSO's. *)
+(* A target with delayed visibility, after the memory of GPUVerify's
+   synchronous, delayed visibility semantics; control is SSO's rather than
+   lock-step. A thread's write stays pending, visible only to that thread,
+   until the thread takes part in a primitive that orders memory. The release
+   of such a primitive publishes the pending writes of its participants, which
+   generalizes GPUVerify's barrier to partial groups; a primitive that does not
+   order memory publishes nothing. As in GPUVerify, a race aborts the run:
+   Guarantee (Agree.v) counts a run whose trace has a race as a failure. The
+   memory a run leaves is observed with its remaining pending writes
+   published. *)
 
 Record pending_write := Pending {
   owner : nat;
@@ -122,10 +125,11 @@ Proof.
     inversion Hrun; subst. econstructor; [exact Hstep|]. now apply IH.
 Qed.
 
-(* A completed run; the observed final memory has every write published. *)
-Definition delayed_completed input programs trace last :=
+(* The delayed target: its runs, each observed with every pending write
+   published. *)
+Definition delayed_target input programs trace last :=
   exists d, dexecution input (dinitial programs) trace d /\
-    last = State (logical d) (dcodes d) /\ finished last.
+    last = State (logical d) (dcodes d).
 
 (* Publishing. *)
 
@@ -497,22 +501,26 @@ Proof.
     exact Hrel_last.
 Qed.
 
-(* Reference memory DRF alone suffices, as for SSO. *)
+(* Reference memory DRF alone suffices, as for SSO: no run races, so none
+   aborts, and every finished run has the reference's observations. *)
 Theorem delayed_agreement_from_drf : forall programs fuel input reference_trace
     reference_last,
   run fuel input programs = Some (reference_trace, reference_last) ->
   MemDRF reference_trace ->
-  forall trace last, delayed_completed input programs trace last ->
-  same_observations input reference_trace reference_last trace last.
+  forall trace last, delayed_target input programs trace last ->
+  MemDRF trace /\
+  (finished last -> same_observations input reference_trace reference_last trace last).
 Proof.
   intros programs fuel input reference_trace reference_last Hrun Hdrf
-    trace last [d [Hdexec [-> Hdone]]].
+    trace last [d [Hdexec ->]].
   pose proof Hrun as Hsound. apply run_sound in Hsound as [_ [Href Hrefdone]].
   assert (Hrel0 : related input [] (dinitial programs) (initial programs)).
   { split; [reflexivity|]. split; [intros a; reflexivity|].
     split; [intros w []|]. intros w1 w2 []. }
   destruct (delayed_simulation _ _ _ _ Href Hrefdone Hdrf _ _ _ Hdexec
     [] (initial programs) (execution_refl _ _) Hrel0) as [s_last [Hsso [Hcodes [Hmem _]]]].
+  split; [exact (target_memory_drf _ _ _ _ _ _ _ Hrun Hdrf Hsso)|].
+  intros Hdone.
   assert (Hfin : finished s_last).
   { unfold finished in *. cbn [threads] in Hdone. now rewrite <- Hcodes. }
   destruct (agreement_from_drf _ _ _ _ _ Hrun Hdrf _ _ Hsso Hfin)
@@ -522,9 +530,9 @@ Proof.
 Qed.
 
 (* The target with delayed visibility meets WarpDRF's guarantee: on a kernel
-   that meets both conditions, every completed run has the reference's
-   observations. *)
-Theorem delayed_agreement : forall c, Guarantee c delayed_completed.
+   that meets both conditions, no run aborts, and every finished run has the
+   reference's observations. *)
+Theorem delayed_agreement : forall c, Guarantee c delayed_target.
 Proof.
   intros c programs fuel input reference_trace reference_last Hrun [Hdrf _].
   exact (delayed_agreement_from_drf _ _ _ _ _ Hrun Hdrf).

@@ -282,41 +282,48 @@ Proof.
   split; [now apply reorders_read_history|exact Hmemory].
 Qed.
 
-(* WarpDRF's guarantee for configuration c on a target whose completed runs
-   are described by completed: every completed run of a kernel that meets
-   both conditions has the reference's observations. *)
-Definition Guarantee c
-    (completed : (nat -> nat) -> list code -> list event -> state -> Prop) : Prop :=
-  forall programs fuel input reference_trace reference_last,
-  run fuel input programs = Some (reference_trace, reference_last) ->
-  conditions c programs reference_trace ->
-  forall trace last, completed input programs trace last ->
-  same_observations input reference_trace reference_last trace last.
-
-(* A completed SSO run. *)
-Definition sso_completed input programs trace last :=
-  execution input (initial programs) trace last /\ finished last.
-
-(* Theorem 1 of the paper for SSO, under either configuration. *)
-Theorem sso_agreement : forall c, Guarantee c sso_completed.
-Proof.
-  intros c programs fuel input reference_trace reference_last Hreference [Hdrf _]
-    trace last [Htarget Hdone].
-  exact (agreement_from_drf _ _ _ _ _ Hreference Hdrf _ _ Htarget Hdone).
-Qed.
-
+(* Every SSO run of a kernel whose reference is memory-DRF is memory-DRF,
+   finished or not: it is the start of a rearranged reference. *)
 Corollary target_memory_drf : forall programs fuel input reference_trace reference_last
     trace last,
   run fuel input programs = Some (reference_trace, reference_last) ->
   MemDRF reference_trace ->
-  execution input (initial programs) trace last -> finished last -> MemDRF trace.
+  execution input (initial programs) trace last -> MemDRF trace.
 Proof.
   intros programs fuel input reference_trace reference_last trace last Hreference Hdrf
-    Htarget Hdone.
+    Htarget.
   apply run_sound in Hreference as [_ [Hreference Hrefdone]].
-  destruct (completed_agreement _ _ _ _ Htarget Hdone
-    _ _ Hreference Hrefdone Hdrf) as [_ Horder].
-  eapply reorders_memory_drf; eauto.
+  destruct (prefix_agreement _ _ _ _ Htarget _ _ Hreference Hrefdone Hdrf)
+    as [rest [final [_ [_ [_ Horder]]]]].
+  apply (memory_drf_app_l _ rest). eapply reorders_memory_drf; eauto.
+Qed.
+
+(* WarpDRF's guarantee for configuration c on a target whose runs, finished or
+   not, are described by target, each with the memory it leaves: on a kernel
+   that meets both conditions, no run has a race, and every finished run has
+   the reference's observations. With delayed visibility a race aborts the run
+   (Delayed.v), so a run fails the guarantee as soon as it races, whether or
+   not it could finish. *)
+Definition Guarantee c
+    (target : (nat -> nat) -> list code -> list event -> state -> Prop) : Prop :=
+  forall programs fuel input reference_trace reference_last,
+  run fuel input programs = Some (reference_trace, reference_last) ->
+  conditions c programs reference_trace ->
+  forall trace last, target input programs trace last ->
+  MemDRF trace /\
+  (finished last -> same_observations input reference_trace reference_last trace last).
+
+(* The SSO target: its runs from the initial state. *)
+Definition sso_target input programs trace last :=
+  execution input (initial programs) trace last.
+
+(* Theorem 1 of the paper for SSO, under either configuration. *)
+Theorem sso_agreement : forall c, Guarantee c sso_target.
+Proof.
+  intros c programs fuel input reference_trace reference_last Hreference [Hdrf _]
+    trace last Htarget.
+  split; [exact (target_memory_drf _ _ _ _ _ _ _ Hreference Hdrf Htarget)|].
+  intros Hdone. exact (agreement_from_drf _ _ _ _ _ Hreference Hdrf _ _ Htarget Hdone).
 Qed.
 
 (* Every recorded group is nonempty, has no duplicates, and names threads of

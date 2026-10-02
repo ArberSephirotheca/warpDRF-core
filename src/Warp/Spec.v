@@ -3,7 +3,7 @@ From Stdlib Require Import Relations.Relation_Operators.
 From Faial.Core Require Import Var AVal.
 From Faial.Expr.SIMT.N Require Import Exp.
 From Faial.Expr.SIMT.B Require Import Exp.
-From Faial.Warp Require Import Store Code Model Order Agree.
+From Faial.Warp Require Import Store Code Model Order Agree Delayed.
 
 Import ListNotations.
 Open Scope string_scope.
@@ -16,8 +16,9 @@ Open Scope string_scope.
    in which an unknown thread joins the collective's dynamic block after the
    firing. We approximate this by letting Spec fire each instance at most
    once: a thread that joins late waits at the collective forever, so the run
-   never completes, and the theorems, which are about completed runs, never
-   count it. Thread steps are the SSO thread steps.
+   never completes. Thread steps and memory are those of the SSO target with
+   delayed visibility (Delayed.v): a write stays pending until its thread
+   takes part in a primitive that orders memory, and a race aborts the run.
 
    Spec conforms to neither configuration: on a kernel that is WarpDRF for
    both, which threads join a collective depends on the schedule, even in
@@ -69,27 +70,25 @@ Definition absent (i : instance) (codes : list code) :=
   select (fun c => must_reach c (fst i) (snd i) && negb (waits_at i c)) codes.
 
 Record spec_state := SpecState {
-  base : state;
+  base : dstate;
   released : list instance;
 }.
 
-Definition spec_initial (programs : list code) := SpecState (initial programs) [].
+Definition spec_initial (programs : list code) := SpecState (dinitial programs) [].
 
 Definition spec_advance input (a : action) (s : spec_state)
     : option (option event * spec_state) :=
   match a with
   | Thread _ =>
-      match advance input a (base s) with
-      | Some (e, st') => Some (e, SpecState st' (released s))
+      match dadvance input a (base s) with
+      | Some (e, d') => Some (e, SpecState d' (released s))
       | None => None
       end
   | Release i =>
       if existsb (instance_eqb i) (released s) then None else
-      match arrived i (threads (base s)), absent i (threads (base s)) with
+      match arrived i (dcodes (base s)), absent i (dcodes (base s)) with
       | (_ :: _) as group, [] =>
-          Some (Some (Sync i group),
-            SpecState (State (memory (base s)) (release i (threads (base s))))
-              (i :: released s))
+          Some (Some (Sync i group), SpecState (drelease i group (base s)) (i :: released s))
       | _, _ => None
       end
   end.
@@ -127,6 +126,13 @@ Proof.
     destruct (spec_run input rest s') as [[tail final]|] eqn:Hrest; try discriminate.
     inversion Hrun; subst. econstructor; [exact Hstep|]. now apply IH.
 Qed.
+
+(* The Spec target: its runs, each observed with every pending write
+   published. As for the delayed target, a run whose trace has a race aborts. *)
+Definition spec_final (s : spec_state) := State (logical (base s)) (dcodes (base s)).
+
+Definition spec_target input programs trace last :=
+  exists s, spec_execution input (spec_initial programs) trace s /\ last = spec_final s.
 
 (* single_writer: both threads read a flag and, when it is zero, meet at
    AddZero; afterwards thread 0 sets the flag. *)
@@ -169,39 +175,54 @@ Proof.
 Qed.
 
 (* Under Spec thread 1 may arrive in time: both threads wait when the
-   collective fires, and the run is the reference run. *)
+   collective fires, and the run has the reference's trace and final
+   memory. *)
 Definition on_time_schedule :=
   [Thread 0; Thread 0; Thread 0; Thread 1; Thread 1; Thread 1; Release (AddSite 0, []);
    Thread 0; Thread 0; Thread 0; Thread 0; Thread 1; Thread 1; Thread 1].
 
 Example single_writer_on_time :
-  exists last,
+  exists reference_last s,
   run 100 zero_input [single_writer; single_writer] =
-    Some (single_writer_reference_trace, last) /\
+    Some (single_writer_reference_trace, reference_last) /\
   spec_run zero_input on_time_schedule (spec_initial [single_writer; single_writer]) =
-    Some (single_writer_reference_trace, SpecState last [(AddSite 0, [])]) /\
-  finished last.
+    Some (single_writer_reference_trace, s) /\
+  finished (spec_final s) /\
+  forall a, load zero_input (memory reference_last) a =
+    load zero_input (memory (spec_final s)) a.
 Proof.
-  eexists. split; [vm_compute; reflexivity|].
-  split; [vm_compute; reflexivity|unfold finished; repeat constructor].
+  eexists _, _. split; [vm_compute; reflexivity|].
+  split; [vm_compute; reflexivity|].
+  split; [cbn; unfold finished; repeat constructor|].
+  intros a. vm_compute. reflexivity.
 Qed.
 
 (* Or thread 0 fires the collective alone while thread 1, which has not yet
-   taken the branch, is unknown. Thread 0 sets the flag; thread 1 then reads 1
-   and skips the collective, so the bet wins. *)
+   taken the branch, is unknown, and then writes 1. The write stays pending,
+   so thread 1 reads 0: its read races with the write, and the run aborts, as
+   in GPUVerify. The run ends before thread 1 reaches the collective, so the
+   bet is never contradicted. *)
 Definition early_schedule :=
   [Thread 0; Thread 0; Thread 0; Release (AddSite 0, []);
-   Thread 0; Thread 0; Thread 0; Thread 0; Thread 1; Thread 1].
+   Thread 0; Thread 0; Thread 0; Thread 0; Thread 1].
 
 Definition early_trace :=
   [Memory (Observe (av_read 0 0) 0); Sync (AddSite 0, []) [0];
-   Memory (Observe (av_write 0 0) 1); Memory (Observe (av_read 1 0) 1)].
+   Memory (Observe (av_write 0 0) 1); Memory (Observe (av_read 1 0) 0)].
 
 Example single_writer_early :
-  exists last,
+  exists s,
   spec_run zero_input early_schedule (spec_initial [single_writer; single_writer]) =
-    Some (early_trace, last) /\ finished (base last).
-Proof. eexists; split; [vm_compute; reflexivity|unfold finished; repeat constructor]. Qed.
+    Some (early_trace, s).
+Proof. eexists. vm_compute. reflexivity. Qed.
+
+(* Thread 0's write and thread 1's read are adjacent and unordered. *)
+Lemma early_trace_race : ~ MemDRF early_trace.
+Proof.
+  apply (adjacent_conflict_not_drf early_trace 2
+    (Observe (av_write 0 0) 1) (Observe (av_read 1 0) 0)); [reflexivity|reflexivity|].
+  apply conflict_l; cbn; [discriminate|reflexivity|reflexivity].
+Qed.
 
 (* In the reference both threads join the collective, so single_writer is
    WarpDRF for either configuration. *)
@@ -228,58 +249,49 @@ Proof.
 Qed.
 
 (* single_writer is WarpDRF for either configuration, yet under Spec the group
-   of its collective is not fixed: the reference and one completed Spec run
-   form [0; 1], and another completed Spec run forms [0] and disagrees with
-   the reference. *)
+   of its collective is not fixed: the reference and a finished Spec run form
+   [0; 1] and agree, while another Spec run forms [0] and races, which aborts
+   it. *)
 Theorem spec_grouping_depends_on_schedule : forall c,
   exists programs fuel input reference_trace reference_last,
     run fuel input programs = Some (reference_trace, reference_last) /\
     conditions c programs reference_trace /\
     groups_at (AddSite 0, []) reference_trace = [[0; 1]] /\
-    (exists trace last,
-       spec_execution input (spec_initial programs) trace last /\ finished (base last) /\
+    (exists trace last, spec_target input programs trace last /\ finished last /\
        groups_at (AddSite 0, []) trace = [[0; 1]] /\
-       same_observations input reference_trace reference_last trace (base last)) /\
-    (exists trace last,
-       spec_execution input (spec_initial programs) trace last /\ finished (base last) /\
-       groups_at (AddSite 0, []) trace = [[0]] /\
-       ~ same_observations input reference_trace reference_last trace (base last)).
+       same_observations input reference_trace reference_last trace last) /\
+    (exists trace last, spec_target input programs trace last /\
+       groups_at (AddSite 0, []) trace = [[0]] /\ ~ MemDRF trace).
 Proof.
   intros c.
-  destruct single_writer_on_time as [reference_last [Hrun [Hon_time Hdone]]].
-  destruct single_writer_early as [last [Hearly Hearly_done]].
+  destruct single_writer_on_time
+    as [reference_last [s_on [Hrun [Hon_time [Hon_done Hmemory]]]]].
+  destruct single_writer_early as [s_early Hearly].
   exists [single_writer; single_writer], 100, zero_input, single_writer_reference_trace,
     reference_last.
   split; [exact Hrun|].
   split; [exact (single_writer_conditions c _ _ Hrun)|].
   split; [reflexivity|].
   split.
-  - exists single_writer_reference_trace, (SpecState reference_last [(AddSite 0, [])]).
-    split; [exact (spec_run_sound _ _ _ _ _ Hon_time)|]. split; [exact Hdone|].
-    split; [reflexivity|].
-    unfold same_observations. repeat split; intros; reflexivity.
-  - exists early_trace, last.
-    split; [exact (spec_run_sound _ _ _ _ _ Hearly)|]. split; [exact Hearly_done|].
-    split; [reflexivity|].
-    intros [Hgroups _]. specialize (Hgroups (AddSite 0, [])).
-    vm_compute in Hgroups. discriminate.
+  - exists single_writer_reference_trace, (spec_final s_on). split.
+    { exists s_on. split; [exact (spec_run_sound _ _ _ _ _ Hon_time)|reflexivity]. }
+    split; [exact Hon_done|]. split; [reflexivity|].
+    split; [intros; reflexivity|]. split; [intros; reflexivity|exact Hmemory].
+  - exists early_trace, (spec_final s_early). split.
+    { exists s_early. split; [exact (spec_run_sound _ _ _ _ _ Hearly)|reflexivity]. }
+    split; [reflexivity|exact early_trace_race].
 Qed.
 
-(* A completed Spec run; last is its final state. *)
-Definition spec_completed input programs trace last :=
-  exists s, spec_execution input (spec_initial programs) trace s /\
-    finished (base s) /\ last = base s.
-
-(* So the guarantee sso_agreement proves for SSO does not hold for Spec, in
-   either configuration. *)
-Corollary warpdrf_fails_under_spec : forall c, ~ Guarantee c spec_completed.
+(* So the guarantee that delayed_agreement proves for SSO with delayed
+   visibility does not hold for Spec with the same memory, in either
+   configuration. *)
+Corollary warpdrf_fails_under_spec : forall c, ~ Guarantee c spec_target.
 Proof.
   intros c Hagree.
   destruct (spec_grouping_depends_on_schedule c)
     as [programs [fuel [input [reference_trace [reference_last
-      [Hrun [Hconditions [_ [_ [trace [last [Hexec [Hdone [_ Hdiffer]]]]]]]]]]]]]].
-  apply Hdiffer. apply (Hagree _ _ _ _ _ Hrun Hconditions).
-  exists last. split; [exact Hexec|]. split; [exact Hdone|reflexivity].
+      [Hrun [Hconditions [_ [_ [trace [last [Htarget [_ Hrace]]]]]]]]]]]]].
+  exact (Hrace (proj1 (Hagree _ _ _ _ _ Hrun Hconditions _ _ Htarget))).
 Qed.
 
 (* Spec still waits for a thread known to run the collective. In late, each

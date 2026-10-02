@@ -7,21 +7,24 @@ delayed visibility.
 
 ## Main results
 
-`Guarantee c completed` in `Agree.v` states WarpDRF's guarantee for
-configuration `c` on a target whose completed runs are described by
-`completed`: every completed run of a kernel that meets both conditions forms
-the reference's group at every collective instance, gives each thread the same
-reads, and leaves the same final memory.
+`Guarantee c target` in `Agree.v` states WarpDRF's guarantee for
+configuration `c` on a target whose runs, finished or not, are described by
+`target`. On a kernel that meets both conditions, no run has a race, and every
+finished run forms the reference's group at every collective instance, gives
+each thread the same reads, and leaves the same final memory. With delayed
+visibility a race aborts the run, as in GPUVerify, so a run fails the guarantee
+as soon as it races.
 
-- `sso_agreement : forall c, Guarantee c sso_completed` is Theorem 1 of the
-  paper for SSO.
-- `warpdrf_fails_under_spec : forall c, ~ Guarantee c spec_completed` shows
-  that Spec, which fires a collective without waiting for threads that may
-  still branch away from it, is not a conforming target. On a kernel that is
-  WarpDRF for either configuration, the group of a collective under Spec
-  depends on the schedule (`spec_grouping_depends_on_schedule`).
-- `delayed_agreement : forall c, Guarantee c delayed_completed` is the same
+- `sso_agreement : forall c, Guarantee c sso_target` is Theorem 1 of the paper
+  for SSO.
+- `delayed_agreement : forall c, Guarantee c delayed_target` is the same
   guarantee for SSO with delayed visibility, under the same conditions.
+- `warpdrf_fails_under_spec : forall c, ~ Guarantee c spec_target` shows that
+  Spec, which fires a collective without waiting for threads that may still
+  branch away from it, is not a conforming target, even with the same delayed
+  visibility. On a kernel that is WarpDRF for either configuration, the group
+  of a collective under Spec depends on the schedule
+  (`spec_grouping_depends_on_schedule`).
 
 ## The model
 
@@ -82,8 +85,8 @@ reads, and leaves the same final memory.
 - `Agree.v`: the reference run, the contract, and agreement (below).
 - `Blocks.v`: in a well-sited kernel each instance forms at most one group
   (`instance_released_once`), so no thread arrives after a release.
-- `Spec.v`: the Spec target (below).
 - `Delayed.v`: SSO with delayed visibility (below).
+- `Spec.v`: the Spec target, with delayed visibility (below).
 - `Tests.v`: examples (below).
 
 ## Reference run and contract
@@ -131,8 +134,36 @@ completes it.
 A finished run has nothing left to complete, so `completed_agreement` is a
 corollary: the target trace is a rearrangement of the reference trace, and the
 final states hold the same values. `agreement_from_drf` applies it to the
-reference run, and `sso_agreement` follows. `target_memory_drf` proves that
-completed target traces are memory-DRF.
+reference run. `target_memory_drf` proves that every target trace, finished or
+not, is memory-DRF: it is the start of a rearranged reference
+(`memory_drf_app_l`). `sso_agreement` follows.
+
+## Delayed visibility
+
+`Delayed.v` gives SSO the memory of GPUVerify's synchronous, delayed
+visibility semantics. A write stays pending: its own thread reads it, other
+threads do not. The release of a primitive that orders memory publishes the
+pending writes of its participants; a primitive that does not order memory
+publishes nothing. As in GPUVerify, a race aborts the run, and `Guarantee`
+counts a run whose trace has a race as a failure. The memory a run leaves is
+observed with its remaining pending writes published.
+
+GPUVerify's semantics differs in three ways. Its threads run in lock-step,
+while ours follow SSO. Its barrier always includes the whole group, while a
+warp primitive here may have a partial group; its release publishes its
+participants' writes to every thread. It has no single final memory, while we
+publish the remaining writes to observe one.
+
+`delayed_agreement` holds under the same conditions, and its proof reuses
+`prefix_agreement` unchanged. No run races, by `target_memory_drf` for the SSO
+run with the same trace. Each delayed step is the SSO step with the same
+action and event (`dstep_matches`). The key fact is `unpublished_no_conflict`.
+Extended by the next step, the SSO run so far is the start of a memory-DRF
+trace (`prefix_agreement`). Since a pending write, its thread has taken part in
+no primitive that orders memory, so happens-before cannot carry the write to
+another thread (`hb_quiet`). The next access therefore cannot conflict with it:
+a read never misses another thread's pending write, and two threads never hold
+pending writes to the same location.
 
 ## Spec
 
@@ -143,12 +174,13 @@ that may still take a branch away from the collective, which SIMT-Step calls
 unknown; it bets that such a thread will not come. SIMT-Step discards a run in
 which an unknown thread joins the collective's dynamic block after the firing.
 We approximate this by letting Spec fire each instance at most once: a thread
-that joins late waits at the collective forever, so the run never completes,
-and the theorems, which are about completed runs, never count it. Firing before
-the unknown threads have decided is specific to Spec; under SSO no thread can
-arrive after a firing. Thread steps are the SSO thread steps. In `late`, each
-thread writes its own cell and then calls `AddZero` with no branch in between,
-so Spec must wait for both threads (`late_waits`).
+that joins late waits at the collective forever, so the run never completes.
+Firing before the unknown threads have decided is specific to Spec; under SSO
+no thread can arrive after a firing. Thread steps and memory are those of SSO
+with delayed visibility, so the two targets differ only in when a collective
+may fire. In
+`late`, each thread writes its own cell and then calls `AddZero` with no branch
+in between, so Spec must wait for both threads (`late_waits`).
 
 `spec_grouping_depends_on_schedule` shows that Spec conforms to neither
 configuration. In `single_writer`, both threads read a flag and, when it is
@@ -160,38 +192,18 @@ whole warp. Under Spec, which threads join the collective depends on the
 schedule:
 
 - If thread 1 arrives in time, the collective fires with `[0; 1]`, and the run
-  is the reference run (`single_writer_on_time`).
+  has the reference's trace and final memory (`single_writer_on_time`).
 - If thread 0 fires it alone while thread 1 has not yet taken the branch, it
-  then writes 1; thread 1 reads 1 and skips the collective
-  (`single_writer_early`). The group and thread 1's read differ from the
-  reference.
+  then writes 1 (`single_writer_early`). The write stays pending, so thread 1
+  reads 0, and its read races with the write (`early_trace_race`). The race
+  aborts the run before thread 1 reaches the collective, so Spec's bet is never
+  contradicted and SIMT-Step does not discard the run.
 
 The theorem states both groups: `[0; 1]` in the reference and the first Spec
-run, and `[0]` in the second. So the collective has no fixed group under Spec.
-`warpdrf_fails_under_spec` states the consequence: for either configuration,
-the guarantee that `sso_agreement` proves for SSO does not hold for completed
-Spec runs.
-
-## Delayed visibility
-
-`Delayed.v` gives SSO the memory of GPUVerify's synchronous, delayed
-visibility semantics. A write stays pending: its own thread reads it, other
-threads do not. The release of a primitive that orders memory publishes the
-pending writes of its participants; a primitive that does not order memory
-publishes nothing. When the kernel completes, the remaining writes are
-published before the final memory is compared. Publication reaches every
-thread, not only the participants; for a full-warp group, like GPUVerify's
-barrier, the two are the same.
-
-`delayed_agreement` holds under the same conditions, and its proof reuses
-`prefix_agreement` unchanged. Each delayed step is the SSO step with the same
-action and event (`dstep_matches`). The key fact is `unpublished_no_conflict`.
-Extended by the next step, the SSO run so far is the start of a memory-DRF
-trace (`prefix_agreement`). Since a pending write, its thread has taken part in
-no primitive that orders memory, so happens-before cannot carry the write to
-another thread (`hb_quiet`). The next access therefore cannot conflict with it:
-a read never misses another thread's pending write, and two threads never hold
-pending writes to the same location.
+run, and `[0]` in the second, which races. So the collective has no fixed
+group under Spec. `warpdrf_fails_under_spec` states the consequence: for
+either configuration, the guarantee that `delayed_agreement` proves for SSO
+with delayed visibility does not hold for Spec with the same memory.
 
 ## Examples
 
@@ -221,9 +233,10 @@ Two examples use primitive results and `sync`:
   memory-DRF and thread 1 reads 1 in every completed execution
   (`sync_handoff_reads`). If it does not, nothing orders the write before the
   read, and the reference trace is not memory-DRF (`nosync_handoff_race`).
-  Under delayed visibility, the unordered handoff reads the stale 0 on a
-  schedule where SSO reads 1 (`nosync_handoff_delayed_stale`); the ordered one
-  reads 1 in every completed run (`sync_handoff_delayed_reads`).
+  Under delayed visibility, thread 1's read in the unordered handoff misses
+  the pending write and races with it, so the run aborts
+  (`nosync_handoff_delayed_aborts`); the ordered one reads 1 in every
+  finished run (`sync_handoff_delayed_reads`).
 - `dot`: a primitive with two arguments; every completed execution stores the
   sum of `tid * (tid + 1)` over three threads, 8 (`dot_result`).
 - `lone_full`: a primitive that requires the whole warp, run by thread 0
@@ -243,8 +256,8 @@ Three examples use the other statements:
 
 | Area | Status |
 | --- | --- |
-| Memory | Sequentially consistent; agreement for completed executions |
-| Delayed visibility | As in GPUVerify: a write reaches other threads once its thread takes part in a primitive that orders memory, or at kernel completion (`Delayed.v`) |
+| Memory | Sequentially consistent; no run races, and finished runs agree |
+| Delayed visibility | After GPUVerify: a write reaches other threads once its thread takes part in a primitive that orders memory, and a race aborts the run (`Delayed.v`) |
 | Warps | One warp; no workgroup of several warps and no workgroup barrier |
 | Control flow | Nested conditionals, `Switch` as a chain of conditionals, structured loops with `Break` and `Continue`, and `Return` |
 | Local state | `x := f(e, ...)` binds `x` over the code after it; a variable cannot be updated, so loop-carried values such as counters live in memory cells a thread owns |
@@ -258,25 +271,26 @@ Three examples use the other statements:
 - `Order.v`: the transitive happens-before and its preservation under swaps.
 - `Commute.v`: commutation and persistence of actions.
 - `Agree.v`: agreement for every completed SSO execution from reference memory
-  DRF alone, a completion for every unfinished one, memory-DRF preservation,
+  DRF alone, a completion for every unfinished one, memory DRF of every run,
   reference-run soundness, and acceptance of every reference run by the
   `StructuredPartial` check.
 - `Blocks.v`: at most one group per instance in any execution of a well-sited
   kernel.
-- `Spec.v`: a kernel that is WarpDRF for either configuration, with two
-  completed Spec runs that form different groups, one agreeing with the
-  reference and one not; the failure of the guarantee under Spec for either
-  configuration; and Spec waiting for a thread known to reach a collective.
-- `Delayed.v`: agreement for every completed run with delayed visibility from
-  reference memory DRF alone.
+- `Delayed.v`: with delayed visibility, from reference memory DRF alone, no
+  run races and every finished run agrees.
+- `Spec.v`: a kernel that is WarpDRF for either configuration, with two Spec
+  runs with delayed visibility that form different groups, a finished one that
+  agrees with the reference and one that races; the failure of the guarantee
+  under Spec for either configuration; and Spec waiting for a thread known to
+  reach a collective.
 - `Tests.v`: the examples above.
 
 ```sh
 dune build
 rocq check -silent -Q _build/default/src Faial \
   Faial.Warp.Store Faial.Warp.Code Faial.Warp.Model Faial.Warp.Order \
-  Faial.Warp.Commute Faial.Warp.Agree Faial.Warp.Blocks Faial.Warp.Spec \
-  Faial.Warp.Delayed Faial.Warp.Tests
+  Faial.Warp.Commute Faial.Warp.Agree Faial.Warp.Blocks Faial.Warp.Delayed \
+  Faial.Warp.Spec Faial.Warp.Tests
 ```
 
 Tested with Rocq 9.1.1, Stdlib 9.0.0, Dune 3.23.1, OCaml 5.2.1, and

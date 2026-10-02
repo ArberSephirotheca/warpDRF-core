@@ -343,56 +343,65 @@ Proof.
   rewrite <- Hreads. reflexivity.
 Qed.
 
-Theorem nosync_handoff_race : ~ MemDRF (handoff_trace false).
+(* Without ordering, nothing orders thread 0's write before thread 1's read,
+   whatever value the read returns. *)
+Definition nosync_trace v :=
+  [Memory (Observe (av_write 0 0) 1); Sync (Site 0 false false, []) [0; 1];
+   Memory (Observe (av_read 1 0) v)].
+
+Lemma nosync_trace_race : forall v, ~ MemDRF (nosync_trace v).
 Proof.
-  intros Hdrf.
+  intros v Hdrf.
   assert (Hconflict : Conflict (av_write 0 0) (av_read 1 0))
     by (apply conflict_l; cbn; [discriminate|reflexivity|reflexivity]).
-  assert (Hno : forall y, ~ hb_step (handoff_trace false) 0 y).
+  assert (Hno : forall y, ~ hb_step (nosync_trace v) 0 y).
   { intros y [Hlt [e [f [t [He [Hf [Het Hft]]]]]]].
     cbn in He. inversion He; subst e. cbn in Het.
     destruct y as [|[|[|[|y]]]]; cbn in Hf; inversion Hf; subst f; cbn in Hft.
     - lia.
     - destruct Hft as [Hsync _]. discriminate.
     - congruence. }
-  destruct (Hdrf 0 2 (Observe (av_write 0 0) 1) (Observe (av_read 1 0) 1)
+  destruct (Hdrf 0 2 (Observe (av_write 0 0) 1) (Observe (av_read 1 0) v)
     eq_refl eq_refl Hconflict) as [Hhb|Hhb].
   - apply clos_trans_t1n in Hhb.
     inversion Hhb as [y Hstep|y z Hstep _]; exact (Hno _ Hstep).
   - apply hb_lt in Hhb. lia.
 Qed.
 
+Theorem nosync_handoff_race : ~ MemDRF (handoff_trace false).
+Proof. exact (nosync_trace_race 1). Qed.
+
 (* Under delayed visibility (Delayed.v), a write stays pending until its
-   thread takes part in a primitive that orders memory. On the same schedule,
-   the handoff without ordering reads the stale 0 where SSO reads 1; with
-   ordering, every completed run reads 1, as under SSO. *)
+   thread takes part in a primitive that orders memory, and a race aborts the
+   run. Without ordering, thread 1's read misses the pending write and races
+   with it, so the delayed run aborts. With ordering, no run races, and every
+   finished run reads 1, as under SSO. *)
 Definition handoff_schedule sync :=
   [Thread 0; Thread 0; Thread 0; Thread 1; Release (Site 0 sync false, []);
    Thread 1; Thread 1; Thread 0].
 
-Example nosync_handoff_delayed_stale : exists trace last,
-  Delayed.delayed_completed zero_input (handoff false) trace last /\
-  read_history 1 trace = [Observe (av_read 1 0) 0] /\
-  read_history 1 (handoff_trace false) = [Observe (av_read 1 0) 1].
+Example nosync_handoff_delayed_aborts : exists trace last,
+  Delayed.delayed_target zero_input (handoff false) trace last /\
+  read_history 1 trace = [Observe (av_read 1 0) 0] /\ ~ MemDRF trace.
 Proof.
   destruct (Delayed.drun zero_input (handoff_schedule false)
     (Delayed.dinitial (handoff false))) as [[trace d]|] eqn:Hrun;
     [|vm_compute in Hrun; discriminate].
   pose proof (Delayed.drun_sound _ _ _ _ _ Hrun) as Hexec.
   vm_compute in Hrun. injection Hrun as <- <-.
-  eexists _, _. split.
-  - eexists. split; [exact Hexec|]. split; [reflexivity|]. cbn. finished_codes.
-  - split; reflexivity.
+  eexists _, _. split; [eexists; split; [exact Hexec|reflexivity]|].
+  split; [reflexivity|exact (nosync_trace_race 0)].
 Qed.
 
 Theorem sync_handoff_delayed_reads : forall trace last,
-  Delayed.delayed_completed zero_input (handoff true) trace last ->
+  Delayed.delayed_target zero_input (handoff true) trace last -> finished last ->
   read_history 1 trace = [Observe (av_read 1 0) 1].
 Proof.
-  intros trace last Hdone.
+  intros trace last Htarget Hdone.
   destruct (handoff_reference true) as [reference_last [Hrun _]].
-  destruct (Delayed.delayed_agreement_from_drf _ _ _ _ _ Hrun sync_handoff_drf _ _ Hdone)
-    as [_ [Hreads _]].
+  destruct (Delayed.delayed_agreement_from_drf _ _ _ _ _ Hrun sync_handoff_drf _ _ Htarget)
+    as [_ Hagree].
+  destruct (Hagree Hdone) as [_ [Hreads _]].
   rewrite <- Hreads. reflexivity.
 Qed.
 

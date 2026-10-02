@@ -165,6 +165,35 @@ Lemma memory_drf_emit_tail : forall e trace,
   MemDRF (emit_event e trace) -> MemDRF trace.
 Proof. intros [e|] trace H; [eapply memory_drf_tail|]; eauto. Qed.
 
+(* Happens-before between two events of a prefix runs through the prefix, so a
+   race in a prefix stays a race in every extension. *)
+Lemma hb_app_l : forall left right i j,
+  hb (left ++ right) i j -> j < length left -> hb left i j.
+Proof.
+  intros left right i j H.
+  induction H as [i j [Hlt [e [f [t [He [Hf [Hte Htf]]]]]]]|i k j Hik IH1 Hkj IH2];
+    intros Hj.
+  - apply t_step. split; [exact Hlt|]. exists e, f, t.
+    rewrite !nth_error_app1 in * by lia. auto.
+  - pose proof (hb_lt _ _ _ Hkj) as Hlt.
+    apply t_trans with k; [apply IH1; lia|exact (IH2 Hj)].
+Qed.
+
+Lemma memory_drf_app_l : forall left right, MemDRF (left ++ right) -> MemDRF left.
+Proof.
+  intros left right Hdrf i j e f He Hf Hconflict.
+  assert (Hi : i < length left)
+    by (apply (proj1 (nth_error_Some left i)); rewrite He; discriminate).
+  assert (Hj : j < length left)
+    by (apply (proj1 (nth_error_Some left j)); rewrite Hf; discriminate).
+  destruct (Hdrf i j e f) as [Hhb|Hhb].
+  - rewrite nth_error_app1 by exact Hi. exact He.
+  - rewrite nth_error_app1 by exact Hj. exact Hf.
+  - exact Hconflict.
+  - left. exact (hb_app_l _ _ _ _ Hhb Hj).
+  - right. exact (hb_app_l _ _ _ _ Hhb Hi).
+Qed.
+
 (* What an execution reveals: each thread's reads and each instance's groups. *)
 
 Fixpoint memory_events (trace : list event) : list observation :=
